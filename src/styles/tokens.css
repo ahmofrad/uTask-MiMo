@@ -1,0 +1,99 @@
+:root {
+  --bg-app: #fafafa;
+  --bg-surface: #ffffff;
+  --bg-surface-2: #f4f4f5;
+  --bg-surface-3: #e4e4e7;
+  --bg-overlay: rgb(0 0 0 / 0.4);
+
+  --fg: #18181b;
+  --fg-muted: #52525b;
+  --fg-subtle: #a1a1aa;
+  --fg-inverse: #fafafa;
+
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --border-focus: var(--accent);
+
+  --success: #16a34a;
+  --success-bg: #dcfce7;
+  --warning: #d97706;
+  --warning-bg: #fef3c7;
+  --danger: #dc2626;
+  --danger-bg: #fee2e2;
+  --info: #0284c7;
+  --info-bg: #e0f2fe;
+
+  --priority-low: #94a3b8;
+  --priority-med: #0284c7;
+  --priority-high: #ea580c;
+  --priority-urgent: #dc2626;
+
+  --status-open: #0284c7;
+  --status-in_progress: #d97706;
+  --status-done: #16a34a;
+  --status-cancelled: #94a3b8;
+
+  --accent: #2563eb;
+  --accent-fg: #ffffff;
+  --accent-hover: #1d4ed8;
+  --accent-bg: #dbeafe;
+  --accent-ring: #93c5fd;
+
+  --font-sans: var(--font-vazirmatn), var(--font-inter), system-ui, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", monospace;
+
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.06), 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  --shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+  --shadow-lg: 0 20px 25px -5px rgb(0 0 0 / 0.10), 0 8px 10px -6px rgb(0 0 0 / 0.05);
+
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration: 180ms;
+  --duration-slow: 280ms;
+}
+
+.dark {
+  --bg-app: #09090b;
+  --bg-surface: #18181b;
+  --bg-surface-2: #27272a;
+  --bg-surface-3: #3f3f46;
+  --bg-overlay: rgb(0 0 0 / 0.6);
+
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
+  --fg-inverse: #18181b;
+
+  --border: #27272a;
+  --border-strong: #3f3f46;
+
+  --success-bg: #052e16;
+  --warning-bg: #451a03;
+  --danger-bg: #450a0a;
+  --info-bg: #082f49;
+
+  --accent-bg: #1e3a8a;
+  --accent-ring: #1e40af;
+}

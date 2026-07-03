@@ -1,0 +1,81 @@
+@import "tw-animate-css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: var(--bg-app);
+    --foreground: var(--fg);
+    --card: var(--bg-surface);
+    --card-foreground: var(--fg);
+    --popover: var(--bg-surface);
+    --popover-foreground: var(--fg);
+    --primary: var(--accent);
+    --primary-foreground: var(--accent-fg);
+    --secondary: var(--bg-surface-2);
+    --secondary-foreground: var(--fg);
+    --muted: var(--bg-surface-2);
+    --muted-foreground: var(--fg-muted);
+    --accent: var(--accent);
+    --accent-foreground: var(--accent-fg);
+    --destructive: var(--danger);
+    --destructive-foreground: var(--fg-inverse);
+    --border: var(--border);
+    --input: var(--border-strong);
+    --ring: var(--accent-ring);
+    --radius: var(--radius);
+    --sidebar: var(--bg-surface);
+    --sidebar-foreground: var(--fg);
+    --sidebar-primary: var(--accent);
+    --sidebar-primary-foreground: var(--accent-fg);
+    --sidebar-accent: var(--accent-bg);
+    --sidebar-accent-foreground: var(--fg);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--accent-ring);
+  }
+
+  .dark {
+    --background: var(--bg-app);
+    --foreground: var(--fg);
+    --card: var(--bg-surface);
+    --card-foreground: var(--fg);
+    --popover: var(--bg-surface);
+    --popover-foreground: var(--fg);
+    --primary: var(--accent);
+    --primary-foreground: var(--accent-fg);
+    --secondary: var(--bg-surface-2);
+    --secondary-foreground: var(--fg);
+    --muted: var(--bg-surface-2);
+    --muted-foreground: var(--fg-muted);
+    --accent: var(--accent);
+    --accent-foreground: var(--accent-fg);
+    --destructive: var(--danger);
+    --destructive-foreground: var(--fg-inverse);
+    --border: var(--border);
+    --input: var(--border-strong);
+    --ring: var(--accent-ring);
+    --radius: var(--radius);
+    --sidebar: var(--bg-surface);
+    --sidebar-foreground: var(--fg);
+    --sidebar-primary: var(--accent);
+    --sidebar-primary-foreground: var(--accent-fg);
+    --sidebar-accent: var(--accent-bg);
+    --sidebar-accent-foreground: var(--fg);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--accent-ring);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    @apply font-sans;
+  }
+}
