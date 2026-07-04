@@ -1,0 +1,84 @@
+app:
+  image: taskapp/app
+  tag: "1.0.0"
+  replicas: 3
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+socket:
+  image: taskapp/app
+  tag: "1.0.0"
+  replicas: 2
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+worker:
+  image: taskapp/app
+  tag: "1.0.0"
+  replicas: 2
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "1Gi"
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+
+postgres:
+  enabled: true
+  storageSize: 200Gi
+  storageClass: ssd
+  version: "16"
+
+pgbouncer:
+  enabled: true
+  replicas: 2
+
+redis:
+  enabled: true
+  mode: sentinel
+  sentinelCount: 3
+  storageSize: 20Gi
+
+minio:
+  enabled: true
+  mode: distributed
+  drives: 4
+  storageSize: 500Gi
+
+ingress:
+  enabled: true
+  className: nginx
+  tls:
+    secretName: taskapp-tls
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  destination: s3
+  s3:
+    bucket: corp-backups
+    endpoint: https://s3.corp.example.com
+  retention: 30
+
+config:
+  siteName: TaskApp
+  defaultLocale: fa-IR
+  defaultAccent: "#2563eb"

@@ -1,0 +1,162 @@
+# ──────────────────────────────────────────────
+# TaskApp — Production Docker Compose
+# Single-VM deployment (small, < 500 users)
+# ──────────────────────────────────────────────
+
+x-app-env: &app-env
+  env_file: .env.prod
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - taskapp-net
+
+  app:
+    image: taskapp/app:${APP_VERSION:-1.0.0}
+    <<: *app-env
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - taskapp-net
+    restart: unless-stopped
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+
+  socket:
+    image: taskapp/app:${APP_VERSION:-1.0.0}
+    command: ["node", "socket.js"]
+    <<: *app-env
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - taskapp-net
+    restart: unless-stopped
+
+  worker:
+    image: taskapp/app:${APP_VERSION:-1.0.0}
+    command: ["node", "worker.js"]
+    <<: *app-env
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      redis:
+        condition: service_started
+    networks:
+      - taskapp-net
+    restart: unless-stopped
+
+  pgbouncer:
+    image: bitnami/pgbouncer:1.22
+    environment:
+      POSTGRESQL_HOST: postgres
+      POSTGRESQL_PORT: "5432"
+      POSTGRESQL_DATABASE: taskapp
+      POSTGRESQL_USERNAME: taskapp
+      POSTGRESQL_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - taskapp-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: taskapp
+      POSTGRES_USER: taskapp
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    command:
+      - postgres
+      - -c
+      - wal_level=replica
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - shared_buffers=2GB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskapp"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - taskapp-net
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --maxmemory
+      - 2gb
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - taskapp-net
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:RELEASE.2024-08-29T01-40-52Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - taskapp-net
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    name: taskapp_pgdata
+  redisdata:
+    name: taskapp_redisdata
+  miniodata:
+    name: taskapp_miniodata
+  backups:
+    name: taskapp_backups
+
+networks:
+  taskapp-net:
+    name: taskapp-net
+    driver: bridge

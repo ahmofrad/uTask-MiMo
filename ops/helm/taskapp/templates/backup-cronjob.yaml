@@ -1,0 +1,55 @@
+{{- if .Values.backup.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "taskapp.fullname" . }}-backup
+  labels:
+    {{- include "taskapp.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: {{ include "taskapp.serviceAccountName" . }}
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: "{{ .Values.app.image }}:{{ .Values.app.tag }}"
+              imagePullPolicy: IfNotPresent
+              command:
+                - /bin/sh
+                - -c
+                - /scripts/backup.sh
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "taskapp.fullname" . }}
+                      key: db-password
+                - name: BACKUP_DESTINATION
+                  value: {{ .Values.backup.destination }}
+                - name: BACKUP_S3_BUCKET
+                  value: {{ .Values.backup.s3.bucket }}
+                - name: BACKUP_S3_ENDPOINT
+                  value: {{ .Values.backup.s3.endpoint }}
+                - name: BACKUP_RETENTION_DAYS
+                  value: {{ .Values.backup.retention | quote }}
+                - name: S3_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "taskapp.fullname" . }}
+                      key: s3-access-key
+                - name: S3_SECRET_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "taskapp.fullname" . }}
+                      key: s3-secret-key
+              resources:
+                requests:
+                  cpu: "500m"
+                  memory: "1Gi"
+                limits:
+                  cpu: "2"
+                  memory: "2Gi"
+{{- end }}

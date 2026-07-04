@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, Vazirmatn } from "next/font/google";
 import "@/styles/globals.css";
 import "@/styles/tokens.css";
+import { Vazirmatn, Inter } from "next/font/google";
 
 const vazirmatn = Vazirmatn({
   subsets: ["arabic", "latin"],
@@ -16,7 +16,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TaskApp",
+  title: "uTask",
   description: "Enterprise task management platform",
 };
 
@@ -26,12 +26,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="fa-IR"
-      dir="rtl"
-      className={`${vazirmatn.variable} ${inter.variable}`}
-    >
-      <body className="bg-bg-app text-fg font-sans antialiased">{children}</body>
+    <html lang="fa-IR" dir="rtl" className={`${vazirmatn.variable} ${inter.variable}`}>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var locale = document.cookie.match(/NEXT_LOCALE=([^;]+)/);
+                  if (locale) {
+                    var l = locale[1];
+                    document.documentElement.lang = l;
+                    document.documentElement.dir = l === 'fa-IR' ? 'rtl' : 'ltr';
+                  }
+                } catch(e) {}
+              })();
+            `,
+          }}
+        />
+      </head>
+      <body className="bg-bg-primary text-fg font-sans antialiased">{children}</body>
     </html>
   );
 }

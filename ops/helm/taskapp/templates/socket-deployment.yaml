@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "taskapp.fullname" . }}-socket
+  labels:
+    {{- include "taskapp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: socket
+spec:
+  replicas: {{ .Values.socket.replicas }}
+  selector:
+    matchLabels:
+      {{- include "taskapp.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: socket
+  template:
+    metadata:
+      labels:
+        {{- include "taskapp.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: socket
+    spec:
+      serviceAccountName: {{ include "taskapp.serviceAccountName" . }}
+      containers:
+        - name: socket
+          image: "{{ .Values.socket.image }}:{{ .Values.socket.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3001
+              name: ws
+          envFrom:
+            - configMapRef:
+                name: {{ include "taskapp.fullname" . }}
+            - secretRef:
+                name: {{ include "taskapp.fullname" . }}
+          resources:
+            {{- toYaml .Values.socket.resources | nindent 12 }}

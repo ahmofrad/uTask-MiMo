@@ -1,12 +1,35 @@
 import { PrismaClient } from "@prisma/client";
+import { logger } from "@/lib/logging";
 
 function createPrismaClient() {
-  return new PrismaClient({
-    log:
-      process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
-        : ["error"],
+  const client = new PrismaClient({
+    log: [
+      { emit: "event", level: "query" },
+      { emit: "event", level: "info" },
+      { emit: "event", level: "warn" },
+      { emit: "event", level: "error" },
+    ],
   });
+
+  client.$on("query", (e) => {
+    if (process.env.NODE_ENV === "development") {
+      logger.debug({ query: e.query, params: e.params, duration: e.duration }, "prisma:query");
+    }
+  });
+
+  client.$on("info", (e) => {
+    logger.info(e, "prisma:info");
+  });
+
+  client.$on("warn", (e) => {
+    logger.warn(e, "prisma:warn");
+  });
+
+  client.$on("error", (e) => {
+    logger.error(e, "prisma:error");
+  });
+
+  return client;
 }
 
 const globalForPrisma = globalThis as unknown as {

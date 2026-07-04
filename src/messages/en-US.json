@@ -1,1 +1,211 @@
-{"common": {"save": "Save"}}
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "loading": "Loading...",
+    "error": "Error",
+    "retry": "Retry",
+    "search": "Search",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "confirm": "Confirm",
+    "noResults": "No results",
+    "noNotifications": "No notifications",
+    "permissionDenied": "You do not have permission to perform this action.",
+    "notFound": "Not found",
+    "viewAll": "View all"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in",
+      "emailLabel": "Email",
+      "passwordLabel": "Password",
+      "submitButton": "Sign in",
+      "loggingIn": "Signing in...",
+      "ssoButton": "Sign in with SSO",
+      "ldapButton": "Sign in with LDAP",
+      "errors": {
+        "invalidCredentials": "Invalid email or password.",
+        "ssoUnavailable": "SSO service unavailable.",
+        "rateLimited": "Too many login attempts. Try again later."
+      }
+    },
+    "logout": "Sign out"
+  },
+  "nav": {
+    "home": "Home",
+    "inbox": "Inbox",
+    "today": "Today",
+    "upcoming": "Upcoming",
+    "projects": "Projects",
+    "settings": "Settings",
+    "admin": "Admin"
+  },
+  "admin": {
+    "title": "Administration",
+    "users": "Users",
+    "departments": "Departments",
+    "settings": "Settings",
+    "smtp": "SMTP",
+    "auditLog": "Audit Log",
+    "webhooks": "Webhooks",
+    "apiTokens": "API Tokens",
+    "sso": "SSO",
+    "noPermission": "You do not have permission to view this page."
+  },
+  "task": {
+    "title": "Tasks",
+    "create": "Create task",
+    "edit": "Edit task",
+    "delete": "Delete task",
+    "status": {
+      "open": "Open",
+      "in_progress": "In progress",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    },
+    "priority": {
+      "low": "Low",
+      "med": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "fields": {
+      "title": "Title",
+      "description": "Description",
+      "status": "Status",
+      "priority": "Priority",
+      "assignee": "Assignee",
+      "dueDate": "Due date",
+      "estimatedHours": "Estimated hours",
+      "spentHours": "Spent hours"
+    },
+    "actions": {
+      "assign": "Assign",
+      "reopen": "Reopen",
+      "complete": "Complete",
+      "reorder": "Reorder"
+    }
+  },
+  "project": {
+    "title": "Projects",
+    "create": "Create project",
+    "edit": "Edit project",
+    "delete": "Delete project",
+    "fields": {
+      "name": "Name",
+      "description": "Description",
+      "color": "Color",
+      "visibility": "Visibility"
+    }
+  },
+  "comment": {
+    "title": "Comments",
+    "create": "Add comment",
+    "delete": "Delete comment",
+    "edit": "Edit comment",
+    "placeholder": "Write a comment...",
+    "mentionHint": "Type @ to mention someone"
+  },
+  "notification": {
+    "title": "Notifications",
+    "markRead": "Mark as read",
+    "markAllRead": "Mark all as read",
+    "empty": "No notifications"
+  },
+  "settings": {
+    "title": "Settings",
+    "profile": "Profile",
+    "theme": "Theme",
+    "locale": "Language",
+    "darkMode": "Dark mode",
+    "lightMode": "Light mode",
+    "systemMode": "System"
+  },
+  "search": {
+    "placeholder": "Search tasks and projects...",
+    "noResults": "No results found",
+    "hint": "Type to search, Enter to navigate"
+  },
+  "sso": {
+    "title": "SSO Configuration",
+    "ldap": "LDAP",
+    "saml": "SAML 2.0",
+    "status": "Status",
+    "configured": "Configured",
+    "notConfigured": "Not configured",
+    "serverUrl": "Server URL",
+    "baseDn": "Base DN",
+    "envNote": "SSO is configured via environment variables. See AUTH.md for details."
+  },
+  "smtp": {
+    "title": "SMTP Configuration",
+    "description": "Configure outbound email. Changes require a server restart.",
+    "smtp_host": "SMTP Host",
+    "smtp_port": "SMTP Port",
+    "smtp_user": "Username",
+    "smtp_pass": "Password",
+    "smtp_from": "From Address",
+    "smtp_secure": "Use TLS",
+    "saved": "Saved successfully. Restart required for SMTP changes to take effect.",
+    "saveFailed": "Failed to save."
+  },
+  "audit": {
+    "title": "Audit Log",
+    "last100": "Last 100 events",
+    "time": "Time",
+    "actor": "Actor",
+    "action": "Action",
+    "entity": "Entity",
+    "id": "ID",
+    "empty": "No audit log entries yet."
+  },
+  "webhook": {
+    "title": "Webhooks",
+    "create": "Create webhook",
+    "empty": "No webhooks configured.",
+    "noPermission": "You do not have permission to manage webhooks.",
+    "fields": {
+      "name": "Name",
+      "url": "URL",
+      "events": "Events",
+      "active": "Active"
+    }
+  },
+  "token": {
+    "title": "API Tokens",
+    "create": "Create token",
+    "empty": "No API tokens issued.",
+    "noPermission": "You do not have permission to view this page.",
+    "fields": {
+      "name": "Name",
+      "user": "User",
+      "scopes": "Scopes",
+      "lastUsed": "Last Used",
+      "expires": "Expires",
+      "revoked": "Revoked"
+    }
+  },
+  "reports": {
+    "myDashboard": "My Dashboard",
+    "project": "Project Report",
+    "org": "Organization Report",
+    "assignedTasks": "Assigned tasks",
+    "overdueTasks": "Overdue",
+    "completedThisWeek": "Completed this week",
+    "unreadNotifications": "Unread notifications",
+    "totalTasks": "Total tasks",
+    "totalUsers": "Total users",
+    "totalProjects": "Total projects",
+    "completedTasks": "Completed"
+  },
+  "quickAdd": {
+    "placeholder": "Search tasks and projects…",
+    "hint": "↑↓ navigate · Enter open · Esc close",
+    "noResults": "No results"
+  }
+}

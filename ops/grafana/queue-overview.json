@@ -1,0 +1,62 @@
+{
+  "title": "Queue Overview",
+  "tags": ["taskapp", "bullmq", "queue", "production"],
+  "schemaVersion": 37,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Queue Depth by Queue Name",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "bullmq_queue_depth",
+          "legendFormat": "{{queue}}",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Job Success Rate",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "rate(bullmq_jobs_completed_total[5m]) / (rate(bullmq_jobs_completed_total[5m]) + rate(bullmq_jobs_failed_total[5m])) * 100",
+          "legendFormat": "success rate {{queue}}",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Failed Jobs Count",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "bullmq_jobs_failed_total",
+          "legendFormat": "{{queue}}",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    }
+  ]
+}

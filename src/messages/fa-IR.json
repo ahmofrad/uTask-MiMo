@@ -1,1 +1,211 @@
-{"common": {"save": "ذخیره"}}
+{
+  "common": {
+    "save": "ذخیره",
+    "cancel": "انصراف",
+    "delete": "حذف",
+    "edit": "ویرایش",
+    "create": "ایجاد",
+    "loading": "در حال بارگذاری...",
+    "error": "خطا",
+    "retry": "تلاش مجدد",
+    "search": "جستجو",
+    "close": "بستن",
+    "back": "بازگشت",
+    "next": "بعدی",
+    "confirm": "تایید",
+    "noResults": "نتیجه‌ای یافت نشد",
+    "noNotifications": "اعلانی وجود ندارد",
+    "permissionDenied": "شما مجوز انجام این عملیات را ندارید.",
+    "notFound": "یافت نشد",
+    "viewAll": "مشاهده همه"
+  },
+  "auth": {
+    "login": {
+      "title": "ورود",
+      "emailLabel": "ایمیل",
+      "passwordLabel": "رمز عبور",
+      "submitButton": "ورود",
+      "loggingIn": "در حال ورود...",
+      "ssoButton": "ورود با SSO",
+      "ldapButton": "ورود با LDAP",
+      "errors": {
+        "invalidCredentials": "ایمیل یا رمز عبور اشتباه است.",
+        "ssoUnavailable": "سرویس SSO در دسترس نیست.",
+        "rateLimited": "تعداد تلاش‌های ورود بیش از حد مجاز است. لطفاً بعداً تلاش کنید."
+      }
+    },
+    "logout": "خروج"
+  },
+  "nav": {
+    "home": "خانه",
+    "inbox": "صندوق ورودی",
+    "today": "امروز",
+    "upcoming": "پیش‌رو",
+    "projects": "پروژه‌ها",
+    "settings": "تنظیمات",
+    "admin": "مدیریت"
+  },
+  "admin": {
+    "title": "مدیریت",
+    "users": "کاربران",
+    "departments": "دپارتمان‌ها",
+    "settings": "تنظیمات",
+    "smtp": "SMTP",
+    "auditLog": "گزارش رویدادها",
+    "webhooks": "Webhook",
+    "apiTokens": "توکن‌های API",
+    "sso": "SSO",
+    "noPermission": "شما مجوز مشاهده این صفحه را ندارید."
+  },
+  "task": {
+    "title": "وظایف",
+    "create": "ایجاد وظیفه",
+    "edit": "ویرایش وظیفه",
+    "delete": "حذف وظیفه",
+    "status": {
+      "open": "باز",
+      "in_progress": "در حال انجام",
+      "done": "انجام شده",
+      "cancelled": "لغو شده"
+    },
+    "priority": {
+      "low": "کم",
+      "med": "متوسط",
+      "high": "بالا",
+      "urgent": "فوری"
+    },
+    "fields": {
+      "title": "عنوان",
+      "description": "توضیحات",
+      "status": "وضعیت",
+      "priority": "اولویت",
+      "assignee": "انجام‌دهنده",
+      "dueDate": "تاریخ سررسید",
+      "estimatedHours": "ساعت تخمینی",
+      "spentHours": "ساعت صرف شده"
+    },
+    "actions": {
+      "assign": "اختصاص",
+      "reopen": "بازگشایی",
+      "complete": "تکمیل",
+      "reorder": "مرتب‌سازی"
+    }
+  },
+  "project": {
+    "title": "پروژه‌ها",
+    "create": "ایجاد پروژه",
+    "edit": "ویرایش پروژه",
+    "delete": "حذف پروژه",
+    "fields": {
+      "name": "نام",
+      "description": "توضیحات",
+      "color": "رنگ",
+      "visibility": "قابلیت مشاهده"
+    }
+  },
+  "comment": {
+    "title": "نظرات",
+    "create": "افزودن نظر",
+    "delete": "حذف نظر",
+    "edit": "ویرایش نظر",
+    "placeholder": "نظر خود را بنویسید...",
+    "mentionHint": "برای اشاره به کسی @ را تایپ کنید"
+  },
+  "notification": {
+    "title": "اعلان‌ها",
+    "markRead": "خوانده شده",
+    "markAllRead": "همه را خوانده کن",
+    "empty": "اعلانی وجود ندارد"
+  },
+  "settings": {
+    "title": "تنظیمات",
+    "profile": "پروفایل",
+    "theme": "پوسته",
+    "locale": "زبان",
+    "darkMode": "حالت تیره",
+    "lightMode": "حالت روشن",
+    "systemMode": "سیستم"
+  },
+  "search": {
+    "placeholder": "جستجوی وظایف و پروژه‌ها...",
+    "noResults": "نتیجه‌ای یافت نشد",
+    "hint": "برای جستجو تایپ کنید، برای رفتن Enter بزنید"
+  },
+  "sso": {
+    "title": "تنظیمات SSO",
+    "ldap": "LDAP",
+    "saml": "SAML 2.0",
+    "status": "وضعیت",
+    "configured": "پیکربندی شده",
+    "notConfigured": "پیکربندی نشده",
+    "serverUrl": "آدرس سرور",
+    "baseDn": "Base DN",
+    "envNote": "SSO از طریق متغیرهای محیطی پیکربندی می‌شود. برای جزئیات به AUTH.md مراجعه کنید."
+  },
+  "smtp": {
+    "title": "تنظیمات SMTP",
+    "description": "پیکربندی ایمیل خروجی. تغییرات نیاز به راه‌اندازی مجدد سرور دارند.",
+    "smtp_host": "هاست SMTP",
+    "smtp_port": "پورت SMTP",
+    "smtp_user": "نام کاربری",
+    "smtp_pass": "رمز عبور",
+    "smtp_from": "آدرس فرستنده",
+    "smtp_secure": "استفاده از TLS",
+    "saved": "با موفقیت ذخیره شد. برای اعمال تغییرات SMTP نیاز به راه‌اندازی مجدد است.",
+    "saveFailed": "ذخیره‌سازی ناموفق بود."
+  },
+  "audit": {
+    "title": "گزارش رویدادها",
+    "last100": "۱۰۰ رویداد آخر",
+    "time": "زمان",
+    "actor": "عامل",
+    "action": "عملیات",
+    "entity": "موجودیت",
+    "id": "شناسه",
+    "empty": "هنوز ورودی در گزارش رویدادها وجود ندارد."
+  },
+  "webhook": {
+    "title": "Webhook‌ها",
+    "create": "ایجاد Webhook",
+    "empty": "هیچ Webhookی پیکربندی نشده است.",
+    "noPermission": "شما مجوز مدیریت Webhookها را ندارید.",
+    "fields": {
+      "name": "نام",
+      "url": "URL",
+      "events": "رویدادها",
+      "active": "فعال"
+    }
+  },
+  "token": {
+    "title": "توکن‌های API",
+    "create": "ایجاد توکن",
+    "empty": "هیچ توکن API صادر نشده است.",
+    "noPermission": "شما مجوز مشاهده این صفحه را ندارید.",
+    "fields": {
+      "name": "نام",
+      "user": "کاربر",
+      "scopes": "مجوزها",
+      "lastUsed": "آخرین استفاده",
+      "expires": "انقضا",
+      "revoked": "ابطال"
+    }
+  },
+  "reports": {
+    "myDashboard": "داشبورد من",
+    "project": "گزارش پروژه",
+    "org": "گزارش سازمان",
+    "assignedTasks": "وظایف محول شده",
+    "overdueTasks": "دیرکرد",
+    "completedThisWeek": "تکمیل شده این هفته",
+    "unreadNotifications": "اعلان‌های خوانده نشده",
+    "totalTasks": "کل وظایف",
+    "totalUsers": "کل کاربران",
+    "totalProjects": "کل پروژه‌ها",
+    "completedTasks": "تکمیل شده"
+  },
+  "quickAdd": {
+    "placeholder": "جستجوی وظایف و پروژه‌ها…",
+    "hint": "↑↓ حرکت · Enter باز کردن · Esc بستن",
+    "noResults": "نتیجه‌ای یافت نشد"
+  }
+}

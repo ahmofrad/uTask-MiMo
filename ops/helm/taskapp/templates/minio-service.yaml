@@ -1,0 +1,23 @@
+{{- if .Values.minio.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "taskapp.fullname" . }}-minio
+  labels:
+    {{- include "taskapp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9000
+      targetPort: 9000
+      protocol: TCP
+      name: api
+    - port: 9001
+      targetPort: 9001
+      protocol: TCP
+      name: console
+  selector:
+    {{- include "taskapp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: minio
+{{- end }}

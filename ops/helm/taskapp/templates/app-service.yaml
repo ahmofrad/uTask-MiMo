@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "taskapp.fullname" . }}-app
+  labels:
+    {{- include "taskapp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "taskapp.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: app

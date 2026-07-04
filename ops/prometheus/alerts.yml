@@ -1,0 +1,57 @@
+groups:
+  - name: taskapp
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          rate(taskapp_http_requests_total{status=~"5.."}[5m])
+          /
+          rate(taskapp_http_requests_total[5m])
+          > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx error rate"
+          description: "Error rate is {{ $value | humanizePercentage }} over the last 5 minutes (threshold: 5%)."
+
+      - alert: SlowAPI
+        expr: |
+          histogram_quantile(0.95, rate(taskapp_http_request_duration_seconds_bucket[10m]))
+          > 0.3
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API response time degraded"
+          description: "p95 latency is {{ $value | humanizeDuration }} over the last 10 minutes (threshold: 300ms)."
+
+      - alert: QueueBacklog
+        expr: |
+          bullmq_queue_depth > 1000
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Queue backlog detected"
+          description: "Queue depth is {{ $value }} for 15 minutes (threshold: 1000)."
+
+      - alert: DiskFull
+        expr: |
+          node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"}
+          < 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critically low"
+          description: "Available disk space on {{ $labels.mountpoint }} is {{ $value | humanizePercentage }} (threshold: 10%)."
+
+      - alert: BackupFailed
+        expr: |
+          time() - taskapp_last_backup_timestamp_seconds > 172800
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backup has not completed"
+          description: "Last successful backup was more than 2 days ago (threshold: 48h)."

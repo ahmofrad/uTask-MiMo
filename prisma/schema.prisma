@@ -7,6 +7,579 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserStatus {
+  active
+  suspended
+  invited
+}
+
+enum Locale {
+  fa_IR
+  en_US
+}
+
+enum Theme {
+  light
+  dark
+  system
+}
+
+enum Density {
+  compact
+  comfortable
+  spacious
+}
+
+enum RoleType {
+  owner
+  admin
+  manager
+  member
+  guest
+}
+
+enum RoleScope {
+  global
+  project
+}
+
+enum ProjectVisibility {
+  private
+  department
+  org
+}
+
+enum ProjectStatus {
+  active
+  archived
+}
+
+enum ProjectMemberRole {
+  lead
+  contributor
+  viewer
+}
+
+enum CustomFieldType {
+  text
+  number
+  date
+  select
+  multi_select
+  user
+  checkbox
+  url
+}
+
+enum TaskStatus {
+  open
+  in_progress
+  done
+  cancelled
+}
+
+enum TaskPriority {
+  low
+  med
+  high
+  urgent
+}
+
+enum AuthProvider {
+  local
+  ldap
+  saml
+}
+
+enum NotificationType {
+  assigned
+  mentioned
+  due_soon
+  commented
+  status_changed
+}
+
+enum AuditAction {
+  created
+  updated
+  deleted
+  viewed
+  exported
+  login_success
+  login_failed
+  logout
+  force_logout
+  identity_linked
+  user_jit_created
+  password_changed
+  password_reset_requested
+  saml_config_changed
+  ldap_config_changed
+  api_token_created
+  api_token_revoked
+  webhook_created
+  webhook_updated
+  webhook_deleted
+  webhook_tested
+  webhook_delivery_replayed
+  task_created
+  task_updated
+  task_deleted
+  task_reordered
+  comment_created
+  comment_updated
+  comment_deleted
+  project_created
+  project_updated
+  project_archived
+  custom_field_created
+  custom_field_updated
+  custom_field_archived
+  project_member_added
+  watcher_added
+  watcher_removed
+  settings_updated
+  user_updated
+  user_suspended
+  user_unsuspended
+  department_created
+  department_updated
+  department_deleted
+  session_revoked
+}
+
+enum SettingsScope {
+  install
+  user
+  org
+}
+
 model User {
-  id String @id @default(uuid())
+  id          String     @id @default(uuid()) @db.Uuid
+  email       String     @unique @db.Citext
+  passwordHash String?   @db.VarChar(255)
+  displayName String     @db.VarChar(255)
+  avatarUrl   String?
+  locale      Locale     @default(fa_IR)
+  accentColor String     @default("#2563eb") @db.VarChar(7)
+  theme       Theme      @default(system)
+  density     Density    @default(comfortable)
+  status      UserStatus @default(active)
+  lastLoginAt DateTime?  @db.Timestamptz
+  emailVerified DateTime?  @db.Timestamptz
+  image         String?
+  createdAt     DateTime   @default(now()) @db.Timestamptz
+  updatedAt     DateTime   @updatedAt @db.Timestamptz
+
+  authIdentities AuthIdentity[]
+  accounts       Account[]
+  sessions       Session[]
+  roles          Role[]
+  ownedProjects  Project[]         @relation("ProjectOwner")
+  projectMembers ProjectMember[]
+  assignedTasks  Task[]            @relation("TaskAssignee")
+  reportedTasks  Task[]            @relation("TaskReporter")
+  createdTasks   Task[]            @relation("TaskCreator")
+  attachments    Attachment[]
+  comments       Comment[]
+  watchers       Watcher[]
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+  apiTokens      ApiToken[]
+  webhooks       Webhook[]
+
+  @@map("User")
+}
+
+model AuthIdentity {
+  id                String       @id @default(uuid()) @db.Uuid
+  userId            String       @db.Uuid
+  provider          AuthProvider
+  providerSubject   String       @db.VarChar(512)
+  providerIssuer    String?      @db.VarChar(512)
+  linkedAt          DateTime     @default(now()) @db.Timestamptz
+  lastUsedAt        DateTime?    @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@map("AuthIdentity")
+}
+
+model Role {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  type      RoleType
+  scopeType RoleScope @default(global)
+  scopeId   String?   @db.Uuid
+  grantedBy String?   @db.Uuid
+  grantedAt DateTime  @default(now()) @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, type, scopeType, scopeId])
+  @@map("Role")
+}
+
+model Department {
+  id            String      @id @default(uuid()) @db.Uuid
+  name          String      @db.VarChar(255)
+  parentId      String?     @db.Uuid
+  managerUserId String?     @db.Uuid
+  deletedAt     DateTime?   @db.Timestamptz
+  createdAt     DateTime    @default(now()) @db.Timestamptz
+  updatedAt     DateTime    @updatedAt @db.Timestamptz
+
+  parent    Department?  @relation("DepartmentTree", fields: [parentId], references: [id])
+  children  Department[] @relation("DepartmentTree")
+  projects  Project[]
+
+  @@map("Department")
+}
+
+model Project {
+  id           String            @id @default(uuid()) @db.Uuid
+  name         String            @db.VarChar(255)
+  description  String?           @db.Text
+  color        String            @default("#2563eb") @db.VarChar(7)
+  ownerId      String            @db.Uuid
+  departmentId String?           @db.Uuid
+  visibility   ProjectVisibility @default(private)
+  status       ProjectStatus     @default(active)
+  archivedAt   DateTime?         @db.Timestamptz
+  createdAt    DateTime          @default(now()) @db.Timestamptz
+  updatedAt    DateTime          @updatedAt @db.Timestamptz
+
+  owner        User              @relation("ProjectOwner", fields: [ownerId], references: [id])
+  department   Department?       @relation(fields: [departmentId], references: [id])
+  members      ProjectMember[]
+  customFields CustomField[]
+  tasks        Task[]
+  tags         Tag[]
+
+  @@index([ownerId])
+  @@index([departmentId])
+  @@map("Project")
+}
+
+model ProjectMember {
+  projectId    String            @db.Uuid
+  userId       String            @db.Uuid
+  projectRole  ProjectMemberRole @default(contributor)
+  addedAt      DateTime          @default(now()) @db.Timestamptz
+  addedBy      String            @db.Uuid
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+  @@map("ProjectMember")
+}
+
+model CustomField {
+  id         String           @id @default(uuid()) @db.Uuid
+  projectId  String           @db.Uuid
+  name       String           @db.VarChar(255)
+  key        String           @db.VarChar(255)
+  type       CustomFieldType
+  required   Boolean          @default(false)
+  orderIndex Int              @default(0)
+  configJson Json?
+  createdAt  DateTime         @default(now()) @db.Timestamptz
+  updatedAt  DateTime         @updatedAt @db.Timestamptz
+  archivedAt DateTime?        @db.Timestamptz
+
+  project Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  values  CustomFieldValue[]
+
+  @@unique([projectId, key])
+  @@index([projectId, orderIndex])
+  @@map("CustomField")
+}
+
+model CustomFieldValue {
+  id            String          @id @default(uuid()) @db.Uuid
+  taskId        String          @db.Uuid
+  customFieldId String          @db.Uuid
+  valueText     String?         @db.Text
+  valueNumber   Decimal?        @db.Decimal(20, 4)
+  valueDate     DateTime?       @db.Timestamptz
+  valueBool     Boolean?
+  valueJson     Json?
+  createdAt     DateTime        @default(now()) @db.Timestamptz
+  updatedAt     DateTime        @updatedAt @db.Timestamptz
+
+  task        Task        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  customField CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, customFieldId])
+  @@index([customFieldId, valueText])
+  @@index([customFieldId, valueNumber])
+  @@index([customFieldId, valueDate])
+  @@map("CustomFieldValue")
+}
+
+model Task {
+  id              String       @id @default(uuid()) @db.Uuid
+  projectId       String       @db.Uuid
+  parentTaskId    String?      @db.Uuid
+  title           String       @db.VarChar(500)
+  description     String?      @db.Text
+  status          TaskStatus   @default(open)
+  priority        TaskPriority @default(med)
+  dueDate         DateTime?    @db.Timestamptz
+  startDate       DateTime?    @db.Timestamptz
+  recurrenceRule  String?      @db.VarChar(500)
+  assigneeId      String?      @db.Uuid
+  reporterId      String?      @db.Uuid
+  createdById     String       @db.Uuid
+  estimatedHours  Decimal?     @db.Decimal(10, 2)
+  spentHours      Decimal?     @db.Decimal(10, 2)
+  orderIndex      Decimal?     @db.Decimal(30, 10)
+  completedAt     DateTime?    @db.Timestamptz
+  deletedAt       DateTime?    @db.Timestamptz
+  createdAt       DateTime     @default(now()) @db.Timestamptz
+  updatedAt       DateTime     @updatedAt @db.Timestamptz
+
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentTask Task?    @relation("Subtask", fields: [parentTaskId], references: [id])
+  subtasks   Task[]   @relation("Subtask")
+  assignee   User?    @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  reporter   User?    @relation("TaskReporter", fields: [reporterId], references: [id])
+  createdBy  User     @relation("TaskCreator", fields: [createdById], references: [id])
+
+  customFieldValues CustomFieldValue[]
+  comments          Comment[]
+  attachments       Attachment[]
+  watchers          Watcher[]
+  tags              TaskTag[]
+
+  @@index([projectId, status, dueDate])
+  @@index([assigneeId, status, dueDate])
+  @@index([projectId, orderIndex])
+  @@index([reporterId])
+  @@index([createdById])
+  @@map("Task")
+}
+
+model Tag {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(100)
+  color     String   @default("#94a3b8") @db.VarChar(7)
+  projectId String?  @db.Uuid
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks   TaskTag[]
+
+  @@unique([name, projectId])
+  @@map("Tag")
+}
+
+model TaskTag {
+  taskId String @db.Uuid
+  tagId  String @db.Uuid
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, tagId])
+  @@map("TaskTag")
+}
+
+model Attachment {
+  id           String   @id @default(uuid()) @db.Uuid
+  taskId       String   @db.Uuid
+  filename     String   @db.VarChar(500)
+  mimeType     String   @db.VarChar(255)
+  sizeBytes    Int
+  storageKey   String   @db.VarChar(1000)
+  uploadedById String   @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz
+
+  task       Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@index([taskId])
+  @@map("Attachment")
+}
+
+model Comment {
+  id              String    @id @default(uuid()) @db.Uuid
+  taskId          String    @db.Uuid
+  authorId        String    @db.Uuid
+  parentCommentId String?   @db.Uuid
+  bodyMarkdown    String    @db.Text
+  editedAt        DateTime? @db.Timestamptz
+  deletedAt       DateTime? @db.Timestamptz
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+
+  task          Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author        User      @relation(fields: [authorId], references: [id])
+  parentComment Comment?  @relation("CommentReply", fields: [parentCommentId], references: [id])
+  replies       Comment[] @relation("CommentReply")
+
+  @@index([taskId, createdAt])
+  @@map("Comment")
+}
+
+model Watcher {
+  taskId  String   @db.Uuid
+  userId  String   @db.Uuid
+  addedAt DateTime @default(now()) @db.Timestamptz
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+  @@map("Watcher")
+}
+
+model Notification {
+  id          String           @id @default(uuid()) @db.Uuid
+  userId      String           @db.Uuid
+  type        NotificationType
+  payloadJson Json?
+  taskId      String?          @db.Uuid
+  readAt      DateTime?        @db.Timestamptz
+  createdAt   DateTime         @default(now()) @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("Notification")
+}
+
+model AuditLog {
+  id          String      @id @default(uuid()) @db.Uuid
+  actorUserId String?     @db.Uuid
+  actorIp     String?     @db.VarChar(45)
+  action      AuditAction
+  entityType  String      @db.VarChar(100)
+  entityId    String      @db.Uuid
+  beforeJson  Json?
+  afterJson   Json?
+  occurredAt  DateTime    @default(now()) @db.Timestamptz
+  requestId   String?     @db.VarChar(100)
+
+  actor User? @relation(fields: [actorUserId], references: [id])
+
+  @@index([entityType, entityId, occurredAt])
+  @@index([actorUserId, occurredAt])
+  @@index([occurredAt])
+  @@map("AuditLog")
+}
+
+model ApiToken {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  name        String    @db.VarChar(255)
+  hashedToken String    @unique @db.VarChar(64)
+  prefix      String    @db.VarChar(12)
+  scopes      String[]
+  expiresAt   DateTime? @db.Timestamptz
+  lastUsedAt  DateTime? @db.Timestamptz
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  revokedAt   DateTime? @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([hashedToken])
+  @@index([userId])
+  @@map("ApiToken")
+}
+
+model Webhook {
+  id              String    @id @default(uuid()) @db.Uuid
+  name            String    @db.VarChar(255)
+  url             String    @db.VarChar(2000)
+  secret          String    @db.VarChar(500)
+  events          String[]
+  active          Boolean   @default(true)
+  description     String?   @db.Text
+  createdById     String    @db.Uuid
+  lastDeliveryAt  DateTime? @db.Timestamptz
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @db.Timestamptz
+
+  createdBy User     @relation(fields: [createdById], references: [id])
+  deliveries WebhookDelivery[]
+
+  @@index([createdById])
+  @@map("Webhook")
+}
+
+model WebhookDelivery {
+  id              String   @id @default(uuid()) @db.Uuid
+  webhookId       String   @db.Uuid
+  eventType       String   @db.VarChar(100)
+  eventId         String   @db.Uuid
+  attemptNumber   Int      @default(1)
+  requestPayload  Json?
+  responseStatus  Int?
+  responseBody    String?  @db.Text
+  responseHeaders Json?
+  durationMs      Int?
+  error           String?  @db.Text
+  scheduledAt     DateTime @default(now()) @db.Timestamptz
+  deliveredAt     DateTime? @db.Timestamptz
+  nextRetryAt     DateTime? @db.Timestamptz
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, scheduledAt])
+  @@index([eventId])
+  @@map("WebhookDelivery")
+}
+
+model Settings {
+  id        String        @id @default(uuid()) @db.Uuid
+  scope     SettingsScope
+  scopeId   String?       @db.Uuid
+  key       String        @db.VarChar(255)
+  valueJson Json?
+
+  @@unique([scope, scopeId, key])
+  @@map("Settings")
+}
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @db.Uuid
+  type              String  @db.VarChar(50)
+  provider          String  @db.VarChar(100)
+  providerAccountId String  @db.VarChar(255)
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String? @db.VarChar(50)
+  scope             String? @db.VarChar(255)
+  id_token          String? @db.Text
+  session_state     String? @db.VarChar(255)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("Account")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @db.VarChar(255)
+  userId       String   @db.Uuid
+  expires      DateTime @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("Session")
+}
+
+model VerificationToken {
+  identifier String   @db.VarChar(255)
+  token      String   @unique @db.VarChar(255)
+  expires    DateTime @db.Timestamptz
+
+  @@unique([identifier, token])
+  @@map("VerificationToken")
 }

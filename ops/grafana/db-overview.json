@@ -1,0 +1,72 @@
+{
+  "title": "Database Overview",
+  "tags": ["taskapp", "database", "postgres", "production"],
+  "schemaVersion": 37,
+  "version": 1,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Active Connections",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "pg_stat_activity_count{state=\"active\"}",
+          "legendFormat": "active",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "pg_stat_activity_count{state=\"idle\"}",
+          "legendFormat": "idle",
+          "datasource": "Prometheus"
+        },
+        {
+          "expr": "pg_stat_activity_max_connections",
+          "legendFormat": "max",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Query Duration p50 / p95",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "expr": "pg_stat_activity_max_tx_duration",
+          "legendFormat": "max tx duration",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Replication Lag",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "expr": "pg_replication_lag_seconds",
+          "legendFormat": "lag",
+          "datasource": "Prometheus"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "palette-classic" }
+        }
+      }
+    }
+  ]
+}
