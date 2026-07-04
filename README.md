@@ -5,7 +5,7 @@
 > Public REST API and webhooks for third-party integrations.
 > Per-project custom fields. Built to handle 1k–10k concurrent users per organization.
 
-> 🚧 **Status:** v0.2 spec / pre-scaffold. See [`SPEC.md`](./SPEC.md) for the full product spec, [`TASKS.md`](./TASKS.md) for the build plan.
+> ✅ **Status:** v1.0.0 GA — all 12 build phases complete. See [`SPEC.md`](./SPEC.md) for the full product spec, [`TASKS.md`](./TASKS.md) for the build plan.
 
 ---
 
@@ -44,6 +44,11 @@ A multi-user, multi-project task management platform designed for companies that
 | [`i18n.md`](./i18n.md) | Persian + English, RTL, Jalali calendar guide |
 | [`DEPLOYMENT.md`](./DEPLOYMENT.md) | On-prem deployment (Docker Compose + Helm) |
 | [`DESIGN.md`](./DESIGN.md) | Design system — tokens, typography, components, RTL |
+| [`INSTALL.md`](./INSTALL.md) | Installation guide (single-VM, k8s, HA, backup) |
+| [`docs/admin-guide.md`](./docs/admin-guide.md) | System administration guide |
+| [`docs/user-guide.md`](./docs/user-guide.md) | End-user documentation |
+| [`docs/api-integration.md`](./docs/api-integration.md) | Public REST API integration guide |
+| [`docs/webhook-integration.md`](./docs/webhook-integration.md) | Webhook receiver integration guide |
 
 ---
 
@@ -199,6 +204,8 @@ Personal API tokens are issued per user (`tk_` prefix, shown once on creation, h
 
 Full spec: `GET /api/v1/public/openapi.json`. Swagger UI: `/api/v1/public/docs`.
 
+See the [API Integration Guide](./docs/api-integration.md) for complete documentation, code examples (cURL, Node.js, Python, Go), rate limiting, pagination, and error handling.
+
 ---
 
 ## Webhooks (V1)
@@ -217,7 +224,9 @@ Headers:
 
 Subscribed events: `task.created`, `task.updated`, `task.deleted`, `task.status_changed`, `task.assigned`, `comment.created`, `project.created`, `project.updated`, `user.created`, `custom_field.updated`.
 
-Retry on transient failures with exponential backoff (1 m → 24 h, 6 attempts). Permanent failures land in dead-letter view.
+Retry on transient failures with exponential backoff (5 s → 80 s, 5 attempts). Permanent failures land in dead-letter view.
+
+See the [Webhook Integration Guide](./docs/webhook-integration.md) for signature verification code examples (Node.js, Python, Go), best practices, and event reference.
 
 ---
 
@@ -285,7 +294,7 @@ TBD by the organization deploying this.
 
 ## Status
 
-This project is in **spec / scaffolding phase**. Engineering begins with Phase 0 (see `TASKS.md`). Target GA after Phases 0–12 complete.
+This project is **v1.0.0 GA** — all 12 build phases complete. See [`TASKS.md`](./TASKS.md) for the build plan and [`docs/admin-guide.md`](./docs/admin-guide.md) for administration.
 
 ## Roadmap (post-V1)
 
