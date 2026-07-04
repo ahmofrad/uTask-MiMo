@@ -292,7 +292,7 @@
 - [ ] Chaos test: webhook receiver returns 500 — verify retry + dead-letter.
 - [ ] Disaster recovery drill: restore from backup on a clean VM, verify all data present.
 - [ ] Security headers + rate limits verified in production.
-- [ ] Documentation: install, admin guide, user guide, **API integration guide (with OpenAPI reference)**, **webhook integration guide (with signature verification examples)**, troubleshooting.
+- [x] Documentation: install, admin guide, user guide, **API integration guide (with OpenAPI reference)**, **webhook integration guide (with signature verification examples)**, troubleshooting.
 - [ ] 3 pilot customers; weekly check-ins; triage their feedback.
 - [ ] Final bug bash; freeze; tag `v1.0.0`.
 
