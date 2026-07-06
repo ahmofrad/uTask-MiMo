@@ -55,7 +55,7 @@ export function Timeline({ tasks, showProject }: TimelineProps) {
           </div>
           <div className="space-y-2">
             {dateTasks.map((task) => (
-              <div key={task.id} className="p-3 rounded-lg border border-border-primary bg-bg-surface hover:border-border-strong transition-colors">
+              <div key={task.id} className="p-3 rounded-lg border border-border-primary bg-bg-surface hover:border-border-strong transition-colors overflow-hidden">
                 <TaskCard
                   task={task}
                   variant="compact"
