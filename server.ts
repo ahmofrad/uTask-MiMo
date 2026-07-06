@@ -10,7 +10,23 @@ const handle = app.getRequestHandler();
 
 app.prepare().then(async () => {
   const server = createServer(async (req, res) => {
-    handle(req, res);
+    try {
+      await handle(req, res);
+    } catch (err) {
+      console.error("Request error:", err);
+      if (!res.headersSent) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: { code: "INTERNAL_ERROR" } }));
+      }
+    }
+  });
+
+  // Prevent process crashes from unhandled errors
+  process.on("uncaughtException", (err) => {
+    console.error("Uncaught exception:", err);
+  });
+  process.on("unhandledRejection", (err) => {
+    console.error("Unhandled rejection:", err);
   });
 
   // Initialize Socket.IO
