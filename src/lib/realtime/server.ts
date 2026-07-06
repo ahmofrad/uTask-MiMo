@@ -2,7 +2,6 @@ import { Server as HTTPServer } from "http";
 import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import Redis from "ioredis";
-import { auth } from "@/lib/auth/config";
 import { logger } from "@/lib/logging";
 
 let io: Server | null = null;
@@ -16,12 +15,29 @@ export function getUserId(socket: import("socket.io").Socket): string | undefine
   return userIds.get(socket);
 }
 
+function verifyJwt(token: string): { sub?: string } | null {
+  try {
+    const secret = process.env.NEXTAUTH_SECRET;
+    if (!secret) return null;
+    const [, payloadB64] = token.split(".");
+    if (!payloadB64) return null;
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
+    // Check expiry
+    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
 export async function initSocketIO(httpServer: HTTPServer) {
   if (io) return io;
 
+  const origin = process.env.AUTH_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+
   const opts: Record<string, unknown> = {
     path: "/ws",
-    cors: { origin: "*", credentials: true },
+    cors: { origin, credentials: true },
   };
 
   io = new Server(httpServer, opts as never);
@@ -36,17 +52,17 @@ export async function initSocketIO(httpServer: HTTPServer) {
     logger.warn("Redis unavailable — Socket.IO running without adapter (no multi-instance)");
   }
 
-  io.use(async (socket, next) => {
+  io.use((socket, next) => {
     try {
       const token = socket.handshake.auth?.token || socket.handshake.query?.token;
-      if (!token) {
+      if (!token || typeof token !== "string") {
         return next(new Error("Authentication required"));
       }
-      const session = await auth();
-      if (!session?.user?.id) {
-        return next(new Error("Invalid session"));
+      const payload = verifyJwt(token);
+      if (!payload?.sub) {
+        return next(new Error("Invalid or expired token"));
       }
-      userIds.set(socket, session.user.id);
+      userIds.set(socket, payload.sub);
       next();
     } catch {
       next(new Error("Authentication failed"));

@@ -2,6 +2,7 @@ import createMiddleware from "next-intl/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { applySecurityHeaders } from "@/lib/security/headers";
+import { applyRateLimit } from "@/lib/rate-limit/middleware";
 
 const locales = ["fa-IR", "en-US"] as const;
 const defaultLocale = "fa-IR";
@@ -48,6 +49,14 @@ export default async function middleware(req: NextRequest) {
             { status: 403 },
           ),
         );
+      }
+    }
+
+    // Rate limiting for internal API routes only (not public API)
+    if (!isPublicApi(pathname) && pathname.startsWith("/api/")) {
+      const rateLimitResult = await applyRateLimit(req);
+      if (rateLimitResult?.response) {
+        return applySecurityHeaders(rateLimitResult.response);
       }
     }
 

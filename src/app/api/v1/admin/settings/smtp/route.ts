@@ -48,5 +48,8 @@ export async function PUT(request: Request) {
     after: body,
   });
 
+  const { resetCache } = await import("@/lib/mail/send");
+  resetCache();
+
   return NextResponse.json({ data: { success: true } });
 }

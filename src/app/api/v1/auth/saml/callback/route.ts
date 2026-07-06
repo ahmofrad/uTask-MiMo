@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     request.headers.get("x-real-ip") ??
     "unknown";
 
-  const rl = checkRateLimit(`auth-saml:${ip}`, {
+  const rl = await checkRateLimit(`auth-saml:${ip}`, {
     windowMs: 60000,
     maxRequests: 10,
   });

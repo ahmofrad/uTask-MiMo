@@ -1,20 +1,25 @@
 import { Queue, Worker } from "bullmq";
 import { logger } from "@/lib/logging";
+import crypto from "node:crypto";
 
 const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
 
 let sharedConnection: unknown;
-let connInitialized = false;
+let connectionPromise: Promise<unknown> | null = null;
 
-async function ensureConnection() {
-  if (connInitialized) return sharedConnection;
-  const IORedis = await import("ioredis");
-  sharedConnection = new IORedis.default(redisUrl, {
-    maxRetriesPerRequest: null,
-    enableOfflineQueue: false,
-  });
-  connInitialized = true;
-  return sharedConnection;
+async function ensureConnection(): Promise<unknown> {
+  if (sharedConnection) return sharedConnection;
+  if (!connectionPromise) {
+    connectionPromise = (async () => {
+      const IORedis = await import(/* webpackIgnore: true */ "ioredis");
+      sharedConnection = new IORedis.default(redisUrl, {
+        maxRetriesPerRequest: null,
+        enableOfflineQueue: false,
+      });
+      return sharedConnection;
+    })();
+  }
+  return connectionPromise;
 }
 
 let _webhookQueue: Queue | null = null;
@@ -69,12 +74,22 @@ export async function enqueueWebhook(data: WebhookJobData): Promise<void> {
   await q.add(data.eventId, data, { jobId: data.eventId });
 }
 
+function emailJobId(to: string, subject: string, text: string): string {
+  const hash = crypto.createHash("sha256").update(`${to}${subject}${text}`).digest("hex");
+  return `email:${hash}`;
+}
+
 export async function enqueueEmail(data: EmailJobData): Promise<void> {
   const q = await getEmailQueue();
-  await q.add(data.subject, data, { jobId: `${data.to}:${Date.now()}` });
+  await q.add(data.subject, data, { jobId: emailJobId(data.to, data.subject, data.text) });
 }
 
 let workersStarted = false;
+const _workers: Worker[] = [];
+
+export function getWorkers() {
+  return { workers: _workers, queues: [_webhookQueue, _emailQueue].filter(Boolean) as Queue[] };
+}
 
 export function startWorkers() {
   if (workersStarted) return;
@@ -83,7 +98,7 @@ export function startWorkers() {
   ensureConnection()
     .then((conn) => {
       try {
-        new Worker<WebhookJobData>(
+        const webhookWorker = new Worker<WebhookJobData>(
           "webhook-delivery",
           async (job) => {
             const { dispatchWebhook } = await import("@/lib/webhook");
@@ -91,8 +106,12 @@ export function startWorkers() {
           },
           { connection: conn as never },
         );
+        webhookWorker.on("failed", (job, err) => {
+          logger.error({ jobId: job?.id, err }, "Webhook job failed");
+        });
+        _workers.push(webhookWorker);
 
-        new Worker<EmailJobData>(
+        const emailWorker = new Worker<EmailJobData>(
           "email",
           async (job) => {
             const { sendMail } = await import("@/lib/mail/send");
@@ -100,6 +119,10 @@ export function startWorkers() {
           },
           { connection: conn as never },
         );
+        emailWorker.on("failed", (job, err) => {
+          logger.error({ jobId: job?.id, err }, "Email job failed");
+        });
+        _workers.push(emailWorker);
 
         logger.info("BullMQ workers started");
       } catch (err) {

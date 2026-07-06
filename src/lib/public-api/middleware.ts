@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { lookupToken, tokenHasScope } from "@/lib/api-token";
-import { checkRateLimit, type RateLimitConfig } from "@/lib/rate-limit";
+import { checkRateLimit } from "@/lib/rate-limit";
 
-const TOKEN_LIMIT: RateLimitConfig = { windowMs: 60000, maxRequests: 60 };
+const TOKEN_LIMIT = { windowMs: 60000, maxRequests: 60 };
 
 export async function authenticatePublicApi(
   request: Request,
@@ -33,7 +33,7 @@ export async function authenticatePublicApi(
   }
 
   // Rate limit per token
-  const rl = checkRateLimit(`token:${token.id}`, TOKEN_LIMIT);
+  const rl = await checkRateLimit(`token:${token.id}`, TOKEN_LIMIT);
   if (!rl.allowed) {
     return {
       userId: "",
@@ -41,7 +41,7 @@ export async function authenticatePublicApi(
         { error: { code: "RATE_LIMITED", message: "Too many requests" } },
         {
           status: 429,
-          headers: rateLimitHeaders(TOKEN_LIMIT.maxRequests, rl.remaining, Math.ceil(rl.resetAt / 1000)),
+          headers: rateLimitHeaders(TOKEN_LIMIT.maxRequests, rl.remaining, Math.ceil((rl.resetAt - Date.now()) / 1000)),
         },
       ),
     };

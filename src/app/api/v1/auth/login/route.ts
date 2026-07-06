@@ -9,7 +9,7 @@ export async function POST(request: Request) {
 
   // Rate limit: 10 attempts per minute per IP
   const ip = request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip") ?? "unknown";
-  const rl = checkRateLimit(`auth:${ip}`, { windowMs: 60000, maxRequests: 10 });
+  const rl = await checkRateLimit(`auth:${ip}`, { windowMs: 60000, maxRequests: 10 });
   if (!rl.allowed) {
     return NextResponse.json(
       { error: { code: "RATE_LIMITED", message: "Too many login attempts. Try again later." } },

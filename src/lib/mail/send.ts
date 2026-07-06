@@ -95,7 +95,8 @@ export async function sendMail(params: {
 }
 
 export async function notifyAssigned(to: string, taskTitle: string, taskUrl: string) {
-  await sendMail({
+  const { enqueueEmail } = await import("@/lib/queue");
+  await enqueueEmail({
     to,
     subject: `You were assigned: ${taskTitle}`,
     text: `You have been assigned to "${taskTitle}".\n\nView it: ${taskUrl}`,
@@ -104,7 +105,8 @@ export async function notifyAssigned(to: string, taskTitle: string, taskUrl: str
 }
 
 export async function notifyMentioned(to: string, byName: string, taskTitle: string, taskUrl: string) {
-  await sendMail({
+  const { enqueueEmail } = await import("@/lib/queue");
+  await enqueueEmail({
     to,
     subject: `${byName} mentioned you in "${taskTitle}"`,
     text: `${byName} mentioned you in "${taskTitle}".\n\nView it: ${taskUrl}`,

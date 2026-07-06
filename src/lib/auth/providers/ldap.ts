@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { ldapConfigSchema, type LdapConfig } from "../ldap-schema";
 import { logger } from "@/lib/logging";
+import { decryptSecret } from "@/lib/webhook";
 
 interface LdapAuthResult {
   success: boolean;
@@ -46,6 +47,11 @@ export async function ldapAuth(
     return { success: false, error: "LDAP not configured" };
   }
 
+  // Decrypt bindPassword if it's in encrypted format
+  const bindPassword = config.bindPassword.includes(":")
+    ? decryptSecret(config.bindPassword)
+    : config.bindPassword;
+
   let client: Client;
   try {
     const clientOpts: ConstructorParameters<typeof Client>[0] = {
@@ -62,7 +68,7 @@ export async function ldapAuth(
     client = new Client(clientOpts);
 
     // Bind with service account
-    await client.bind(config.bindDn, config.bindPassword);
+    await client.bind(config.bindDn, bindPassword);
 
     // Search for user
     const escapedUsername = escapeLdapFilter(username);

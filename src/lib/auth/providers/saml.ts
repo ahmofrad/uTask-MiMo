@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { samlConfigSchema, type SamlConfig } from "../saml-schema";
 import { logger } from "@/lib/logging";
+import { decryptSecret } from "@/lib/webhook";
 
 interface SamlAuthResult {
   success: boolean;
@@ -21,7 +22,12 @@ async function getSamlConfig(): Promise<SamlConfig | null> {
 
   try {
     const parsed = JSON.parse(setting.valueJson as string);
-    return samlConfigSchema.parse(parsed);
+    const config = samlConfigSchema.parse(parsed);
+    // Decrypt certificate if it's in encrypted format
+    if (config.idpCertificate && config.idpCertificate.includes(":")) {
+      config.idpCertificate = decryptSecret(config.idpCertificate);
+    }
+    return config;
   } catch {
     return null;
   }

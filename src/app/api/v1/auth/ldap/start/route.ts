@@ -10,7 +10,7 @@ export async function POST(request: Request) {
     request.headers.get("x-real-ip") ??
     "unknown";
 
-  const rl = checkRateLimit(`auth-ldap:${ip}`, {
+  const rl = await checkRateLimit(`auth-ldap:${ip}`, {
     windowMs: 60000,
     maxRequests: 10,
   });

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { updateSettings, getSettings } from "@/lib/settings";
 import { logAudit } from "@/lib/audit/log";
+import { encrypt } from "@/lib/crypto/encrypt";
 
 export async function GET() {
   const session = await auth();
@@ -40,12 +41,16 @@ export async function PATCH(request: Request) {
   const beforeSaml = await getSettings("install", "saml");
 
   if (ldap && typeof ldap === "object") {
-    // Don't save empty password field
     const filtered: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(ldap)) {
       if (v !== "" && v !== undefined && v !== null) {
         filtered[k] = v;
       }
+    }
+    // Encrypt bindPassword if provided and not already encrypted
+    if (typeof filtered.bindPassword === "string" && !filtered.bindPassword.includes(":")) {
+      const enc = encrypt(filtered.bindPassword);
+      filtered.bindPassword = `${enc.iv}:${enc.ciphertext}:${enc.tag}`;
     }
     if (Object.keys(filtered).length > 0) {
       await updateSettings("install", "ldap", filtered);
@@ -58,6 +63,11 @@ export async function PATCH(request: Request) {
       if (v !== "" && v !== undefined && v !== null) {
         filtered[k] = v;
       }
+    }
+    // Encrypt idpCertificate if provided and not already encrypted
+    if (typeof filtered.idpCertificate === "string" && !filtered.idpCertificate.includes(":")) {
+      const enc = encrypt(filtered.idpCertificate);
+      filtered.idpCertificate = `${enc.iv}:${enc.ciphertext}:${enc.tag}`;
     }
     if (Object.keys(filtered).length > 0) {
       await updateSettings("install", "saml", filtered);
