@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
+import { toJalali, getMonthName } from "@/lib/date/jalali";
+import { useFormattedDate } from "@/lib/date/useFormattedDate";
 
 export type GanttTask = {
   id: string;
@@ -36,21 +38,29 @@ function diffDays(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function formatDay(d: Date): string {
-  return `${d.getMonth() + 1}/${d.getDate()}`;
+function jalaliDateLabel(date: Date): string {
+  const j = toJalali(date);
+  return `${j.jd}`;
+}
+
+function jalaliMonthYear(date: Date): string {
+  const j = toJalali(date);
+  return `${getMonthName(j.jm, "fa-IR")} ${j.jy}`;
 }
 
 export function GanttChart({ tasks }: GanttChartProps) {
   const t = useTranslations("task");
+  const { shortDate } = useFormattedDate();
+
   const { rows, totalDays, ticks, rangeStart } = useMemo(() => {
     const today = startOfDay(new Date());
 
     const rows = tasks
       .filter((tk) => tk.startDate || tk.dueDate)
-      .map((t) => {
-        const start = t.startDate ? startOfDay(new Date(t.startDate)) : today;
-        const end = t.dueDate ? startOfDay(new Date(t.dueDate)) : start;
-        return { ...t, start, end };
+      .map((tk) => {
+        const start = tk.startDate ? startOfDay(new Date(tk.startDate)) : today;
+        const end = tk.dueDate ? startOfDay(new Date(tk.dueDate)) : start;
+        return { ...tk, start, end };
       })
       .sort((a, b) => a.start.getTime() - b.start.getTime());
 
@@ -79,16 +89,15 @@ export function GanttChart({ tasks }: GanttChartProps) {
     let lastMonth = -1;
 
     for (let i = 0; i <= totalDays; i++) {
-      const isMonth = cursor.getMonth() !== lastMonth;
+      const jalaliMonth = toJalali(cursor).jm;
+      const isMonth = jalaliMonth !== lastMonth;
       if (isMonth || i % 7 === 0) {
         ticks.push({
           date: new Date(cursor),
-          label: isMonth
-            ? cursor.toLocaleString("default", { month: "short", year: "numeric" })
-            : formatDay(cursor),
+          label: isMonth ? jalaliMonthYear(cursor) : jalaliDateLabel(cursor),
           isMonth,
         });
-        lastMonth = cursor.getMonth();
+        lastMonth = jalaliMonth;
       }
       cursor.setDate(cursor.getDate() + 1);
     }
@@ -153,11 +162,21 @@ export function GanttChart({ tasks }: GanttChartProps) {
               <div className="w-56 shrink-0 border-e border-border-primary p-2">
                 <Link
                   href={`/tasks/${row.id}`}
-                  className="text-xs font-medium text-fg-primary hover:text-accent truncate block"
+                  className="text-xs font-medium text-fg-primary hover:text-accent line-clamp-2 leading-snug block"
                 >
                   {row.title}
                 </Link>
-                <span className="text-[10px] text-fg-muted capitalize">{row.priority}</span>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[10px] text-fg-muted capitalize">{row.priority}</span>
+                  <span className="text-[10px] text-fg-muted">·</span>
+                  <span className="text-[10px] text-fg-muted">{shortDate(row.start)}</span>
+                  {row.start.getTime() !== row.end.getTime() && (
+                    <>
+                      <span className="text-[10px] text-fg-muted">→</span>
+                      <span className="text-[10px] text-fg-muted">{shortDate(row.end)}</span>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="flex-1 relative h-10 my-auto">
                 {/* Grid lines */}
@@ -170,13 +189,13 @@ export function GanttChart({ tasks }: GanttChartProps) {
                 ))}
                 {/* Task bar */}
                 <div
-                  className={`absolute top-2 h-6 rounded-md ${STATUS_COLORS[row.status] || "bg-info/70"} flex items-center px-1.5 cursor-pointer hover:opacity-80 transition-opacity`}
+                  className={`absolute top-2 h-6 rounded-md ${STATUS_COLORS[row.status] || "bg-info/70"} flex items-center px-1.5 cursor-pointer hover:opacity-80 transition-opacity shadow-sm`}
                   style={{
                     left: `${getPosition(row.start)}%`,
                     width: `${getWidth(row.start, row.end)}%`,
                   }}
                 >
-                  <span className="text-[10px] font-medium text-fg-primary truncate">{row.title}</span>
+                  <span className="text-[10px] font-medium text-fg-primary truncate drop-shadow-sm">{row.title}</span>
                 </div>
               </div>
             </div>
@@ -186,7 +205,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
 
       {noDateTasks.length > 0 && (
         <div className="text-xs text-fg-muted">
-          {noDateTasks.length} task{noDateTasks.length !== 1 ? "s" : ""} without start/due dates (not shown in timeline)
+          {noDateTasks.length} {t("ganttNoDates")}
         </div>
       )}
 
@@ -195,7 +214,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
         {Object.entries(STATUS_COLORS).map(([status, color]) => (
           <div key={status} className="flex items-center gap-1.5">
             <span className={`w-3 h-3 rounded ${color}`} />
-            <span className="capitalize">{status.replace("_", " ")}</span>
+            <span className="capitalize">{t(`status.${status}`)}</span>
           </div>
         ))}
       </div>
