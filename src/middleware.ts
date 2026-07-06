@@ -68,8 +68,8 @@ export default async function middleware(req: NextRequest) {
       if (!existingToken) {
         const token = crypto.randomUUID();
         res.cookies.set(CSRF_COOKIE, token, {
-          httpOnly: false, // Client JS needs to read it
-          secure: true,
+          httpOnly: false,
+          secure: process.env.NODE_ENV === "production",
           sameSite: "strict",
           path: "/",
           maxAge: 60 * 60 * 24, // 1 day
