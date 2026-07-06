@@ -143,7 +143,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
                   className={`absolute top-0 h-full border-e border-border-secondary text-[10px] ${
                     tick.isMonth ? "font-semibold text-fg-primary" : "text-fg-muted"
                   }`}
-                  style={{ left: `${getPosition(tick.date)}%` }}
+                  style={{ right: `${getPosition(tick.date)}%` }}
                 >
                   <span className="pr-1 leading-8">{tick.label}</span>
                 </div>
@@ -151,7 +151,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
               {/* Today line */}
               <div
                 className="absolute top-0 h-full w-px bg-danger/50 z-10"
-                style={{ left: `${getPosition(startOfDay(new Date()))}%` }}
+                style={{ right: `${getPosition(startOfDay(new Date()))}%` }}
               />
             </div>
           </div>
@@ -162,7 +162,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
               <div className="w-48 shrink-0 border-e border-border-primary p-2">
                 <Link
                   href={`/tasks/${row.id}`}
-                  className="text-xs font-medium text-fg-primary hover:text-accent leading-snug block"
+                  className="text-xs font-medium text-fg-primary hover:text-accent whitespace-nowrap overflow-hidden text-ellipsis block"
                 >
                   {row.title}
                 </Link>
@@ -184,7 +184,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
                   <div
                     key={i}
                     className="absolute top-0 h-full border-e border-border-secondary/50"
-                    style={{ left: `${getPosition(tick.date)}%` }}
+                    style={{ right: `${getPosition(tick.date)}%` }}
                   />
                 ))}
                 {/* Task bar — clickable */}
