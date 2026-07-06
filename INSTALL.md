@@ -66,26 +66,23 @@ The script checks that the app is reachable, returns a 200 on `/health`, and tha
 
 ### 2.5 First login
 
-After the smoke test passes, seed the database with sample data:
+After the smoke test passes, create the initial admin user:
 
 ```bash
 docker compose exec app pnpm db:seed
 ```
 
-This creates the following default accounts (all with password `password`):
+This creates a single admin account:
 
-| Role    | Email                 | Password  |
-|---------|----------------------|-----------|
-| Owner   | owner@taskapp.dev    | password  |
-| Admin   | admin@taskapp.dev    | password  |
-| Manager | manager@taskapp.dev  | password  |
-| Member  | sara@taskapp.dev     | password  |
-| Member  | ali@taskapp.dev      | password  |
-| Guest   | guest@taskapp.dev    | password  |
+| Role  | Email               | Password  |
+|-------|--------------------|-----------|
+| Owner | admin@taskapp.dev  | password  |
 
-Log in with the **Owner** account (`owner@taskapp.dev` / `password`) to set up your organization, invite team members, and configure SSO.
+Log in with `admin@taskapp.dev` / `password` to set up your organization, invite team members, and configure SSO.
 
-> **Important:** Change all default passwords after first login.
+> **Optional:** To add sample data (additional users, departments, projects, tasks), run `pnpm db:sample`.
+
+> **Important:** Change the default password after first login.
 
 ---
 

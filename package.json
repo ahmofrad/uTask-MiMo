@@ -21,6 +21,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "tsx prisma/seed.ts",
     "db:seed": "npm run prisma:seed",
+    "db:sample": "tsx prisma/seed-sample.ts",
     "docker:up": "docker compose -f ops/docker/docker-compose.yml up -d",
     "docker:down": "docker compose -f ops/docker/docker-compose.yml down",
     "i18n:extract": "i18next-parser 'src/**/*.{ts,tsx}' --output src/messages/$LOCALE.json",

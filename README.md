@@ -94,7 +94,8 @@ cp .env.example .env.local
 
 # 4. Initialize the database
 pnpm prisma migrate dev
-pnpm db:seed
+pnpm db:seed        # Creates admin@taskapp.dev (password: password)
+pnpm db:sample      # Optional: adds sample users, projects, tasks
 
 # 5. Run the dev server
 pnpm dev
