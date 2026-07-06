@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
 import { LocaleSwitcher } from "@/components/locale/switcher";
@@ -12,7 +12,7 @@ type LoginPageClientProps = {
   ldapDomain: string;
 };
 
-export function LoginPageClient({ ldapConfigured, ssoConfigured, ldapDomain }: LoginPageClientProps) {
+function LoginContent({ ldapConfigured, ssoConfigured, ldapDomain }: LoginPageClientProps) {
   const t = useTranslations("auth.login");
   const searchParams = useSearchParams();
 
@@ -46,5 +46,13 @@ export function LoginPageClient({ ldapConfigured, ssoConfigured, ldapDomain }: L
         <p className="text-center text-xs text-fg-muted mt-6">{t("footer")}</p>
       </div>
     </div>
+  );
+}
+
+export function LoginPageClient(props: LoginPageClientProps) {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" /></div>}>
+      <LoginContent {...props} />
+    </Suspense>
   );
 }
