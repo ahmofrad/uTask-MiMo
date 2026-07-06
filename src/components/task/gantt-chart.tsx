@@ -163,7 +163,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
               <div className="w-48 shrink-0 border-e border-border-primary p-2">
                 <Link
                   href={`/tasks/${row.id}`}
-                  className="text-xs font-medium text-fg-primary hover:text-accent line-clamp-2 leading-snug block"
+                  className="text-xs font-medium text-fg-primary hover:text-accent leading-snug block"
                 >
                   {row.title}
                 </Link>
