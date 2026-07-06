@@ -67,9 +67,10 @@ export default async function middleware(req: NextRequest) {
       const existingToken = req.cookies.get(CSRF_COOKIE)?.value;
       if (!existingToken) {
         const token = crypto.randomUUID();
+        const isHttps = req.nextUrl.protocol === "https:";
         res.cookies.set(CSRF_COOKIE, token, {
           httpOnly: false,
-          secure: process.env.NODE_ENV === "production",
+          secure: isHttps,
           sameSite: "strict",
           path: "/",
           maxAge: 60 * 60 * 24, // 1 day
