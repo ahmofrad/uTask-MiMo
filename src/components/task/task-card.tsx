@@ -51,7 +51,7 @@ export function TaskCard({ task, variant, onDelete, showDelete, showProject }: T
           </button>
         )}
         <Link href={`/tasks/${task.id}`} className="block">
-          <p className="text-sm font-medium text-fg-primary mb-1.5 leading-snug hover:text-accent line-clamp-2">
+          <p className="text-sm font-medium text-fg-primary mb-1.5 leading-snug hover:text-accent whitespace-nowrap overflow-hidden text-ellipsis">
             {task.title}
           </p>
         </Link>
