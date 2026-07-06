@@ -5,10 +5,17 @@ import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
-export function LoginForm() {
+type LoginFormProps = {
+  ldapConfigured: boolean;
+  ssoConfigured: boolean;
+  ldapDomain: string;
+};
+
+export function LoginForm({ ldapConfigured, ssoConfigured, ldapDomain }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [provider, setProvider] = useState("local");
   const t = useTranslations("auth.login");
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -21,15 +28,20 @@ export function LoginForm() {
     const password = String(form.get("password") ?? "");
 
     try {
-      const result = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
-      if (result?.error) {
-        setError(t("errors.invalidCredentials"));
+      if (provider === "ldap") {
+        const result = await signIn("ldap", { email, password, redirect: false });
+        if (result?.error) {
+          setError(t("errors.invalidCredentials"));
+        } else {
+          window.location.href = "/";
+        }
       } else {
-        window.location.href = "/";
+        const result = await signIn("credentials", { email, password, redirect: false });
+        if (result?.error) {
+          setError(t("errors.invalidCredentials"));
+        } else {
+          window.location.href = "/";
+        }
       }
     } catch {
       setError(t("errors.invalidCredentials"));
@@ -60,7 +72,7 @@ export function LoginForm() {
           required
           autoComplete="email"
           className="w-full px-3.5 py-2.5 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm placeholder:text-fg-subtle focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
-          placeholder="you@company.com"
+          placeholder={t("emailPlaceholder")}
         />
       </div>
 
@@ -97,12 +109,32 @@ export function LoginForm() {
         </div>
       </div>
 
+      {/* LDAP Provider selector */}
+      {ldapConfigured && (
+        <div>
+          <label htmlFor="provider" className="block text-sm font-medium text-fg-secondary mb-1.5">
+            {t("loginMethod")}
+          </label>
+          <select
+            id="provider"
+            value={provider}
+            onChange={(e) => setProvider(e.target.value)}
+            className="w-full px-3.5 py-2.5 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+          >
+            <option value="local">{t("localLogin")}</option>
+            <option value="ldap">{ldapDomain}</option>
+          </select>
+        </div>
+      )}
+
+      {/* Forgot password */}
       <div className="flex items-center justify-end">
         <Link href="/forgot-password" className="text-xs text-accent hover:underline">
-          {t("forgotPassword") || "Forgot password?"}
+          {t("forgotPassword")}
         </Link>
       </div>
 
+      {/* Login button */}
       <button
         type="submit"
         disabled={loading}
@@ -111,13 +143,36 @@ export function LoginForm() {
         {loading ? (
           <span className="flex items-center justify-center gap-2">
             <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
             {t("loggingIn")}
           </span>
         ) : t("submitButton")}
       </button>
+
+      {/* SSO button */}
+      {ssoConfigured && (
+        <>
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border-primary" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="px-2 bg-bg-surface text-fg-subtle">{t("divider")}</span>
+            </div>
+          </div>
+          <Link
+            href="/login/sso"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg border border-border-primary text-fg-secondary hover:bg-bg-surface-2 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            {t("ssoButton")}
+          </Link>
+        </>
+      )}
     </form>
   );
 }
