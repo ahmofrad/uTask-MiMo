@@ -41,7 +41,7 @@ export function TaskCard({ task, variant, onDelete, showDelete, showProject }: T
 
   if (variant === "compact") {
     return (
-      <div className={`relative group overflow-hidden ${STATUS_BORDER[task.status] ?? "border-s-info"}`}>
+      <div className={`relative group overflow-hidden min-w-0 ${STATUS_BORDER[task.status] ?? "border-s-info"}`}>
         {showDelete && onDelete && (
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
