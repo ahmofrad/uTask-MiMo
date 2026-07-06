@@ -25,12 +25,15 @@ export async function Header({ email, isAdmin }: HeaderProps) {
           <div className="relative group">
             <span className="text-sm text-fg-secondary cursor-pointer">{email}</span>
             <div className="absolute right-0 top-full mt-1 w-40 bg-bg-primary border border-border-primary rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-              <form action="/api/auth/signout" method="POST">
-                <input type="hidden" name="callbackUrl" value="/login" />
-                <button type="submit" className="w-full text-left px-4 py-2 text-sm text-fg-secondary hover:text-destructive hover:bg-bg-surface rounded-lg transition-colors">
-                  {t("signOut")}
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "/api/auth/signout?csrfToken=&callbackUrl=/login";
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-fg-secondary hover:text-destructive hover:bg-bg-surface rounded-lg transition-colors"
+              >
+                {t("signOut")}
+              </button>
             </div>
           </div>
         </div>
