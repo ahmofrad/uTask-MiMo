@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
+import { apiFetch } from "@/lib/api-fetch";
 
 export default function TokensPage() {
   const t = useTranslations("settings");
@@ -25,9 +26,8 @@ export default function TokensPage() {
     if (!newTokenName.trim()) return;
     setCreating(true);
     try {
-      const res = await fetch("/api/v1/tokens", {
+      const res = await apiFetch("/api/v1/tokens", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newTokenName.trim(), scopes: ["tasks:read", "tasks:write"] }),
       });
       const j = await res.json();
@@ -42,7 +42,7 @@ export default function TokensPage() {
   }
 
   async function revokeToken(id: string) {
-    await fetch(`/api/v1/tokens/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/v1/tokens/${id}`, { method: "DELETE" });
     setTokens((prev) => prev.map((tk) => tk.id === id ? { ...tk, revokedAt: new Date().toISOString() } : tk));
   }
 

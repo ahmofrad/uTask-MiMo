@@ -4,6 +4,7 @@ import { canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { listTasks, createTask } from "@/lib/tasks";
+import { checkIdempotency, setIdempotencyResult } from "@/lib/idempotency";
 import type { ListTasksParams, CreateTaskData } from "@/lib/tasks";
 
 export async function GET(request: Request) {
@@ -42,6 +43,15 @@ export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
+  }
+
+  // Idempotency check
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (idempotencyKey) {
+    const cached = checkIdempotency(idempotencyKey);
+    if (cached.hit) {
+      return NextResponse.json(cached.response.body, { status: cached.response.status });
+    }
   }
 
   const body = await request.json();
@@ -85,5 +95,11 @@ export async function POST(request: Request) {
 
   await emitTaskEvent("task.created", task.id, { id: task.id, title: task.title, projectId: task.projectId }, session.user.id);
 
-  return NextResponse.json({ data: task }, { status: 201 });
+  const responseBody = { data: task };
+
+  if (idempotencyKey) {
+    setIdempotencyResult(idempotencyKey, 201, responseBody);
+  }
+
+  return NextResponse.json(responseBody, { status: 201 });
 }

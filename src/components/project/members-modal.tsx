@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/avatar";
+import { apiFetch } from "@/lib/api-fetch";
 
 type Member = {
   userId: string;
@@ -71,9 +72,8 @@ export function MembersModal({
   }
 
   async function addMember(user: UserSearchResult) {
-    const res = await fetch(`/api/v1/projects/${projectId}/members`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}/members`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: user.id, projectRole: selectedRole }),
     });
     if (res.ok) {
@@ -87,16 +87,15 @@ export function MembersModal({
   }
 
   async function removeMember(userId: string) {
-    const res = await fetch(`/api/v1/projects/${projectId}/members/${userId}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/v1/projects/${projectId}/members/${userId}`, { method: "DELETE" });
     if (res.ok) {
       setMembers((prev) => prev.filter((m) => m.userId !== userId));
     }
   }
 
   async function changeRole(userId: string, newRole: string) {
-    const res = await fetch(`/api/v1/admin/projects/${projectId}/members/${userId}`, {
+    const res = await apiFetch(`/api/v1/admin/projects/${projectId}/members/${userId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ projectRole: newRole }),
     });
     if (res.ok) {

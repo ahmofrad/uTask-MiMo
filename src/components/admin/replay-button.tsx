@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiFetch } from "@/lib/api-fetch";
 
 export function ReplayButton({ deliveryId }: { deliveryId: string }) {
   const [replaying, setReplaying] = useState(false);
@@ -9,7 +10,7 @@ export function ReplayButton({ deliveryId }: { deliveryId: string }) {
   async function replay() {
     setReplaying(true);
     try {
-      const res = await fetch(`/api/v1/webhook-deliveries/${deliveryId}/replay`, { method: "POST" });
+      const res = await apiFetch(`/api/v1/webhook-deliveries/${deliveryId}/replay`, { method: "POST" });
       if (res.ok) setDone(true);
     } finally {
       setReplaying(false);

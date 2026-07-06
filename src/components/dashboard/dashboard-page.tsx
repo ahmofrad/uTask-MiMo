@@ -9,6 +9,7 @@ import { GanttChart } from "@/components/task/gantt-chart";
 import { WBSTree } from "@/components/task/wbs-tree";
 import { TaskCard } from "@/components/task/task-card";
 import { cn } from "@/lib/cn";
+import { apiFetch } from "@/lib/api-fetch";
 
 type DashboardStat = {
   label: string;
@@ -128,7 +129,7 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
           projectId: "", assigneeId: t.assigneeId, dueDate: t.dueDate,
           assignee: t.assignee, projectName: t.projectName,
           tags: t.tags, subtaskCount: t.subtaskCount, subtaskDone: t.subtaskDone,
-        }))} projectId="" onDelete={async (taskId) => { await fetch(`/api/v1/tasks/${taskId}`, { method: "DELETE" }); }} />
+        }))} projectId="" onDelete={async (taskId) => { await apiFetch(`/api/v1/tasks/${taskId}`, { method: "DELETE" }); }} />
       )}
 
       {activeTab === "timeline" && (

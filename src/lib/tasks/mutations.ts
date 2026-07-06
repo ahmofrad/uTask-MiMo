@@ -85,12 +85,12 @@ export async function updateTask(id: string, data: UpdateTaskData) {
     data: updateData,
   });
 
-  // Auto-watch on assignment
-  if (data.assigneeId !== undefined && data.assigneeId !== null) {
+  // Auto-watch on assignment + email notification
+  if (data.assigneeId !== undefined && data.assigneeId !== null && data.assigneeId !== before?.assigneeId) {
     const { ensureWatcher } = await import("@/lib/watchers");
     await ensureWatcher(task.id, data.assigneeId);
-    
-    // Notification on assignment
+
+    // In-app notification
     const { createNotification } = await import("@/lib/notifications");
     await createNotification({
       userId: data.assigneeId,
@@ -98,6 +98,23 @@ export async function updateTask(id: string, data: UpdateTaskData) {
       taskId: task.id,
       payload: { message: `You have been assigned to task "${task.title}"` },
     });
+
+    // Email notification
+    try {
+      const { notifyAssigned } = await import("@/lib/mail/send");
+      const assignee = await prisma.user.findUnique({
+        where: { id: data.assigneeId },
+        select: { email: true },
+      });
+      if (assignee?.email) {
+        const baseUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+        await notifyAssigned(assignee.email, task.title, `${baseUrl}/tasks/${task.id}`);
+      }
+    } catch (err) {
+      // Email failure should not block task update
+      const { logger } = await import("@/lib/logging");
+      logger.warn({ err, taskId: task.id }, "Failed to send assignment email");
+    }
   }
 
   if (data.customFields && typeof data.customFields === "object") {

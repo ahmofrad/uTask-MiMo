@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
+import { apiFetch } from "@/lib/api-fetch";
 
 type Member = {
   userId: string;
@@ -47,9 +48,8 @@ export function MembersClient({
   }
 
   async function addMember(user: UserSearchResult) {
-    const res = await fetch(`/api/v1/projects/${projectId}/members`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}/members`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: user.id, projectRole: "contributor" }),
     });
     if (res.ok) {
@@ -64,7 +64,7 @@ export function MembersClient({
   }
 
   async function removeMember(userId: string) {
-    const res = await fetch(`/api/v1/projects/${projectId}/members/${userId}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/v1/projects/${projectId}/members/${userId}`, { method: "DELETE" });
     if (res.ok) {
       setMembers((prev) => prev.filter((m) => m.userId !== userId));
     }

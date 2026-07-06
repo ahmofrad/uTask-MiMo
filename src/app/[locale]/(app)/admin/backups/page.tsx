@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { apiFetch } from "@/lib/api-fetch";
 
 export default function BackupsPage() {
   const t = useTranslations("admin");
@@ -10,7 +11,7 @@ export default function BackupsPage() {
   async function runBackup() {
     setRunning(true);
     try {
-      await fetch("/api/v1/admin/backups/run", { method: "POST" });
+      await apiFetch("/api/v1/admin/backups/run", { method: "POST" });
     } finally {
       setRunning(false);
     }

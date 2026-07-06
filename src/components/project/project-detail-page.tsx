@@ -12,6 +12,7 @@ import { TaskCard } from "@/components/task/task-card";
 import { TaskForm } from "@/components/task/task-form";
 import { CustomFieldsManager } from "@/components/custom-field/custom-fields-manager";
 import { MembersModal } from "@/components/project/members-modal";
+import { apiFetch } from "@/lib/api-fetch";
 
 type ProjectInfo = {
   id: string;
@@ -60,9 +61,8 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
   const [activeTab, setActiveTab] = useState<Tab>("board");
 
   async function handleCreateTask(data: Record<string, unknown>) {
-    const res = await fetch(`/api/v1/tasks`, {
+    const res = await apiFetch(`/api/v1/tasks`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...data, projectId: project.id }),
     });
     if (res.ok) {
@@ -84,7 +84,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
   }
 
   async function handleBoardDelete(taskId: string) {
-    await fetch(`/api/v1/tasks/${taskId}`, { method: "DELETE" });
+    await apiFetch(`/api/v1/tasks/${taskId}`, { method: "DELETE" });
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
   }
 

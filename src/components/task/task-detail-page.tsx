@@ -15,6 +15,7 @@ import { CommentThread } from "@/components/comment/comment-thread";
 import { ActivityTimeline } from "@/components/task/activity-timeline";
 import type { ActivityEvent } from "@/lib/activity/types";
 import { Avatar } from "@/components/ui/avatar";
+import { apiFetch } from "@/lib/api-fetch";
 
 type TaskData = {
   id: string;
@@ -106,9 +107,8 @@ export function TaskDetailPage({
   const isWatching = watchers.some((w) => w.id === currentUserId);
 
   const updateTask = useCallback(async (updates: Record<string, unknown>) => {
-    const res = await fetch(`/api/v1/tasks/${task.id}`, {
+    const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(updates),
     });
     if (!res.ok) throw new Error(t("task.updateFailed"));
@@ -124,9 +124,8 @@ export function TaskDetailPage({
   };
 
   const addComment = async (body: string) => {
-    const res = await fetch(`/api/v1/tasks/${task.id}/comments`, {
+    const res = await apiFetch(`/api/v1/tasks/${task.id}/comments`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ bodyMarkdown: body }),
     });
     if (!res.ok) throw new Error(t("task.commentFailed"));
@@ -144,10 +143,10 @@ export function TaskDetailPage({
 
   const toggleWatch = async () => {
     if (isWatching) {
-      const res = await fetch(`/api/v1/watchers/tasks/${task.id}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}`, { method: "DELETE" });
       if (res.ok) setWatchers((prev) => prev.filter((w) => w.id !== currentUserId));
     } else {
-      const res = await fetch(`/api/v1/watchers/tasks/${task.id}`, { method: "POST" });
+      const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}`, { method: "POST" });
       if (res.ok) {
         setWatchers((prev) => [
           ...prev,
@@ -158,7 +157,7 @@ export function TaskDetailPage({
   };
 
   const handleDelete = async () => {
-    const res = await fetch(`/api/v1/tasks/${task.id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/v1/tasks/${task.id}`, { method: "DELETE" });
     if (res.ok) {
       setDeleted(true);
       setTimeout(() => router.push("/"), 2000);
@@ -168,26 +167,23 @@ export function TaskDetailPage({
   const handleCFChange = (fieldKey: string, value: unknown) => {
     const next = { ...cfValues, [fieldKey]: value };
     setCfValues(next);
-    fetch(`/api/v1/tasks/${task.id}`, {
+    apiFetch(`/api/v1/tasks/${task.id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ customFields: { [fieldKey]: value } }),
     });
   };
 
   const handleSubtaskToggle = async (id: string, status: string) => {
     setSubtasks((prev) => prev.map((st) => st.id === id ? { ...st, status } : st));
-    await fetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, {
+    await apiFetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
   };
 
   const handleSubtaskAdd = async (title: string) => {
-    const res = await fetch(`/api/v1/tasks/${task.id}/subtasks`, {
+    const res = await apiFetch(`/api/v1/tasks/${task.id}/subtasks`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title }),
     });
     if (res.ok) {

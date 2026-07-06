@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { apiFetch } from "@/lib/api-fetch";
 
 function SsoCard({ title, children }: { title: string } & React.PropsWithChildren) {
   return (
@@ -48,9 +49,8 @@ export default function SsoPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      await fetch("/api/v1/admin/sso", {
+      await apiFetch("/api/v1/admin/sso", {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ldap, saml }),
       });
     } finally {

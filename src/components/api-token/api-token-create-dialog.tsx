@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { apiFetch } from "@/lib/api-fetch";
 
 type ApiTokenCreateDialogProps = {
   open: boolean;
@@ -22,9 +23,8 @@ export function ApiTokenCreateDialog({ open, onClose, onCreated }: ApiTokenCreat
     if (!name.trim() || saving) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/v1/tokens", {
+      const res = await apiFetch("/api/v1/tokens", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim() }),
       });
       const json = await res.json();

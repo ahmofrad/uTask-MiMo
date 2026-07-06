@@ -25,7 +25,8 @@
     "docker:down": "docker compose -f ops/docker/docker-compose.yml down",
     "i18n:extract": "i18next-parser 'src/**/*.{ts,tsx}' --output src/messages/$LOCALE.json",
     "i18n:check": "tsx scripts/i18n-check.ts",
-    "design:check": "tsx scripts/design-check.ts"
+    "design:check": "tsx scripts/design-check.ts",
+    "worker": "tsx src/worker.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.2",

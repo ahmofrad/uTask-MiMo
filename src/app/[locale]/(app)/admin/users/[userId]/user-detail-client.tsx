@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { apiFetch } from "@/lib/api-fetch";
 
 type Props = {
   userId: string;
@@ -22,9 +23,8 @@ export function UserDetailClient({ userId, displayName, email, status, globalRol
     setSaving(true);
     setGlobalRole(newRole);
     try {
-      await fetch(`/api/v1/admin/users/${userId}/role`, {
+      await apiFetch(`/api/v1/admin/users/${userId}/role`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ role: newRole }),
       });
     } finally {
@@ -35,9 +35,8 @@ export function UserDetailClient({ userId, displayName, email, status, globalRol
   async function updateProjectRole(projectId: string, newRole: string) {
     setSaving(true);
     try {
-      await fetch(`/api/v1/admin/projects/${projectId}/members/${userId}`, {
+      await apiFetch(`/api/v1/admin/projects/${projectId}/members/${userId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectRole: newRole }),
       });
       setMemberships((prev) => prev.map((m) => m.projectId === projectId ? { ...m, projectRole: newRole } : m));

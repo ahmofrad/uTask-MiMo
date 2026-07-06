@@ -1,4 +1,5 @@
 import { hmacSign, hmacVerify } from "@/lib/crypto";
+import { decrypt } from "@/lib/crypto/encrypt";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logging";
 
@@ -60,6 +61,15 @@ export function verifySignature(
   return hmacVerify(payload, signature, secret);
 }
 
+export function decryptSecret(encryptedSecret: string): string {
+  // Support both encrypted (iv:ciphertext:tag) and legacy plaintext formats
+  const parts = encryptedSecret.split(":");
+  if (parts.length === 3) {
+    return decrypt({ iv: parts[0]!, ciphertext: parts[1]!, tag: parts[2]! });
+  }
+  return encryptedSecret;
+}
+
 export async function dispatchWebhook(
   webhookId: string,
   eventType: string,
@@ -72,7 +82,8 @@ export async function dispatchWebhook(
   if (!webhook || !webhook.active) return;
 
   const body = JSON.stringify(payload);
-  const signature = signPayload(body, webhook.secret);
+  const secret = decryptSecret(webhook.secret);
+  const signature = signPayload(body, secret);
 
   const delivery = await prisma.webhookDelivery.create({
     data: {

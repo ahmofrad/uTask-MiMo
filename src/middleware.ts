@@ -14,9 +14,16 @@ const intlMiddleware = createMiddleware({
 });
 
 const PUBLIC_PREFIXES = ["/api/", "/_next/", "/favicon.ico"];
+const CSRF_COOKIE = "csrf_token";
+const CSRF_HEADER = "x-csrf-token";
+const STATE_METHODS = ["POST", "PATCH", "DELETE", "PUT"];
 
 function isPublic(pathname: string): boolean {
   return PUBLIC_PREFIXES.some((r) => pathname.startsWith(r));
+}
+
+function isPublicApi(pathname: string): boolean {
+  return pathname.startsWith("/api/v1/public/");
 }
 
 export default async function middleware(req: NextRequest) {
@@ -29,13 +36,61 @@ export default async function middleware(req: NextRequest) {
 
   // Skip locale + auth handling for API, static, etc.
   if (isPublic(pathname)) {
-    return applySecurityHeaders(NextResponse.next(responseInit));
+    // CSRF: validate on state-changing API requests (skip public API with Bearer tokens)
+    if (!isPublicApi(pathname) && STATE_METHODS.includes(req.method)) {
+      const cookieToken = req.cookies.get(CSRF_COOKIE)?.value;
+      const headerToken = requestHeaders.get(CSRF_HEADER);
+
+      if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+        return applySecurityHeaders(
+          NextResponse.json(
+            { error: { code: "CSRF_INVALID", message: "Missing or invalid CSRF token" } },
+            { status: 403 },
+          ),
+        );
+      }
+    }
+
+    const res = applySecurityHeaders(NextResponse.next(responseInit));
+
+    // Set CSRF cookie on safe methods so the client can read it
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method) && !isPublicApi(pathname)) {
+      const existingToken = req.cookies.get(CSRF_COOKIE)?.value;
+      if (!existingToken) {
+        const token = crypto.randomUUID();
+        res.cookies.set(CSRF_COOKIE, token, {
+          httpOnly: false, // Client JS needs to read it
+          secure: true,
+          sameSite: "strict",
+          path: "/",
+          maxAge: 60 * 60 * 24, // 1 day
+        });
+      }
+    }
+
+    return res;
   }
 
   // First: apply locale detection/redirect from next-intl
   const intlResponse = intlMiddleware(req);
   if (intlResponse) {
     intlResponse.headers.set("x-request-id", requestId);
+
+    // CSRF: set cookie on safe methods
+    if (["GET", "HEAD", "OPTIONS"].includes(req.method)) {
+      const existingToken = req.cookies.get(CSRF_COOKIE)?.value;
+      if (!existingToken) {
+        const token = crypto.randomUUID();
+        intlResponse.cookies.set(CSRF_COOKIE, token, {
+          httpOnly: false,
+          secure: true,
+          sameSite: "strict",
+          path: "/",
+          maxAge: 60 * 60 * 24,
+        });
+      }
+    }
+
     return applySecurityHeaders(intlResponse);
   }
 

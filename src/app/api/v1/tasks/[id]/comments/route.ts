@@ -5,6 +5,7 @@ import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { getTaskComments, createComment } from "@/lib/comments";
 import { ensureWatcher } from "@/lib/watchers";
+import { checkIdempotency, setIdempotencyResult } from "@/lib/idempotency";
 
 export async function GET(
   _request: Request,
@@ -34,6 +35,15 @@ export async function POST(
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
+  // Idempotency check
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (idempotencyKey) {
+    const cached = checkIdempotency(idempotencyKey);
+    if (cached.hit) {
+      return NextResponse.json(cached.response.body, { status: cached.response.status });
+    }
+  }
+
   const body = await request.json();
   const { bodyMarkdown, parentCommentId } = body as { bodyMarkdown?: string; parentCommentId?: string };
 
@@ -58,5 +68,11 @@ export async function POST(
 
   await emitTaskEvent("comment.created", params.id, { id: comment.id, taskId: params.id, bodyMarkdown: comment.bodyMarkdown }, session.user.id);
 
-  return NextResponse.json({ data: comment }, { status: 201 });
+  const responseBody = { data: comment };
+
+  if (idempotencyKey) {
+    setIdempotencyResult(idempotencyKey, 201, responseBody);
+  }
+
+  return NextResponse.json(responseBody, { status: 201 });
 }

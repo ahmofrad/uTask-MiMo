@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
+import { apiFetch } from "@/lib/api-fetch";
 
 type Notification = {
   id: string;
@@ -13,7 +14,7 @@ type Notification = {
 };
 
 export function NotificationBell() {
-  const t = useTranslations();
+  const t = useTranslations("notification");
   const { shortDate } = useFormattedDate();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(0);
@@ -37,7 +38,7 @@ export function NotificationBell() {
   }
 
   async function markRead(id: string) {
-    await fetch(`/api/v1/notifications/${id}`, { method: "POST" });
+    await apiFetch(`/api/v1/notifications/${id}`, { method: "POST" });
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)),
     );
