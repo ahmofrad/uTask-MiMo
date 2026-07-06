@@ -23,23 +23,19 @@ async function main() {
   });
 
   // Ensure admin has owner role for full permissions
-  await prisma.role.upsert({
-    where: {
-      userId_type_scopeType_scopeId: {
+  const existingRole = await prisma.role.findFirst({
+    where: { userId: admin.id, type: "owner", scopeType: "global" },
+  });
+  if (!existingRole) {
+    await prisma.role.create({
+      data: {
         userId: admin.id,
         type: "owner",
         scopeType: "global",
         scopeId: null,
       },
-    },
-    update: {},
-    create: {
-      userId: admin.id,
-      type: "owner",
-      scopeType: "global",
-      scopeId: null,
-    },
-  });
+    });
+  }
 
   console.log("✅ Admin user created");
   console.log("   Email:    admin@taskapp.dev");
