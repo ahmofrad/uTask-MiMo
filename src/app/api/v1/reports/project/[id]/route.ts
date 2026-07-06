@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { prisma } from "@/lib/db";
+import { getProjectReport } from "@/lib/reports";
 
 export async function GET(
   _request: Request,
@@ -16,30 +17,7 @@ export async function GET(
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
-  const totalTasks = await prisma.task.count({
-    where: { projectId: params.id, deletedAt: null },
-  });
+  const report = await getProjectReport(params.id);
 
-  const byStatus = await prisma.task.groupBy({
-    by: ["status"],
-    where: { projectId: params.id, deletedAt: null },
-    _count: true,
-  });
-
-  const overdue = await prisma.task.count({
-    where: { projectId: params.id, deletedAt: null, dueDate: { lt: new Date() }, status: { not: "done" } },
-  });
-
-  const completedThisMonth = await prisma.task.count({
-    where: { projectId: params.id, status: "done", updatedAt: { gte: new Date(Date.now() - 30 * 86400000) } },
-  });
-
-  return NextResponse.json({
-    data: {
-      totalTasks,
-      byStatus: byStatus.reduce((acc, s) => ({ ...acc, [s.status]: s._count }), {} as Record<string, number>),
-      overdue,
-      completedThisMonth,
-    },
-  });
+  return NextResponse.json({ data: report });
 }

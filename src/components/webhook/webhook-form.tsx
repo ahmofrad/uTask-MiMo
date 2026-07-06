@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import { Input } from "@/components/ui/input";
 
@@ -22,6 +23,7 @@ const EVENT_OPTIONS = [
 ];
 
 export function WebhookForm({ initialData, onSubmit, className }: WebhookFormProps) {
+  const t = useTranslations("webhook");
   const [url, setUrl] = useState(initialData?.url ?? "");
   const [events, setEvents] = useState<string[]>(initialData?.events ?? []);
   const [saving, setSaving] = useState(false);
@@ -45,7 +47,7 @@ export function WebhookForm({ initialData, onSubmit, className }: WebhookFormPro
   return (
     <form onSubmit={handleSubmit} className={cn("space-y-4", className)}>
       <div>
-        <label className="block text-sm font-medium text-fg mb-1">Payload URL</label>
+        <label className="block text-sm font-medium text-fg mb-1">{t("payloadUrl")}</label>
         <Input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
@@ -54,7 +56,7 @@ export function WebhookForm({ initialData, onSubmit, className }: WebhookFormPro
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-fg mb-2">Events</label>
+        <label className="block text-sm font-medium text-fg mb-2">{t("fields.events")}</label>
         <div className="space-y-2">
           {EVENT_OPTIONS.map((ev) => (
             <label key={ev} className="flex items-center gap-2 text-sm text-fg">
@@ -74,7 +76,7 @@ export function WebhookForm({ initialData, onSubmit, className }: WebhookFormPro
         disabled={!url.trim() || events.length === 0 || saving}
         className="w-full px-4 py-2 text-sm font-medium bg-accent text-fg-inverse rounded-lg hover:opacity-90 disabled:opacity-50"
       >
-        {saving ? "Saving..." : "Save Webhook"}
+        {saving ? t("saving") : t("saveWebhook")}
       </button>
     </form>
   );

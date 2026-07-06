@@ -1,5 +1,5 @@
 import { enqueueWebhook } from "@/lib/queue";
-import crypto from "crypto";
+import { randomUUID } from "@/lib/crypto";
 
 export async function emitTaskEvent(
   eventType: string,
@@ -8,7 +8,7 @@ export async function emitTaskEvent(
   actorId: string,
 ) {
   const event = {
-    id: `evt_${crypto.randomUUID()}`,
+    id: `evt_${randomUUID()}`,
     type: eventType,
     createdAt: new Date().toISOString(),
     apiVersion: "2024-12-01",

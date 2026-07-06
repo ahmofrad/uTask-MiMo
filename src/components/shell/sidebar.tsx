@@ -1,0 +1,73 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+
+type SidebarProps = {
+  isAdmin: boolean;
+};
+
+export function Sidebar({ isAdmin }: SidebarProps) {
+  const t = useTranslations("nav");
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem("sidebarCollapsed");
+    if (stored === "true") setCollapsed(true);
+  }, []);
+
+  function toggle() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("sidebarCollapsed", String(next));
+      return next;
+    });
+  }
+
+  return (
+    <nav className={`hidden md:flex flex-col shrink-0 border-e border-border-primary bg-bg-secondary transition-all duration-200 ${collapsed ? "w-16 items-center py-4 px-2" : "w-48 py-4 px-3"}`}>
+      {/* Logo + toggle */}
+      <div className={`flex items-center ${collapsed ? "justify-center" : "justify-between"} mb-6 w-full`}>
+        {!collapsed && (
+          <Link href="/" className="text-lg font-bold text-fg-primary">uTask</Link>
+        )}
+        <button
+          onClick={toggle}
+          className="p-1.5 rounded-md text-fg-muted hover:bg-bg-primary hover:text-fg-primary transition-colors"
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {collapsed ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M19 19l-7-7 7-7" />
+            )}
+          </svg>
+        </button>
+      </div>
+
+      <div className="space-y-1 w-full">
+        <NavItem href="/" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>} collapsed={collapsed}>{t("home")}</NavItem>
+        <NavItem href="/projects" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>} collapsed={collapsed}>{t("projects")}</NavItem>
+        <NavItem href="/settings" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>} collapsed={collapsed}>{t("settings")}</NavItem>
+        {isAdmin && (
+          <NavItem href="/admin/users" icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>} collapsed={collapsed}>{t("admin")}</NavItem>
+        )}
+      </div>
+    </nav>
+  );
+}
+
+function NavItem({ href, icon, collapsed, children }: { href: string; icon: React.ReactNode; collapsed: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-2.5 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary hover:text-fg-primary transition-colors ${collapsed ? "justify-center px-0" : "px-3"}`}
+      title={collapsed ? String(children) : undefined}
+    >
+      {icon}
+      {!collapsed && <span className="truncate">{children}</span>}
+    </Link>
+  );
+}

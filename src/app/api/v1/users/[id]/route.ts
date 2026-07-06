@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
+import { getUserById } from "@/lib/users";
 
 export async function GET(
   _request: Request,
@@ -13,27 +14,7 @@ export async function GET(
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: params.id },
-    select: {
-      id: true,
-      email: true,
-      displayName: true,
-      avatarUrl: true,
-      locale: true,
-      accentColor: true,
-      theme: true,
-      density: true,
-      status: true,
-      lastLoginAt: true,
-      createdAt: true,
-      roles: {
-        where: { scopeType: "global" },
-        select: { type: true },
-      },
-      ownedProjects: { select: { id: true, name: true } },
-    },
-  });
+  const user = await getUserById(params.id);
 
   if (!user) {
     return NextResponse.json(

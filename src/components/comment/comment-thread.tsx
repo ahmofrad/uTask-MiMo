@@ -1,9 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/ui/avatar";
 import { MentionInput } from "@/components/comment/mention-input";
+import { formatDate } from "@/lib/date/format";
+import type { Locale } from "@/lib/date/format";
 
 type Comment = {
   id: string;
@@ -19,6 +22,8 @@ type CommentThreadProps = {
 };
 
 export function CommentThread({ comments, onAdd, className }: CommentThreadProps) {
+  const t = useTranslations("comment");
+  const locale = useLocale() as Locale;
   const [body, setBody] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -47,10 +52,10 @@ export function CommentThread({ comments, onAdd, className }: CommentThreadProps
             <div className="flex items-center gap-2 mb-1">
               <span className="text-sm font-medium text-fg">{c.author.displayName}</span>
               <span className="text-xs text-fg-subtle">
-                {new Date(c.createdAt).toLocaleDateString()}
+                {formatDate(new Date(c.createdAt), locale)}
               </span>
             </div>
-            <p className="text-sm text-fg-muted whitespace-pre-wrap">{c.body}</p>
+            <div className="text-sm text-fg-muted prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: c.body }} />
           </div>
         </div>
       ))}
@@ -60,7 +65,7 @@ export function CommentThread({ comments, onAdd, className }: CommentThreadProps
             <MentionInput
               value={body}
               onChange={setBody}
-              placeholder="Write a comment..."
+              placeholder={t("placeholder")}
               minRows={2}
               maxRows={6}
             />
@@ -70,7 +75,7 @@ export function CommentThread({ comments, onAdd, className }: CommentThreadProps
                 disabled={!body.trim() || saving}
                 className="px-3 py-1 text-sm font-medium bg-accent text-fg-inverse rounded-md hover:opacity-90 disabled:opacity-50"
               >
-                {saving ? "Sending..." : "Comment"}
+                {saving ? t("sending") : t("send")}
               </button>
             </div>
           </div>

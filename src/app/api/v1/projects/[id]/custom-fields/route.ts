@@ -40,7 +40,7 @@ export async function POST(
   const parsed = CreateCustomFieldSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: parsed.error.errors[0]?.message ?? "Invalid input" } },
+      { error: { code: "VALIDATION_ERROR", message: parsed.error.issues[0]?.message ?? "Invalid input" } },
       { status: 400 },
     );
   }

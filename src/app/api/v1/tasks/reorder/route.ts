@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
+import { reorderTasks } from "@/lib/tasks";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -25,20 +25,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const tasks = await prisma.task.findMany({
-    where: { id: { in: taskIds }, projectId },
-    orderBy: { orderIndex: "asc" },
-    select: { id: true, orderIndex: true },
-  });
-
-  const updates = tasks.map((task, i) =>
-    prisma.task.update({
-      where: { id: task.id },
-      data: { orderIndex: (i + 1) * 1000 },
-    }),
-  );
-
-  await prisma.$transaction(updates);
+  await reorderTasks(projectId, taskIds);
 
   await logAudit({ actorUserId: session.user.id, action: "task_reordered", entityType: "task", entityId: projectId, after: { projectId, taskIds } as never });
 

@@ -54,6 +54,7 @@ export function ThemeProvider({ children, initialTheme, initialAccent }: {
       theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     root.classList.toggle("dark", isDark);
     root.classList.toggle("light", !isDark);
+    root.style.colorScheme = isDark ? "dark" : "light";
     localStorage.setItem("theme", theme);
   }, [theme, mounted]);
 

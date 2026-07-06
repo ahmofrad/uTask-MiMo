@@ -1933,7 +1933,82 @@ Empty state: "No tokens yet" + explanation + "Create your first token."
 Route: /[locale]/(app)/settings/sessions
 File: src/app/[locale]/(app)/settings/sessions/page.tsx
 
-List of active sessions (device, IP, location, last active, "this device" badge). Per-row "Sign out" + global "Sign out of all other sessions".
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────┐
+
+│ Active sessions                                  [ Sign out all ]│
+
+│ This is a list of devices currently signed in to your account. │
+
+├────────────────────────────────────────────────────────────────┤
+
+│ ✓ This device                                                  │
+
+│   💻 MacBook Pro · Safari 17                                   │
+
+│      Tehran, IR · 10.0.5.12                                    │
+
+│      Last active: just now                                     │
+
+│      Signed in: 3 hours ago                                    │
+
+│      [ Current device ]                                        │
+
+├────────────────────────────────────────────────────────────────┤
+
+│ Other sessions                                                 │
+
+│   💻 iPhone 15 · TaskApp iOS                                   │
+
+│      Tehran, IR · 10.0.5.45                                    │
+
+│      Last active: 25 minutes ago                               │
+
+│      Signed in: 2 days ago                                    │
+
+│      [ Sign out ]                                              │
+
+├────────────────────────────────────────────────────────────────┤
+
+│   💻 Windows 11 · Chrome 120                                   │
+
+│      Berlin, DE · 85.214.32.101                                │
+
+│      Last active: yesterday at 14:32                           │
+
+│      Signed in: 5 days ago                                    │
+
+│      [ Sign out ]                                              │
+
+├────────────────────────────────────────────────────────────────┤
+
+│   💻 Linux · Firefox 121                                       │
+
+│      Unknown location · 45.83.91.7                             │
+
+│      Last active: 12 days ago                                  │
+
+│      Signed in: 12 days ago                                    │
+
+│      [ Sign out ]                                              │
+
+└────────────────────────────────────────────────────────────────┘
+
+Header: "Sign out all" button ends every session except this one.
+
+Top section: "This device" highlighted with accent left border + "Current device" badge.
+
+Other sessions: each row shows device + browser icon, approximate location (city/country from IP), IP, last active (relative time), signed-in date.
+
+Per-row "Sign out" revokes that single session and emits Socket.IO disconnect.
+
+"Sign out all" confirms via destructive dialog ("Sign out of all other devices? You'll stay signed in here.") then revokes all other sessions.
+
+Suspicious-row UX: sessions from new locations or older than 30 days get a warning icon + "Review" hint.
+
+If a session's IP can't be geolocated (VPN, internal network): show "Unknown location" instead of guessing.
 
 7. Admin Screens
 Layout: src/app/[locale]/(app)/admin/layout.tsx — RBAC gate (requireRole('admin' | 'owner')) + admin sub-sidebar.
@@ -2026,7 +2101,203 @@ Row actions: View profile, Change role, Suspend/Activate, Force logout, Delete.
 Route: /[locale]/(app)/admin/users/[userId]
 File: src/app/[locale]/(app)/admin/users/[userId]/page.tsx
 
-Tabs: Profile · Roles · Sessions · Tasks · Audit · Settings.
+Header (sticky on scroll):
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────┐
+
+│ ← Users / Sara M.                                              │
+
+│                                                                  │
+
+│ [ Sara ]   Sara M.   sara@corp.com   Active                    │
+
+│   avatar   Joined: Nov 12, 2023   Last login: 2h ago           │
+
+│            Department: Engineering   Auth: Local + SAML        │
+
+│                                                                  │
+
+│  [ Change role ▾ ]  [ ⋯ More ▾ ]   Suspended: [ ☐ ]            │
+
+└────────────────────────────────────────────────────────────────┘
+
+Tabs:
+
+[ Profile ]  [ Roles (2) ]  [ Sessions (3) ]  [ Tasks (47) ]  [ Audit ]  [ Settings ]
+
+Tab bodies (rendered in the same content frame as the header):
+
+Profile tab:
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────┐
+
+│ Display name      [ Sara M.                              ]      │
+
+│ Email             [ sara@corp.com           ] (read-only)      │
+
+│ Time zone         [ Asia/Tehran                  ▾ ]           │
+
+│ Locale            [ فارسی (Persian) — Default    ▾ ]            │
+
+│ Theme             ( ● ) Light  ( ● ) Dark  ( ● ) System        │
+
+│ Accent            [ ● Blue ▾ ]                                  │
+
+│                                                                  │
+
+│ Connected identities                                            │
+
+│   • Local (sara@corp.com)                                       │
+
+│   • SAML (NameID: sara@corp.com, IdP: Acme Okta) [ Unlink ]     │
+
+│                                                                  │
+
+│   [ Send password reset email ]                                 │
+
+│                                                                  │
+
+│ [ Save ]                                                         │
+
+└────────────────────────────────────────────────────────────────┘
+
+Roles tab:
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────┐
+
+│ Global role                                                      │
+
+│   ( ● ) Admin                                                    │
+
+│   ( ● ) Manager                                                  │
+
+│   ( ● ) Member   ← current                                       │
+
+│   ( ● ) Guest                                                    │
+
+│                                                                  │
+
+│ Project-scoped overrides (2)                                     │
+
+│ ┌────────────────────────────────────────────────────────────┐  │
+
+│ │ Work                  Manager  Effective: Manager  [ ⋯ ]   │  │
+
+│ │ Engineering           Lead     Effective: Lead     [ ⋯ ]   │  │
+
+│ └────────────────────────────────────────────────────────────┘  │
+
+│ [ + Add project role ]                                          │
+
+└────────────────────────────────────────────────────────────────┘
+
+"Effective role" column shows the highest of (global, project-specific); highlighted in accent.
+
+⋯ menu per row: Change role, Remove override.
+
+Sessions tab: same component as /settings/sessions, scoped to this user, with a "Force logout" action.
+
+Tasks tab:
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────┐
+
+│ Tasks assigned to Sara (47)                                     │
+
+│ [Status ▾] [Project ▾]  [ Search ]                              │
+
+├────────────────────────────────────────────────────────────────┤
+
+│ ▣ [ ] Fix login bug                  Work · Open     Due Today │
+
+│ ▣ [ ] API integration plan           Work · Open     Tue       │
+
+│ ▣ [ ] Review PR #234                 Work · In Prog  Today     │
+
+│ ▣ [✓] Update deployment docs         Eng · Done      2d ago    │
+
+│  …                                                               │
+
+│                          [ Load more ]                          │
+
+└────────────────────────────────────────────────────────────────┘
+
+Same <TaskRow> UI as user-facing lists; click opens Task Detail sheet.
+
+Audit tab:
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────┐
+
+│ Audit log for Sara M.                       [ Export CSV ]    │
+
+│ [Date range ▾] [Action ▾] [Entity ▾]                            │
+
+├────────────────────────────────────────────────────────────────┤
+
+│ Dec 2, 14:32  updated    Task #234   status: Open → In Prog   │
+
+│ Dec 2, 14:30  created    Comment     on Task #234             │
+
+│ Dec 2, 14:25  login_success  Session  local                    │
+
+│ Dec 1, 09:10  assigned   Task #199   to Sara M.               │
+
+│  …                                                               │
+
+└────────────────────────────────────────────────────────────────┘
+
+Settings tab (admin overrides for this user — overrides user-level defaults):
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────┐
+
+│ Per-user overrides                                              │
+
+│   Email digest       [▣] Override user setting                  │
+
+│                      ( ● ) Instant    ( ● ) Daily               │
+
+│   Session timeout    [▣] Override install default               │
+
+│                      Idle: [ 30 ] min   Absolute: [ 12 ] h    │
+
+│   Force locale       [▢] Use install default                    │
+
+│                                                                  │
+
+│ [ Save overrides ]                                               │
+
+│                                                                  │
+
+│ Danger zone                                                      │
+
+│   [ Force logout everywhere ]                                   │
+
+│   [ Delete user ]   (only if user has no owned content)         │
+
+└────────────────────────────────────────────────────────────────┘
+
+⋯ menu in header: Resend invite (if status=invited), Reset password (sends email), Impersonate (Owner-only, audit-logged), Export user data (GDPR), Delete user.
+
+Status badge: Active / Suspended / Invited — colored accordingly.
+
+Suspended users can't log in; existing sessions for them are revoked immediately on toggle.
 
 7.4 Departments
 Route: /[locale]/(app)/admin/departments
@@ -2146,16 +2417,122 @@ See AUTH.md for full config schema.
 Route: /[locale]/(app)/admin/saml
 File: src/app/[locale]/(app)/admin/saml/page.tsx
 
-Similar to LDAP, with:
+text
 
+Copy
+┌────────────────────────────────────────────────────────────────┐
 
-"Upload IdP metadata XML" button — auto-fills entity ID, SSO URL, certificate.
+│ SAML 2.0 Single Sign-On    [ Upload IdP metadata XML ] [ ⋯ ]  │
 
-"Test login" button performs SAML round-trip with a test user.
+│                                       [ Test login ]            │
 
-Attribute mapping rows.
+├────────────────────────────────────────────────────────────────┤
 
-Signing/encryption algorithm selectors.
+│ ☑ Enabled                                                       │
+
+│                                                                  │
+
+│ Service Provider (us)                                            │
+
+│   Entity ID       [ https://taskapp.corp.example.com/saml/metadata ]│
+
+│   ACS URL         [ https://taskapp.corp.example.com/api/v1/auth/saml/callback ]│
+
+│   SLO URL         [ https://taskapp.corp.example.com/api/v1/auth/saml/slo   ]│
+
+│   [ Copy metadata XML ]  [ Copy Entity ID only ]                │
+
+│                                                                  │
+
+│ Identity Provider (them)                                         │
+
+│   Metadata URL    [ https://login.microsoftonline.com/.../federationmetadata ]│
+
+│                  [ Fetch metadata ]                             │
+
+│   Entity ID       [ https://sts.windows.net/...                ]│
+
+│   SSO URL         [ https://login.microsoftonline.com/.../saml2 ]│
+
+│   SLO URL         [ https://login.microsoftonline.com/.../saml2 ]│
+
+│   Certificate     [ -----BEGIN CERTIFICATE----- ... -----END   ]│
+
+│                  [ Upload .pem ]                                │
+
+│                                                                  │
+
+│ Name ID format                                                   │
+
+│   ( ● ) EmailAddress    ( ● ) Persistent    ( ● ) Transient    │
+
+│                                                                  │
+
+│ Attribute mapping                                                │
+
+│   email        → [ http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress ]│
+
+│   displayName  → [ http://schemas.microsoft.com/identity/claims/displayname         ]│
+
+│   role         → [ http://schemas.microsoft.com/ws/2008/06/identity/claims/role       ]│
+
+│   department   → [ http://schemas.xmlsoap.org/ws/2005/05/identity/claims/department   ]│
+
+│   [ + Add attribute ]                                            │
+
+│                                                                  │
+
+│ Role mapping                                                     │
+
+│   Admin role value       [ TaskApp.Admin                       ]│
+
+│   Manager role value     [ TaskApp.Manager                     ]│
+
+│   Member role value      [ TaskApp.Member                      ]│
+
+│   Default role           ( ● ) Member   ( ● ) Guest             │
+
+│                                                                  │
+
+│ Signing & encryption                                             │
+
+│   Want assertions signed    [▣]                                  │
+
+│   Want response signed      [▣]                                  │
+
+│   Signature algorithm       [ SHA-256 ▾ ] (SHA-1 / SHA-256 / SHA-512)│
+
+│   Digest algorithm          [ SHA-256 ▾ ] (SHA-1 / SHA-256 / SHA-512)│
+
+│   Encrypt assertions        [☐]                                  │
+
+│                                                                  │
+
+│ Advanced                                                         │
+
+│   Clock skew tolerance      [ 5 ] minutes                       │
+
+│   Reject unsigned AuthnReq  [▣]                                  │
+
+│   Allow IdP-initiated SSO   [▣]                                  │
+
+│                                                                  │
+
+│ [ Cancel ]                                    [ Save configuration ]│
+
+└────────────────────────────────────────────────────────────────┘
+
+"Upload IdP metadata XML" — opens file picker; on selection, parses XML and auto-fills entity ID, SSO/SLO URLs, certificate, and Name ID format. Shows preview dialog before commit.
+
+"Test login" — performs a metadata fetch + dry-run parse + SP-initiated AuthnRequest, returns the IdP redirect URL. Admin follows it in a new tab to verify the round-trip.
+
+"Fetch metadata" — pulls IdP metadata from a URL, refreshes the form fields.
+
+Live validation: certificate parsed on upload (expiry date shown); metadata URL checked for reachability.
+
+Help text under field for less obvious settings (e.g., "Clock skew tolerance: how much time difference is allowed between us and the IdP server.").
+
+All config changes audited with before/after diff.
 
 See AUTH.md §5.2 for full schema.
 
@@ -2208,7 +2585,90 @@ Copy
 Route: /[locale]/(app)/admin/storage
 File: src/app/[locale]/(app)/admin/storage/page.tsx
 
-S3 / MinIO connection settings: endpoint, bucket, region, access key, secret key. "Test connection" performs a head-bucket call.
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────┐
+
+│ Storage (attachments)             [Test connection]             │
+
+├────────────────────────────────────────────────────────────────┤
+
+│ Provider                                                          │
+
+│   ( ● ) S3-compatible (MinIO, AWS S3, Ceph, ...)                │
+
+│   ( ● ) Local filesystem (single-VM deploys only)               │
+
+│                                                                  │
+
+│ S3-compatible settings                                           │
+
+│   Endpoint          [ https://s3.corp.example.com             ] │
+
+│                     (leave empty for AWS default)               │
+
+│   Region            [ us-east-1                          ▾ ]   │
+
+│   Bucket            [ taskapp-attachments                  ]   │
+
+│   Access key        [ AKIA..................               ]   │
+
+│   Secret key        [ ●●●●●●●●●●                          ] 👁 │
+
+│   Path-style access [▣]  (required for MinIO; off for AWS S3)   │
+
+│   Force path-style  [☐]                                         │
+
+│   Server-side enc   [▣]  (SSE-S3 / SSE-KMS depending on bucket) │
+
+│                                                                  │
+
+│ Local filesystem settings (if Local selected)                   │
+
+│   Storage path      [ /var/lib/taskapp/attachments           ] │
+
+│   Max file size     [ 25 ] MB                                   │
+
+│                                                                  │
+
+│ Upload constraints (apply to both)                              │
+
+│   Max file size     [ 25 ] MB                                   │
+
+│   Allowed MIME      [ image/*, application/pdf, text/*        ] │
+
+│                     [ + Add type ]                              │
+
+│   Blocked extensions[ .exe, .bat, .cmd, .scr, .vbs          ] │
+
+│                                                                  │
+
+│ Health                                                           │
+
+│   Last test: 2 minutes ago · ✓ Bucket reachable                 │
+
+│   Bucket objects: 12,431 · Size: 4.2 GB                         │
+
+│   Last upload: 5 minutes ago by Sara M. (login-screenshot.png)  │
+
+│                                                                  │
+
+│ [ Cancel ]                                    [ Save configuration ]│
+
+└────────────────────────────────────────────────────────────────┘
+
+"Test connection" performs a head-bucket call (or `fs.stat` for local). Result: ✓ green banner + bucket info, or ✗ red banner + error reason ("Access denied", "Bucket not found", "Connection refused").
+
+Provider switcher shows the relevant subset of fields (S3 vs Local).
+
+Path-style access: required for MinIO and most S3-compatible stores; off for AWS S3 virtual-hosted style.
+
+Health panel pulls live metrics from `lib/storage/` (object count, total size, last upload timestamp).
+
+All config changes audited; secret key stored encrypted (AES-256-GCM with key from env).
+
+If "Server-side encryption" is enabled, SSE-S3 vs SSE-KMS choice appears as sub-toggle.
 
 7.9 Audit Log
 Route: /[locale]/(app)/admin/audit
@@ -2263,7 +2723,77 @@ Cursor pagination.
 Route: /[locale]/(app)/admin/tokens
 File: src/app/[locale]/(app)/admin/tokens/page.tsx
 
-Same table as /settings/tokens but shows ALL users' tokens, with owner column. Owner can revoke any token.
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────────┐
+
+│ API tokens (org-wide)    [ Search: name, owner ]  [Scope ▾] [Status ▾]│
+
+│ 142 active · 8 expired · 11 revoked this month                     │
+
+├────────────────────────────────────────────────────────────────────┤
+
+│ Token                Name              Owner          Scopes      Status│
+
+│ ────────────────────────────────────────────────────────────────────│
+
+│ tk_aB3x…           CI pipeline       👤 Sara M.     tasks:*    Active│
+
+│                     Created Dec 1                       Last used 1h│
+
+│                                                            [ ⋯ ]      │
+
+│                                                                      │
+
+│ tk_xZ9k…           Local dev         👤 Ali R.      tasks:read Active│
+
+│                     Created Nov 20                      Last used 3d│
+
+│                                                            [ ⋯ ]      │
+
+│                                                                      │
+
+│ tk_pL2m…           Zapier            👤 Reza K.     webhooks:manage│
+
+│                     Created Oct 15    Disabled   Expired Dec 1      │
+
+│                                                            [ ⋯ ]      │
+
+│                                                                      │
+
+│ tk_qR8n…           Staging bot       👤 system      tasks:write  Active│
+
+│                     Created Aug 3                       Last used 5m│
+
+│                                                            [ ⋯ ]      │
+
+│                                                                      │
+
+│  …                                                                  │
+
+│                                       [ Load more ]                │
+
+└────────────────────────────────────────────────────────────────────┘
+
+Filters: name/owner substring, scope (multi-select), status (active/expired/revoked/never-used).
+
+⋯ menu per row:
+- View details (read-only summary of scopes, IP allowlist, last 10 IPs)
+- Revoke (with destructive confirm; Owner-only)
+- Impersonate (V2 — log in as that token's owner for debugging; Owner-only)
+
+Header summary chips: active / expired / revoked-this-month counts (clickable to filter).
+
+Bulk select → bulk revoke (Owner-only).
+
+System tokens (owner shows as 👤 system) belong to background workers and are not revokable from this UI; surfaced for visibility only.
+
+"Created by" column hidden by default; toggled via column chooser (right-click header).
+
+Owner can revoke any user's token. Admin can revoke Member/Manager tokens only; Owner tokens require another Owner.
+
+Revocation triggers audit log entry `api_token_revoked` with `actorUserId` set to the admin performing the action.
 
 7.11 Webhooks
 Route: /[locale]/(app)/admin/webhooks
@@ -2387,18 +2917,173 @@ Copy
 Route: /[locale]/(app)/admin/webhooks/[webhookId]
 File: src/app/[locale]/(app)/admin/webhooks/[webhookId]/page.tsx
 
-Tabs: Overview · Deliveries · Settings.
+Page header (sticky):
 
-Overview:
+text
 
+Copy
+┌────────────────────────────────────────────────────────────────────┐
 
-Name, URL, events list, status toggle.
+│ ← Webhooks / Jira sync                                            │
 
-Stats: deliveries (24h / 7d / 30d), success rate, avg duration, last delivery.
+│ https://jira.corp.com/api/webhook/in      ● Healthy              │
 
-Health badge: Healthy / Degraded / Failing.
+│ [ Test send ]   [ Disable ]   [ ⋯ More ▾ ]                       │
 
-Deliveries: filtered list (see 7.14). Settings: edit form.
+└────────────────────────────────────────────────────────────────────┘
+
+Tabs: [ Overview ] [ Deliveries (124) ] [ Settings ]
+
+Overview tab:
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────────┐
+
+│ KPI cards                                                         │
+
+│ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐               │
+
+│ │ 124      │ │ 99.2%    │ │ 142 ms   │ │ 2 min ago │              │
+
+│ │ deliveries│ │ success  │ │ avg dur  │ │ last deliv│               │
+
+│ │ last 24h │ │ last 24h │ │ last 24h │ │           │               │
+
+│ └──────────┘ └──────────┘ └──────────┘ └──────────┘               │
+
+│                                                                    │
+
+│ ┌────────────────────────────┐ ┌──────────────────────────────┐  │
+
+│ │ Success rate (7d)          │ │ Recent deliveries            │  │
+
+│ │     ╱────╲                 │ │ ✓ 14:32  task.updated        │  │
+
+│ │   ╱       ╲╱────           │ │ ✓ 14:30  task.created        │  │
+
+│ │ ╱                           │ │ ✗ 14:25  task.assigned       │  │
+
+│ │                             │ │ ✓ 14:20  comment.created     │  │
+
+│ │ Mon Tue Wed Thu Fri Sat Sun │ │ ✓ 14:15  task.updated        │  │
+
+│ └────────────────────────────┘ └──────────────────────────────┘  │
+
+│                                                                    │
+
+│ Subscribed events (12)                                            │
+
+│   ✓ task.created      ✓ task.updated     ✓ task.deleted           │
+
+│   ✓ task.status_changed                                            │
+
+│   ✓ task.assigned     ✓ comment.created                            │
+
+│   ○ project.created    ○ project.updated                            │
+
+│   ○ user.created                                                     │
+
+│   ○ custom_field.updated                                              │
+
+│   [ Edit events ]                                                     │
+
+│                                                                    │
+
+│ Signing                                                             │
+
+│   Algorithm   HMAC-SHA-256                                          │
+
+│   Secret      whsec_aB3x9kZpL2mQ7nR4tY8wV... [Rotate]              │
+
+│   Last rotated  2024-11-15 by Sara M.                               │
+
+│   [ Copy verification example (Node.js) ]                            │
+
+│                                                                    │
+
+│ Activity                                                            │
+
+│   Created 2024-09-12 by Ali R.                                      │
+
+│   Updated 2024-11-15 by Sara M. (rotated secret)                    │
+
+│   [ View full audit log → ]                                         │
+
+└────────────────────────────────────────────────────────────────────┘
+
+Health badge:
+- Healthy: green dot, success rate > 99% over 24h, no dead-letter.
+- Degraded: amber dot, success rate 90–99% OR ≥ 3 consecutive failures.
+- Failing: red dot, ≥ 1 dead-letter in last 24h.
+
+Deliveries tab: reuses the §7.14 table filtered to this webhook, with a "Back to all webhooks" header link.
+
+Settings tab: same form as §7.12 Webhook Form, pre-populated. Includes Danger Zone at the bottom.
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────────┐
+
+│ Settings — Jira sync                                                │
+
+│                                                                    │
+
+│ Name           [ Jira sync                                    ]   │
+
+│ Description    [ Two-way sync with Jira issues                  ]  │
+
+│                                                                    │
+
+│ Target URL     [ https://jira.corp.com/api/webhook/in           ]  │
+
+│ Events         ☑ task.created                                       │
+
+│                ☑ task.updated                                       │
+
+│                ☑ task.deleted                                       │
+
+│                ☑ task.status_changed                                │
+
+│                ☑ task.assigned                                      │
+
+│                ☑ comment.created                                    │
+
+│                ☐ project.created                                    │
+
+│                ☐ project.updated                                    │
+
+│                ☐ user.created                                       │
+
+│                ☐ custom_field.updated                               │
+
+│ ☐ Disable SSL verification (not recommended)                         │
+
+│ Signing secret   rotated via [Rotate secret] above                  │
+
+│                                                                    │
+
+│ [ Cancel ]                                              [ Save ]   │
+
+│                                                                    │
+
+│ ──── Danger zone ────                                              │
+
+│                                                                    │
+
+│ [ Disable webhook ]   [ Delete webhook ]                            │
+
+└────────────────────────────────────────────────────────────────────┘
+
+⋯ menu (header): Rotate signing secret (with confirm + show-once), Copy webhook ID, Export deliveries CSV (last 30 days), Delete.
+
+When rotated: new secret shown once with same copy/confirm flow as create (§7.12); existing receivers keep failing until they update.
+
+"Test send" sends a synthetic `webhook.ping` event (not on the subscribed list, so receivers can filter it out). Result: toast with status, response code, latency, and a "View delivery" link.
+
+All events fire `webhook.updated` audit log entries (admin-only actor field).
 
 7.14 Webhook Deliveries
 Route: /[locale]/(app)/admin/webhook-deliveries
@@ -2494,18 +3179,339 @@ Copy
 Route: /[locale]/(app)/admin/settings
 File: src/app/[locale]/(app)/admin/settings/page.tsx
 
-Sections:
+Sticky in-page sub-nav (left side of the admin shell):
 
+[ General ]  [ Security ]  [ Features ]  [ Branding ]  [ Webhooks system ]  [ License ]
 
-General: site name, logo upload, default locale, default accent, default density.
+General tab:
 
-Security: session timeout (idle + absolute), password policy (min length, complexity, expiry), max concurrent sessions per user.
+text
 
-Features: enable/disable webhooks per install, enable/disable API tokens per install, enable/disable custom fields per install.
+Copy
+┌────────────────────────────────────────────────────────────────────┐
 
-Webhooks (system): rotate the WEBHOOK_SECRET_ENCRYPTION_KEY (re-encrypts all secrets).
+│ Organization settings                                              │
 
-License: license key input (if applicable).
+├────────────────────────────────────────────────────────────────────┤
+
+│ Site name         [ Acme Corp TaskApp                           ] │
+
+│ Site URL          [ https://taskapp.corp.example.com            ] │
+
+│ Default locale    ( ● ) فارسی (Persian)    ( ● ) English             │
+
+│ Default accent    [ ● Blue ▾ ]                                      │
+
+│ Default theme     ( ● ) Light    ( ● ) Dark    ( ● ) System         │
+
+│ Default density   ( ● ) Compact  ( ● ) Comfortable ( ● ) Spacious    │
+
+│ First day of week ( ● ) Saturday  ( ● ) Sunday    ( ● ) Monday       │
+
+│ Default time zone [ Asia/Tehran                                ▾ ] │
+
+│ Support email     [ support@corp.example.com                    ] │
+
+│                                                                    │
+
+│ [ Cancel ]                                              [ Save ]   │
+
+└────────────────────────────────────────────────────────────────────┘
+
+Security tab:
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────────┐
+
+│ Session policy                                                     │
+
+│   Idle timeout              [ 30 ] minutes                         │
+
+│   Absolute timeout          [ 12 ] hours                           │
+
+│   Max concurrent sessions   [ 5 ] per user                         │
+
+│   Re-auth for sensitive ops [▣] (delete project, rotate secret…)   │
+
+│                                                                    │
+
+│ Password policy (local auth)                                       │
+
+│   Minimum length         [ 12 ]                                     │
+
+│   Require uppercase      [▣]                                       │
+
+│   Require number         [▣]                                       │
+
+│   Require symbol         [☐]                                       │
+
+│   Password expiry        [ Never expire ▾ ]  (30/90/180/365 days)  │
+
+│   Disallow reuse         [ 5 ] previous passwords                  │
+
+│                                                                    │
+
+│ Login protection                                                    │
+
+│   Local auth enabled     [▣]                                       │
+
+│   Max failed attempts    [ 5 ] per 15 min per user                 │
+
+│   Auto-suspend on brute  [▣] after [ 10 ] failures                  │
+
+│                                                                    │
+
+│ TLS & cookies                                                      │
+
+│   Force HTTPS            [▣]                                       │
+
+│   HSTS                   [▣]   max-age [ 31536000 ]   preload [▣]  │
+
+│   SameSite               [ Lax ▾ ]                                 │
+
+│   Secure cookies         [▣]                                       │
+
+│                                                                    │
+
+│ Audit                                                               │
+
+│   Retention              [ 2 ] years  (1 / 2 / 5 / custom)         │
+
+│   Include reads          [☐]   (audit writes only by default)       │
+
+│   [ Purge audit log now ]   [ Export full audit log ]               │
+
+│                                                                    │
+
+│ [ Cancel ]                                              [ Save ]   │
+
+└────────────────────────────────────────────────────────────────────┘
+
+Features tab:
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────────┐
+
+│ Per-installation feature toggles                                    │
+
+│                                                                    │
+
+│ Webhooks                                                           │
+
+│   ☑ Enabled                                                        │
+
+│   ☐ Allow external (non-corp) targets   (SSRF-style allowlist)      │
+
+│   Egress allowlist (CIDR)                                                │
+
+│     [ 10.0.0.0/8                                       ] [ + Add ]  │
+
+│     [ 172.16.0.0/12                                     ] [ + Add ]  │
+
+│     [ 192.168.0.0/16                                    ] [ + Add ]  │
+
+│   Max deliveries per webhook          [ 6 ] attempts                │
+
+│   Dead-letter retention               [ 30 ] days                   │
+
+│                                                                    │
+
+│ Public REST API                                                     │
+
+│   ☑ Enabled                                                        │
+
+│   Max requests per token              [ 60 ] / minute               │
+
+│   Max requests per user (aggregate)   [ 600 ] / minute              │
+
+│   Default token expiry                [ Never ▾ ]                   │
+
+│   OpenAPI docs public                 [☐]  (default: admin-only)    │
+
+│                                                                    │
+
+│ Custom fields                                                       │
+
+│   ☑ Enabled                                                        │
+
+│   Max fields per project              [ 50 ]                        │
+
+│   Max select options                  [ 200 ]                       │
+
+│                                                                    │
+
+│ Realtime (Socket.IO)                                                │
+
+│   ☑ Enabled                                                        │
+
+│   Presence indicators                 [▣]                           │
+
+│   Max connections per user            [ 5 ]                         │
+
+│                                                                    │
+
+│ Other                                                               │
+
+│   Comments                            [▣]                           │
+
+│   Attachments                         [▣]                           │
+
+│   Subtasks (depth 2)                  [▣]                           │
+
+│   Daily email digest                  [▣]                           │
+
+│                                                                    │
+
+│ [ Cancel ]                                              [ Save ]   │
+
+└────────────────────────────────────────────────────────────────────┘
+
+Branding tab:
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────────┐
+
+│ Brand                                                              │
+
+│                                                                    │
+
+│ Logo                                                                 │
+
+│   [ Drop SVG here or click to upload ]                              │
+
+│   Current: [ taskapp-logo-light.svg ] [ taskapp-logo-dark.svg ]    │
+
+│   Favicon  [ Drop .png/.ico here ]                                  │
+
+│   Wordmark [ TaskApp                                  ]            │
+
+│   Tagline (fa-IR) [ کارهای تیم را ساده کنید.                  ]    │
+
+│   Tagline (en-US) [ Make team work feel light.              ]     │
+
+│                                                                    │
+
+│ Login screen background                                              │
+
+│   ( ● ) Soft gradient (default)    ( ● ) Solid color                 │
+
+│   ( ● ) Uploaded image                                                  │
+
+│   Color [ #fafafa ]  Image [ drop here ]                              │
+
+│                                                                    │
+
+│ Email branding                                                       │
+
+│   Header logo   [ Drop SVG ]                                        │
+
+│   Footer text   [ © 2024 Acme Corp · TaskApp                     ] │
+
+│   Primary color [ #1d4ed8 ]                                           │
+
+│                                                                    │
+
+│ [ Cancel ]                                              [ Save ]   │
+
+└────────────────────────────────────────────────────────────────────┘
+
+Webhooks system tab:
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────────┐
+
+│ Webhook secret encryption                                           │
+
+│   Current key fingerprint  [ sha256:aB3x9kZpL2mQ7nR4tY8wV...       ] │
+
+│   Created                 [ 2024-09-12 ]                            │
+
+│   Last rotated            [ never ]                                 │
+
+│   [ Rotate encryption key ]                                          │
+
+│                                                                    │
+
+│ ⚠ Rotating this key requires re-encrypting every stored webhook     │
+
+│   signing secret. Receivers will not see any change, but if the    │
+
+│   rotation fails midway, secrets become unrecoverable. Make sure   │
+
+│   you have a recent backup before rotating.                         │
+
+│                                                                    │
+
+│ Rate limits (per webhook)                                            │
+
+│   Sustained RPS          [ 10 ] / second per webhook               │
+
+│   Burst                  [ 30 ] / second per webhook               │
+
+│                                                                    │
+
+│ Delivery client                                                      │
+
+│   HTTP timeout           [ 10 ] seconds                            │
+
+│   Max redirect hops      [ 0 ]   (0 = no redirect following)        │
+
+│   TLS verification       [▣]                                       │
+
+└────────────────────────────────────────────────────────────────────┘
+
+License tab:
+
+text
+
+Copy
+┌────────────────────────────────────────────────────────────────────┐
+
+│ License                                                             │
+
+│   License key     [                              ] [ Activate ]   │
+
+│                                                                    │
+
+│   Current license                                               │
+
+│     Plan          [ Enterprise ]                                    │
+
+│     Seats          500 / 500   (250 active)                         │
+
+│     Issued to      Acme Corp                                        │
+
+│     Issued at      2024-09-01                                       │
+
+│     Expires        2026-09-01   (in 14 months)                      │
+
+│     [ Download license certificate (PDF) ]                           │
+
+│                                                                    │
+
+│   Telemetry                                                          │
+
+│     [▣] Send anonymous usage stats    (off by default; on = helps  │
+
+│                                          improve the product; no PII│
+
+│                                          ever sent)                  │
+
+└────────────────────────────────────────────────────────────────────┘
+
+Each tab saves independently; "Cancel" reverts only that tab's in-progress changes.
+
+"Save" triggers a confirmation modal if changes affect active users (e.g., shortening session timeout) so the admin can warn the team first.
+
+All settings changes audited; rotating the webhook encryption key triggers an `webhook_encryption_key_rotated` event with the new fingerprint but no secret material.
 
 8. Dashboards
 8.1 My Dashboard
@@ -2892,6 +3898,6 @@ RTL layout: components use logical CSS properties only.
 
 All inputs have dir="auto" so RTL/LTR mixed content (e.g., email in Persian sentence) renders correctly.
 
-Last updated: kickoff v0.3
+Last updated: v0.4 — completed wireframes for §6.6, §7.3, §7.6, §7.8, §7.10, §7.13, §7.16
 Next review: end of Phase 9 (design system implementation)
 

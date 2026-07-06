@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 type Result = {
   id: string;
@@ -10,6 +11,7 @@ type Result = {
 };
 
 export function QuickAddPalette() {
+  const t = useTranslations("search");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
@@ -89,7 +91,7 @@ export function QuickAddPalette() {
             setSelectedIdx(0);
           }}
           onKeyDown={handleKeyDown}
-          placeholder="Search tasks and projects…"
+          placeholder={t("searchInput")}
           className="w-full px-4 py-3 text-sm bg-transparent text-fg-primary border-b border-border-primary outline-none placeholder:text-fg-tertiary"
         />
         {results.length > 0 && (
@@ -111,10 +113,10 @@ export function QuickAddPalette() {
           </ul>
         )}
         {query && results.length === 0 && (
-          <p className="px-4 py-3 text-sm text-fg-tertiary text-center">No results</p>
+          <p className="px-4 py-3 text-sm text-fg-tertiary text-center">{t("noResults")}</p>
         )}
         <div className="px-4 py-2 text-xs text-fg-tertiary border-t border-border-primary flex justify-between">
-          <span>↑↓ navigate · Enter open · Esc close</span>
+          <span>{t("keyboardHint")}</span>
           <span className="font-mono">⌘K</span>
         </div>
       </div>

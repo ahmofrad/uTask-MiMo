@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/cn";
+import { useTranslations } from "next-intl";
 
 type TaskQuickAddProps = {
   open: boolean;
@@ -11,6 +12,7 @@ type TaskQuickAddProps = {
 };
 
 export function TaskQuickAdd({ open, onClose, projectId, onCreated }: TaskQuickAddProps) {
+  const t = useTranslations();
   const [title, setTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -62,7 +64,7 @@ export function TaskQuickAdd({ open, onClose, projectId, onCreated }: TaskQuickA
             ref={inputRef}
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="What needs to be done?"
+            placeholder={t("task.create")}
             className={cn(
               "w-full bg-transparent text-base text-fg placeholder:text-fg-subtle",
               "outline-none border-none",
@@ -71,14 +73,14 @@ export function TaskQuickAdd({ open, onClose, projectId, onCreated }: TaskQuickA
           />
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
             <span className="text-xs text-fg-subtle">
-              Press Enter to create, Esc to cancel
+              {t("search.hint")}
             </span>
             <button
               type="submit"
               disabled={!title.trim() || saving}
               className="px-3 py-1 text-sm font-medium bg-accent text-fg-inverse rounded-md hover:opacity-90 disabled:opacity-50"
             >
-              {saving ? "Creating..." : "Create"}
+              {saving ? t("common.loading") : t("common.create")}
             </button>
           </div>
         </form>

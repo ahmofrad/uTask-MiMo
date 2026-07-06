@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
+import { suspendUser, restoreUser } from "@/lib/users";
 
 export async function POST(
   _request: Request,
@@ -28,10 +29,11 @@ export async function POST(
 
   const newStatus = user.status === "suspended" ? "active" : "suspended";
 
-  await prisma.user.update({
-    where: { id: params.id },
-    data: { status: newStatus },
-  });
+  if (newStatus === "suspended") {
+    await suspendUser(params.id);
+  } else {
+    await restoreUser(params.id);
+  }
 
   await logAudit({ actorUserId: session.user.id, action: newStatus === "suspended" ? "user_suspended" : "user_unsuspended", entityType: "user", entityId: params.id, before: user as never });
 

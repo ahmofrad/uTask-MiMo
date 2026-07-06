@@ -1,9 +1,9 @@
-import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
+import { listProjects, createProject } from "@/lib/projects";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -17,30 +17,14 @@ export async function GET(request: Request) {
   const departmentId = searchParams.get("departmentId");
   const status = searchParams.get("status");
 
-  const where: Record<string, unknown> = {};
-  if (departmentId) where.departmentId = departmentId;
-  if (status) where.status = status;
-  where.archivedAt = null;
-
-  const projects = await prisma.project.findMany({
-    where,
-    take: limit + 1,
-    skip: cursor ? 1 : 0,
-    ...(cursor ? { cursor: { id: cursor } } : {}),
-    orderBy: { createdAt: "desc" },
-    include: {
-      _count: { select: { tasks: true, members: true } },
-    },
+  const result = await listProjects({
+    limit,
+    ...(cursor ? { cursor } : {}),
+    ...(departmentId ? { departmentId } : {}),
+    ...(status ? { status } : {}),
   });
 
-  const hasMore = projects.length > limit;
-  if (hasMore) projects.pop();
-  const lastItem = projects[projects.length - 1];
-
-  return NextResponse.json({
-    data: projects,
-    meta: { nextCursor: hasMore && lastItem ? lastItem.id : null, hasMore },
-  });
+  return NextResponse.json(result);
 }
 
 export async function POST(request: Request) {
@@ -61,24 +45,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Name is required" } }, { status: 400 });
   }
 
-  const project = await prisma.project.create({
-    data: {
-      name,
-      description: description ?? null,
-      color: color ?? "#2563eb",
-      ownerId: session.user.id,
-      departmentId: departmentId ?? null,
-      visibility: (visibility as never) ?? "private",
-    },
-  });
-
-  await prisma.projectMember.create({
-    data: {
-      projectId: project.id,
-      userId: session.user.id,
-      projectRole: "lead",
-      addedBy: session.user.id,
-    },
+  const project = await createProject({
+    name,
+    description: description ?? null,
+    ownerId: session.user.id,
+    departmentId: departmentId ?? null,
+    ...(color ? { color } : {}),
+    ...(visibility ? { visibility: visibility as never } : {}),
   });
 
   await logAudit({ actorUserId: session.user.id, action: "project_created", entityType: "project", entityId: project.id, after: project as never });

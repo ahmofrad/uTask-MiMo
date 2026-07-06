@@ -1,12 +1,12 @@
-import crypto from "crypto";
+import { sha256, randomBytes } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
 
 const TOKEN_PREFIX = "tk_";
 
 export function generateToken(): { raw: string; hash: string; prefix: string } {
-  const randomBytes = crypto.randomBytes(32);
-  const raw = TOKEN_PREFIX + randomBytes.toString("base64url");
-  const hash = crypto.createHash("sha256").update(raw).digest("hex");
+  const bytes = randomBytes(32);
+  const raw = TOKEN_PREFIX + bytes.toString("base64url");
+  const hash = sha256(raw);
   const prefix = TOKEN_PREFIX + raw.slice(3, 7);
   return { raw, hash, prefix };
 }
@@ -41,7 +41,7 @@ export async function revokeApiToken(tokenId: string, userId: string) {
 }
 
 export async function lookupToken(rawToken: string) {
-  const hash = crypto.createHash("sha256").update(rawToken).digest("hex");
+  const hash = sha256(rawToken);
 
   const token = await prisma.apiToken.findUnique({
     where: { hashedToken: hash },

@@ -54,7 +54,7 @@ export function validateFieldValue(
     }
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return { valid: false, error: err.errors[0]?.message ?? "Invalid value" };
+      return { valid: false, error: err.issues[0]?.message ?? "Invalid value" };
     }
     return { valid: false, error: "Invalid value" };
   }

@@ -45,6 +45,7 @@ const config: Config = {
         },
         border: {
           DEFAULT: "var(--border)",
+          primary: "var(--border)",
           strong: "var(--border-strong)",
         },
         input: "var(--input)",
@@ -61,14 +62,17 @@ const config: Config = {
         },
         bg: {
           app: "var(--bg-app)",
+          primary: "var(--bg-app)",
           surface: "var(--bg-surface)",
           "surface-2": "var(--bg-surface-2)",
           "surface-3": "var(--bg-surface-3)",
         },
         fg: {
           DEFAULT: "var(--fg)",
+          primary: "var(--fg)",
           muted: "var(--fg-muted)",
           subtle: "var(--fg-subtle)",
+          tertiary: "var(--fg-subtle)",
           inverse: "var(--fg-inverse)",
         },
         success: {

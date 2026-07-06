@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 import { can } from "@/lib/rbac/can";
+import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 
 export default async function AuditLogPage() {
@@ -10,6 +11,8 @@ export default async function AuditLogPage() {
 
   const allowed = await can(session.user.id, "audit:view");
   if (!allowed) redirect("/");
+
+  const t = await getTranslations("audit");
 
   const logs = await prisma.auditLog.findMany({
     take: 100,
@@ -22,19 +25,19 @@ export default async function AuditLogPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">Audit Log</h1>
-        <p className="text-sm text-fg-tertiary">Last 100 events</p>
+        <h1 className="text-2xl font-bold text-fg-primary">{t("title")}</h1>
+        <p className="text-sm text-fg-tertiary">{t("last100")}</p>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border-primary">
-              <th className="text-start p-2 text-fg-secondary">Time</th>
-              <th className="text-start p-2 text-fg-secondary">Actor</th>
-              <th className="text-start p-2 text-fg-secondary">Action</th>
-              <th className="text-start p-2 text-fg-secondary">Entity</th>
-              <th className="text-start p-2 text-fg-secondary">ID</th>
+              <th className="text-start p-2 text-fg-secondary">{t("time")}</th>
+              <th className="text-start p-2 text-fg-secondary">{t("actor")}</th>
+              <th className="text-start p-2 text-fg-secondary">{t("action")}</th>
+              <th className="text-start p-2 text-fg-secondary">{t("entity")}</th>
+              <th className="text-start p-2 text-fg-secondary">{t("id")}</th>
             </tr>
           </thead>
           <tbody>
@@ -58,7 +61,7 @@ export default async function AuditLogPage() {
             {logs.length === 0 && (
               <tr>
                 <td colSpan={5} className="p-4 text-center text-fg-tertiary">
-                  No audit log entries yet.
+                  {t("empty")}
                 </td>
               </tr>
             )}
@@ -68,7 +71,7 @@ export default async function AuditLogPage() {
 
       <div className="text-sm text-fg-tertiary">
         <Link href="/api/v1/audit-log" className="text-accent hover:underline">
-          API endpoint →
+          {t("apiEndpoint")}
         </Link>
       </div>
     </div>

@@ -1,4 +1,8 @@
+"use client";
+
+import { useLocale } from "next-intl";
 import { cn } from "@/lib/cn";
+import { formatDate, type Locale } from "@/lib/date/format";
 
 type DueDateChipProps = {
   dueDate: string | null;
@@ -7,6 +11,7 @@ type DueDateChipProps = {
 };
 
 export function DueDateChip({ dueDate, isCompleted, className }: DueDateChipProps) {
+  const locale = useLocale() as Locale;
   if (!dueDate) return null;
 
   const date = new Date(dueDate);
@@ -25,7 +30,7 @@ export function DueDateChip({ dueDate, isCompleted, className }: DueDateChipProp
         className,
       )}
     >
-      {date.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+      {formatDate(date, locale)}
     </span>
   );
 }

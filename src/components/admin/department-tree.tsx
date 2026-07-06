@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 type Department = {
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function DepartmentTree({ departments: initial }: Props) {
+  const t = useTranslations("admin");
   const [departments, setDepartments] = useState(initial);
   const [newName, setNewName] = useState("");
 
@@ -46,11 +48,11 @@ export function DepartmentTree({ departments: initial }: Props) {
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="New department name"
+          placeholder={t("newDepartment")}
           className="flex-1 px-3 py-2 border border-border-primary rounded-md bg-bg-primary text-fg-primary"
           onKeyDown={(e) => e.key === "Enter" && addDepartment()}
         />
-        <Button onClick={addDepartment}>Add</Button>
+        <Button onClick={addDepartment}>{t("add")}</Button>
       </div>
       <div className="space-y-2">
         {departments.map((dept) => (
@@ -61,21 +63,21 @@ export function DepartmentTree({ departments: initial }: Props) {
             <div>
               <span className="text-fg-primary font-medium">{dept.name}</span>
               <span className="ms-3 text-sm text-fg-secondary">
-                {dept._count.projects} projects
+                {t("projectsCount", { count: dept._count.projects })}
               </span>
               {dept.managerUserId && (
                 <span className="ms-3 text-sm text-fg-tertiary">
-                  Manager: {dept.managerUserId}
+                  {t("manager")}: {dept.managerUserId}
                 </span>
               )}
             </div>
             <Button variant="ghost" size="sm" onClick={() => removeDepartment(dept.id)}>
-              Delete
+              {t("delete")}
             </Button>
           </div>
         ))}
         {departments.length === 0 && (
-          <p className="text-fg-tertiary text-sm">No departments yet.</p>
+          <p className="text-fg-tertiary text-sm">{t("noDepartments")}</p>
         )}
       </div>
     </div>

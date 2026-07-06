@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
+import { getSettings, updateSettings } from "@/lib/settings";
 
 export async function GET() {
   const session = await auth();
@@ -13,14 +13,7 @@ export async function GET() {
     );
   }
 
-  const settings = await prisma.settings.findMany({
-    where: { scope: "user", scopeId: session.user.id },
-  });
-
-  const map: Record<string, unknown> = {};
-  for (const s of settings) {
-    map[s.key] = s.valueJson;
-  }
+  const map = await getSettings("user", session.user.id);
 
   return NextResponse.json({ data: map });
 }
@@ -44,13 +37,7 @@ export async function PATCH(request: Request) {
 
   const body = await request.json() as Record<string, unknown>;
 
-  for (const [key, value] of Object.entries(body)) {
-    await prisma.settings.upsert({
-      where: { scope_scopeId_key: { scope: "user", scopeId: session.user.id, key } },
-      update: { valueJson: value as never },
-      create: { scope: "user", scopeId: session.user.id, key, valueJson: value as never },
-    });
-  }
+  await updateSettings("user", session.user.id, body);
 
   await logAudit({ actorUserId: session.user.id, action: "settings_updated", entityType: "settings", entityId: session.user.id, after: body as never });
 

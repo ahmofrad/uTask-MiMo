@@ -77,5 +77,25 @@
 
   html {
     @apply font-sans;
+    overflow-x: hidden;
   }
+
+  /* Fix native form elements in dark mode */
+  .dark {
+    color-scheme: dark;
+  }
+
+  .dark input,
+  .dark select,
+  .dark textarea {
+    color-scheme: dark;
+  }
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

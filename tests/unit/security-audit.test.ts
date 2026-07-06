@@ -291,26 +291,22 @@ describe("security headers", () => {
 // 6. Departments use soft-delete
 // =====================================================
 describe("departments use soft-delete", () => {
-  const deptDeleteFile = path.resolve(
+  const deptWrapperFile = path.resolve(
     process.cwd(),
-    "src/app/api/v1/departments/[id]/route.ts",
+    "src/lib/departments/index.ts",
   );
 
-  test("departments [id]/route.ts DELETE uses update with deletedAt instead of prisma.delete", () => {
-    const content = readFile(deptDeleteFile);
-    const fns = extractExportedFns(content);
-    const deleteFn = fns.find((fn) => fn.method === "DELETE");
-    expect(deleteFn).toBeDefined();
-    if (!deleteFn) return;
+  test("departments domain wrapper uses update with deletedAt instead of prisma.delete", () => {
+    const content = readFile(deptWrapperFile);
 
-    const hasSoftDelete = SOFT_DELETE_RE.test(deleteFn.body);
-    const hasHardDelete = PRISMA_DELETE_DIRECT_RE.test(deleteFn.body);
+    const hasSoftDelete = SOFT_DELETE_RE.test(content);
+    const hasHardDelete = PRISMA_DELETE_DIRECT_RE.test(content);
 
     expect(
-      { file: "departments/[id]/route.ts", method: "DELETE" },
+      { file: "lib/departments/index.ts", method: "deleteDepartment" },
     ).toSatisfy(() => hasSoftDelete);
     expect(
-      { file: "departments/[id]/route.ts", method: "DELETE" },
+      { file: "lib/departments/index.ts", method: "deleteDepartment" },
     ).toSatisfy(() => !hasHardDelete);
   });
 });

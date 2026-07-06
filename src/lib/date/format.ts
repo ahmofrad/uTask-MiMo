@@ -13,12 +13,12 @@ export function formatDate(
   calendar: Calendar = "jalali",
 ): string {
   if (locale === "fa-IR" && calendar === "jalali") {
-    return formatJalali(date, "PPP", { locale: faIRJalali });
+    return formatJalali(date, "d MMMM yyyy", { locale: faIRJalali });
   }
   if (locale === "fa-IR" && calendar === "gregorian") {
-    return formatGregorian(date, "PPP", { locale: faIRGregorian });
+    return formatGregorian(date, "d MMMM yyyy", { locale: faIRGregorian });
   }
-  return formatGregorian(date, "PPP", { locale: enUS });
+  return formatGregorian(date, "d MMMM yyyy", { locale: enUS });
 }
 
 export function formatDateTime(
@@ -26,14 +26,13 @@ export function formatDateTime(
   locale: Locale,
   calendar: Calendar = "jalali",
 ): string {
-  const datePattern = locale === "fa-IR" ? "PPP p" : "MMM d, yyyy, h:mm a";
   if (locale === "fa-IR" && calendar === "jalali") {
-    return formatJalali(date, datePattern, { locale: faIRJalali });
+    return formatJalali(date, "d MMMM yyyy, HH:mm", { locale: faIRJalali });
   }
   if (locale === "fa-IR" && calendar === "gregorian") {
-    return formatGregorian(date, datePattern, { locale: faIRGregorian });
+    return formatGregorian(date, "d MMMM yyyy, HH:mm", { locale: faIRGregorian });
   }
-  return formatGregorian(date, datePattern, { locale: enUS });
+  return formatGregorian(date, "MMM d, yyyy, HH:mm", { locale: enUS });
 }
 
 export function formatRelative(

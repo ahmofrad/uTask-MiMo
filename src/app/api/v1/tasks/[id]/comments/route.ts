@@ -1,9 +1,10 @@
-import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
+import { getTaskComments, createComment } from "@/lib/comments";
+import { ensureWatcher } from "@/lib/watchers";
 
 export async function GET(
   _request: Request,
@@ -14,20 +15,7 @@ export async function GET(
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
   }
 
-  const comments = await prisma.comment.findMany({
-    where: { taskId: params.id, deletedAt: null },
-    orderBy: { createdAt: "asc" },
-    include: {
-      author: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
-      replies: {
-        where: { deletedAt: null },
-        orderBy: { createdAt: "asc" },
-        include: {
-          author: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
-        },
-      },
-    },
-  });
+  const comments = await getTaskComments(params.id);
 
   return NextResponse.json({ data: comments });
 }
@@ -56,19 +44,17 @@ export async function POST(
     );
   }
 
-  const comment = await prisma.comment.create({
-    data: {
-      taskId: params.id,
-      authorId: session.user.id,
-      bodyMarkdown,
-      parentCommentId: parentCommentId ?? null,
-    },
-    include: {
-      author: { select: { id: true, displayName: true, email: true } },
-    },
+  const comment = await createComment({
+    taskId: params.id,
+    authorId: session.user.id,
+    bodyMarkdown,
+    parentCommentId: parentCommentId ?? null,
   });
 
   await logAudit({ actorUserId: session.user.id, action: "comment_created", entityType: "comment", entityId: comment.id, after: comment as never });
+
+  // Auto-watch on comment
+  await ensureWatcher(params.id, session.user.id);
 
   await emitTaskEvent("comment.created", params.id, { id: comment.id, taskId: params.id, bodyMarkdown: comment.bodyMarkdown }, session.user.id);
 

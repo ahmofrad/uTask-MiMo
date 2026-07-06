@@ -1,9 +1,9 @@
-import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
+import { listUsers, createUser } from "@/lib/users";
+import { prisma } from "@/lib/db";
 import type { AuditAction } from "@prisma/client";
 
 export async function GET(request: Request) {
@@ -18,52 +18,16 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
-  const status = searchParams.get("status");
-  const roleFilter = searchParams.get("role");
 
-  const where: Record<string, unknown> = {};
-  if (status) where.status = status;
-  if (roleFilter) {
-    where.roles = { some: { type: roleFilter, scopeType: "global" } };
-  }
-
-  const users = await prisma.user.findMany({
-    where,
-    take: limit + 1,
-    skip: cursor ? 1 : 0,
-    ...(cursor ? { cursor: { id: cursor } } : {}),
-    orderBy: { createdAt: "desc" },
-    select: {
-      id: true,
-      email: true,
-      displayName: true,
-      avatarUrl: true,
-      locale: true,
-      accentColor: true,
-      theme: true,
-      status: true,
-      lastLoginAt: true,
-      createdAt: true,
-      roles: {
-        where: { scopeType: "global" },
-        select: { type: true },
-      },
-    },
+  const result = await listUsers({
+    ...(searchParams.get("cursor") ? { cursor: searchParams.get("cursor")! } : {}),
+    limit,
+    ...(searchParams.get("status") ? { status: searchParams.get("status")! } : {}),
+    ...(searchParams.get("role") ? { role: searchParams.get("role")! } : {}),
   });
 
-  const hasMore = users.length > limit;
-  if (hasMore) users.pop();
-  const lastItem = users[users.length - 1];
-
-  return NextResponse.json({
-    data: users,
-    meta: {
-      nextCursor: hasMore && lastItem ? lastItem.id : null,
-      hasMore,
-    },
-  });
+  return NextResponse.json(result);
 }
 
 export async function POST(request: Request) {
@@ -100,15 +64,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const passwordHash = password ? await bcrypt.hash(password, 12) : null;
-
-  const user = await prisma.user.create({
-    data: {
-      email,
-      displayName,
-      passwordHash,
-      status: password ? "active" : "invited",
-    },
+  const user = await createUser({
+    email,
+    displayName,
+    ...(password ? { password } : {}),
   });
 
   if (role) {

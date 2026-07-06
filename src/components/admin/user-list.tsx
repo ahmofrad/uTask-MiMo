@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
 type UserWithRole = {
@@ -22,6 +23,7 @@ function getRole(roles: { type: string }[]): string {
 }
 
 export function AdminUserList({ users }: Props) {
+  const t = useTranslations("admin");
   const [list, setList] = useState(users);
 
   async function toggleSuspend(userId: string, currentStatus: string) {
@@ -42,11 +44,11 @@ export function AdminUserList({ users }: Props) {
       <table className="w-full text-sm">
         <thead className="bg-bg-secondary text-fg-secondary">
           <tr>
-            <th className="text-start ps-4 pe-4 py-3 font-medium">Name</th>
-            <th className="text-start ps-4 pe-4 py-3 font-medium">Email</th>
-            <th className="text-start ps-4 pe-4 py-3 font-medium">Role</th>
-            <th className="text-start ps-4 pe-4 py-3 font-medium">Status</th>
-            <th className="text-start ps-4 pe-4 py-3 font-medium">Actions</th>
+            <th className="text-start ps-4 pe-4 py-3 font-medium">{t("name")}</th>
+            <th className="text-start ps-4 pe-4 py-3 font-medium">{t("email")}</th>
+            <th className="text-start ps-4 pe-4 py-3 font-medium">{t("role")}</th>
+            <th className="text-start ps-4 pe-4 py-3 font-medium">{t("status")}</th>
+            <th className="text-start ps-4 pe-4 py-3 font-medium">{t("actions")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border-primary">
@@ -78,7 +80,7 @@ export function AdminUserList({ users }: Props) {
                   size="sm"
                   onClick={() => toggleSuspend(user.id, user.status)}
                 >
-                  {user.status === "suspended" ? "Restore" : "Suspend"}
+                  {user.status === "suspended" ? t("restore") : t("suspend")}
                 </Button>
               </td>
             </tr>

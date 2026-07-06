@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 
 type ProjectCardProps = {
@@ -7,11 +8,12 @@ type ProjectCardProps = {
   description?: string | null;
   taskCount?: number;
   memberCount?: number;
-  color?: string;
+  color?: string | null | undefined;
   className?: string;
 };
 
 export function ProjectCard({ id, name, description, taskCount, memberCount, color, className }: ProjectCardProps) {
+  const t = useTranslations("project");
   return (
     <Link
       href={`/projects/${id}`}
@@ -30,8 +32,8 @@ export function ProjectCard({ id, name, description, taskCount, memberCount, col
         <p className="text-xs text-fg-muted line-clamp-2 mb-3">{description}</p>
       )}
       <div className="flex items-center gap-3 text-xs text-fg-subtle">
-        {taskCount !== undefined && <span>{taskCount} tasks</span>}
-        {memberCount !== undefined && <span>{memberCount} members</span>}
+        {taskCount !== undefined && <span>{t("tasksCount", { count: taskCount })}</span>}
+        {memberCount !== undefined && <span>{t("membersCount", { count: memberCount })}</span>}
       </div>
     </Link>
   );

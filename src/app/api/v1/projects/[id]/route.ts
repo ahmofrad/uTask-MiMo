@@ -1,9 +1,9 @@
-import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
+import { getProjectById, updateProject, archiveProject } from "@/lib/projects";
 
 export async function GET(
   _request: Request,
@@ -14,14 +14,7 @@ export async function GET(
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
   }
 
-  const project = await prisma.project.findUnique({
-    where: { id: params.id },
-    include: {
-      _count: { select: { tasks: true, members: true } },
-      owner: { select: { id: true, displayName: true, email: true } },
-      department: { select: { id: true, name: true } },
-    },
-  });
+  const project = await getProjectById(params.id);
 
   if (!project) {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, { status: 404 });
@@ -47,18 +40,14 @@ export async function PATCH(
   const body = await request.json();
   const { name, description, color, status, visibility } = body as Record<string, string>;
 
-  const updateData: Record<string, unknown> = {};
-  if (name !== undefined) updateData.name = name;
-  if (description !== undefined) updateData.description = description;
-  if (color !== undefined) updateData.color = color;
-  if (status !== undefined) updateData.status = status;
-  if (visibility !== undefined) updateData.visibility = visibility;
+  const before = await getProjectById(params.id);
 
-  const before = await prisma.project.findUnique({ where: { id: params.id } });
-
-  const project = await prisma.project.update({
-    where: { id: params.id },
-    data: updateData,
+  const project = await updateProject(params.id, {
+    ...(name !== undefined ? { name } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(color !== undefined ? { color } : {}),
+    ...(status !== undefined ? { status } : {}),
+    ...(visibility !== undefined ? { visibility: visibility as never } : {}),
   });
 
   await logAudit({ actorUserId: session.user.id, action: "project_updated", entityType: "project", entityId: params.id, before: before as never, after: project as never });
@@ -82,12 +71,9 @@ export async function DELETE(
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const before = await prisma.project.findUnique({ where: { id: params.id } });
+  const before = await getProjectById(params.id);
 
-  await prisma.project.update({
-    where: { id: params.id },
-    data: { archivedAt: new Date() },
-  });
+  await archiveProject(params.id);
 
   await logAudit({ actorUserId: session.user.id, action: "project_archived", entityType: "project", entityId: params.id, before: before as never });
 

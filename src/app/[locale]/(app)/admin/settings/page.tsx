@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 import { can } from "@/lib/rbac/can";
 import { prisma } from "@/lib/db";
+import { getTranslations } from "next-intl/server";
 
 export default async function AdminSettingsPage() {
   const session = await auth();
@@ -9,6 +10,8 @@ export default async function AdminSettingsPage() {
 
   const allowed = await can(session.user.id, "org:settings");
   if (!allowed) redirect("/");
+
+  const t = await getTranslations("settings");
 
   const settings = await prisma.settings.findMany({
     where: { scope: "org" },
@@ -21,7 +24,7 @@ export default async function AdminSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-fg-primary">Org Settings</h1>
+      <h1 className="text-2xl font-bold text-fg-primary">{t("orgSettings")}</h1>
       <div className="max-w-md space-y-4">
         {["siteName", "defaultLocale", "defaultAccent", "sessionTimeoutMinutes"].map((key) => (
           <div key={key}>
@@ -35,7 +38,7 @@ export default async function AdminSettingsPage() {
             />
           </div>
         ))}
-        <p className="text-sm text-fg-tertiary">Settings editing via admin UI coming soon.</p>
+        <p className="text-sm text-fg-tertiary">{t("orgSettingsComingSoon")}</p>
       </div>
     </div>
   );

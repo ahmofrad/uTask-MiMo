@@ -1,31 +1,28 @@
+"use client";
+
 import { cn } from "@/lib/cn";
 
 type DashboardCardProps = {
   label: string;
-  value: string | number;
-  trend?: { direction: "up" | "down"; value: string };
-  icon?: React.ReactNode;
-  className?: string;
+  value: number;
+  color: "accent" | "danger" | "success" | "info";
 };
 
-export function DashboardCard({ label, value, trend, icon, className }: DashboardCardProps) {
+const colorClasses: Record<string, string> = {
+  accent: "bg-accent-bg text-accent border-accent/20",
+  danger: "bg-danger-bg text-destructive border-danger/20",
+  success: "bg-success-bg text-success border-success/20",
+  info: "bg-info-bg text-info border-info/20",
+};
+
+export function DashboardCard({ label, value, color }: DashboardCardProps) {
   return (
-    <div className={cn("bg-bg-surface border border-border rounded-lg p-4", className)}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs text-fg-muted font-medium">{label}</p>
-          <p className="text-2xl font-bold text-fg mt-1">{value}</p>
-          {trend && (
-            <p className={cn(
-              "text-xs mt-1",
-              trend.direction === "up" ? "text-success" : "text-destructive",
-            )}>
-              {trend.direction === "up" ? "↑" : "↓"} {trend.value}
-            </p>
-          )}
-        </div>
-        {icon && <div className="text-fg-muted">{icon}</div>}
-      </div>
+    <div className={cn(
+      "rounded-xl border p-5 flex flex-col gap-1",
+      colorClasses[color] ?? colorClasses.accent,
+    )}>
+      <span className="text-3xl font-bold">{value}</span>
+      <span className="text-sm opacity-80">{label}</span>
     </div>
   );
 }

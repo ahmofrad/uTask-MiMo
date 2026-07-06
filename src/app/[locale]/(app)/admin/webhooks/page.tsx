@@ -1,43 +1,57 @@
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac/can";
 import { prisma } from "@/lib/db";
+import { getTranslations } from "next-intl/server";
+import { formatDateTime } from "@/lib/date/format";
 
 export default async function AdminWebhooksPage() {
   const session = await auth();
   const canManage = session?.user?.id && (await can(session.user.id, "webhook:manage"));
+
+  const t = await getTranslations("webhook");
+  const tCommon = await getTranslations("common");
+  const tAdmin = await getTranslations("admin");
+
   const webhooks = canManage ? await prisma.webhook.findMany({ orderBy: { createdAt: "desc" } }) : [];
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Webhooks</h1>
-      {!canManage ? (
-        <p className="text-fg-muted">You do not have permission to manage webhooks.</p>
-      ) : webhooks.length === 0 ? (
-        <p className="text-fg-muted">No webhooks configured.</p>
-      ) : (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b">
-              <th className="text-start p-2">Name</th>
-              <th className="text-start p-2">URL</th>
-              <th className="text-start p-2">Events</th>
-              <th className="text-start p-2">Active</th>
-              <th className="text-start p-2">Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            {webhooks.map((wh) => (
-              <tr key={wh.id} className="border-b">
-                <td className="p-2">{wh.name}</td>
-                <td className="p-2 font-mono text-xs">{wh.url}</td>
-                <td className="p-2">{wh.events.join(", ")}</td>
-                <td className="p-2">{wh.active ? "Yes" : "No"}</td>
-                <td className="p-2">{wh.createdAt.toISOString().slice(0, 10)}</td>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-fg-primary">{t("title")}</h1>
+
+      <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
+        {!canManage ? (
+          <p className="text-fg-muted">{t("noPermission")}</p>
+        ) : webhooks.length === 0 ? (
+          <p className="text-fg-muted text-center py-8">{t("empty")}</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border-primary">
+                <th className="text-start p-3 text-xs font-medium text-fg-muted uppercase tracking-wide">{t("fields.name")}</th>
+                <th className="text-start p-3 text-xs font-medium text-fg-muted uppercase tracking-wide">{t("fields.url")}</th>
+                <th className="text-start p-3 text-xs font-medium text-fg-muted uppercase tracking-wide">{t("fields.events")}</th>
+                <th className="text-start p-3 text-xs font-medium text-fg-muted uppercase tracking-wide">{t("fields.active")}</th>
+                <th className="text-start p-3 text-xs font-medium text-fg-muted uppercase tracking-wide">{tAdmin("created")}</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            </thead>
+            <tbody>
+              {webhooks.map((wh) => (
+                <tr key={wh.id} className="border-b border-border-secondary last:border-b-0 hover:bg-bg-secondary/50 transition-colors">
+                  <td className="p-3 text-fg-primary font-medium">{wh.name}</td>
+                  <td className="p-3 font-mono text-xs text-fg-muted">{wh.url}</td>
+                  <td className="p-3 text-fg-secondary">{wh.events.join(", ")}</td>
+                  <td className="p-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${wh.active ? "bg-success-bg text-success" : "bg-bg-surface-2 text-fg-muted"}`}>
+                      {wh.active ? tCommon("yes") : tCommon("no")}
+                    </span>
+                  </td>
+                  <td className="p-3 text-xs text-fg-muted">{formatDateTime(wh.createdAt, "fa-IR")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

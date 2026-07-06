@@ -136,6 +136,7 @@ enum AuditAction {
   custom_field_updated
   custom_field_archived
   project_member_added
+  project_member_removed
   watcher_added
   watcher_removed
   settings_updated

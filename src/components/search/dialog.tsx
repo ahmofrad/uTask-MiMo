@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 
 type SearchResult = {
   tasks?: { id: string; title: string; status: string; projectId: string }[];
@@ -14,6 +15,7 @@ type SearchResult = {
 };
 
 export function SearchDialog() {
+  const t = useTranslations("search");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult | null>(null);
@@ -84,34 +86,34 @@ export function SearchDialog() {
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search tasks, projects, comments..."
+            placeholder={t("placeholder")}
             className="flex-1 bg-transparent text-fg-primary placeholder:text-fg-tertiary outline-none"
           />
           <kbd className="text-xs text-fg-tertiary border border-border-primary rounded px-1.5 py-0.5">ESC</kbd>
         </div>
         <div className="max-h-96 overflow-y-auto">
           {loading && (
-            <p className="p-4 text-sm text-fg-tertiary text-center">Searching...</p>
+            <p className="p-4 text-sm text-fg-tertiary text-center">{t("searching")}</p>
           )}
           {!loading && query.length >= 2 && totalCount === 0 && (
-            <p className="p-4 text-sm text-fg-tertiary text-center">No results found.</p>
+            <p className="p-4 text-sm text-fg-tertiary text-center">{t("noResults")}</p>
           )}
           {results?.tasks && results.tasks.length > 0 && (
-            <Section title="Tasks">
+            <Section title={t("tasks")}>
               {results.tasks.map((t) => (
                 <ResultItem key={t.id} href={`/tasks/${t.id}`} label={t.title} sub={t.status} />
               ))}
             </Section>
           )}
           {results?.projects && results.projects.length > 0 && (
-            <Section title="Projects">
+            <Section title={t("projects")}>
               {results.projects.map((p) => (
                 <ResultItem key={p.id} href={`/projects/${p.id}`} label={p.name} />
               ))}
             </Section>
           )}
           {results?.comments && results.comments.length > 0 && (
-            <Section title="Comments">
+            <Section title={t("comments")}>
               {results.comments.map((c) => (
                 <ResultItem key={c.id} href={`/tasks/${c.taskId}`} label={c.bodyMarkdown.slice(0, 80)} />
               ))}

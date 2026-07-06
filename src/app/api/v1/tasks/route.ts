@@ -1,9 +1,10 @@
-import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
+import { listTasks, createTask } from "@/lib/tasks";
+import type { ListTasksParams, CreateTaskData } from "@/lib/tasks";
 
 export async function GET(request: Request) {
   const session = await auth();
@@ -19,52 +20,28 @@ export async function GET(request: Request) {
   const status = searchParams.get("status");
   const priority = searchParams.get("priority");
   const search = searchParams.get("search");
+  const dueDateGte = searchParams.get("dueDateGte");
+  const dueDateLte = searchParams.get("dueDateLte");
 
-  const where: Record<string, unknown> = { deletedAt: null };
-  if (projectId) where.projectId = projectId;
-  if (assigneeId) where.assigneeId = assigneeId;
-  if (status) where.status = status;
-  if (priority) where.priority = priority;
-  if (search) {
-    where.OR = [
-      { title: { contains: search, mode: "insensitive" } },
-      { description: { contains: search, mode: "insensitive" } },
-    ];
-  }
+  const params: ListTasksParams = { limit };
+  if (cursor) params.cursor = cursor;
+  if (projectId) params.projectId = projectId;
+  if (assigneeId) params.assigneeId = assigneeId;
+  if (status) params.status = status;
+  if (priority) params.priority = priority;
+  if (search) params.search = search;
+  if (dueDateGte) params.dueDateGte = dueDateGte;
+  if (dueDateLte) params.dueDateLte = dueDateLte;
 
-  const tasks = await prisma.task.findMany({
-    where,
-    take: limit + 1,
-    skip: cursor ? 1 : 0,
-    ...(cursor ? { cursor: { id: cursor } } : {}),
-    orderBy: { orderIndex: "asc" },
-    include: {
-      assignee: { select: { id: true, displayName: true, email: true } },
-      reporter: { select: { id: true, displayName: true } },
-      tags: { include: { tag: true } },
-      _count: { select: { comments: true, attachments: true, subtasks: true } },
-    },
-  });
+  const result = await listTasks(params);
 
-  const hasMore = tasks.length > limit;
-  if (hasMore) tasks.pop();
-  const lastItem = tasks[tasks.length - 1];
-
-  return NextResponse.json({
-    data: tasks,
-    meta: { nextCursor: hasMore && lastItem ? lastItem.id : null, hasMore },
-  });
+  return NextResponse.json(result);
 }
 
 export async function POST(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
-
-  const permitted = await can(session.user.id, "task:create");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
   const body = await request.json();
@@ -82,32 +59,27 @@ export async function POST(request: Request) {
     );
   }
 
-  const maxOrder = await prisma.task.aggregate({
-    where: { projectId: String(projectId) },
-    _max: { orderIndex: true },
-  });
-
-  const task = await prisma.task.create({
-    data: {
-      projectId: String(projectId),
-      title: String(title),
-      description: description ? String(description) : null,
-      parentTaskId: parentTaskId ? String(parentTaskId) : null,
-      status: (taskStatus as never) ?? "open",
-      priority: (taskPriority as never) ?? "med",
-      dueDate: dueDate ? new Date(String(dueDate)) : null,
-      assigneeId: assigneeId ? String(assigneeId) : null,
-      reporterId: session.user.id,
-      createdById: session.user.id,
-      estimatedHours: estimatedHours ? Number(estimatedHours) : null,
-      orderIndex: Number(maxOrder._max.orderIndex ?? 0) + 1000,
-    },
-  });
-
-  if (customFields && typeof customFields === "object") {
-    const { setCustomFieldValues } = await import("@/lib/custom-fields/values");
-    await setCustomFieldValues(task.id, String(projectId), customFields as Record<string, unknown>);
+  const projectPermitted = await canProject(session.user.id, "task:create", String(projectId));
+  if (!projectPermitted) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient project permissions" } }, { status: 403 });
   }
+
+  const data: CreateTaskData = {
+    projectId: String(projectId),
+    title: String(title),
+    reporterId: session.user.id,
+    createdById: session.user.id,
+  };
+  if (description) data.description = String(description);
+  if (parentTaskId) data.parentTaskId = String(parentTaskId);
+  if (taskStatus) data.status = String(taskStatus);
+  if (taskPriority) data.priority = String(taskPriority);
+  if (dueDate) data.dueDate = String(dueDate);
+  if (assigneeId) data.assigneeId = String(assigneeId);
+  if (estimatedHours) data.estimatedHours = Number(estimatedHours);
+  if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;
+
+  const task = await createTask(data);
 
   await logAudit({ actorUserId: session.user.id, action: "task_created", entityType: "task", entityId: task.id, after: task as never });
 

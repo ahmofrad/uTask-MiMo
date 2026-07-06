@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
+import { getDepartmentById, updateDepartment, deleteDepartment } from "@/lib/departments";
 
 export async function GET(
   _request: Request,
@@ -18,12 +18,7 @@ export async function GET(
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const department = await prisma.department.findFirst({
-    where: { id: params.id, deletedAt: null },
-    include: {
-      _count: { select: { projects: true } },
-    },
-  });
+  const department = await getDepartmentById(params.id);
 
   if (!department) {
     return NextResponse.json(
@@ -52,16 +47,12 @@ export async function PATCH(
   const body = await request.json();
   const { name, parentId, managerUserId } = body as Record<string, unknown>;
 
-  const updateData: Record<string, unknown> = {};
-  if (name !== undefined) updateData.name = name;
-  if (parentId !== undefined) updateData.parentId = parentId;
-  if (managerUserId !== undefined) updateData.managerUserId = managerUserId;
+  const before = await getDepartmentById(params.id);
 
-  const before = await prisma.department.findUnique({ where: { id: params.id } });
-
-  const department = await prisma.department.update({
-    where: { id: params.id },
-    data: updateData,
+  const department = await updateDepartment(params.id, {
+    ...(name !== undefined ? { name: name as string } : {}),
+    ...(parentId !== undefined ? { parentId: parentId as string | null } : {}),
+    ...(managerUserId !== undefined ? { managerUserId: managerUserId as string | null } : {}),
   });
 
   await logAudit({ actorUserId: session.user.id, action: "department_updated", entityType: "department", entityId: params.id, before: before as never, after: department as never });
@@ -83,12 +74,9 @@ export async function DELETE(
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const before = await prisma.department.findUnique({ where: { id: params.id } });
+  const before = await getDepartmentById(params.id);
 
-  await prisma.department.update({
-    where: { id: params.id },
-    data: { deletedAt: new Date() },
-  });
+  await deleteDepartment(params.id);
 
   await logAudit({ actorUserId: session.user.id, action: "department_deleted", entityType: "department", entityId: params.id, before: before as never });
 

@@ -1,70 +1,119 @@
-import { auth } from "@/lib/auth/config";
-import { redirect } from "next/navigation";
-import { can } from "@/lib/rbac/can";
+"use client";
 
-export default async function SsoConfigPage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+import { useState } from "react";
+import { useTranslations } from "next-intl";
 
-  const allowed = await can(session.user.id, "sso:configure");
-  if (!allowed) redirect("/");
+function SsoCard({ title, children }: { title: string } & React.PropsWithChildren) {
+  return (
+    <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-4">
+      <h2 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{title}</h2>
+      {children}
+    </div>
+  );
+}
 
-  const ldapUrl = process.env.LDAP_URL ?? "(not configured)";
-  const samlEnabled = process.env.SAML_CERT ? "Configured" : "Not configured";
+function Input({ label, value, onChange, type = "text", readOnly = false }: { label: string; value: string; onChange?: (_v: string) => void; type?: string; readOnly?: boolean }) {
+  return (
+    <div>
+      <label className="block text-xs font-medium text-fg-muted mb-1">{label}</label>
+      <input
+        type={type}
+        value={value}
+        readOnly={readOnly}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+        className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+      />
+    </div>
+  );
+}
+
+export default function SsoPage() {
+  const t = useTranslations("admin");
+  const [saving, setSaving] = useState(false);
+  const [ldap, setLdap] = useState({
+    enabled: false,
+    serverUrl: "",
+    bindDn: "",
+    bindPassword: "",
+    searchBase: "",
+    searchFilter: "(uid={{username}})",
+  });
+  const [saml, setSaml] = useState({
+    enabled: false,
+    entityId: "",
+    ssoUrl: "",
+    certificate: "",
+  });
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await fetch("/api/v1/admin/sso", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ldap, saml }),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-2xl font-bold text-fg-primary">SSO Configuration</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-fg-primary">{t("ssoConfig")}</h1>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-4 py-2 text-sm font-medium rounded-lg bg-accent text-fg-inverse hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {saving ? t("saving") : t("saveConfig")}
+        </button>
+      </div>
 
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-fg-primary">LDAP</h2>
-        <div className="max-w-md space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1">Server URL</label>
-            <input
-              defaultValue={ldapUrl}
-              className="w-full px-3 py-2 border border-border-primary rounded-md bg-bg-primary text-fg-primary text-sm"
-              readOnly
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1">Base DN</label>
-            <input
-              defaultValue={process.env.LDAP_BASE_DN ?? "dc=example,dc=com"}
-              className="w-full px-3 py-2 border border-border-primary rounded-md bg-bg-primary text-fg-primary text-sm"
-              readOnly
-            />
-          </div>
-          <p className="text-sm text-fg-tertiary">
-            LDAP authentication is configured via environment variables. See{" "}
-            <code className="text-accent text-xs">AUTH.md</code> for available options.
-          </p>
+      <SsoCard title="LDAP">
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            type="checkbox"
+            checked={ldap.enabled}
+            onChange={(e) => setLdap((p) => ({ ...p, enabled: e.target.checked }))}
+            className="rounded"
+          />
+          <span className="text-sm text-fg-primary">{t("enableLdap")}</span>
         </div>
-      </section>
-
-      <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-fg-primary">SAML 2.0</h2>
-        <div className="max-w-md space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1">Status</label>
-            <input
-              defaultValue={samlEnabled}
-              className="w-full px-3 py-2 border border-border-primary rounded-md bg-bg-primary text-fg-primary text-sm"
-              readOnly
-            />
-          </div>
-          <p className="text-sm text-fg-tertiary">
-            SAML configuration uses environment variables (<code className="text-accent text-xs">SAML_CERT</code>,{" "}
-            <code className="text-accent text-xs">SAML_ENTRY_POINT</code>,{" "}
-            <code className="text-accent text-xs">SAML_ISSUER</code>).
-          </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input label={t("serverUrl")} value={ldap.serverUrl} onChange={(v) => setLdap((p) => ({ ...p, serverUrl: v }))} />
+          <Input label={t("bindDn")} value={ldap.bindDn} onChange={(v) => setLdap((p) => ({ ...p, bindDn: v }))} />
+          <Input label={t("bindPassword")} value={ldap.bindPassword} type="password" onChange={(v) => setLdap((p) => ({ ...p, bindPassword: v }))} />
+          <Input label={t("searchBase")} value={ldap.searchBase} onChange={(v) => setLdap((p) => ({ ...p, searchBase: v }))} />
+          <Input label={t("searchFilter")} value={ldap.searchFilter} onChange={(v) => setLdap((p) => ({ ...p, searchFilter: v }))} />
         </div>
-      </section>
+      </SsoCard>
 
-      <p className="text-sm text-fg-tertiary border-t border-border-primary pt-4">
-        SSO settings editing via admin UI coming in a future release. For now, configure via environment variables
-        and restart the server.
-      </p>
+      <SsoCard title="SAML 2.0">
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            type="checkbox"
+            checked={saml.enabled}
+            onChange={(e) => setSaml((p) => ({ ...p, enabled: e.target.checked }))}
+            className="rounded"
+          />
+          <span className="text-sm text-fg-primary">{t("enableSaml")}</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input label={t("idpEntityId")} value={saml.entityId} onChange={(v) => setSaml((p) => ({ ...p, entityId: v }))} />
+          <Input label={t("ssoUrl")} value={saml.ssoUrl} onChange={(v) => setSaml((p) => ({ ...p, ssoUrl: v }))} />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-fg-muted mb-1">{t("certificate")}</label>
+          <textarea
+            value={saml.certificate}
+            onChange={(e) => setSaml((p) => ({ ...p, certificate: e.target.value }))}
+            rows={4}
+            className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm font-mono focus:outline-none focus:ring-1 focus:ring-accent resize-none"
+          />
+        </div>
+      </SsoCard>
     </div>
   );
 }

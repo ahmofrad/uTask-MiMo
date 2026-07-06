@@ -4,7 +4,7 @@ import { can } from "@/lib/rbac/can";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { validateWebhookUrl } from "@/lib/webhook";
-import crypto from "crypto";
+import { randomHex } from "@/lib/crypto";
 
 export async function GET() {
   const session = await auth();
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Invalid webhook URL: must be HTTPS and must not point to a private/internal network" } }, { status: 400 });
   }
 
-  const secret = crypto.randomBytes(32).toString("hex");
+  const secret = randomHex(32);
 
   const webhook = await prisma.webhook.create({
     data: {

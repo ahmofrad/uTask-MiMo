@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/cn";
 
@@ -25,6 +26,8 @@ type CustomFieldInputProps = {
 };
 
 export function CustomFieldInput({ field, value, onChange, error, className }: CustomFieldInputProps) {
+  const t = useTranslations("task.fields");
+
   const renderInput = () => {
     switch (field.type) {
       case "text":
@@ -61,31 +64,37 @@ export function CustomFieldInput({ field, value, onChange, error, className }: C
             className="flex h-9 w-full rounded-lg border border-border bg-bg-surface px-3 py-1.5 text-sm text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-ring"
           >
             <option value="">--</option>
-            {(field.config?.options ?? []).map((opt) => (
-              <option key={opt} value={opt}>{opt}</option>
-            ))}
+            {(field.config?.options ?? []).map((opt) => {
+              const label = typeof opt === "object" && opt !== null ? (opt as Record<string, string>).label ?? String(opt) : String(opt);
+              const optValue = typeof opt === "object" && opt !== null ? (opt as Record<string, string>).value ?? String(opt) : String(opt);
+              return <option key={optValue} value={optValue}>{label}</option>;
+            })}
           </select>
         );
       case "multi_select":
         const selected = Array.isArray(value) ? value : [];
         return (
           <div className="space-y-1">
-            {(field.config?.options ?? []).map((opt) => (
-              <label key={opt} className="flex items-center gap-2 text-sm text-fg">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(opt)}
-                  onChange={() => {
-                    const next = selected.includes(opt)
-                      ? selected.filter((s: string) => s !== opt)
-                      : [...selected, opt];
-                    onChange(next);
-                  }}
-                  className="rounded border-border text-accent"
-                />
-                {opt}
-              </label>
-            ))}
+            {(field.config?.options ?? []).map((opt) => {
+              const label = typeof opt === "object" && opt !== null ? (opt as Record<string, string>).label ?? String(opt) : String(opt);
+              const optValue = typeof opt === "object" && opt !== null ? (opt as Record<string, string>).value ?? String(opt) : String(opt);
+              return (
+                <label key={optValue} className="flex items-center gap-2 text-sm text-fg">
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(optValue)}
+                    onChange={() => {
+                      const next = selected.includes(optValue)
+                        ? selected.filter((s: string) => s !== optValue)
+                        : [...selected, optValue];
+                      onChange(next);
+                    }}
+                    className="rounded border-border text-accent"
+                  />
+                  {label}
+                </label>
+              );
+            })}
           </div>
         );
       case "user":
@@ -93,7 +102,7 @@ export function CustomFieldInput({ field, value, onChange, error, className }: C
           <Input
             value={String(value ?? "")}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="User ID"
+            placeholder={t("assignee")}
           />
         );
       case "checkbox":

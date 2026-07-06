@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
@@ -11,6 +12,8 @@ type ApiTokenCreateDialogProps = {
 };
 
 export function ApiTokenCreateDialog({ open, onClose, onCreated }: ApiTokenCreateDialogProps) {
+  const t = useTranslations("token");
+  const tc = useTranslations("common");
   const [name, setLabel] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -36,14 +39,14 @@ export function ApiTokenCreateDialog({ open, onClose, onCreated }: ApiTokenCreat
   };
 
   return (
-    <Dialog open={open} onClose={onClose} title="Create API Token">
+    <Dialog open={open} onClose={onClose} title={t("createTitle")}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-fg mb-1">Token Name</label>
+          <label className="block text-sm font-medium text-fg mb-1">{t("tokenName")}</label>
           <Input
             value={name}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. CI/CD Integration"
+            placeholder={t("placeholder")}
             required
           />
         </div>
@@ -53,14 +56,14 @@ export function ApiTokenCreateDialog({ open, onClose, onCreated }: ApiTokenCreat
             onClick={onClose}
             className="px-3 py-1.5 text-sm text-fg-muted hover:text-fg"
           >
-            Cancel
+            {tc("cancel")}
           </button>
           <button
             type="submit"
             disabled={!name.trim() || saving}
             className="px-4 py-1.5 text-sm font-medium bg-accent text-fg-inverse rounded-md hover:opacity-90 disabled:opacity-50"
           >
-            {saving ? "Creating..." : "Create Token"}
+            {saving ? t("creating") : t("createToken")}
           </button>
         </div>
       </form>

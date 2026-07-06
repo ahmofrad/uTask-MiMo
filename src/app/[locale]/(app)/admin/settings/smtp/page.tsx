@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 
 export default function SmtpConfigPage() {
+  const t = useTranslations("smtp");
+  const tCommon = useTranslations("common");
+
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -30,30 +34,30 @@ export default function SmtpConfigPage() {
         body: JSON.stringify(values),
       });
       if (res.ok) {
-        setMsg("Saved successfully. Restart required for SMTP changes to take effect.");
+        setMsg(t("saved"));
       } else {
-        setMsg("Failed to save.");
+        setMsg(t("saveFailed"));
       }
     } catch {
-      setMsg("Network error.");
+      setMsg(t("networkError"));
     }
     setSaving(false);
   }
 
   const fields = [
-    { key: "smtp_host", label: "SMTP Host", placeholder: "smtp.example.com" },
-    { key: "smtp_port", label: "SMTP Port", placeholder: "587" },
-    { key: "smtp_user", label: "Username" },
-    { key: "smtp_pass", label: "Password", type: "password" },
-    { key: "smtp_from", label: "From Address", placeholder: "noreply@utask.local" },
-    { key: "smtp_secure", label: "Use TLS (true/false)", placeholder: "false" },
+    { key: "smtp_host", label: t("smtp_host"), placeholder: "smtp.example.com" },
+    { key: "smtp_port", label: t("smtp_port"), placeholder: "587" },
+    { key: "smtp_user", label: t("smtp_user") },
+    { key: "smtp_pass", label: t("smtp_pass"), type: "password" },
+    { key: "smtp_from", label: t("smtp_from"), placeholder: "noreply@utask.local" },
+    { key: "smtp_secure", label: t("smtp_secure"), placeholder: "false" },
   ];
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-fg-primary">SMTP Configuration</h1>
+      <h1 className="text-2xl font-bold text-fg-primary">{t("title")}</h1>
       <p className="text-sm text-fg-tertiary">
-        Configure outbound email. Changes require a server restart.
+        {t("description")}
       </p>
 
       <div className="max-w-md space-y-4">
@@ -76,7 +80,7 @@ export default function SmtpConfigPage() {
         disabled={saving}
         className="px-4 py-2 bg-accent text-fg-inverse rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
       >
-        {saving ? "Saving..." : "Save"}
+        {saving ? t("saving") : tCommon("save")}
       </button>
 
       {msg && <p className="text-sm text-fg-tertiary">{msg}</p>}

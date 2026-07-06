@@ -1,8 +1,8 @@
-import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
+import { listDepartments, createDepartment } from "@/lib/departments";
 
 export async function GET() {
   const session = await auth();
@@ -15,13 +15,7 @@ export async function GET() {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const departments = await prisma.department.findMany({
-    where: { deletedAt: null },
-    orderBy: { name: "asc" },
-    include: {
-      _count: { select: { projects: true } },
-    },
-  });
+  const departments = await listDepartments();
 
   return NextResponse.json({ data: departments });
 }
@@ -51,8 +45,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const department = await prisma.department.create({
-    data: { name, parentId: parentId ?? null, managerUserId: managerUserId ?? null },
+  const department = await createDepartment({
+    name,
+    ...(parentId !== undefined ? { parentId } : {}),
+    ...(managerUserId !== undefined ? { managerUserId } : {}),
   });
 
   await logAudit({ actorUserId: session.user.id, action: "department_created", entityType: "department", entityId: department.id, after: department as never });

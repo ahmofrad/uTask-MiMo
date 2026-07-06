@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 import { can } from "@/lib/rbac/can";
 import { AdminUserList } from "@/components/admin/user-list";
+import { getTranslations } from "next-intl/server";
 
 export default async function AdminUsersPage() {
   const session = await auth();
@@ -10,6 +11,8 @@ export default async function AdminUsersPage() {
 
   const allowed = await can(session.user.id, "user:manage");
   if (!allowed) redirect("/");
+
+  const t = await getTranslations("admin");
 
   const usersRaw = await prisma.user.findMany({
     orderBy: { createdAt: "desc" },
@@ -35,10 +38,10 @@ export default async function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">Users</h1>
+      <h1 className="text-2xl font-bold text-fg-primary">{t("users")}</h1>
+      <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
+        <AdminUserList users={users} />
       </div>
-      <AdminUserList users={users} />
     </div>
   );
 }

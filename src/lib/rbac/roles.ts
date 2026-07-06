@@ -1,5 +1,7 @@
 export type RoleType = "owner" | "admin" | "manager" | "member" | "guest";
 
+export type ProjectMemberRole = "lead" | "contributor" | "viewer";
+
 export type Permission =
   | "org:manage"
   | "org:settings"
@@ -85,10 +87,37 @@ const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
   ],
 };
 
+const PROJECT_ROLE_PERMISSIONS: Record<ProjectMemberRole, Permission[]> = {
+  lead: [
+    "task:create",
+    "task:edit_own",
+    "task:edit_any",
+    "custom_field:define",
+    "comment:create",
+    "project_role:assign",
+  ],
+  contributor: [
+    "task:create",
+    "task:edit_own",
+    "comment:create",
+  ],
+  viewer: [
+    "comment:create",
+  ],
+};
+
 export function getRolePermissions(role: RoleType): Permission[] {
   return PERMISSION_MATRIX[role] ?? [];
 }
 
 export function hasPermission(role: RoleType, permission: Permission): boolean {
   return getRolePermissions(role).includes(permission);
+}
+
+export function getProjectRolePermissions(role: ProjectMemberRole): Permission[] {
+  return PROJECT_ROLE_PERMISSIONS[role] ?? [];
+}
+
+export function hasProjectPermission(role: ProjectMemberRole, permission: Permission): boolean {
+  return getProjectRolePermissions(role).includes(permission);
 }

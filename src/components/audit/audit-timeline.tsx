@@ -1,4 +1,9 @@
+"use client";
+
+import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/cn";
+import { formatDateTime } from "@/lib/date/format";
+import type { Locale } from "@/lib/date/format";
 
 export type AuditEvent = {
   id: string;
@@ -16,8 +21,11 @@ type AuditTimelineProps = {
 };
 
 export function AuditTimeline({ events, className }: AuditTimelineProps) {
+  const t = useTranslations("audit");
+  const locale = useLocale() as Locale;
+
   if (events.length === 0) {
-    return <p className="text-sm text-fg-muted text-center py-8">No audit events</p>;
+    return <p className="text-sm text-fg-muted text-center py-8">{t("empty")}</p>;
   }
 
   return (
@@ -34,7 +42,7 @@ export function AuditTimeline({ events, className }: AuditTimelineProps) {
               {" "}{event.action.replace(/_/g, " ")}
             </p>
             <p className="text-xs text-fg-subtle mt-0.5">
-              {new Date(event.performedAt).toLocaleString()}
+              {formatDateTime(new Date(event.performedAt), locale)}
             </p>
           </div>
         </div>

@@ -11,7 +11,7 @@ type TaskRowProps = {
   id: string;
   title: string;
   status: "open" | "in_progress" | "done" | "cancelled";
-  priority: "none" | "low" | "medium" | "high" | "urgent";
+  priority: "low" | "med" | "high" | "urgent";
   dueDate: string | null;
   assignee?: { displayName: string; avatarUrl?: string | null } | null;
   projectName?: string;

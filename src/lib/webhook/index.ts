@@ -1,4 +1,4 @@
-import crypto from "crypto";
+import { hmacSign, hmacVerify } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logging";
 
@@ -49,7 +49,7 @@ export function validateWebhookUrl(url: string): boolean {
 }
 
 export function signPayload(payload: string, secret: string): string {
-  return crypto.createHmac("sha256", secret).update(payload).digest("hex");
+  return hmacSign(payload, secret);
 }
 
 export function verifySignature(
@@ -57,8 +57,7 @@ export function verifySignature(
   signature: string,
   secret: string,
 ): boolean {
-  const expected = signPayload(payload, secret);
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+  return hmacVerify(payload, signature, secret);
 }
 
 export async function dispatchWebhook(
