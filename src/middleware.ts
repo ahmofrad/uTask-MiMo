@@ -2,7 +2,7 @@ import createMiddleware from "next-intl/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { applySecurityHeaders } from "@/lib/security/headers";
-// import { applyRateLimit } from "@/lib/rate-limit/middleware";
+import { applyRateLimit } from "@/lib/rate-limit/middleware";
 
 const locales = ["fa-IR", "en-US"] as const;
 const defaultLocale = "fa-IR";
@@ -52,17 +52,17 @@ export default async function middleware(req: NextRequest) {
       }
     }
 
-    // Rate limiting temporarily disabled for debugging
-    // if (!isPublicApi(pathname) && pathname.startsWith("/api/")) {
-    //   try {
-    //     const rateLimitResult = await applyRateLimit(req);
-    //     if (rateLimitResult?.response) {
-    //       return applySecurityHeaders(rateLimitResult.response);
-    //     }
-    //   } catch {
-    //     // Rate limiter failure should not block requests
-    //   }
-    // }
+    // Rate limiting for internal API routes
+    if (!isPublicApi(pathname) && pathname.startsWith("/api/")) {
+      try {
+        const rateLimitResult = await applyRateLimit(req);
+        if (rateLimitResult?.response) {
+          return applySecurityHeaders(rateLimitResult.response);
+        }
+      } catch {
+        // Rate limiter failure should not block requests
+      }
+    }
 
     const res = applySecurityHeaders(NextResponse.next(responseInit));
 
