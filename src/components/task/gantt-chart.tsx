@@ -107,14 +107,15 @@ export function GanttChart({ tasks }: GanttChartProps) {
 
   const totalDaysVal = totalDays || 30;
 
+  // RTL: newer dates on left, older on right — reverse the position calculation
   const getPosition = (date: Date) => {
     const days = diffDays(rangeStart, date);
-    return Math.max(0, (days / totalDaysVal) * 100);
+    return Math.max(0, ((totalDaysVal - days) / totalDaysVal) * 100);
   };
 
   const getWidth = (start: Date, end: Date) => {
     const w = diffDays(start, end);
-    return Math.max(((w + 1) / totalDaysVal) * 100, 1.5);
+    return Math.max(((w + 1) / totalDaysVal) * 100, 2);
   };
 
   if (tasks.length === 0) {
@@ -133,7 +134,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
         <div style={{ minWidth: Math.max(totalDaysVal * 30, 600) }}>
           {/* Header: date ticks */}
           <div className="flex border-b border-border-primary bg-bg-secondary">
-            <div className="w-56 shrink-0 border-e border-border-primary p-2 text-xs font-medium text-fg-muted">
+            <div className="w-48 shrink-0 border-e border-border-primary p-2 text-xs font-medium text-fg-muted">
               {t("title")}
             </div>
             <div className="flex-1 relative h-8">
@@ -143,15 +144,15 @@ export function GanttChart({ tasks }: GanttChartProps) {
                   className={`absolute top-0 h-full border-e border-border-secondary text-[10px] ${
                     tick.isMonth ? "font-semibold text-fg-primary" : "text-fg-muted"
                   }`}
-                  style={{ left: `${getPosition(tick.date)}%` }}
+                  style={{ right: `${getPosition(tick.date)}%` }}
                 >
-                  <span className="pl-1 leading-8">{tick.label}</span>
+                  <span className="pr-1 leading-8">{tick.label}</span>
                 </div>
               ))}
               {/* Today line */}
               <div
                 className="absolute top-0 h-full w-px bg-danger/50 z-10"
-                style={{ left: `${getPosition(startOfDay(new Date()))}%` }}
+                style={{ right: `${getPosition(startOfDay(new Date()))}%` }}
               />
             </div>
           </div>
@@ -159,7 +160,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
           {/* Rows */}
           {rows.map((row) => (
             <div key={row.id} className="flex border-b border-border-secondary hover:bg-bg-secondary/50 transition-colors">
-              <div className="w-56 shrink-0 border-e border-border-primary p-2">
+              <div className="w-48 shrink-0 border-e border-border-primary p-2">
                 <Link
                   href={`/tasks/${row.id}`}
                   className="text-xs font-medium text-fg-primary hover:text-accent line-clamp-2 leading-snug block"
@@ -178,25 +179,26 @@ export function GanttChart({ tasks }: GanttChartProps) {
                   )}
                 </div>
               </div>
-              <div className="flex-1 relative h-10 my-auto">
+              <div className="flex-1 relative h-12 my-auto">
                 {/* Grid lines */}
                 {ticks.filter((tk) => tk.isMonth).map((tick, i) => (
                   <div
                     key={i}
                     className="absolute top-0 h-full border-e border-border-secondary/50"
-                    style={{ left: `${getPosition(tick.date)}%` }}
+                    style={{ right: `${getPosition(tick.date)}%` }}
                   />
                 ))}
-                {/* Task bar */}
-                <div
-                  className={`absolute top-2 h-6 rounded-md ${STATUS_COLORS[row.status] || "bg-info/70"} flex items-center px-1.5 cursor-pointer hover:opacity-80 transition-opacity shadow-sm`}
+                {/* Task bar — clickable */}
+                <Link
+                  href={`/tasks/${row.id}`}
+                  className={`absolute top-1.5 h-8 rounded-md ${STATUS_COLORS[row.status] || "bg-info/70"} flex items-center px-2 cursor-pointer hover:opacity-80 hover:shadow-md transition-all shadow-sm`}
                   style={{
-                    left: `${getPosition(row.start)}%`,
+                    right: `${getPosition(row.start)}%`,
                     width: `${getWidth(row.start, row.end)}%`,
                   }}
                 >
-                  <span className="text-[10px] font-medium text-fg-primary truncate drop-shadow-sm">{row.title}</span>
-                </div>
+                  <span className="text-[11px] font-medium text-fg-primary truncate drop-shadow-sm">{row.title}</span>
+                </Link>
               </div>
             </div>
           ))}
