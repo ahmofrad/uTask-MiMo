@@ -6,7 +6,7 @@ import Link from "next/link";
 import { apiFetch } from "@/lib/api-fetch";
 
 export default function ForgotPasswordPage() {
-  const t = useTranslations("auth");
+  const t = useTranslations("auth.login");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -47,7 +47,7 @@ export default function ForgotPasswordPage() {
         <form className="space-y-4" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-fg-secondary mb-1">
-              {t("login.emailLabel")}
+              {t("emailLabel")}
             </label>
             <input
               id="email"
@@ -56,7 +56,7 @@ export default function ForgotPasswordPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3 py-2 border border-border-primary rounded-md bg-bg-primary text-fg-primary placeholder:text-fg-tertiary focus:outline-none focus:ring-2 focus:ring-accent"
-              placeholder={t("login.emailPlaceholder")}
+              placeholder={t("emailPlaceholder")}
             />
           </div>
           <button
