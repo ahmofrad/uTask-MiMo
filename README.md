@@ -102,6 +102,22 @@ pnpm dev
 # Open http://localhost:3000
 # Mailhog UI: http://localhost:8025
 # MinIO console: http://localhost:9001
+
+# 6. First login
+# After seeding, log in with any of these default accounts:
+#
+#   Role     Email                  Password
+#   ──────   ─────────────────────  ──────────
+#   Owner    owner@taskapp.dev      password
+#   Admin    admin@taskapp.dev      password
+#   Manager  manager@taskapp.dev    password
+#   Member   sara@taskapp.dev       password
+#   Member   ali@taskapp.dev        password
+#   Guest    guest@taskapp.dev      password
+#   Member   john@taskapp.dev       password
+#
+# The Owner account has full permissions. Use it to set up
+# your first admin or invite team members.
 ```
 
 ### Prerequisites

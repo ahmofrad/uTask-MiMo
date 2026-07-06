@@ -64,6 +64,29 @@ This starts: app, postgres, redis, minio (S3), postgres-exporter, redis-exporter
 
 The script checks that the app is reachable, returns a 200 on `/health`, and that database migrations are applied.
 
+### 2.5 First login
+
+After the smoke test passes, seed the database with sample data:
+
+```bash
+docker compose exec app pnpm db:seed
+```
+
+This creates the following default accounts (all with password `password`):
+
+| Role    | Email                 | Password  |
+|---------|----------------------|-----------|
+| Owner   | owner@taskapp.dev    | password  |
+| Admin   | admin@taskapp.dev    | password  |
+| Manager | manager@taskapp.dev  | password  |
+| Member  | sara@taskapp.dev     | password  |
+| Member  | ali@taskapp.dev      | password  |
+| Guest   | guest@taskapp.dev    | password  |
+
+Log in with the **Owner** account (`owner@taskapp.dev` / `password`) to set up your organization, invite team members, and configure SSO.
+
+> **Important:** Change all default passwords after first login.
+
 ---
 
 ## 3. Kubernetes Install
