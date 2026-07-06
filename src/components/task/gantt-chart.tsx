@@ -107,10 +107,9 @@ export function GanttChart({ tasks }: GanttChartProps) {
 
   const totalDaysVal = totalDays || 30;
 
-  // RTL: newer dates on left, older on right — reverse the position calculation
   const getPosition = (date: Date) => {
     const days = diffDays(rangeStart, date);
-    return Math.max(0, ((totalDaysVal - days) / totalDaysVal) * 100);
+    return Math.max(0, (days / totalDaysVal) * 100);
   };
 
   const getWidth = (start: Date, end: Date) => {
@@ -144,7 +143,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
                   className={`absolute top-0 h-full border-e border-border-secondary text-[10px] ${
                     tick.isMonth ? "font-semibold text-fg-primary" : "text-fg-muted"
                   }`}
-                  style={{ right: `${getPosition(tick.date)}%` }}
+                  style={{ left: `${getPosition(tick.date)}%` }}
                 >
                   <span className="pr-1 leading-8">{tick.label}</span>
                 </div>
@@ -152,7 +151,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
               {/* Today line */}
               <div
                 className="absolute top-0 h-full w-px bg-danger/50 z-10"
-                style={{ right: `${getPosition(startOfDay(new Date()))}%` }}
+                style={{ left: `${getPosition(startOfDay(new Date()))}%` }}
               />
             </div>
           </div>
@@ -185,7 +184,7 @@ export function GanttChart({ tasks }: GanttChartProps) {
                   <div
                     key={i}
                     className="absolute top-0 h-full border-e border-border-secondary/50"
-                    style={{ right: `${getPosition(tick.date)}%` }}
+                    style={{ left: `${getPosition(tick.date)}%` }}
                   />
                 ))}
                 {/* Task bar — clickable */}
@@ -193,11 +192,11 @@ export function GanttChart({ tasks }: GanttChartProps) {
                   href={`/tasks/${row.id}`}
                   className={`absolute top-1.5 h-8 rounded-md ${STATUS_COLORS[row.status] || "bg-info/70"} flex items-center px-2 cursor-pointer hover:opacity-80 hover:shadow-md transition-all shadow-sm`}
                   style={{
-                    right: `${getPosition(row.start)}%`,
+                    left: `${getPosition(row.start)}%`,
                     width: `${getWidth(row.start, row.end)}%`,
                   }}
                 >
-                  <span className="text-[11px] font-medium text-fg-primary truncate drop-shadow-sm">{row.title}</span>
+                  <span className="text-[11px] font-medium text-fg-primary drop-shadow-sm">{row.title}</span>
                 </Link>
               </div>
             </div>
