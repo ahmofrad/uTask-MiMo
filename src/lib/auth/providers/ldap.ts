@@ -52,7 +52,7 @@ export async function ldapAuth(
     ? decryptSecret(config.bindPassword)
     : config.bindPassword;
 
-  let client: Client;
+  let client: Client | null = null;
   try {
     const clientOpts: ConstructorParameters<typeof Client>[0] = {
       url: config.url,
@@ -162,7 +162,7 @@ export async function ldapAuth(
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
     logger.error({ error: errorMsg }, "LDAP auth failed");
 
-    if (client!) {
+    if (client) {
       try {
         await client.unbind();
       } catch {

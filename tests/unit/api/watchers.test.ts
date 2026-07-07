@@ -85,7 +85,7 @@ describe("POST /api/v1/watchers/tasks/[taskId]", () => {
     expect(res.status).toBe(200);
     expect(mockAddWatcher).toHaveBeenCalledWith("t1", "user-1");
     expect(mockLogAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "watcher_added", entityType: "task", entityId: "t1" }),
+      expect.objectContaining({ action: "watcher_added", entityType: "watcher", entityId: "t1" }),
     );
   });
 });
@@ -115,7 +115,7 @@ describe("DELETE /api/v1/watchers/tasks/[taskId]", () => {
     expect(res.status).toBe(200);
     expect(mockRemoveWatcher).toHaveBeenCalledWith("t1", "user-1");
     expect(mockLogAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "watcher_removed", entityType: "task", entityId: "t1" }),
+      expect.objectContaining({ action: "watcher_removed", entityType: "watcher", entityId: "t1" }),
     );
   });
 });

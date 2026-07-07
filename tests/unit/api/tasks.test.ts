@@ -6,6 +6,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     tag: { findMany: vi.fn(), create: vi.fn(), findFirst: vi.fn(), deleteMany: vi.fn(), delete: vi.fn() },
+    projectMember: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn() }));

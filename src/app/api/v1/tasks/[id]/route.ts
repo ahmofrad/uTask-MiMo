@@ -21,6 +21,18 @@ export async function GET(
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, { status: 404 });
   }
 
+  // Verify user has access to this task's project
+  const userId = session.user.id;
+  const hasAccess =
+    await can(userId, "task:edit_any") ||
+    await canProject(userId, "task:edit_any", task.projectId) ||
+    await canProject(userId, "task:edit_own", task.projectId) ||
+    await canProject(userId, "comment:create", task.projectId);
+
+  if (!hasAccess) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
+  }
+
   return NextResponse.json({ data: task });
 }
 

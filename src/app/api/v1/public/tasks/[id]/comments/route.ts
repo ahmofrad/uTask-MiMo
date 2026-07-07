@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { renderMarkdown } from "@/lib/markdown/render";
 
 export async function GET(
   request: Request,
@@ -35,11 +36,13 @@ export async function POST(
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "bodyMarkdown required" } }, { status: 400 });
   }
 
+  const sanitized = renderMarkdown(bodyMarkdown);
+
   const comment = await prisma.comment.create({
     data: {
       taskId: params.id,
       authorId: userId,
-      bodyMarkdown,
+      bodyMarkdown: sanitized,
     },
   });
 

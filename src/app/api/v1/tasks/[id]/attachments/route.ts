@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { can, canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { randomUUID } from "@/lib/crypto";
 import { putObject } from "@/lib/storage/upload";
@@ -9,6 +9,15 @@ import { presignedGet } from "@/lib/storage/download";
 import type { AuditAction } from "@prisma/client";
 
 const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+
+async function hasProjectAccess(userId: string, taskId: string): Promise<boolean> {
+  if (await can(userId, "task:edit_any")) return true;
+  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
+  if (!task) return false;
+  return canProject(userId, "task:edit_any", task.projectId) ||
+    canProject(userId, "task:edit_own", task.projectId) ||
+    canProject(userId, "comment:create", task.projectId);
+}
 
 export async function GET(
   request: Request,
@@ -26,12 +35,27 @@ export async function GET(
   if (presign && attachmentId) {
     const attachment = await prisma.attachment.findUnique({
       where: { id: attachmentId },
+      select: { id: true, taskId: true, storageKey: true },
     });
     if (!attachment) {
       return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
     }
+
+    // Verify attachment belongs to the task and user has access
+    if (attachment.taskId !== params.id) {
+      return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+    }
+
+    if (!(await hasProjectAccess(session.user.id, params.id))) {
+      return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+    }
+
     const url = await presignedGet(attachment.storageKey);
     return NextResponse.json({ data: { url } });
+  }
+
+  if (!(await hasProjectAccess(session.user.id, params.id))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
   const attachments = await prisma.attachment.findMany({

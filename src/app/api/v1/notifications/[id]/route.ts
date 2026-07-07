@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
+import { prisma } from "@/lib/db";
 
 export async function POST(
   _request: Request,
@@ -8,6 +9,16 @@ export async function POST(
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
+  }
+
+  // Verify notification belongs to this user
+  const notification = await prisma.notification.findUnique({
+    where: { id: params.id },
+    select: { userId: true },
+  });
+
+  if (!notification || notification.userId !== session.user.id) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
   const { markAsRead } = await import("@/lib/notifications");

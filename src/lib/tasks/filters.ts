@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 
 export type TaskFilterParams = {
   projectId?: string | null;
+  projectIds?: string[] | null;
   assigneeId?: string | null;
   status?: string | null;
   priority?: string | null;
@@ -15,6 +16,8 @@ export function buildTaskFilters(params: TaskFilterParams): Prisma.TaskWhereInpu
 
   if (params.projectId) {
     where.projectId = params.projectId;
+  } else if (params.projectIds && params.projectIds.length > 0) {
+    where.projectId = { in: params.projectIds };
   }
 
   if (params.assigneeId) {

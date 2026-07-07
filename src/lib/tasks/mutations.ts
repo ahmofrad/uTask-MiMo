@@ -140,15 +140,10 @@ export async function deleteTask(id: string) {
 }
 
 export async function reorderTasks(projectId: string, taskIds: string[]) {
-  const tasks = await prisma.task.findMany({
-    where: { id: { in: taskIds }, projectId },
-    orderBy: { orderIndex: "asc" },
-    select: { id: true, orderIndex: true },
-  });
-
-  const updates = tasks.map((task, i) =>
+  // Use the caller's intended order from the input array, not DB order
+  const updates = taskIds.map((id, i) =>
     prisma.task.update({
-      where: { id: task.id },
+      where: { id, projectId },
       data: { orderIndex: (i + 1) * 1000 },
     }),
   );

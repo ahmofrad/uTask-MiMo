@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac/can";
 import { prisma } from "@/lib/db";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id || !(await can(session.user.id, "webhook:manage"))) {
@@ -13,6 +15,10 @@ export async function GET(request: Request) {
   const webhookId = searchParams.get("webhookId");
   const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
+
+  if (cursor && !UUID_REGEX.test(cursor)) {
+    return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Invalid cursor" } }, { status: 400 });
+  }
 
   const where: Record<string, unknown> = {};
   if (webhookId) where.webhookId = webhookId;

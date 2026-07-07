@@ -13,9 +13,11 @@ export async function GET() {
   const allSettings = await getSettings("install", null);
   const smtp = (allSettings.smtp ?? {}) as Record<string, unknown>;
 
-  // Return individual keys for the UI
+  // Return individual keys for the UI, excluding sensitive fields
+  const sensitiveKeys = new Set(["pass"]);
   const map: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(smtp)) {
+    if (sensitiveKeys.has(k)) continue;
     map[`smtp_${k}`] = v;
   }
 

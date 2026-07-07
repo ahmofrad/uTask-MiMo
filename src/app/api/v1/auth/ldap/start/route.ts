@@ -70,6 +70,7 @@ export async function POST(request: Request) {
     const signInResult = await signIn("credentials", {
       email: result.user!.email,
       password: "",
+      _ssoVerified: true,
       redirect: false,
     });
 

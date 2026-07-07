@@ -22,8 +22,11 @@ export async function applyRateLimit(
   const authHeader = req.headers.get("authorization");
   if (authHeader?.startsWith("Bearer ")) {
     const token = authHeader.slice(7);
-    // Use token hash prefix as key for rate limiting (don't use full token)
-    const tokenKey = token.slice(0, 16);
+    // Hash the full token to get a unique, fixed-length key (Edge-compatible)
+    const tokenBytes = new TextEncoder().encode(token);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", tokenBytes);
+    const hashArray = new Uint8Array(hashBuffer);
+    const tokenKey = Array.from(hashArray.slice(0, 16)).map((b) => b.toString(16).padStart(2, "0")).join("");
     const result = await checkRateLimitToken(tokenKey);
     const headers = formatHeaders(result);
     if (!result.allowed) {

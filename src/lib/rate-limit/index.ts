@@ -68,6 +68,7 @@ export const TIERS = {
 
 type Window = { count: number; resetAt: number };
 const memStore = new Map<string, Window>();
+const MAX_MEM_STORE_SIZE = 100_000;
 
 function cleanupMemStore() {
   const now = Date.now();
@@ -81,11 +82,26 @@ if (typeof setInterval !== "undefined") {
   setInterval(cleanupMemStore, 300_000);
 }
 
+function evictOldest() {
+  // Delete the entry with the oldest resetAt to make room
+  let oldestKey: string | null = null;
+  let oldestReset = Infinity;
+  for (const [key, win] of memStore) {
+    if (win.resetAt < oldestReset) {
+      oldestReset = win.resetAt;
+      oldestKey = key;
+    }
+  }
+  if (oldestKey) memStore.delete(oldestKey);
+}
+
 function checkInMemory(key: string, tier: RateLimitTier): RateLimitResult {
   const now = Date.now();
   let window = memStore.get(key);
 
   if (!window || now > window.resetAt) {
+    // Evict if at capacity
+    if (memStore.size >= MAX_MEM_STORE_SIZE) evictOldest();
     window = { count: 0, resetAt: now + tier.windowMs };
     memStore.set(key, window);
   }

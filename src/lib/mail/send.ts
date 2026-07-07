@@ -95,22 +95,34 @@ export async function sendMail(params: {
   });
 }
 
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function notifyAssigned(to: string, taskTitle: string, taskUrl: string) {
   const { enqueueEmail } = await import("@/lib/queue");
+  const safeTitle = escapeHtml(taskTitle);
   await enqueueEmail({
     to,
     subject: `You were assigned: ${taskTitle}`,
     text: `You have been assigned to "${taskTitle}".\n\nView it: ${taskUrl}`,
-    html: `<p>You have been assigned to <strong>${taskTitle}</strong>.</p><p><a href="${taskUrl}">View task</a></p>`,
+    html: `<p>You have been assigned to <strong>${safeTitle}</strong>.</p><p><a href="${taskUrl}">View task</a></p>`,
   });
 }
 
 export async function notifyMentioned(to: string, byName: string, taskTitle: string, taskUrl: string) {
   const { enqueueEmail } = await import("@/lib/queue");
+  const safeName = escapeHtml(byName);
+  const safeTitle = escapeHtml(taskTitle);
   await enqueueEmail({
     to,
     subject: `${byName} mentioned you in "${taskTitle}"`,
     text: `${byName} mentioned you in "${taskTitle}".\n\nView it: ${taskUrl}`,
-    html: `<p>${byName} mentioned you in <strong>${taskTitle}</strong>.</p><p><a href="${taskUrl}">View task</a></p>`,
+    html: `<p>${safeName} mentioned you in <strong>${safeTitle}</strong>.</p><p><a href="${taskUrl}">View task</a></p>`,
   });
 }

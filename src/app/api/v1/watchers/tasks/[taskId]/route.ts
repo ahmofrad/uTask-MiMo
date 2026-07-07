@@ -33,7 +33,7 @@ export async function POST(
 
   const { addWatcher } = await import("@/lib/watchers");
   await addWatcher(params.taskId, session.user.id);
-  await logAudit({ actorUserId: session.user.id, action: "watcher_added", entityType: "task", entityId: params.taskId, after: { taskId: params.taskId, userId: session.user.id } as never });
+  await logAudit({ actorUserId: session.user.id, action: "watcher_added", entityType: "watcher", entityId: params.taskId, after: { taskId: params.taskId, userId: session.user.id } as never });
   return NextResponse.json({ data: { success: true } });
 }
 
@@ -53,6 +53,6 @@ export async function DELETE(
 
   const { removeWatcher } = await import("@/lib/watchers");
   await removeWatcher(params.taskId, session.user.id);
-  await logAudit({ actorUserId: session.user.id, action: "watcher_removed", entityType: "task", entityId: params.taskId, after: { taskId: params.taskId, userId: session.user.id } as never });
+  await logAudit({ actorUserId: session.user.id, action: "watcher_removed", entityType: "watcher", entityId: params.taskId, after: { taskId: params.taskId, userId: session.user.id } as never });
   return NextResponse.json({ data: { success: true } });
 }

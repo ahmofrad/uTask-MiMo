@@ -2,6 +2,7 @@ import { Server as HTTPServer } from "http";
 import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import Redis from "ioredis";
+import { jwtVerify } from "jose";
 import { logger } from "@/lib/logging";
 
 let io: Server | null = null;
@@ -15,15 +16,11 @@ export function getUserId(socket: import("socket.io").Socket): string | undefine
   return userIds.get(socket);
 }
 
-function verifyJwt(token: string): { sub?: string } | null {
+async function verifyJwt(token: string): Promise<{ sub?: string } | null> {
   try {
-    const secret = process.env.NEXTAUTH_SECRET;
+    const secret = process.env.AUTH_SECRET;
     if (!secret) return null;
-    const [, payloadB64] = token.split(".");
-    if (!payloadB64) return null;
-    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString());
-    // Check expiry
-    if (payload.exp && Date.now() / 1000 > payload.exp) return null;
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
     return payload;
   } catch {
     return null;
@@ -52,13 +49,13 @@ export async function initSocketIO(httpServer: HTTPServer) {
     logger.warn("Redis unavailable — Socket.IO running without adapter (no multi-instance)");
   }
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token || socket.handshake.query?.token;
       if (!token || typeof token !== "string") {
         return next(new Error("Authentication required"));
       }
-      const payload = verifyJwt(token);
+      const payload = await verifyJwt(token);
       if (!payload?.sub) {
         return next(new Error("Invalid or expired token"));
       }

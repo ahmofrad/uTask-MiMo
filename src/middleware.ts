@@ -49,7 +49,8 @@ export default async function middleware(req: NextRequest) {
     // CSRF: validate on state-changing API requests
     // Skip public API (Bearer tokens) and NextAuth routes (has own CSRF)
     const isNextAuth = pathname.startsWith("/api/auth/");
-    if (!isPublicApi(pathname) && !isNextAuth && STATE_METHODS.includes(req.method)) {
+    const isSamlCallback = pathname === "/api/v1/auth/saml/callback";
+    if (!isPublicApi(pathname) && !isNextAuth && !isSamlCallback && STATE_METHODS.includes(req.method)) {
       const cookieToken = req.cookies.get(CSRF_COOKIE)?.value;
       const headerToken = requestHeaders.get(CSRF_HEADER);
 

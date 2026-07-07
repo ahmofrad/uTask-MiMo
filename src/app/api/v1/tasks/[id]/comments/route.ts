@@ -1,12 +1,24 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { can, canProject } from "@/lib/rbac";
+import { getTaskById } from "@/lib/tasks";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { getTaskComments, createComment } from "@/lib/comments";
 import { ensureWatcher } from "@/lib/watchers";
 import { checkIdempotency, setIdempotencyResult } from "@/lib/idempotency";
 import { logger } from "@/lib/logging";
+
+async function checkCommentAccess(userId: string, taskId: string): Promise<{ allowed: boolean; projectId: string | undefined }> {
+  if (await can(userId, "task:edit_any")) {
+    const task = await getTaskById(taskId);
+    return { allowed: true, projectId: task?.projectId };
+  }
+  const task = await getTaskById(taskId);
+  if (!task) return { allowed: false, projectId: undefined };
+  const allowed = await canProject(userId, "comment:create", task.projectId);
+  return { allowed, projectId: task.projectId };
+}
 
 export async function GET(
   _request: Request,
@@ -15,6 +27,11 @@ export async function GET(
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
+  }
+
+  const access = await checkCommentAccess(session.user.id, params.id);
+  if (!access.allowed) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
   const comments = await getTaskComments(params.id);
@@ -32,8 +49,8 @@ export async function POST(
       return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
     }
 
-    const permitted = await can(session.user.id, "comment:create");
-    if (!permitted) {
+    const access = await checkCommentAccess(session.user.id, params.id);
+    if (!access.allowed) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
     }
 
@@ -80,7 +97,7 @@ export async function POST(
   } catch (err) {
     logger.error({ err, taskId: params.id }, "Failed to create comment");
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: err instanceof Error ? err.message : "Unknown error" } },
+      { error: { code: "INTERNAL_ERROR", message: "Failed to create comment" } },
       { status: 500 },
     );
   }

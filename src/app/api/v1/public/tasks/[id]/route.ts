@@ -1,14 +1,32 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { can, canProject } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+
+async function checkProjectAccess(userId: string, taskId: string): Promise<{ allowed: boolean; projectId: string | undefined }> {
+  if (await can(userId, "task:edit_any")) {
+    const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
+    return { allowed: true, projectId: task?.projectId };
+  }
+  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
+  if (!task) return { allowed: false, projectId: undefined };
+  const allowed = await canProject(userId, "task:edit_any", task.projectId) ||
+    await canProject(userId, "task:edit_own", task.projectId);
+  return { allowed, projectId: task.projectId };
+}
 
 export async function GET(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const { error } = await authenticatePublicApi(request, "tasks:read");
+  const { userId, error } = await authenticatePublicApi(request, "tasks:read");
   if (error) return error;
+
+  const access = await checkProjectAccess(userId, params.id);
+  if (!access.allowed) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "No access to this task's project" } }, { status: 403 });
+  }
 
   const task = await prisma.task.findUnique({
     where: { id: params.id },
@@ -31,6 +49,11 @@ export async function PATCH(
 ) {
   const { userId, error } = await authenticatePublicApi(request, "tasks:write");
   if (error) return error;
+
+  const access = await checkProjectAccess(userId, params.id);
+  if (!access.allowed) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "No access to this task's project" } }, { status: 403 });
+  }
 
   const body = await request.json();
   const { title, description, status, priority, dueDate, assigneeId } = body as Record<string, unknown>;
@@ -68,6 +91,11 @@ export async function DELETE(
 ) {
   const { userId, error } = await authenticatePublicApi(request, "tasks:write");
   if (error) return error;
+
+  const access = await checkProjectAccess(userId, params.id);
+  if (!access.allowed) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "No access to this task's project" } }, { status: 403 });
+  }
 
   const before = await prisma.task.findUnique({ where: { id: params.id } });
 

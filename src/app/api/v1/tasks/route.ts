@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
-import { canProject } from "@/lib/rbac";
+import { can, canProject } from "@/lib/rbac";
+import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { listTasks, createTask } from "@/lib/tasks";
@@ -13,6 +14,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
   }
 
+  const userId = session.user.id;
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
@@ -26,13 +28,27 @@ export async function GET(request: Request) {
 
   const params: ListTasksParams = { limit };
   if (cursor) params.cursor = cursor;
-  if (projectId) params.projectId = projectId;
   if (assigneeId) params.assigneeId = assigneeId;
   if (status) params.status = status;
   if (priority) params.priority = priority;
   if (search) params.search = search;
   if (dueDateGte) params.dueDateGte = dueDateGte;
   if (dueDateLte) params.dueDateLte = dueDateLte;
+
+  // Scope to user's projects unless they have global task:edit_any
+  if (projectId) {
+    params.projectId = projectId;
+  } else if (!(await can(userId, "task:edit_any"))) {
+    const memberships = await prisma.projectMember.findMany({
+      where: { userId },
+      select: { projectId: true },
+    });
+    const projectIds = memberships.map((m) => m.projectId);
+    if (projectIds.length === 0) {
+      return NextResponse.json({ data: [], meta: { nextCursor: null, hasMore: false } });
+    }
+    params.projectIds = projectIds;
+  }
 
   const result = await listTasks(params);
 

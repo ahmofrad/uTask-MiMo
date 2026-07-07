@@ -11,17 +11,94 @@ const BLOCKED_CIDR = [
   "169.254.0.0/16",
   "::1/128",
   "fc00::/7",
+  "fe80::/10",
+  "::ffff:0:0/96",
+];
+
+const BLOCKED_HOSTNAMES = [
+  "localhost",
+  ".local",
+  ".internal",
+  ".localhost",
 ];
 
 function ipInCidr(ip: string, cidr: string): boolean {
   const [range, bitsStr] = cidr.split("/");
   const bits = parseInt(bitsStr ?? "32", 10);
-  const ipBytes = ip.split(".").map(Number);
-  const rangeBytes = range!.split(".").map(Number);
-  const ipInt = (ipBytes[0]! << 24) + (ipBytes[1]! << 16) + (ipBytes[2]! << 8) + ipBytes[3]!;
-  const rangeInt = (rangeBytes[0]! << 24) + (rangeBytes[1]! << 16) + (rangeBytes[2]! << 8) + rangeBytes[3]!;
-  const mask = ~0 << (32 - bits);
-  return (ipInt & mask) === (rangeInt & mask);
+
+  // IPv4
+  if (ip.includes(".")) {
+    const ipBytes = ip.split(".").map(Number);
+    const rangeBytes = range!.split(".").map(Number);
+    if (ipBytes.length !== 4 || rangeBytes.length !== 4) return false;
+    const ipInt = (ipBytes[0]! << 24) + (ipBytes[1]! << 16) + (ipBytes[2]! << 8) + ipBytes[3]!;
+    const rangeInt = (rangeBytes[0]! << 24) + (rangeBytes[1]! << 16) + (rangeBytes[2]! << 8) + rangeBytes[3]!;
+    const mask = ~0 << (32 - bits);
+    return (ipInt & mask) === (rangeInt & mask);
+  }
+
+  // IPv6 — use string-based comparison (avoids BigInt ES2020 requirement)
+  const parseIpv6 = (addr: string): string | null => {
+    // Expand :: abbreviation
+    const parts = addr.split("::");
+    if (parts.length > 2) return null;
+    const [head, tail] = parts;
+    const headParts = head ? head.split(":") : [];
+    const tailParts = tail ? tail.split(":") : [];
+    const missing = 8 - headParts.length - tailParts.length;
+    if (missing < 0) return null;
+    const full = [...headParts, ...Array(missing).fill("0"), ...tailParts];
+    if (full.length !== 8) return null;
+    // Normalize to 32 hex chars (128 bits)
+    return full.map((p) => p.padStart(4, "0")).join("");
+  };
+
+  const ipHex = parseIpv6(ip);
+  const rangeHex = parseIpv6(range ?? "");
+  if (!ipHex || !rangeHex) return false;
+
+  // Apply mask by zeroing out trailing bits
+  const totalHexChars = 32; // 128 bits = 32 hex chars
+  const maskChars = Math.floor(bits / 4);
+  const maskPartialBits = bits % 4;
+
+  let maskedIp = ipHex.slice(0, maskChars);
+  let maskedRange = rangeHex.slice(0, maskChars);
+
+  if (maskPartialBits > 0 && maskChars < totalHexChars) {
+    const partialMask = (0xf0 >> maskPartialBits) & 0xf;
+    maskedIp += (parseInt(ipHex[maskChars]!, 16) & partialMask).toString(16);
+    maskedRange += (parseInt(rangeHex[maskChars]!, 16) & partialMask).toString(16);
+    maskedIp += ipHex.slice(maskChars + 1);
+    maskedRange += rangeHex.slice(maskChars + 1);
+  } else {
+    maskedIp += ipHex.slice(maskChars);
+    maskedRange += rangeHex.slice(maskChars);
+  }
+
+  return maskedIp === maskedRange;
+}
+
+function isPrivateIp(host: string): boolean {
+  // IPv4 check
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(host)) {
+    for (const cidr of BLOCKED_CIDR) {
+      if (cidr.includes(":")) continue;
+      if (ipInCidr(host, cidr)) return true;
+    }
+    return false;
+  }
+
+  // IPv6 check (including IPv4-mapped ::ffff:x.x.x.x)
+  if (host.includes(":")) {
+    for (const cidr of BLOCKED_CIDR) {
+      if (!cidr.includes(":")) continue;
+      if (ipInCidr(host, cidr)) return true;
+    }
+    return false;
+  }
+
+  return false;
 }
 
 export function validateWebhookUrl(url: string): boolean {
@@ -30,18 +107,14 @@ export function validateWebhookUrl(url: string): boolean {
     if (parsed.protocol !== "https:") return false;
 
     const host = parsed.hostname;
-    // Check if it's an IP
-    const isIP = /^(\d{1,3}\.){3}\d{1,3}$/.test(host);
-    if (isIP) {
-      for (const cidr of BLOCKED_CIDR) {
-        if (ipInCidr(host, cidr)) return false;
-      }
+
+    // Check against blocked private hostnames
+    for (const suffix of BLOCKED_HOSTNAMES) {
+      if (host === suffix.slice(1) || host.endsWith(suffix)) return false;
     }
 
-    // Check against known private hostnames
-    if (host === "localhost" || host.endsWith(".local") || host.endsWith(".internal")) {
-      return false;
-    }
+    // Check IP addresses (v4 and v6)
+    if (isPrivateIp(host)) return false;
 
     return true;
   } catch {
@@ -109,6 +182,7 @@ export async function dispatchWebhook(
         "X-TaskApp-Timestamp": String(Math.floor(Date.now() / 1000)),
       },
       body,
+      redirect: "manual",
       signal: AbortSignal.timeout(10000),
     });
 
