@@ -32,20 +32,24 @@ export function CustomFieldsManager({ projectId, initialFields }: Props) {
 
   async function handleCreate() {
     if (!newName.trim()) return;
-    const res = await apiFetch(`/api/v1/projects/${projectId}/custom-fields`, {
-      method: "POST",
-      body: JSON.stringify({
-        name: newName.trim(),
-        key: newName.trim().toLowerCase().replace(/\s+/g, "_"),
-        type: newType,
-        required: newRequired,
-        configJson: newType === "select" && selectOptions.length > 0 ? { options: selectOptions } : undefined,
-      }),
-    });
-    if (res.ok) {
-      const result = await res.json();
-      setFields((prev) => [...prev, result.data]);
-      resetForm();
+    try {
+      const res = await apiFetch(`/api/v1/projects/${projectId}/custom-fields`, {
+        method: "POST",
+        body: JSON.stringify({
+          name: newName.trim(),
+          key: newName.trim().toLowerCase().replace(/\s+/g, "_"),
+          type: newType,
+          required: newRequired,
+          configJson: newType === "select" && selectOptions.length > 0 ? { options: selectOptions } : undefined,
+        }),
+      });
+      if (res.ok) {
+        const result = await res.json();
+        setFields((prev) => [...prev, result.data]);
+        resetForm();
+      }
+    } catch {
+      // error handled silently
     }
   }
 

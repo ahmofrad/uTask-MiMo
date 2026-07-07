@@ -222,13 +222,21 @@ export function TaskDetailPage({
     }
   };
 
-  const handleCFChange = (fieldKey: string, value: unknown) => {
+  const handleCFChange = async (fieldKey: string, value: unknown) => {
+    const prev = { ...cfValues };
     const next = { ...cfValues, [fieldKey]: value };
     setCfValues(next);
-    apiFetch(`/api/v1/tasks/${task.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ customFields: { [fieldKey]: value } }),
-    });
+    try {
+      const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ customFields: { [fieldKey]: value } }),
+      });
+      if (!res.ok) {
+        setCfValues(prev); // rollback on failure
+      }
+    } catch {
+      setCfValues(prev); // rollback on error
+    }
   };
 
   const handleSubtaskToggle = async (id: string, status: string) => {

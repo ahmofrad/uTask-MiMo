@@ -3,6 +3,8 @@ import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { CustomFieldsManager } from "@/components/custom-field/custom-fields-manager";
 
+export const dynamic = "force-dynamic";
+
 export default async function CustomFieldsPage({ params }: { params: { projectId: string } }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
