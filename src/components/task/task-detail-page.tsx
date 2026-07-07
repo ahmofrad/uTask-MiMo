@@ -275,7 +275,7 @@ export function TaskDetailPage({
             />
           ) : (
             <h1
-              className="text-2xl font-bold text-fg cursor-pointer hover:text-accent transition-colors"
+              className="text-2xl font-bold text-fg cursor-pointer hover:text-accent transition-colors rounded-lg p-1 -m-1 hover:bg-bg-surface-2"
               onClick={() => setEditingTitle(true)}
             >
               {task.title}
