@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { listTasks, createTask } from "@/lib/tasks";
-import { checkIdempotency, setIdempotencyResult } from "@/lib/idempotency";
+import { checkIdempotency, setIdempotencyResult, acquirePending, releasePending } from "@/lib/idempotency";
 import type { ListTasksParams, CreateTaskData } from "@/lib/tasks";
 
 export async function GET(request: Request) {
@@ -68,54 +68,64 @@ export async function POST(request: Request) {
     if (cached.hit) {
       return NextResponse.json(cached.response.body, { status: cached.response.status });
     }
+    if (!acquirePending(idempotencyKey)) {
+      return NextResponse.json(
+        { error: { code: "CONFLICT", message: "Request already in progress" } },
+        { status: 409 },
+      );
+    }
   }
 
-  const body = await request.json();
-  const {
-    projectId, title, description, parentTaskId,
-    status: taskStatus, priority: taskPriority,
-    dueDate, assigneeId, estimatedHours,
-    customFields,
-  } = body as Record<string, unknown>;
+  try {
+    const body = await request.json();
+    const {
+      projectId, title, description, parentTaskId,
+      status: taskStatus, priority: taskPriority,
+      dueDate, assigneeId, estimatedHours,
+      customFields,
+    } = body as Record<string, unknown>;
 
-  if (!projectId || !title) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "projectId and title are required" } },
-      { status: 400 },
-    );
+    if (!projectId || !title) {
+      return NextResponse.json(
+        { error: { code: "VALIDATION_ERROR", message: "projectId and title are required" } },
+        { status: 400 },
+      );
+    }
+
+    const projectPermitted = await canProject(session.user.id, "task:create", String(projectId));
+    if (!projectPermitted) {
+      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient project permissions" } }, { status: 403 });
+    }
+
+    const data: CreateTaskData = {
+      projectId: String(projectId),
+      title: String(title),
+      reporterId: session.user.id,
+      createdById: session.user.id,
+    };
+    if (description) data.description = String(description);
+    if (parentTaskId) data.parentTaskId = String(parentTaskId);
+    if (taskStatus) data.status = String(taskStatus);
+    if (taskPriority) data.priority = String(taskPriority);
+    if (dueDate) data.dueDate = String(dueDate);
+    if (assigneeId) data.assigneeId = String(assigneeId);
+    if (estimatedHours) data.estimatedHours = Number(estimatedHours);
+    if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;
+
+    const task = await createTask(data);
+
+    await logAudit({ actorUserId: session.user.id, action: "task_created", entityType: "task", entityId: task.id, after: task as never });
+
+    await emitTaskEvent("task.created", task.id, { id: task.id, title: task.title, projectId: task.projectId }, session.user.id);
+
+    const responseBody = { data: task };
+
+    if (idempotencyKey) {
+      setIdempotencyResult(idempotencyKey, 201, responseBody);
+    }
+
+    return NextResponse.json(responseBody, { status: 201 });
+  } finally {
+    if (idempotencyKey) releasePending(idempotencyKey);
   }
-
-  const projectPermitted = await canProject(session.user.id, "task:create", String(projectId));
-  if (!projectPermitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient project permissions" } }, { status: 403 });
-  }
-
-  const data: CreateTaskData = {
-    projectId: String(projectId),
-    title: String(title),
-    reporterId: session.user.id,
-    createdById: session.user.id,
-  };
-  if (description) data.description = String(description);
-  if (parentTaskId) data.parentTaskId = String(parentTaskId);
-  if (taskStatus) data.status = String(taskStatus);
-  if (taskPriority) data.priority = String(taskPriority);
-  if (dueDate) data.dueDate = String(dueDate);
-  if (assigneeId) data.assigneeId = String(assigneeId);
-  if (estimatedHours) data.estimatedHours = Number(estimatedHours);
-  if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;
-
-  const task = await createTask(data);
-
-  await logAudit({ actorUserId: session.user.id, action: "task_created", entityType: "task", entityId: task.id, after: task as never });
-
-  await emitTaskEvent("task.created", task.id, { id: task.id, title: task.title, projectId: task.projectId }, session.user.id);
-
-  const responseBody = { data: task };
-
-  if (idempotencyKey) {
-    setIdempotencyResult(idempotencyKey, 201, responseBody);
-  }
-
-  return NextResponse.json(responseBody, { status: 201 });
 }

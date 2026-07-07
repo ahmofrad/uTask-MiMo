@@ -5,6 +5,20 @@ type IdempotencyEntry = {
 
 const store = new Map<string, IdempotencyEntry>();
 const TTL_MS = 60 * 60 * 24; // 24 hours
+const MAX_STORE_SIZE = 50_000;
+const pending = new Set<string>();
+
+function evictOldest() {
+  let oldestKey: string | null = null;
+  let oldestTime = Infinity;
+  for (const [key, entry] of store) {
+    if (entry.createdAt < oldestTime) {
+      oldestTime = entry.createdAt;
+      oldestKey = key;
+    }
+  }
+  if (oldestKey) store.delete(oldestKey);
+}
 
 export function checkIdempotency(
   key: string,
@@ -22,7 +36,20 @@ export function setIdempotencyResult(
   status: number,
   body: unknown,
 ): void {
+  if (store.size >= MAX_STORE_SIZE) evictOldest();
   store.set(key, { response: { status, body }, createdAt: Date.now() });
+  pending.delete(key);
+}
+
+/** Returns true if this key is currently being processed (prevents duplicate concurrent writes). */
+export function acquirePending(key: string): boolean {
+  if (pending.has(key)) return false;
+  pending.add(key);
+  return true;
+}
+
+export function releasePending(key: string): void {
+  pending.delete(key);
 }
 
 // Cleanup stale entries every 10 minutes

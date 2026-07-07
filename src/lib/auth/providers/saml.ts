@@ -3,6 +3,7 @@ import { logAudit } from "@/lib/audit/log";
 import { samlConfigSchema, type SamlConfig } from "../saml-schema";
 import { logger } from "@/lib/logging";
 import { decryptSecret } from "@/lib/webhook";
+import { SignedXml } from "xml-crypto";
 
 interface SamlAuthResult {
   success: boolean;
@@ -23,7 +24,6 @@ async function getSamlConfig(): Promise<SamlConfig | null> {
   try {
     const parsed = JSON.parse(setting.valueJson as string);
     const config = samlConfigSchema.parse(parsed);
-    // Decrypt certificate if it's in encrypted format
     if (config.idpCertificate && config.idpCertificate.includes(":")) {
       config.idpCertificate = decryptSecret(config.idpCertificate);
     }
@@ -53,7 +53,17 @@ export const samlProvider = {
     }
 
     try {
-      const assertion = parseSamlResponse(rawResponse, config);
+      const decoded = Buffer.from(rawResponse, "base64").toString("utf8");
+
+      // Verify XML signature if configured
+      if (config.wantResponseSigned || config.wantAssertionsSigned) {
+        const sigVerified = verifySamlSignature(decoded, config);
+        if (!sigVerified) {
+          return { success: false, error: "SAML signature verification failed" };
+        }
+      }
+
+      const assertion = extractAssertion(decoded);
 
       const email = assertion.attributes[config.attributeMap.email];
       const displayName =
@@ -65,7 +75,6 @@ export const samlProvider = {
         return { success: false, error: "No email in SAML assertion" };
       }
 
-      // Find or create user
       let user = await prisma.user.findUnique({ where: { email } });
 
       if (user && user.status === "suspended") {
@@ -92,7 +101,6 @@ export const samlProvider = {
         });
       }
 
-      // Upsert auth identity
       const existingIdentity = await prisma.authIdentity.findFirst({
         where: {
           provider: "saml",
@@ -136,6 +144,40 @@ export const samlProvider = {
   },
 };
 
+function verifySamlSignature(xml: string, config: SamlConfig): boolean {
+  try {
+    const sig = new SignedXml({
+      publicCert: config.idpCertificate,
+      signatureAlgorithm: config.signatureAlgorithm as "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+      canonicalizationAlgorithm: "http://www.w3.org/2001/10/xml-exc-c14n#",
+    });
+
+    // Find the <Signature> node in the document
+    const sigNode = findSignatureNode(xml);
+    if (!sigNode) {
+      logger.warn("No XML signature found in SAML response");
+      return false;
+    }
+
+    sig.loadSignature(sigNode);
+    return sig.checkSignature(xml);
+  } catch (err) {
+    logger.error({ error: err instanceof Error ? err.message : "unknown" }, "SAML signature verification error");
+    return false;
+  }
+}
+
+function findSignatureNode(xml: string): string | null {
+  const sigMatch = xml.match(/<ds:Signature[\s\S]*?<\/ds:Signature>/);
+  if (sigMatch) return sigMatch[0];
+
+  // Try without namespace prefix
+  const sigMatch2 = xml.match(/<Signature[\s\S]*?<\/Signature>/);
+  if (sigMatch2) return sigMatch2[0];
+
+  return null;
+}
+
 function buildAuthnRequest(config: SamlConfig): string {
   const id = `_${crypto.randomUUID()}`;
   const issueInstant = new Date().toISOString();
@@ -145,12 +187,9 @@ function buildAuthnRequest(config: SamlConfig): string {
   return Buffer.from(xml).toString("base64");
 }
 
-function parseSamlResponse(
-  rawResponse: string,
-  _config: SamlConfig,
+function extractAssertion(
+  decoded: string,
 ): { nameId: string; attributes: Record<string, string> } {
-  const decoded = Buffer.from(rawResponse, "base64").toString("utf8");
-
   const nameIdMatch = decoded.match(
     /<saml:NameID[^>]*>([^<]+)<\/saml:NameID>/,
   );

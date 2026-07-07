@@ -4,6 +4,15 @@ import type { ActivityEvent } from "./types";
 
 const DEFAULT_LIMIT = 50;
 
+function parseCursor(cursor: string): { type: "audit" | "comment"; id: string } | null {
+  const sep = cursor.indexOf(":");
+  if (sep === -1) return null;
+  const type = cursor.slice(0, sep);
+  const id = cursor.slice(sep + 1);
+  if (type !== "audit" && type !== "comment") return null;
+  return { type, id };
+}
+
 export async function getTaskActivity(
   taskId: string,
   userId: string,
@@ -24,23 +33,21 @@ export async function getTaskActivity(
     return { items: [], nextCursor: null };
   }
 
+  const parsed = options?.cursor ? parseCursor(options.cursor) : null;
+
   const [auditLogs, comments] = await Promise.all([
     prisma.auditLog.findMany({
       where: { entityType: "task", entityId: taskId },
       orderBy: { occurredAt: "desc" },
       take: limit + 1,
-      ...(options?.cursor
-        ? { skip: 1, cursor: { id: options.cursor } }
-        : {}),
+      ...(parsed?.type === "audit" ? { skip: 1, cursor: { id: parsed.id } } : {}),
       include: { actor: { select: { id: true, displayName: true, email: true } } },
     }),
     prisma.comment.findMany({
       where: { taskId, deletedAt: null },
       orderBy: { createdAt: "desc" },
       take: limit + 1,
-      ...(options?.cursor
-        ? { skip: 1, cursor: { id: options.cursor } }
-        : {}),
+      ...(parsed?.type === "comment" ? { skip: 1, cursor: { id: parsed.id } } : {}),
       include: {
         author: { select: { id: true, displayName: true, email: true } },
       },
@@ -75,8 +82,9 @@ export async function getTaskActivity(
   activity.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const sliced = activity.slice(0, limit);
-  const hasMore = activity.length > limit;
-  const nextCursor = hasMore && sliced.length > 0 ? sliced[sliced.length - 1]!.id : null;
+  const hasMore = activity.length > limit || auditHasMore || commentHasMore;
+  const lastItem = hasMore && sliced.length > 0 ? sliced[sliced.length - 1] : null;
+  const nextCursor = lastItem ? `${lastItem.type}:${lastItem.id}` : null;
 
   return { items: sliced, nextCursor };
 }
