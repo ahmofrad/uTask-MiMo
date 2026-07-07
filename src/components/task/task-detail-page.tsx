@@ -120,9 +120,9 @@ export function TaskDetailPage({
   }, [task.id, t]);
 
   const saveTitle = async () => {
+    setEditingTitle(false);
     if (!titleDraft.trim() || titleDraft === task.title) return;
     await updateTask({ title: titleDraft.trim() });
-    setEditingTitle(false);
   };
 
   const saveDescription = async () => {
