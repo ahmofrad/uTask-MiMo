@@ -102,6 +102,8 @@ export function TaskDetailPage({
   const [subtasks, setSubtasks] = useState(initialTask.subtasks);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [descDraft, setDescDraft] = useState(task.description ?? "");
   const [deleted, setDeleted] = useState(false);
 
   const isWatching = watchers.some((w) => w.id === currentUserId);
@@ -121,6 +123,13 @@ export function TaskDetailPage({
     if (!titleDraft.trim() || titleDraft === task.title) return;
     await updateTask({ title: titleDraft.trim() });
     setEditingTitle(false);
+  };
+
+  const saveDescription = async () => {
+    const val = descDraft.trim() || null;
+    if (val === task.description) { setEditingDescription(false); return; }
+    await updateTask({ description: val });
+    setEditingDescription(false);
   };
 
   const addComment = async (body: string) => {
@@ -190,6 +199,19 @@ export function TaskDetailPage({
       const result = await res.json();
       setSubtasks((prev) => [...prev, result.data]);
     }
+  };
+
+  const handleSubtaskRename = async (id: string, title: string) => {
+    setSubtasks((prev) => prev.map((st) => st.id === id ? { ...st, title } : st));
+    await apiFetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ title }),
+    });
+  };
+
+  const handleSubtaskDelete = async (id: string) => {
+    setSubtasks((prev) => prev.filter((st) => st.id !== id));
+    await apiFetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, { method: "DELETE" });
   };
 
   const handleAttachmentUpload = async (file: File) => {
@@ -305,12 +327,35 @@ export function TaskDetailPage({
         </div>
 
         {/* Description */}
-        {task.description && (
-          <div className="pt-2 border-t border-border-secondary">
-            <h3 className="text-xs font-medium text-fg-muted mb-2 uppercase tracking-wide">{t("task.fields.description")}</h3>
-            <div className="text-sm text-fg-secondary prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: task.description }} />
-          </div>
-        )}
+        <div className="pt-2 border-t border-border-secondary">
+          <h3 className="text-xs font-medium text-fg-muted mb-2 uppercase tracking-wide">{t("task.fields.description")}</h3>
+          {editingDescription ? (
+            <textarea
+              value={descDraft}
+              onChange={(e) => setDescDraft(e.target.value)}
+              onBlur={saveDescription}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveDescription(); }
+                if (e.key === "Escape") { setEditingDescription(false); setDescDraft(task.description ?? ""); }
+              }}
+              rows={4}
+              className="w-full text-sm bg-transparent border border-accent rounded-lg p-2 text-fg outline-none resize-none"
+              autoFocus
+              placeholder={t("task.fields.description")}
+            />
+          ) : (
+            <div
+              className="text-sm text-fg-secondary cursor-pointer hover:text-accent transition-colors min-h-[2rem] rounded-lg p-1 -m-1 hover:bg-bg-surface-2"
+              onClick={() => { setEditingDescription(true); setDescDraft(task.description ?? ""); }}
+            >
+              {task.description ? (
+                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: task.description }} />
+              ) : (
+                <span className="text-fg-subtle italic">{t("task.fields.description")}</span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Two-column layout */}
@@ -323,6 +368,8 @@ export function TaskDetailPage({
               subtasks={subtasks}
               onToggle={handleSubtaskToggle}
               onAdd={handleSubtaskAdd}
+              onRename={handleSubtaskRename}
+              onDelete={handleSubtaskDelete}
             />
           </div>
 
