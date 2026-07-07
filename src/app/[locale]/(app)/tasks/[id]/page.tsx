@@ -64,7 +64,7 @@ export default async function TaskDetailRoute({
       where: { taskId: params.id },
       orderBy: { createdAt: "desc" },
     }),
-    getTaskActivity(params.id, session.user.id, { limit: 100 }),
+    getTaskActivity(params.id, session.user.id, { limit: 10 }),
     prisma.projectMember.findMany({
       where: { projectId: task.projectId },
       include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },

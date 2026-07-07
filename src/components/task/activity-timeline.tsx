@@ -28,6 +28,20 @@ function getActionColor(action: string): string {
   return "bg-bg-surface-2 text-fg-muted";
 }
 
+function isUuidLike(val: unknown): boolean {
+  if (typeof val !== "string") return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
+}
+
+function formatValue(val: unknown): string {
+  if (val === undefined) return "—";
+  if (val === null) return "—";
+  if (isUuidLike(val)) return String(val).slice(0, 8) + "…";
+  if (typeof val === "object") return JSON.stringify(val);
+  const str = String(val);
+  return str.length > 80 ? str.slice(0, 80) + "…" : str;
+}
+
 function DiffView({ before, after }: { before?: unknown; after?: unknown }) {
   const t = useTranslations("audit.diff");
   const locale = useLocale();
@@ -40,7 +54,14 @@ function DiffView({ before, after }: { before?: unknown; after?: unknown }) {
     return <p className="text-xs text-fg-subtle italic">{t("noChanges")}</p>;
   }
 
-  const allKeys = [...new Set([...Object.keys(beforeObj ?? {}), ...Object.keys(afterObj ?? {})])];
+  const allKeys = [...new Set([...Object.keys(beforeObj ?? {}), ...Object.keys(afterObj ?? {})])].filter((key) => {
+    const bVal = beforeObj?.[key];
+    const aVal = afterObj?.[key];
+    if (bVal === aVal) return false;
+    // Skip fields where both values are UUIDs (internal references)
+    if (isUuidLike(bVal) && isUuidLike(aVal)) return false;
+    return true;
+  });
 
   if (allKeys.length === 0) {
     return <p className="text-xs text-fg-subtle italic">{t("noChanges")}</p>;
@@ -52,16 +73,16 @@ function DiffView({ before, after }: { before?: unknown; after?: unknown }) {
         const bVal = beforeObj?.[key];
         const aVal = afterObj?.[key];
         if (bVal === aVal) return null;
-        const bStr = bVal === undefined ? "—" : typeof bVal === "object" ? JSON.stringify(bVal) : String(bVal);
-        const aStr = aVal === undefined ? "—" : typeof aVal === "object" ? JSON.stringify(aVal) : String(aVal);
+        const bStr = formatValue(bVal);
+        const aStr = formatValue(aVal);
         return (
           <div key={key} className="flex items-start gap-2 text-xs">
             <span className="font-medium text-fg-muted shrink-0 w-24 truncate">{key}</span>
             {isRtl ? (
               <>
-                <span className="text-fg-primary truncate max-w-[40%]">{aStr.length > 80 ? aStr.slice(0, 80) + "…" : aStr}</span>
-                <span className="text-fg-subtle">{"\u2190"}</span>
                 <span className="text-fg-muted truncate max-w-[40%]">{bStr.length > 80 ? bStr.slice(0, 80) + "…" : bStr}</span>
+                <span className="text-fg-subtle">{"\u2190"}</span>
+                <span className="text-fg-primary truncate max-w-[40%]">{aStr.length > 80 ? aStr.slice(0, 80) + "…" : aStr}</span>
               </>
             ) : (
               <>

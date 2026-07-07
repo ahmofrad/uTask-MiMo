@@ -108,6 +108,7 @@ export function TaskDetailPage({
   const [auditEvents, setAuditEvents] = useState(initialAuditEvents);
   const [auditHasMore, setAuditHasMore] = useState(initialAuditHasMore ?? false);
   const [auditCursor, setAuditCursor] = useState<string | null | undefined>(initialAuditCursor);
+  const [auditLimit, setAuditLimit] = useState(10);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -129,15 +130,15 @@ export function TaskDetailPage({
     return body.data;
   }, [task.id, t]);
 
-  const refreshAudit = useCallback(async () => {
-    const res = await apiFetch(`/api/v1/activity/tasks/${task.id}?limit=20`);
+  const refreshAudit = useCallback(async (limit?: number) => {
+    const res = await apiFetch(`/api/v1/activity/tasks/${task.id}?limit=${limit ?? auditLimit}`);
     if (res.ok) {
       const data = await res.json();
       setAuditEvents(data.items ?? []);
       setAuditHasMore(data.hasMore ?? false);
       setAuditCursor(data.nextCursor ?? null);
     }
-  }, [task.id]);
+  }, [task.id, auditLimit]);
 
   const loadMoreAudit = useCallback(async () => {
     if (!auditCursor || !auditHasMore) return;
@@ -451,7 +452,23 @@ export function TaskDetailPage({
 
           {/* Activity card */}
           <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
-            <h3 className="text-xs font-medium text-fg-muted mb-4 uppercase tracking-wide">{t("task.activity")}</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.activity")}</h3>
+              <select
+                value={auditLimit}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  setAuditLimit(val);
+                  refreshAudit(val);
+                }}
+                className="text-xs bg-bg-primary border border-border rounded px-2 py-1 text-fg-muted"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
             <ActivityTimeline events={auditEvents} onLoadMore={loadMoreAudit} hasMore={auditHasMore} />
           </div>
         </div>

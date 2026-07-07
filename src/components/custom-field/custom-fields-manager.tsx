@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { apiFetch } from "@/lib/api-fetch";
 
 type CustomField = {
   id: string;
@@ -31,9 +32,8 @@ export function CustomFieldsManager({ projectId, initialFields }: Props) {
 
   async function handleCreate() {
     if (!newName.trim()) return;
-    const res = await fetch(`/api/v1/projects/${projectId}/custom-fields`, {
+    const res = await apiFetch(`/api/v1/projects/${projectId}/custom-fields`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: newName.trim(),
         key: newName.trim().toLowerCase().replace(/\s+/g, "_"),
