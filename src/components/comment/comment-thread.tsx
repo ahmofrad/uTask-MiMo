@@ -46,9 +46,13 @@ export function CommentThread({ comments, onAdd, onUpdate, onDelete, currentUser
     setSaving(false);
   };
 
+  function stripHtml(html: string): string {
+    return html.replace(/<[^>]+>/g, "").trim();
+  }
+
   function startEdit(c: Comment) {
     setEditingId(c.id);
-    setEditDraft(c.body);
+    setEditDraft(stripHtml(c.body));
   }
 
   async function saveEdit(id: string) {
