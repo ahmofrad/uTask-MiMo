@@ -97,7 +97,7 @@ describe("PATCH /api/v1/admin/sso", () => {
     const res = await PATCH(makeRequest("PATCH", { ldap: { url: "ldap://ldap.local", baseDN: "dc=ex,dc=com" } }));
 
     expect(res.status).toBe(200);
-    expect(mockUpdateSettings).toHaveBeenCalledWith("install", "ldap", { url: "ldap://ldap.local", baseDN: "dc=ex,dc=com" });
+    expect(mockUpdateSettings).toHaveBeenCalledWith("install", null, { ldap: { url: "ldap://ldap.local", baseDN: "dc=ex,dc=com" } });
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({ entityType: "settings", entityId: "sso" }),
     );
@@ -110,6 +110,6 @@ describe("PATCH /api/v1/admin/sso", () => {
     const { PATCH } = await import("@/app/api/v1/admin/sso/route");
     await PATCH(makeRequest("PATCH", { ldap: { url: "ldap://ldap.local", password: "" } }));
 
-    expect(mockUpdateSettings).toHaveBeenCalledWith("install", "ldap", { url: "ldap://ldap.local" });
+    expect(mockUpdateSettings).toHaveBeenCalledWith("install", null, { ldap: { url: "ldap://ldap.local" } });
   });
 });

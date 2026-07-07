@@ -4,9 +4,21 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     settings: {
       findMany: vi.fn(),
+      findFirst: vi.fn(),
       upsert: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
     },
-    $transaction: vi.fn((ops) => Promise.all(ops)),
+    $transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
+      return fn({
+        settings: {
+          findFirst: vi.fn().mockResolvedValue(null),
+          create: vi.fn().mockResolvedValue({}),
+          update: vi.fn().mockResolvedValue({}),
+          upsert: vi.fn().mockResolvedValue({}),
+        },
+      });
+    }),
   },
 }));
 
@@ -42,15 +54,31 @@ describe("getSettings", () => {
 });
 
 describe("updateSettings", () => {
-  it("upserts each key-value pair", async () => {
-    vi.mocked(prisma.settings.upsert).mockResolvedValue({} as never);
-
+  it("calls $transaction with callback", async () => {
     await updateSettings("org", "smtp", {
       host: "smtp.example.com",
       port: 587,
     });
 
-    expect(prisma.settings.upsert).toHaveBeenCalledTimes(2);
-    expect(prisma.$transaction).toHaveBeenCalled();
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(typeof prisma.$transaction.mock.calls[0]![0]).toBe("function");
+  });
+
+  it("uses upsert for non-null scopeId", async () => {
+    const mockTx = {
+      settings: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({}),
+        update: vi.fn().mockResolvedValue({}),
+        upsert: vi.fn().mockResolvedValue({}),
+      },
+    };
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) => {
+      return fn(mockTx);
+    });
+
+    await updateSettings("user", "user-1", { theme: "dark" });
+
+    expect(mockTx.settings.upsert).toHaveBeenCalledTimes(1);
   });
 });
