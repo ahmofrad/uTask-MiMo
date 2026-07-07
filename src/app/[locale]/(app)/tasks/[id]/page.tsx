@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth/config";
 import { redirect, notFound } from "next/navigation";
 import { TaskDetailPage } from "@/components/task/task-detail-page";
+import { getTaskActivity } from "@/lib/activity";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function TaskDetailRoute({
 
   if (!task || task.deletedAt) notFound();
 
-  const [customFields, customFieldValues, comments, watchers, attachments, auditLogs, projectMembers] = await Promise.all([
+  const [customFields, customFieldValues, comments, watchers, attachments, activityResult, projectMembers] = await Promise.all([
     prisma.customField.findMany({
       where: { projectId: task.projectId, archivedAt: null },
       orderBy: { orderIndex: "asc" },
@@ -63,12 +64,7 @@ export default async function TaskDetailRoute({
       where: { taskId: params.id },
       orderBy: { createdAt: "desc" },
     }),
-    prisma.auditLog.findMany({
-      where: { entityType: "task", entityId: params.id },
-      orderBy: { occurredAt: "desc" },
-      take: 100,
-      include: { actor: { select: { id: true, displayName: true, email: true } } },
-    }),
+    getTaskActivity(params.id, session.user.id, { limit: 100 }),
     prisma.projectMember.findMany({
       where: { projectId: task.projectId },
       include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
@@ -158,15 +154,9 @@ export default async function TaskDetailRoute({
         sizeBytes: a.sizeBytes,
         createdAt: a.createdAt.toISOString(),
       }))}
-      auditEvents={auditLogs.map((l) => ({
-        type: "audit" as const,
-        id: l.id,
-        action: l.action,
-        actorId: l.actorUserId,
-        actorName: l.actor?.displayName ?? "System",
-        createdAt: l.occurredAt.toISOString(),
-        details: l.beforeJson || l.afterJson ? { before: l.beforeJson, after: l.afterJson } : null,
-      }))}
+      auditEvents={activityResult.items}
+      auditHasMore={activityResult.hasMore}
+      auditNextCursor={activityResult.nextCursor}
       projectMembers={projectMembers.map((pm) => ({
         id: pm.user.id,
         displayName: pm.user.displayName,

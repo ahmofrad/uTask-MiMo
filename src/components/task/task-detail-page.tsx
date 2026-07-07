@@ -77,6 +77,8 @@ type Props = {
   watchers: WatcherData[];
   attachments: AttachmentData[];
   auditEvents: ActivityEvent[];
+  auditHasMore?: boolean;
+  auditNextCursor?: string | null;
   projectMembers: { id: string; displayName: string; avatarUrl?: string | null }[];
   currentUserId: string;
 };
@@ -88,7 +90,9 @@ export function TaskDetailPage({
   comments: initialComments,
   watchers: initialWatchers,
   attachments: initialAttachments,
-  auditEvents,
+  auditEvents: initialAuditEvents,
+  auditHasMore: initialAuditHasMore,
+  auditNextCursor: initialAuditCursor,
   projectMembers,
   currentUserId,
 }: Props) {
@@ -101,6 +105,9 @@ export function TaskDetailPage({
   const [watchers, setWatchers] = useState(initialWatchers);
   const [attachments, setAttachments] = useState(initialAttachments);
   const [subtasks, setSubtasks] = useState(initialTask.subtasks);
+  const [auditEvents, setAuditEvents] = useState(initialAuditEvents);
+  const [auditHasMore, setAuditHasMore] = useState(initialAuditHasMore ?? false);
+  const [auditCursor, setAuditCursor] = useState<string | null | undefined>(initialAuditCursor);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleDraft, setTitleDraft] = useState(task.title);
   const [editingDescription, setEditingDescription] = useState(false);
@@ -117,8 +124,31 @@ export function TaskDetailPage({
     if (!res.ok) throw new Error(t("task.updateFailed"));
     const body = await res.json();
     if (body.data) setTask((prev) => ({ ...prev, ...body.data }));
+    // Refresh audit events after mutation
+    refreshAudit();
     return body.data;
   }, [task.id, t]);
+
+  const refreshAudit = useCallback(async () => {
+    const res = await apiFetch(`/api/v1/activity/tasks/${task.id}?limit=20`);
+    if (res.ok) {
+      const data = await res.json();
+      setAuditEvents(data.items ?? []);
+      setAuditHasMore(data.hasMore ?? false);
+      setAuditCursor(data.nextCursor ?? null);
+    }
+  }, [task.id]);
+
+  const loadMoreAudit = useCallback(async () => {
+    if (!auditCursor || !auditHasMore) return;
+    const res = await apiFetch(`/api/v1/activity/tasks/${task.id}?cursor=${encodeURIComponent(auditCursor)}&limit=50`);
+    if (res.ok) {
+      const data = await res.json();
+      setAuditEvents((prev) => [...prev, ...(data.items ?? [])]);
+      setAuditHasMore(data.hasMore ?? false);
+      setAuditCursor(data.nextCursor ?? null);
+    }
+  }, [task.id, auditCursor, auditHasMore]);
 
   const saveTitle = async () => {
     setEditingTitle(false);
@@ -422,7 +452,7 @@ export function TaskDetailPage({
           {/* Activity card */}
           <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
             <h3 className="text-xs font-medium text-fg-muted mb-4 uppercase tracking-wide">{t("task.activity")}</h3>
-            <ActivityTimeline events={auditEvents as any} />
+            <ActivityTimeline events={auditEvents} onLoadMore={loadMoreAudit} hasMore={auditHasMore} />
           </div>
         </div>
 
