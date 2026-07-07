@@ -27,6 +27,15 @@ function isPublicApi(pathname: string): boolean {
   return pathname.startsWith("/api/v1/public/");
 }
 
+function hasSessionCookie(req: NextRequest): boolean {
+  // NextAuth v5 stores session in authjs.session-token cookie
+  return Boolean(
+    req.cookies.get("authjs.session-token")?.value ||
+    req.cookies.get("__Secure-authjs.session-token")?.value ||
+    req.cookies.get("__Host-authjs.session-token")?.value,
+  );
+}
+
 export default async function middleware(req: NextRequest) {
   const requestId = crypto.randomUUID();
   const requestHeaders = new Headers(req.headers);
@@ -87,7 +96,31 @@ export default async function middleware(req: NextRequest) {
     return res;
   }
 
-  // First: apply locale detection/redirect from next-intl
+  // Auth check FIRST: check session cookie (Edge-compatible, no Prisma)
+  // Must run before intl middleware, which otherwise short-circuits the auth check
+  const isAuthenticated = hasSessionCookie(req);
+
+  const isLoginPage = pathname === "/login" || pathname === "/en-US/login" || pathname === "/fa-IR/login";
+
+  if (!isAuthenticated && !isLoginPage) {
+    const locale = pathname.startsWith("/en-US") ? "en-US" : "fa-IR";
+    const loginUrl = new URL(locale === "en-US" ? "/en-US/login" : "/login", req.url);
+    loginUrl.searchParams.set("callbackUrl", pathname);
+    return applySecurityHeaders(
+      NextResponse.redirect(loginUrl, { headers: { "x-request-id": requestId } }),
+    );
+  }
+
+  // If authenticated and trying to access login, redirect to home
+  if (isAuthenticated && isLoginPage) {
+    const locale = pathname.startsWith("/en-US") ? "en-US" : "fa-IR";
+    const homeUrl = new URL(locale === "en-US" ? "/en-US" : "/", req.url);
+    return applySecurityHeaders(
+      NextResponse.redirect(homeUrl, { headers: { "x-request-id": requestId } }),
+    );
+  }
+
+  // Then: apply locale detection/redirect from next-intl
   const intlResponse = intlMiddleware(req);
   if (intlResponse) {
     intlResponse.headers.set("x-request-id", requestId);
@@ -108,18 +141,6 @@ export default async function middleware(req: NextRequest) {
     }
 
     return applySecurityHeaders(intlResponse);
-  }
-
-  // Auth check: redirect unauthenticated users to locale-appropriate login
-  const { auth } = await import("@/lib/auth/config");
-  const session = await auth();
-  if (!session) {
-    const locale = pathname.startsWith("/en-US") ? "en-US" : "fa-IR";
-    const loginUrl = new URL(locale === "en-US" ? "/en-US/login" : "/login", req.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return applySecurityHeaders(
-      NextResponse.redirect(loginUrl, { headers: { "x-request-id": requestId } }),
-    );
   }
 
   return applySecurityHeaders(NextResponse.next(responseInit));

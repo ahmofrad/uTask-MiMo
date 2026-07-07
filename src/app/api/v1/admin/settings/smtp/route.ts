@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac/can";
-import { prisma } from "@/lib/db";
+import { getSettings, updateSettings } from "@/lib/settings";
 import { logAudit } from "@/lib/audit/log";
 
 export async function GET() {
@@ -10,14 +10,13 @@ export async function GET() {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  const keys = ["smtp_host", "smtp_port", "smtp_user", "smtp_from", "smtp_secure"];
-  const settings = await prisma.settings.findMany({
-    where: { scope: "org", scopeId: "smtp", key: { in: keys } },
-  });
+  const allSettings = await getSettings("install", null);
+  const smtp = (allSettings.smtp ?? {}) as Record<string, unknown>;
 
+  // Return individual keys for the UI
   const map: Record<string, unknown> = {};
-  for (const s of settings) {
-    map[s.key] = s.valueJson;
+  for (const [k, v] of Object.entries(smtp)) {
+    map[`smtp_${k}`] = v;
   }
 
   return NextResponse.json({ data: map });
@@ -31,13 +30,18 @@ export async function PUT(request: Request) {
 
   const body = (await request.json()) as Record<string, unknown>;
 
+  const allowedKeys = ["smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_from", "smtp_secure"];
+  const smtpData: Record<string, unknown> = {};
+
   for (const [key, value] of Object.entries(body)) {
-    if (!["smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_from", "smtp_secure"].includes(key)) continue;
-    await prisma.settings.upsert({
-      where: { scope_scopeId_key: { scope: "org", scopeId: "smtp", key } },
-      update: { valueJson: value as never },
-      create: { scope: "org", scopeId: "smtp", key, valueJson: value as never },
-    });
+    if (!allowedKeys.includes(key)) continue;
+    // Strip "smtp_" prefix to store under the smtp JSON blob
+    const shortKey = key.startsWith("smtp_") ? key.slice(5) : key;
+    smtpData[shortKey] = value;
+  }
+
+  if (Object.keys(smtpData).length > 0) {
+    await updateSettings("install", null, { smtp: smtpData });
   }
 
   await logAudit({

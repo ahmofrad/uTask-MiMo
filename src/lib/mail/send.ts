@@ -7,14 +7,15 @@ let smtpConfig: { host: string; port: number; user?: string | undefined; pass?: 
 async function loadSmtpFromDB(): Promise<typeof smtpConfig> {
   try {
     const { getSettings } = await import("@/lib/settings");
-    const settings = await getSettings("install", "smtp");
-    if (settings.host && typeof settings.host === "string") {
+    const allSettings = await getSettings("install", null);
+    const smtp = (allSettings.smtp ?? {}) as Record<string, unknown>;
+    if (smtp.host && typeof smtp.host === "string") {
       return {
-        host: settings.host as string,
-        port: Number(settings.port) || 587,
-        user: (settings.user as string) || undefined,
-        pass: (settings.pass as string) || undefined,
-        from: (settings.from as string) || undefined,
+        host: smtp.host as string,
+        port: Number(smtp.port) || 587,
+        user: (smtp.user as string) || undefined,
+        pass: (smtp.pass as string) || undefined,
+        from: (smtp.from as string) || undefined,
       };
     }
   } catch {

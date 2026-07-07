@@ -16,8 +16,9 @@ export async function GET() {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  const ldap = await getSettings("install", "ldap");
-  const saml = await getSettings("install", "saml");
+  const allSettings = await getSettings("install", null);
+  const ldap = (allSettings.ldap ?? {}) as Record<string, unknown>;
+  const saml = (allSettings.saml ?? {}) as Record<string, unknown>;
 
   return NextResponse.json({ data: { ldap, saml } });
 }
@@ -37,8 +38,11 @@ export async function PATCH(request: Request) {
   const { ldap, saml } = body as { ldap?: Record<string, unknown>; saml?: Record<string, unknown> };
 
   // Fetch current values for audit before/after
-  const beforeLdap = await getSettings("install", "ldap");
-  const beforeSaml = await getSettings("install", "saml");
+  const allBefore = await getSettings("install", null);
+  const beforeLdap = (allBefore.ldap ?? {}) as Record<string, unknown>;
+  const beforeSaml = (allBefore.saml ?? {}) as Record<string, unknown>;
+
+  const updates: Record<string, unknown> = {};
 
   if (ldap && typeof ldap === "object") {
     const filtered: Record<string, unknown> = {};
@@ -53,7 +57,7 @@ export async function PATCH(request: Request) {
       filtered.bindPassword = `${enc.iv}:${enc.ciphertext}:${enc.tag}`;
     }
     if (Object.keys(filtered).length > 0) {
-      await updateSettings("install", "ldap", filtered);
+      updates.ldap = filtered;
     }
   }
 
@@ -70,12 +74,17 @@ export async function PATCH(request: Request) {
       filtered.idpCertificate = `${enc.iv}:${enc.ciphertext}:${enc.tag}`;
     }
     if (Object.keys(filtered).length > 0) {
-      await updateSettings("install", "saml", filtered);
+      updates.saml = filtered;
     }
   }
 
-  const afterLdap = await getSettings("install", "ldap");
-  const afterSaml = await getSettings("install", "saml");
+  if (Object.keys(updates).length > 0) {
+    await updateSettings("install", null, updates);
+  }
+
+  const allAfter = await getSettings("install", null);
+  const afterLdap = (allAfter.ldap ?? {}) as Record<string, unknown>;
+  const afterSaml = (allAfter.saml ?? {}) as Record<string, unknown>;
 
   await logAudit({
     actorUserId: session.user.id,
