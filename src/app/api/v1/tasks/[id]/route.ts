@@ -4,6 +4,7 @@ import { can, canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { getTaskById, updateTask, deleteTask } from "@/lib/tasks";
+import { getCustomFieldValuesForTask as getFieldValues } from "@/lib/custom-fields/values";
 import type { UpdateTaskData } from "@/lib/tasks";
 
 export async function GET(
@@ -83,7 +84,10 @@ export async function PATCH(
 
   await emitTaskEvent("task.updated", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
 
-  return NextResponse.json({ data: task });
+  // Include custom field values in response so client can update immediately
+  const customFieldValues = await getFieldValues(params.id);
+
+  return NextResponse.json({ data: { ...task, customFields: customFieldValues } });
 }
 
 export async function DELETE(

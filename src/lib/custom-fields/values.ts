@@ -36,7 +36,11 @@ export async function setCustomFieldValues(
 
   for (const [key, value] of Object.entries(values)) {
     const field = fieldMap.get(key);
-    if (!field) continue;
+    if (!field) {
+      const { logger } = await import("@/lib/logging");
+      logger.warn({ key, projectId, availableKeys: [...fieldMap.keys()] }, "Custom field not found for key");
+      continue;
+    }
 
     const data: Record<string, unknown> = { taskId, customFieldId: field.id };
 
@@ -61,10 +65,15 @@ export async function setCustomFieldValues(
         break;
     }
 
-    await prisma.customFieldValue.upsert({
-      where: { taskId_customFieldId: { taskId, customFieldId: field.id } },
-      update: data,
-      create: data as never,
-    });
+    try {
+      await prisma.customFieldValue.upsert({
+        where: { taskId_customFieldId: { taskId, customFieldId: field.id } },
+        update: data,
+        create: data as never,
+      });
+    } catch (err) {
+      const { logger } = await import("@/lib/logging");
+      logger.error({ err, taskId, fieldKey: key, fieldId: field.id }, "Failed to save custom field value");
+    }
   }
 }

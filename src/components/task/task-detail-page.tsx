@@ -231,7 +231,12 @@ export function TaskDetailPage({
         method: "PATCH",
         body: JSON.stringify({ customFields: { [fieldKey]: value } }),
       });
-      if (!res.ok) {
+      if (res.ok) {
+        const body = await res.json();
+        if (body.data?.customFields) {
+          setCfValues(body.data.customFields);
+        }
+      } else {
         setCfValues(prev); // rollback on failure
       }
     } catch {
