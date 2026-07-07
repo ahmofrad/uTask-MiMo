@@ -49,6 +49,7 @@ type CommentData = {
   id: string;
   body: string;
   createdAt: string;
+  authorId?: string | undefined;
   author: { displayName: string; avatarUrl?: string | null };
   replies?: { id: string; body: string; createdAt: string; author: { displayName: string; avatarUrl?: string | null } }[];
 };
@@ -145,9 +146,26 @@ export function TaskDetailPage({
         id: result.data.id,
         body: result.data.bodyMarkdown,
         createdAt: result.data.createdAt,
+        authorId: result.data.authorId,
         author: { displayName: result.data.author.displayName, avatarUrl: result.data.author.avatarUrl },
       },
     ]);
+  };
+
+  const updateComment = async (id: string, body: string) => {
+    const res = await apiFetch(`/api/v1/comments/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ bodyMarkdown: body }),
+    });
+    if (res.ok) {
+      const result = await res.json();
+      setComments((prev) => prev.map((c) => c.id === id ? { ...c, body: result.data.bodyMarkdown } : c));
+    }
+  };
+
+  const deleteComment = async (id: string) => {
+    const res = await apiFetch(`/api/v1/comments/${id}`, { method: "DELETE" });
+    if (res.ok) setComments((prev) => prev.filter((c) => c.id !== id));
   };
 
   const toggleWatch = async () => {
@@ -391,9 +409,13 @@ export function TaskDetailPage({
                 id: c.id,
                 body: c.body,
                 createdAt: c.createdAt,
+                authorId: c.authorId,
                 author: c.author,
               }))}
               onAdd={addComment}
+              onUpdate={updateComment}
+              onDelete={deleteComment}
+              currentUserId={currentUserId}
             />
           </div>
 

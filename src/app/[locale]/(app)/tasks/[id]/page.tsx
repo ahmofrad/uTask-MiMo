@@ -136,6 +136,7 @@ export default async function TaskDetailRoute({
         id: c.id,
         body: c.bodyMarkdown,
         createdAt: c.createdAt.toISOString(),
+        authorId: c.authorId,
         author: { displayName: c.author.displayName, avatarUrl: c.author.avatarUrl },
         replies: c.replies.map((r) => ({
           id: r.id,
