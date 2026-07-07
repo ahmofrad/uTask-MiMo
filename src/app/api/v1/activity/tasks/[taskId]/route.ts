@@ -20,5 +20,5 @@ export async function GET(
     ...(limitParam ? { limit: parseInt(limitParam, 10) } : {}),
   });
 
-  return NextResponse.json({ data: result.items, nextCursor: result.nextCursor });
+  return NextResponse.json({ items: result.items, nextCursor: result.nextCursor, hasMore: result.hasMore });
 }

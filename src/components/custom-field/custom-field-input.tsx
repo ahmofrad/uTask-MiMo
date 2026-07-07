@@ -10,7 +10,7 @@ type CustomFieldDefinition = {
   name: string;
   type: "text" | "number" | "date" | "select" | "multi_select" | "user" | "checkbox" | "url";
   config?: {
-    options?: string[];
+    options?: Array<string | { label: string; value: string }>;
     maxLength?: number;
     min?: number;
     max?: number;

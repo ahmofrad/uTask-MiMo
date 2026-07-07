@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { cn } from "@/lib/cn";
 import type { ActivityEvent } from "@/lib/activity/types";
@@ -30,6 +30,8 @@ function getActionColor(action: string): string {
 
 function DiffView({ before, after }: { before?: unknown; after?: unknown }) {
   const t = useTranslations("audit.diff");
+  const locale = useLocale();
+  const isRtl = locale === "fa-IR";
 
   const beforeObj = (before && typeof before === "object" ? before : null) as Record<string, unknown> | null;
   const afterObj = (after && typeof after === "object" ? after : null) as Record<string, unknown> | null;
@@ -55,9 +57,19 @@ function DiffView({ before, after }: { before?: unknown; after?: unknown }) {
         return (
           <div key={key} className="flex items-start gap-2 text-xs">
             <span className="font-medium text-fg-muted shrink-0 w-24 truncate">{key}</span>
-            <span className="text-fg-muted line-through truncate max-w-[40%]">{bStr.length > 80 ? bStr.slice(0, 80) + "…" : bStr}</span>
-            <span className="text-fg-subtle">→</span>
-            <span className="text-fg-primary truncate max-w-[40%]">{aStr.length > 80 ? aStr.slice(0, 80) + "…" : aStr}</span>
+            {isRtl ? (
+              <>
+                <span className="text-fg-primary truncate max-w-[40%]">{aStr.length > 80 ? aStr.slice(0, 80) + "…" : aStr}</span>
+                <span className="text-fg-subtle">{"\u2190"}</span>
+                <span className="text-fg-muted truncate max-w-[40%]">{bStr.length > 80 ? bStr.slice(0, 80) + "…" : bStr}</span>
+              </>
+            ) : (
+              <>
+                <span className="text-fg-muted truncate max-w-[40%]">{bStr.length > 80 ? bStr.slice(0, 80) + "…" : bStr}</span>
+                <span className="text-fg-subtle">{"\u2192"}</span>
+                <span className="text-fg-primary truncate max-w-[40%]">{aStr.length > 80 ? aStr.slice(0, 80) + "…" : aStr}</span>
+              </>
+            )}
           </div>
         );
       })}
@@ -110,7 +122,10 @@ export function ActivityTimeline({ events, onLoadMore, hasMore }: ActivityTimeli
             </div>
 
             {event.type === "comment" && (
-              <p className="text-sm text-fg-muted mt-1 line-clamp-2">{event.body}</p>
+              <p
+                className="text-sm text-fg-muted mt-1 line-clamp-2"
+                dangerouslySetInnerHTML={{ __html: event.body }}
+              />
             )}
 
             {event.type === "audit" && event.details && (
