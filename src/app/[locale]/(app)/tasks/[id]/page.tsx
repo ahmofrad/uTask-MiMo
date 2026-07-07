@@ -73,8 +73,11 @@ export default async function TaskDetailRoute({
 
   const cfValuesMap: Record<string, unknown> = {};
   for (const cfv of customFieldValues) {
-    cfValuesMap[cfv.customFieldId] =
-      cfv.valueText ?? cfv.valueNumber ?? cfv.valueDate ?? cfv.valueBool ?? cfv.valueJson ?? null;
+    const fieldKey = customFields.find((cf) => cf.id === cfv.customFieldId)?.key;
+    if (fieldKey) {
+      cfValuesMap[fieldKey] =
+        cfv.valueText ?? cfv.valueNumber ?? cfv.valueDate ?? cfv.valueBool ?? cfv.valueJson ?? null;
+    }
   }
 
   const customFieldSchema = customFields.map((cf) => {

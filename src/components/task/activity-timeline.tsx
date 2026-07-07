@@ -10,6 +10,7 @@ type ActivityTimelineProps = {
   events: ActivityEvent[];
   onLoadMore?: () => void;
   hasMore?: boolean;
+  members?: { id: string; displayName: string }[];
 };
 
 function getActionIcon(action: string): string {
@@ -33,16 +34,19 @@ function isUuidLike(val: unknown): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 }
 
-function formatValue(val: unknown): string {
+function formatValue(val: unknown, members?: { id: string; displayName: string }[]): string {
   if (val === undefined) return "—";
   if (val === null) return "—";
-  if (isUuidLike(val)) return String(val).slice(0, 8) + "…";
+  if (isUuidLike(val)) {
+    const member = members?.find((m) => m.id === val);
+    return member ? member.displayName : String(val).slice(0, 8) + "…";
+  }
   if (typeof val === "object") return JSON.stringify(val);
   const str = String(val);
   return str.length > 80 ? str.slice(0, 80) + "…" : str;
 }
 
-function DiffView({ before, after }: { before?: unknown; after?: unknown }) {
+function DiffView({ before, after, members }: { before?: unknown; after?: unknown; members?: { id: string; displayName: string }[] | undefined }) {
   const t = useTranslations("audit.diff");
   const locale = useLocale();
   const isRtl = locale === "fa-IR";
@@ -73,8 +77,8 @@ function DiffView({ before, after }: { before?: unknown; after?: unknown }) {
         const bVal = beforeObj?.[key];
         const aVal = afterObj?.[key];
         if (bVal === aVal) return null;
-        const bStr = formatValue(bVal);
-        const aStr = formatValue(aVal);
+        const bStr = formatValue(bVal, members);
+        const aStr = formatValue(aVal, members);
         return (
           <div key={key} className="flex items-start gap-2 text-xs">
             <span className="font-medium text-fg-muted shrink-0 w-24 truncate">{key}</span>
@@ -98,7 +102,7 @@ function DiffView({ before, after }: { before?: unknown; after?: unknown }) {
   );
 }
 
-export function ActivityTimeline({ events, onLoadMore, hasMore }: ActivityTimelineProps) {
+export function ActivityTimeline({ events, onLoadMore, hasMore, members }: ActivityTimelineProps) {
   const t = useTranslations();
   const { dateTime } = useFormattedDate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -160,7 +164,7 @@ export function ActivityTimeline({ events, onLoadMore, hasMore }: ActivityTimeli
 
             {event.type === "audit" && expandedId === event.id && event.details && (
               <div className="mt-2 p-3 bg-bg-surface rounded-lg border border-border-secondary">
-                <DiffView before={event.details.before} after={event.details.after} />
+                <DiffView before={event.details.before} after={event.details.after} members={members} />
               </div>
             )}
 

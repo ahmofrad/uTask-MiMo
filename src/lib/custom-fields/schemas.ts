@@ -23,11 +23,14 @@ export const NumberConfig = z.object({
   unit: z.string().optional(),
 });
 
-export const SelectOption = z.object({
-  value: z.string(),
-  label: z.string(),
-  color: z.string().optional(),
-});
+export const SelectOption = z.union([
+  z.object({
+    value: z.string(),
+    label: z.string(),
+    color: z.string().optional(),
+  }),
+  z.string().transform((s) => ({ value: s, label: s })),
+]);
 
 export const SelectConfig = z.object({
   options: z.array(SelectOption).min(1),

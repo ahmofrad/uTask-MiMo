@@ -469,7 +469,7 @@ export function TaskDetailPage({
                 <option value={100}>100</option>
               </select>
             </div>
-            <ActivityTimeline events={auditEvents} onLoadMore={loadMoreAudit} hasMore={auditHasMore} />
+            <ActivityTimeline events={auditEvents} onLoadMore={loadMoreAudit} hasMore={auditHasMore} members={projectMembers} />
           </div>
         </div>
 
