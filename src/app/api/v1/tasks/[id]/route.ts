@@ -87,6 +87,9 @@ export async function PATCH(
   // Include custom field values in response so client can update immediately
   const customFieldValues = await getFieldValues(params.id);
 
+  const { logger } = await import("@/lib/logging");
+  logger.info({ taskId: params.id, customFieldValues, hasCustomFields: !!data.customFields }, "PATCH task with custom fields");
+
   return NextResponse.json({ data: { ...task, customFields: customFieldValues } });
 }
 
