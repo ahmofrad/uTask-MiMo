@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/date/format";
-import { TagChip } from "@/components/task/tag-chip";
+import { TagPicker } from "@/components/tags/tag-picker";
 import { SubtaskList } from "@/components/task/subtask-list";
 import { AttachmentList } from "@/components/task/attachment-list";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
@@ -100,6 +100,7 @@ export function TaskDetailPage({
   const locale = useLocale() as "fa-IR" | "en-US";
   const router = useRouter();
   const [task, setTask] = useState(initialTask);
+  const [taskTagIds, setTaskTagIds] = useState<string[]>(initialTask.tags.map((tg) => tg.id));
   const [cfValues, setCfValues] = useState(initialCFValues);
   const [comments, setComments] = useState(initialComments);
   const [watchers, setWatchers] = useState(initialWatchers);
@@ -222,28 +223,6 @@ export function TaskDetailPage({
     }
   };
 
-  const handleCFChange = async (fieldKey: string, value: unknown) => {
-    const prev = { ...cfValues };
-    const next = { ...cfValues, [fieldKey]: value };
-    setCfValues(next);
-    try {
-      const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ customFields: { [fieldKey]: value } }),
-      });
-      if (res.ok) {
-        const body = await res.json();
-        if (body.data?.customFields) {
-          setCfValues(body.data.customFields);
-        }
-      } else {
-        setCfValues(prev); // rollback on failure
-      }
-    } catch {
-      setCfValues(prev); // rollback on error
-    }
-  };
-
   const handleSubtaskToggle = async (id: string, status: string) => {
     setSubtasks((prev) => prev.map((st) => st.id === id ? { ...st, status } : st));
     await apiFetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, {
@@ -271,6 +250,14 @@ export function TaskDetailPage({
     });
   };
 
+  const handleTagsChange = async (ids: string[]) => {
+    setTaskTagIds(ids);
+    await apiFetch(`/api/v1/tasks/${task.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ tagIds: ids }),
+    });
+  };
+
   const handleSubtaskDelete = async (id: string) => {
     setSubtasks((prev) => prev.filter((st) => st.id !== id));
     await apiFetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, { method: "DELETE" });
@@ -289,11 +276,20 @@ export function TaskDetailPage({
     }
   };
 
+  const handleAttachmentDelete = async (attachmentId: string) => {
+    const res = await fetch(`/api/v1/tasks/${task.id}/attachments/${attachmentId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+    }
+  };
+
   if (deleted) {
     return (
       <div className="max-w-3xl mx-auto px-4 py-16 text-center">
         <p className="text-lg text-fg-muted mb-4">{t("task.taskDeleted")}</p>
-        <Link href="/" className="text-accent hover:underline">{t("task.backToTasks")}</Link>
+        <Link href={`/projects/${task.projectId}`} className="text-accent hover:underline">{t("task.backToProject")}</Link>
       </div>
     );
   }
@@ -303,13 +299,13 @@ export function TaskDetailPage({
       {/* Top bar */}
       <div className="flex items-center justify-between">
         <Link
-          href="/"
+          href={`/projects/${task.projectId}`}
           className="inline-flex items-center gap-1 text-sm text-fg-muted hover:text-fg transition-colors"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          {t("task.backToTasks")}
+          {t("task.backToProject")}
         </Link>
         <button
           onClick={handleDelete}
@@ -440,6 +436,7 @@ export function TaskDetailPage({
             <AttachmentList
               attachments={attachments}
               onUpload={handleAttachmentUpload}
+              onDelete={handleAttachmentDelete}
             />
           </div>
 
@@ -560,16 +557,14 @@ export function TaskDetailPage({
           </div>
 
           {/* Tags card */}
-          {task.tags.length > 0 && (
-            <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
-              <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">{t("task.tags")}</h4>
-              <div className="flex flex-wrap gap-1.5">
-                {task.tags.map((tag) => (
-                  <TagChip key={tag.id} label={tag.name} />
-                ))}
-              </div>
-            </div>
-          )}
+          <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
+            <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">{t("task.tags")}</h4>
+            <TagPicker
+              projectId={task.projectId}
+              value={taskTagIds}
+              onChange={handleTagsChange}
+            />
+          </div>
 
           {/* Custom Fields card */}
           {customFieldSchema.length > 0 && (
@@ -580,8 +575,28 @@ export function TaskDetailPage({
                   <CustomFieldInput
                     key={field.id}
                     field={field}
-                    value={cfValues[field.id] ?? null}
-                    onChange={(val) => handleCFChange(field.key, val)}
+                    value={cfValues[field.key] ?? null}
+                    onChange={async (value) => {
+                      const prev = { ...cfValues };
+                      const next = { ...cfValues, [field.key]: value };
+                      setCfValues(next);
+                      try {
+                        const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
+                          method: "PATCH",
+                          body: JSON.stringify({ customFields: { [field.key]: value } }),
+                        });
+                        if (res.ok) {
+                          const body = await res.json();
+                          if (body.data?.customFields) {
+                            setCfValues(body.data.customFields);
+                          }
+                        } else {
+                          setCfValues(prev);
+                        }
+                      } catch {
+                        setCfValues(prev);
+                      }
+                    }}
                   />
                 ))}
               </div>
@@ -592,24 +607,62 @@ export function TaskDetailPage({
           <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.watchers")}</h4>
-              <button
-                onClick={toggleWatch}
-                className={cn(
-                  "text-xs px-2 py-0.5 rounded-md border transition-colors",
-                  isWatching
-                    ? "border-accent/30 text-accent hover:bg-accent/10"
-                    : "border-border text-fg-muted hover:text-fg hover:border-fg-muted",
-                )}
-              >
-                {isWatching ? t("task.watching") : t("task.watch")}
-              </button>
+              <div className="flex items-center gap-2">
+                <select
+                  onChange={async (e) => {
+                    const userId = e.target.value;
+                    e.target.value = "";
+                    if (!userId) return;
+                    const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}/add?userId=${userId}`, { method: "POST" });
+                    if (res.ok) {
+                      const member = projectMembers.find((m) => m.id === userId);
+                      setWatchers((prev) => [
+                        ...prev,
+                        { id: userId, displayName: member?.displayName ?? "", avatarUrl: member?.avatarUrl ?? null, addedAt: new Date().toISOString() },
+                      ]);
+                    }
+                  }}
+                  className="text-xs bg-transparent border border-border-primary rounded px-1.5 py-0.5 text-fg-muted"
+                >
+                  <option value="">+ {t("task.addWatcher")}</option>
+                  {projectMembers
+                    .filter((m) => !watchers.some((w) => w.id === m.id))
+                    .map((m) => (
+                      <option key={m.id} value={m.id}>{m.displayName}</option>
+                    ))}
+                </select>
+                <button
+                  onClick={toggleWatch}
+                  className={cn(
+                    "text-xs px-2 py-0.5 rounded-md border transition-colors",
+                    isWatching
+                      ? "border-accent/30 text-accent hover:bg-accent/10"
+                      : "border-border text-fg-muted hover:text-fg hover:border-fg-muted",
+                  )}
+                >
+                  {isWatching ? t("task.watching") : t("task.watch")}
+                </button>
+              </div>
             </div>
             {watchers.length > 0 ? (
               <div className="space-y-1.5">
                 {watchers.map((w) => (
-                  <div key={w.id} className="flex items-center gap-2 text-sm text-fg-muted">
+                  <div key={w.id} className="flex items-center gap-2 text-sm text-fg-muted group">
                     <Avatar initials={w.displayName.slice(0, 2).toUpperCase()} size="sm" />
-                    <span className="truncate">{w.displayName || t("common.you")}</span>
+                    <span className="truncate flex-1">{w.displayName || t("common.you")}</span>
+                    {w.id !== currentUserId && (
+                      <button
+                        onClick={async () => {
+                          const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}/remove?userId=${w.id}`, { method: "DELETE" });
+                          if (res.ok) {
+                            setWatchers((prev) => prev.filter((x) => x.id !== w.id));
+                          }
+                        }}
+                        className="text-xs text-fg-muted opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

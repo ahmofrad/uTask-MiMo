@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { reorderTasks } from "@/lib/tasks";
+import { emitTaskEvent } from "@/lib/webhook/emit";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -28,6 +29,8 @@ export async function POST(request: Request) {
   await reorderTasks(projectId, taskIds);
 
   await logAudit({ actorUserId: session.user.id, action: "task_reordered", entityType: "task", entityId: projectId, after: { projectId, taskIds } as never });
+
+  await emitTaskEvent("tasks.reordered", projectId, { projectId, taskIds }, session.user.id);
 
   return NextResponse.json({ data: { success: true } });
 }

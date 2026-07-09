@@ -19,6 +19,7 @@ export async function GET() {
   }
 
   const webhooks = await prisma.webhook.findMany({
+    where: { deletedAt: null },
     orderBy: { createdAt: "desc" },
     select: { id: true, name: true, url: true, events: true, active: true, createdAt: true },
   });

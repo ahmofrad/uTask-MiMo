@@ -12,6 +12,7 @@ export type CreateTaskData = {
   priority?: string;
   dueDate?: string | null;
   estimatedHours?: number | null;
+  tagIds?: string[];
   customFields?: Record<string, unknown>;
 };
 
@@ -43,6 +44,11 @@ export async function createTask(data: CreateTaskData) {
     await setCustomFieldValues(task.id, data.projectId, data.customFields);
   }
 
+  if (data.tagIds) {
+    const { assignTagsToTask } = await import("@/lib/tags");
+    await assignTagsToTask(task.id, data.tagIds);
+  }
+
   return task;
 }
 
@@ -57,6 +63,7 @@ export type UpdateTaskData = {
   spentHours?: number | null;
   parentTaskId?: string | null;
   deletedAt?: string | null;
+  tagIds?: string[];
   customFields?: Record<string, unknown>;
 };
 
@@ -115,6 +122,11 @@ export async function updateTask(id: string, data: UpdateTaskData) {
       const { logger } = await import("@/lib/logging");
       logger.warn({ err, taskId: task.id }, "Failed to send assignment email");
     }
+  }
+
+  if (data.tagIds) {
+    const { assignTagsToTask } = await import("@/lib/tags");
+    await assignTagsToTask(id, data.tagIds);
   }
 
   if (data.customFields && typeof data.customFields === "object") {

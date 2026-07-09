@@ -61,30 +61,30 @@
       "localLogin": "ورود محلی",
       "forgotPassword": "رمز عبور را فراموش کردید؟",
       "ssoButton": "ورود با SSO",
-    "ldapButton": "ورود با LDAP",
-    "ssoTitle": "ورود با SSO",
-    "ssoDescription": "ارائه‌دهنده هویت خود را انتخاب کنید",
-    "ssoLdap": "LDAP / Active Directory",
-    "ssoLdapDesc": "ورود از طریق فهرست سازمانی",
-    "ssoSaml": "SAML 2.0",
-    "ssoSamlDesc": "ورود تک‌باره",
-    "ssoBackToLocal": "بازگشت به ورود محلی",
-    "forgotTitle": "بازنشانی رمز عبور",
-    "forgotDescription": "ایمیل خود را وارد کنید تا لینک بازنشانی رمز عبور برایتان ارسال شود.",
-    "forgotSubmit": "ارسال لینک بازنشانی",
-    "forgotSuccess": "اگر ایمیل وجود داشته باشد، لینک بازنشانی ارسال شد.",
-    "resetTitle": "رمز عبور جدید تنظیم کنید",
-    "resetNewPassword": "رمز عبور جدید",
-    "resetConfirmPassword": "تأیید رمز عبور جدید",
-    "resetSubmit": "ذخیره رمز عبور",
-    "resetSuccess": "رمز عبور ذخیره شد. در حال انتقال...",
-    "inviteTitle": "شما دعوت شده‌اید",
-    "inviteDescription": "پروفایل خود را تکمیل کنید تا به تیم بپیوندید.",
-    "inviteDisplayName": "نام نمایشی",
-    "invitePassword": "رمز عبور تنظیم کنید",
-    "inviteSubmit": "پذیرش دعوت",
-    "inviteSuccess": "حساب ایجاد شد. در حال ورود...",
-    "errors": {
+      "ldapButton": "ورود با LDAP",
+      "ssoTitle": "ورود با SSO",
+      "ssoDescription": "ارائه‌دهنده هویت خود را انتخاب کنید",
+      "ssoLdap": "LDAP / Active Directory",
+      "ssoLdapDesc": "ورود از طریق فهرست سازمانی",
+      "ssoSaml": "SAML 2.0",
+      "ssoSamlDesc": "ورود تک‌باره",
+      "ssoBackToLocal": "بازگشت به ورود محلی",
+      "forgotTitle": "بازنشانی رمز عبور",
+      "forgotDescription": "ایمیل خود را وارد کنید تا لینک بازنشانی رمز عبور برایتان ارسال شود.",
+      "forgotSubmit": "ارسال لینک بازنشانی",
+      "forgotSuccess": "اگر ایمیل وجود داشته باشد، لینک بازنشانی ارسال شد.",
+      "resetTitle": "رمز عبور جدید تنظیم کنید",
+      "resetNewPassword": "رمز عبور جدید",
+      "resetConfirmPassword": "تأیید رمز عبور جدید",
+      "resetSubmit": "ذخیره رمز عبور",
+      "resetSuccess": "رمز عبور ذخیره شد. در حال انتقال...",
+      "inviteTitle": "شما دعوت شده‌اید",
+      "inviteDescription": "پروفایل خود را تکمیل کنید تا به تیم بپیوندید.",
+      "inviteDisplayName": "نام نمایشی",
+      "invitePassword": "رمز عبور تنظیم کنید",
+      "inviteSubmit": "پذیرش دعوت",
+      "inviteSuccess": "حساب ایجاد شد. در حال ورود...",
+      "errors": {
         "invalidCredentials": "ایمیل یا رمز عبور اشتباه است.",
         "ssoUnavailable": "سرویس SSO در دسترس نیست.",
         "rateLimited": "تعداد تلاش‌های ورود بیش از حد مجاز است. لطفاً بعداً تلاش کنید."
@@ -109,7 +109,7 @@
     "settings": "تنظیمات",
     "smtp": "SMTP",
     "auditLog": "گزارش رویدادها",
-    "webhooks": "Webhook",
+    "webhooks": "Webhookها",
     "apiTokens": "توکن‌های API",
     "sso": "SSO",
     "globalRole": "نقش سراسری",
@@ -118,7 +118,7 @@
     "roleOverrideNote": "مالک و مدیر کلیه محدودیت‌های پروژه را نادیده می‌گیرند.",
     "owner": "مالک",
     "adminRole": "مدیر",
-    "manager": "مدیر پروژه",
+    "manager": "مدیر",
     "member": "عضو",
     "guest": "مهمان",
     "lead": "سرپرست",
@@ -127,10 +127,15 @@
     "saving": "در حال ذخیره...",
     "backups": "نسخه‌های پشتیبان",
     "webhookDeliveries": "ارسال‌های Webhook",
+    "deliveries": {
+      "when": "زمان",
+      "event": "رویداد",
+      "pending": "در انتظار",
+      "noDeliveries": "هنوز ارسالی وجود ندارد"
+    },
     "activeUsers": "کاربران فعال",
     "tasks": "وظایف",
     "projects": "پروژه‌ها",
-    "webhooks": "Webhookها",
     "deliveries24h": "ارسال‌ها (۲۴ ساعت)",
     "successRate": "نرخ موفقیت",
     "avgDuration": "مدت متوسط",
@@ -156,7 +161,6 @@
     "idpEntityId": "شناسه IdP",
     "ssoUrl": "آدرس SSO",
     "certificate": "گواهی X.509",
-    "saving": "در حال ذخیره...",
     "saveConfig": "ذخیره پیکربندی",
     "noPermission": "شما مجوز مشاهده این صفحه را ندارید.",
     "name": "نام",
@@ -171,7 +175,6 @@
     "delete": "حذف",
     "noDepartments": "هنوز دپارتمانی وجود ندارد.",
     "projectsCount": "{count} پروژه",
-    "manager": "مدیر",
     "noWebhooks": "هیچ Webhookی پیکربندی نشده است.",
     "created": "ایجاد شده",
     "noTokens": "هیچ توکن API صادر نشده است.",
@@ -189,6 +192,18 @@
     "pending": "{count} در انتظار",
     "webhook": "Webhook",
     "overviewDeliveriesSettings": "نمای کلی، ارسال‌ها و تنظیمات",
+    "storage": {
+      "title": "تنظیمات ذخیره‌سازی",
+      "testConnection": "تست اتصال",
+      "provider": "ارائه‌دهنده",
+      "providerS3": "سازگار با S3 (MinIO, AWS S3)",
+      "providerLocal": "فایل سیستم محلی",
+      "s3Settings": "تنظیمات سازگار با S3",
+      "endpoint": "آدرس سرور",
+      "bucket": "باکت",
+      "accessKey": "کلید دسترسی",
+      "secretKey": "کلید مخفی"
+    },
     "testSend": "ارسال آزمایشی",
     "disable": "غیرفعال",
     "subscribedEvents": "رویدادهای اشتراکی",
@@ -224,7 +239,8 @@
       "assignee": "انجام‌دهنده",
       "dueDate": "تاریخ سررسید",
       "estimatedHours": "ساعت تخمینی",
-      "spentHours": "ساعت صرف شده"
+      "spentHours": "ساعت صرف شده",
+      "tags": "برچسب‌ها"
     },
     "actions": {
       "assign": "اختصاص",
@@ -244,6 +260,7 @@
     "watching": "مشاهده می‌کنید",
     "watch": "مشاهده",
     "noWatchers": "مشاهده‌کننده‌ای وجود ندارد",
+    "addWatcher": "افزودن مشاهده‌کننده",
     "deleteTask": "حذف وظیفه",
     "activity": "فعالیت",
     "createdAt": "تاریخ ایجاد",
@@ -284,7 +301,17 @@
     "allTasks": "همه وظایف",
     "myTasks": "وظایف من",
     "addSubtask": "+ افزودن زیروظیفه",
-    "ctrlEnterHint": "Ctrl+Enter برای ارسال"
+    "ctrlEnterHint": "Ctrl+Enter برای ارسال",
+    "noTasksAssigned": "هیچ وظیفه‌ای به شما محول نشده است",
+    "newTag": "برچسب جدید",
+    "noTags": "برچسبی وجود ندارد",
+    "loading": "در حال بارگذاری...",
+    "add": "افزودن",
+    "manageTags": "مدیریت برچسب‌ها",
+    "toggleAssign": "تخصیص به این تسک",
+    "upload": "بارگذاری",
+    "backToProject": "بازگشت به پروژه",
+    "assigned": "محول‌شده"
   },
   "project": {
     "title": "پروژه‌ها",
@@ -296,6 +323,22 @@
       "description": "توضیحات",
       "color": "رنگ",
       "visibility": "قابلیت مشاهده"
+    },
+    "visibilityOptions": {
+      "private": "خصوصی",
+      "department": "دپارتمان",
+      "org": "سازمان"
+    },
+    "settings": {
+      "title": "تنظیمات پروژه",
+      "dangerZone": "منطقه خطرناک",
+      "dangerZoneDesc": "بایگانی کردن پروژه آن را از دید پنهان می‌کند اما تمام داده‌ها حفظ می‌شوند.",
+      "archiveButton": "بایگانی پروژه"
+    },
+    "dashboard": {
+      "title": "داشبورد پروژه",
+      "total": "مجموع",
+      "statusBreakdown": "تفکیک وضعیت"
     },
     "owner": "مالک",
     "tasksCount": "{count} وظیفه",
@@ -320,7 +363,9 @@
       "lead": "سرپرست",
       "contributor": "مشارکت‌کننده",
       "viewer": "بازدیدکننده"
-    }
+    },
+    "tags": "برچسب‌ها",
+    "backToProjects": "بازگشت به پروژه‌ها"
   },
   "comment": {
     "title": "نظرات",
@@ -390,7 +435,9 @@
     "projects": "پروژه‌ها",
     "comments": "نظرات",
     "searchInput": "جستجوی وظایف و پروژه‌ها...",
-    "keyboardHint": "↑↓ حرکت · Enter باز کردن · Esc بستن"
+    "keyboardHint": "↑↓ حرکت · Enter باز کردن · Esc بستن",
+    "title": "جستجو",
+    "hintDetailed": "برای جستجو در وظایف، پروژه‌ها و نظرات تایپ کنید."
   },
   "sso": {
     "title": "تنظیمات SSO",
@@ -553,6 +600,11 @@
     "min": "حداقل",
     "max": "حداکثر",
     "options": "گزینه‌ها",
-    "optionPlaceholder": "گزینه را تایپ کنید و Enter بزنید"
+    "optionPlaceholder": "گزینه را تایپ کنید و Enter بزنید",
+    "edit": "ویرایش",
+    "save": "ذخیره",
+    "delete": "حذف",
+    "confirmDelete": "حذف فیلد سفارشی «{name}»؟ این فیلد از همه تسک‌ها مخفی می‌شود.",
+    "includeTime": "شامل زمان"
   }
 }

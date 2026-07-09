@@ -61,30 +61,30 @@
       "localLogin": "Local login",
       "forgotPassword": "Forgot password?",
       "ssoButton": "Sign in with SSO",
-    "ldapButton": "Sign in with LDAP",
-    "ssoTitle": "Sign in with SSO",
-    "ssoDescription": "Choose your identity provider",
-    "ssoLdap": "LDAP / Active Directory",
-    "ssoLdapDesc": "Corporate directory login",
-    "ssoSaml": "SAML 2.0",
-    "ssoSamlDesc": "Single sign-on",
-    "ssoBackToLocal": "Back to local login",
-    "forgotTitle": "Reset password",
-    "forgotDescription": "Enter your email and we'll send you a link to reset your password.",
-    "forgotSubmit": "Send reset link",
-    "forgotSuccess": "If the email exists, we sent a reset link.",
-    "resetTitle": "Set a new password",
-    "resetNewPassword": "New password",
-    "resetConfirmPassword": "Confirm new password",
-    "resetSubmit": "Save password",
-    "resetSuccess": "Password saved. Redirecting...",
-    "inviteTitle": "You've been invited",
-    "inviteDescription": "Complete your profile to join the team.",
-    "inviteDisplayName": "Display name",
-    "invitePassword": "Set a password",
-    "inviteSubmit": "Accept invitation",
-    "inviteSuccess": "Account created. Signing you in...",
-    "errors": {
+      "ldapButton": "Sign in with LDAP",
+      "ssoTitle": "Sign in with SSO",
+      "ssoDescription": "Choose your identity provider",
+      "ssoLdap": "LDAP / Active Directory",
+      "ssoLdapDesc": "Corporate directory login",
+      "ssoSaml": "SAML 2.0",
+      "ssoSamlDesc": "Single sign-on",
+      "ssoBackToLocal": "Back to local login",
+      "forgotTitle": "Reset password",
+      "forgotDescription": "Enter your email and we'll send you a link to reset your password.",
+      "forgotSubmit": "Send reset link",
+      "forgotSuccess": "If the email exists, we sent a reset link.",
+      "resetTitle": "Set a new password",
+      "resetNewPassword": "New password",
+      "resetConfirmPassword": "Confirm new password",
+      "resetSubmit": "Save password",
+      "resetSuccess": "Password saved. Redirecting...",
+      "inviteTitle": "You've been invited",
+      "inviteDescription": "Complete your profile to join the team.",
+      "inviteDisplayName": "Display name",
+      "invitePassword": "Set a password",
+      "inviteSubmit": "Accept invitation",
+      "inviteSuccess": "Account created. Signing you in...",
+      "errors": {
         "invalidCredentials": "Invalid email or password.",
         "ssoUnavailable": "SSO service unavailable.",
         "rateLimited": "Too many login attempts. Try again later."
@@ -127,10 +127,15 @@
     "saving": "Saving...",
     "backups": "Backups",
     "webhookDeliveries": "Webhook Deliveries",
+    "deliveries": {
+      "when": "When",
+      "event": "Event",
+      "pending": "pending",
+      "noDeliveries": "No deliveries yet"
+    },
     "activeUsers": "Active Users",
     "tasks": "Tasks",
     "projects": "Projects",
-    "webhooks": "Webhooks",
     "deliveries24h": "Deliveries (24h)",
     "successRate": "Success rate",
     "avgDuration": "Avg duration",
@@ -156,7 +161,6 @@
     "idpEntityId": "IdP Entity ID",
     "ssoUrl": "SSO URL",
     "certificate": "X.509 Certificate",
-    "saving": "Saving...",
     "saveConfig": "Save configuration",
     "noPermission": "You do not have permission to view this page.",
     "name": "Name",
@@ -171,7 +175,6 @@
     "delete": "Delete",
     "noDepartments": "No departments yet.",
     "projectsCount": "{count} projects",
-    "manager": "Manager",
     "noWebhooks": "No webhooks configured.",
     "created": "Created",
     "noTokens": "No API tokens issued.",
@@ -189,6 +192,18 @@
     "pending": "{count} pending",
     "webhook": "Webhook",
     "overviewDeliveriesSettings": "Overview, deliveries, and settings",
+    "storage": {
+      "title": "Storage Configuration",
+      "testConnection": "Test connection",
+      "provider": "Provider",
+      "providerS3": "S3-compatible (MinIO, AWS S3)",
+      "providerLocal": "Local filesystem",
+      "s3Settings": "S3-compatible settings",
+      "endpoint": "Endpoint",
+      "bucket": "Bucket",
+      "accessKey": "Access key",
+      "secretKey": "Secret key"
+    },
     "testSend": "Test send",
     "disable": "Disable",
     "subscribedEvents": "Subscribed Events",
@@ -224,7 +239,8 @@
       "assignee": "Assignee",
       "dueDate": "Due date",
       "estimatedHours": "Estimated hours",
-      "spentHours": "Spent hours"
+      "spentHours": "Spent hours",
+      "tags": "Tags"
     },
     "actions": {
       "assign": "Assign",
@@ -244,6 +260,7 @@
     "watching": "Watching",
     "watch": "Watch",
     "noWatchers": "No watchers",
+    "addWatcher": "Add watcher",
     "deleteTask": "Delete task",
     "activity": "Activity",
     "createdAt": "Created",
@@ -283,8 +300,18 @@
     "noTimelineTasks": "No tasks to display",
     "allTasks": "All tasks",
     "myTasks": "My tasks",
+    "noTasksAssigned": "No tasks assigned to you",
     "addSubtask": "+ Add subtask",
-    "ctrlEnterHint": "Ctrl+Enter to send"
+    "ctrlEnterHint": "Ctrl+Enter to send",
+    "newTag": "New tag",
+    "noTags": "No tags yet",
+    "loading": "Loading...",
+    "add": "Add",
+    "manageTags": "Manage tags",
+    "toggleAssign": "Assign to this task",
+    "upload": "Upload",
+    "backToProject": "Back to project",
+    "assigned": "Assigned"
   },
   "project": {
     "title": "Projects",
@@ -296,6 +323,22 @@
       "description": "Description",
       "color": "Color",
       "visibility": "Visibility"
+    },
+    "visibilityOptions": {
+      "private": "Private",
+      "department": "Department",
+      "org": "Organization"
+    },
+    "settings": {
+      "title": "Project Settings",
+      "dangerZone": "Danger Zone",
+      "dangerZoneDesc": "Archiving a project hides it from views but preserves all data.",
+      "archiveButton": "Archive project"
+    },
+    "dashboard": {
+      "title": "Project Dashboard",
+      "total": "Total",
+      "statusBreakdown": "Status Breakdown"
     },
     "owner": "Owner",
     "tasksCount": "{count} tasks",
@@ -320,7 +363,9 @@
       "lead": "Lead",
       "contributor": "Contributor",
       "viewer": "Viewer"
-    }
+    },
+    "tags": "Tags",
+    "backToProjects": "Back to projects"
   },
   "comment": {
     "title": "Comments",
@@ -390,7 +435,9 @@
     "projects": "Projects",
     "comments": "Comments",
     "searchInput": "Search tasks and projects...",
-    "keyboardHint": "↑↓ navigate · Enter open · Esc close"
+    "keyboardHint": "↑↓ navigate · Enter open · Esc close",
+    "title": "Search",
+    "hintDetailed": "Type to search across tasks, projects, and comments."
   },
   "sso": {
     "title": "SSO Configuration",
@@ -553,6 +600,11 @@
     "min": "Min",
     "max": "Max",
     "options": "Options",
-    "optionPlaceholder": "Type option and press Enter"
+    "optionPlaceholder": "Type option and press Enter",
+    "edit": "Edit",
+    "save": "Save",
+    "delete": "Delete",
+    "confirmDelete": "Delete custom field \"{name}\"? This will hide it from all tasks.",
+    "includeTime": "Include time"
   }
 }

@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac/can";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { emitTaskEvent } from "@/lib/webhook/emit";
 
 export async function GET(
   _request: Request,
@@ -71,6 +72,8 @@ export async function POST(
     entityId: subtask.id,
     after: { title: subtask.title, parentTaskId: params.id },
   });
+
+  await emitTaskEvent("subtask.created", subtask.id, { id: subtask.id, title: subtask.title, parentTaskId: params.id }, session.user.id);
 
   return NextResponse.json({ data: subtask }, { status: 201 });
 }

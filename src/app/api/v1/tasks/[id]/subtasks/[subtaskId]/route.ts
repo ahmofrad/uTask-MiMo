@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac/can";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { emitTaskEvent } from "@/lib/webhook/emit";
 
 export async function PATCH(
   request: Request,
@@ -49,6 +50,8 @@ export async function PATCH(
     after: subtask,
   });
 
+  await emitTaskEvent("subtask.updated", subtask.id, { id: subtask.id, title: subtask.title, status: subtask.status }, session.user.id);
+
   return NextResponse.json({ data: subtask });
 }
 
@@ -80,6 +83,8 @@ export async function DELETE(
     entityId: params.subtaskId,
     before,
   });
+
+  await emitTaskEvent("subtask.deleted", params.subtaskId, { id: params.subtaskId, parentTaskId: params.id }, session.user.id);
 
   return NextResponse.json({ data: { success: true } });
 }

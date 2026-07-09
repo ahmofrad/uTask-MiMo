@@ -7,12 +7,15 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
 # Install os-level build deps
 RUN apk add --no-cache python3 make g++
 
 # Install prod + dev deps (devDeps needed for build)
-COPY package.json package-lock.json ./
-RUN npm ci --production=false
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
 # Generate Prisma client
 COPY prisma/ ./prisma/
@@ -22,7 +25,7 @@ RUN npx prisma generate
 COPY tsconfig.json next.config.mjs ./
 COPY public/ ./public/
 COPY src/ ./src/
-RUN npm run build
+RUN pnpm build
 
 # ──────────────────────────────────────────────
 # Stage 2: Runner
@@ -30,6 +33,9 @@ RUN npm run build
 FROM node:20-alpine AS runner
 
 WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Create unprivileged user (UID 1000)
 RUN addgroup -g 1000 node && \

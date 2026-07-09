@@ -6,6 +6,7 @@ export type Permission =
   | "org:manage"
   | "org:settings"
   | "project:create"
+  | "project:update"
   | "project:delete"
   | "custom_field:define"
   | "project_role:assign"
@@ -29,6 +30,7 @@ const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
     "org:reports",
     "settings:update",
     "project:create",
+    "project:update",
     "project:delete",
     "custom_field:define",
     "project_role:assign",
@@ -46,6 +48,7 @@ const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
   admin: [
     "org:settings",
     "project:create",
+    "project:update",
     "project:delete",
     "custom_field:define",
     "project_role:assign",
@@ -64,6 +67,7 @@ const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
   ],
   manager: [
     "project:create",
+    "project:update",
     "custom_field:define",
     "project_role:assign",
     "task:create",

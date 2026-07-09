@@ -6,6 +6,7 @@ const ALL_PERMISSIONS = [
   "org:settings",
   "org:reports",
   "project:create",
+  "project:update",
   "project:delete",
   "custom_field:define",
   "project_role:assign",
@@ -45,6 +46,7 @@ describe("RBAC permission matrix", () => {
     const perms = getRolePermissions("manager");
     const allowed = [
       "project:create",
+      "project:update",
       "custom_field:define",
       "project_role:assign",
       "task:create",

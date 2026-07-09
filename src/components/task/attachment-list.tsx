@@ -61,7 +61,7 @@ export function AttachmentList({ attachments, onUpload, onDelete }: AttachmentLi
           disabled={uploading}
           className="text-xs text-accent hover:underline disabled:opacity-50"
         >
-          {uploading ? tc("common.loading") : ta("create")}
+          {uploading ? tc("common.loading") : ta("upload")}
         </button>
         <input
           ref={fileInputRef}

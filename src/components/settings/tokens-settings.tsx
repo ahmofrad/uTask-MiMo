@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 
-export default function TokensPage() {
+export function TokensSettings() {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
   const { shortDate } = useFormattedDate();
@@ -47,9 +47,8 @@ export default function TokensPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">{t("tokens")}</h1>
+    <div className="space-y-3">
+      <div className="flex justify-end">
         <button
           onClick={() => setShowCreate(true)}
           className="px-4 py-2 text-sm font-medium rounded-lg bg-accent text-fg-inverse hover:opacity-90 transition-opacity"
@@ -106,7 +105,7 @@ export default function TokensPage() {
         </div>
       )}
 
-      <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-3">
+      <div className="border border-border-secondary rounded-xl bg-bg-surface p-5 space-y-3">
         {tokens.map((token) => (
           <div key={token.id} className="flex items-center gap-4 p-4 bg-bg-primary border border-border-secondary rounded-lg">
             <div className="flex-1 min-w-0">

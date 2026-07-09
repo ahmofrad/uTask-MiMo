@@ -3,10 +3,13 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/date/format";
 import { ReplayButton } from "@/components/admin/replay-button";
+import { getTranslations } from "next-intl/server";
 
 export default async function WebhookDeliveriesPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  const t = await getTranslations();
 
   const deliveries = await prisma.webhookDelivery.findMany({
     orderBy: { scheduledAt: "desc" },
@@ -16,17 +19,17 @@ export default async function WebhookDeliveriesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-fg-primary">Webhook Deliveries</h1>
+      <h1 className="text-2xl font-bold text-fg-primary">{t("admin.webhookDeliveries")}</h1>
 
       <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border-primary">
-              <th className="text-start p-3 text-fg-muted font-medium">When</th>
-              <th className="text-start p-3 text-fg-muted font-medium">Webhook</th>
-              <th className="text-start p-3 text-fg-muted font-medium">Event</th>
-              <th className="text-start p-3 text-fg-muted font-medium">Status</th>
-              <th className="text-start p-3 text-fg-muted font-medium">Actions</th>
+              <th className="text-start p-3 text-fg-muted font-medium">{t("admin.deliveries.when")}</th>
+              <th className="text-start p-3 text-fg-muted font-medium">{t("admin.webhook")}</th>
+              <th className="text-start p-3 text-fg-muted font-medium">{t("admin.deliveries.event")}</th>
+              <th className="text-start p-3 text-fg-muted font-medium">{t("admin.status")}</th>
+              <th className="text-start p-3 text-fg-muted font-medium">{t("admin.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -43,7 +46,7 @@ export default async function WebhookDeliveriesPage() {
                       ? "bg-danger-bg text-danger"
                       : "bg-bg-surface-2 text-fg-muted"
                   }`}>
-                    {d.responseStatus ?? "pending"}
+                    {d.responseStatus ?? t("admin.deliveries.pending")}
                   </span>
                 </td>
                 <td className="p-3">
@@ -53,7 +56,7 @@ export default async function WebhookDeliveriesPage() {
             ))}
             {deliveries.length === 0 && (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-fg-muted">No deliveries yet</td>
+                <td colSpan={5} className="p-8 text-center text-fg-muted">{t("admin.deliveries.noDeliveries")}</td>
               </tr>
             )}
           </tbody>

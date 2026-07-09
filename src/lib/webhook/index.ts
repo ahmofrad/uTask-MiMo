@@ -150,7 +150,7 @@ export async function dispatchWebhook(
   payload: Record<string, unknown>,
 ) {
   const webhook = await prisma.webhook.findUnique({
-    where: { id: webhookId },
+    where: { id: webhookId, deletedAt: null },
   });
   if (!webhook || !webhook.active) return;
 

@@ -3,18 +3,11 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
-
-type CustomField = {
-  id: string;
-  name: string;
-  key: string;
-  type: string;
-  required: boolean;
-};
+import { CustomFieldEditForm, type CustomFieldConfig } from "./custom-field-edit-form";
 
 type Props = {
   projectId: string;
-  initialFields: CustomField[];
+  initialFields: CustomFieldConfig[];
 };
 
 const FIELD_TYPES = ["text", "number", "date", "select", "multi_select", "user", "checkbox", "url"];
@@ -29,9 +22,26 @@ export function CustomFieldsManager({ projectId, initialFields }: Props) {
   const [newRequired, setNewRequired] = useState(false);
   const [selectOptions, setSelectOptions] = useState<string[]>([]);
   const [optionInput, setOptionInput] = useState("");
+  const [newMaxLength, setNewMaxLength] = useState<string>("");
+  const [newMin, setNewMin] = useState<string>("");
+  const [newMax, setNewMax] = useState<string>("");
+  const [newIncludeTime, setNewIncludeTime] = useState(false);
 
   async function handleCreate() {
     if (!newName.trim()) return;
+    let configJson: Record<string, unknown> | undefined;
+    if (newType === "select" || newType === "multi_select") {
+      configJson = selectOptions.length > 0 ? { options: selectOptions } : undefined;
+    } else if (newType === "text") {
+      configJson = newMaxLength ? { maxLength: Number(newMaxLength) } : undefined;
+    } else if (newType === "number") {
+      configJson = {
+        ...(newMin !== "" ? { min: Number(newMin) } : {}),
+        ...(newMax !== "" ? { max: Number(newMax) } : {}),
+      };
+    } else if (newType === "date") {
+      configJson = newIncludeTime ? { includeTime: true } : undefined;
+    }
     try {
       const res = await apiFetch(`/api/v1/projects/${projectId}/custom-fields`, {
         method: "POST",
@@ -40,7 +50,7 @@ export function CustomFieldsManager({ projectId, initialFields }: Props) {
           key: newName.trim().toLowerCase().replace(/\s+/g, "_"),
           type: newType,
           required: newRequired,
-          configJson: newType === "select" && selectOptions.length > 0 ? { options: selectOptions } : undefined,
+          configJson,
         }),
       });
       if (res.ok) {
@@ -59,6 +69,10 @@ export function CustomFieldsManager({ projectId, initialFields }: Props) {
     setNewRequired(false);
     setSelectOptions([]);
     setOptionInput("");
+    setNewMaxLength("");
+    setNewMin("");
+    setNewMax("");
+    setNewIncludeTime(false);
     setShowForm(false);
   }
 
@@ -68,10 +82,6 @@ export function CustomFieldsManager({ projectId, initialFields }: Props) {
       setSelectOptions((prev) => [...prev, trimmed]);
       setOptionInput("");
     }
-  }
-
-  function removeOption(opt: string) {
-    setSelectOptions((prev) => prev.filter((o) => o !== opt));
   }
 
   return (
@@ -124,14 +134,14 @@ export function CustomFieldsManager({ projectId, initialFields }: Props) {
             </div>
           </div>
 
-          {newType === "select" && (
+          {newType === "select" || newType === "multi_select" ? (
             <div>
               <label className="block text-xs text-fg-muted mb-1">{t("options")}</label>
               <div className="flex flex-wrap gap-1.5 mb-2">
                 {selectOptions.map((opt) => (
                   <span key={opt} className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-accent-bg text-accent rounded-full">
                     {opt}
-                    <button type="button" onClick={() => removeOption(opt)} className="hover:text-destructive ml-0.5">&times;</button>
+                    <button type="button" onClick={() => setSelectOptions((prev) => prev.filter((o) => o !== opt))} className="hover:text-destructive ms-0.5">&times;</button>
                   </span>
                 ))}
               </div>
@@ -143,29 +153,48 @@ export function CustomFieldsManager({ projectId, initialFields }: Props) {
                 placeholder={t("optionPlaceholder")}
                 className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm"
               />
-            </div>
-          )}
+              </div>
+          ) : null}
 
           {newType === "text" && (
             <div>
               <label className="block text-xs text-fg-muted mb-1">{t("maxLength")}</label>
-              <input type="number" min="1" placeholder="255" className="w-32 px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm" />
+              <input
+                type="number" min="1" placeholder="255"
+                value={newMaxLength}
+                onChange={(e) => setNewMaxLength(e.target.value)}
+                className="w-32 px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm"
+              />
             </div>
           )}
           {newType === "number" && (
             <div className="flex gap-3">
               <div>
                 <label className="block text-xs text-fg-muted mb-1">{t("min")}</label>
-                <input type="number" className="w-24 px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm" />
+                <input
+                  type="number" value={newMin} onChange={(e) => setNewMin(e.target.value)}
+                  className="w-24 px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm"
+                />
               </div>
               <div>
                 <label className="block text-xs text-fg-muted mb-1">{t("max")}</label>
-                <input type="number" className="w-24 px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm" />
+                <input
+                  type="number" value={newMax} onChange={(e) => setNewMax(e.target.value)}
+                  className="w-24 px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm"
+                />
               </div>
             </div>
           )}
           {newType === "date" && (
-            <div className="text-xs text-fg-muted py-2">{t("dateHint")}</div>
+            <label className="flex items-center gap-2 text-sm text-fg-primary">
+              <input
+                type="checkbox"
+                checked={newIncludeTime}
+                onChange={(e) => setNewIncludeTime(e.target.checked)}
+                className="accent-accent"
+              />
+              {t("includeTime")}
+            </label>
           )}
 
           <div className="flex justify-end gap-2">
@@ -181,18 +210,74 @@ export function CustomFieldsManager({ projectId, initialFields }: Props) {
 
       <div className="space-y-2">
         {fields.map((field) => (
-          <div key={field.id} className="flex items-center gap-4 p-4 bg-bg-surface border border-border-primary rounded-lg">
-            <div className="w-5 h-5 rounded bg-bg-surface-2 flex items-center justify-center text-fg-muted text-xs">≡</div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-fg-primary">{field.name}</p>
-              <p className="text-xs text-fg-muted">{field.type} · {field.required ? t("required") : t("optional")}</p>
-            </div>
-          </div>
+          <CustomFieldRow
+            key={field.id}
+            field={field}
+            projectId={projectId}
+            onChanged={(updated) =>
+              setFields((prev) => prev.map((f) => (f.id === updated.id ? updated : f)))
+            }
+            onDeleted={(id) => setFields((prev) => prev.filter((f) => f.id !== id))}
+          />
         ))}
         {fields.length === 0 && (
           <p className="text-sm text-fg-muted text-center py-8">{t("noFields")}</p>
         )}
       </div>
+    </div>
+  );
+}
+
+type RowProps = {
+  field: CustomFieldConfig;
+  projectId: string;
+  onChanged: (_updated: CustomFieldConfig) => void;
+  onDeleted: (_id: string) => void;
+};
+
+function CustomFieldRow({ field, projectId, onChanged, onDeleted }: RowProps) {
+  const t = useTranslations("customField");
+  const [editing, setEditing] = useState(false);
+
+  async function remove() {
+    if (!window.confirm(t("confirmDelete", { name: field.name }))) return;
+    const res = await apiFetch(
+      `/api/v1/projects/${projectId}/custom-fields/${field.id}`,
+      { method: "DELETE" },
+    );
+    if (res.ok) onDeleted(field.id);
+  }
+
+  if (editing) {
+    return (
+      <CustomFieldEditForm
+        field={field}
+        projectId={projectId}
+        onChanged={(updated) => { onChanged(updated); setEditing(false); }}
+        onCancel={() => setEditing(false)}
+      />
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-4 p-4 bg-bg-surface border border-border-primary rounded-lg">
+      <div className="w-5 h-5 rounded bg-bg-surface-2 flex items-center justify-center text-fg-muted text-xs">≡</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-fg-primary">{field.name}</p>
+        <p className="text-xs text-fg-muted">{field.type} · {field.required ? t("required") : t("optional")}</p>
+      </div>
+      <button
+        onClick={() => setEditing(true)}
+        className="text-xs text-fg-muted hover:text-accent transition-colors"
+      >
+        {t("edit")}
+      </button>
+      <button
+        onClick={remove}
+        className="text-xs text-fg-muted hover:text-destructive transition-colors"
+      >
+        {t("delete")}
+      </button>
     </div>
   );
 }

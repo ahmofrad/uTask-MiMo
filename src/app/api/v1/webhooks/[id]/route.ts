@@ -54,7 +54,10 @@ export async function DELETE(
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  await prisma.webhook.delete({ where: { id: params.id } });
+  await prisma.webhook.update({
+    where: { id: params.id },
+    data: { deletedAt: new Date() },
+  });
 
   await logAudit({
     actorUserId: session.user.id,

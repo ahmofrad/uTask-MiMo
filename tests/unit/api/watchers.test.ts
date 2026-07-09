@@ -2,7 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn() }));
-vi.mock("@/lib/db", () => ({ prisma: {} }));
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    webhook: { findMany: vi.fn().mockResolvedValue([]) },
+  },
+}));
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn() }));
 vi.mock("@/lib/watchers", () => ({
   getWatchers: vi.fn(),

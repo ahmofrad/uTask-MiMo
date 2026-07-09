@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
-vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn() }));
+const mockCan = vi.fn();
+vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findMany: vi.fn() },
@@ -25,6 +26,7 @@ const mockPrisma = prisma as {
 
 function authenticatedSession() {
   mockAuth.mockResolvedValue({ user: { id: "user-1" } });
+  mockCan.mockResolvedValue(true);
 }
 
 function unauthenticatedSession() {

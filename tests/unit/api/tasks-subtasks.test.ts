@@ -6,6 +6,7 @@ vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
+    webhook: { findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn() }));

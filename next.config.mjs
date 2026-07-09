@@ -4,11 +4,10 @@ const withNextIntl = createNextIntlPlugin("./src/i18n.ts");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: process.env.NODE_ENV === "production" ? "standalone" : undefined,
   experimental: {
     instrumentationHook: true,
   },
-  // Allow cross-origin dev requests from network IPs
-  allowedDevOrigins: ["172.31.252.14"],
 };
 
 export default withNextIntl(nextConfig);

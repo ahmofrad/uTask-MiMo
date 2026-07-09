@@ -55,7 +55,7 @@ export function formatRelative(
   if (diffDays < 7) {
     return locale === "fa-IR" ? `${diffDays} روز پیش` : `${diffDays}d ago`;
   }
-  return formatDate(date, locale, "jalali").slice(0, 10);
+  return formatDate(date, locale, "jalali");
 }
 
 const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];

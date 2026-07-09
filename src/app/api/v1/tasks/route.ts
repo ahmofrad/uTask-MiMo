@@ -82,7 +82,7 @@ export async function POST(request: Request) {
       projectId, title, description, parentTaskId,
       status: taskStatus, priority: taskPriority,
       dueDate, assigneeId, estimatedHours,
-      customFields,
+      customFields, tagIds,
     } = body as Record<string, unknown>;
 
     if (!projectId || !title) {
@@ -111,6 +111,7 @@ export async function POST(request: Request) {
     if (assigneeId) data.assigneeId = String(assigneeId);
     if (estimatedHours) data.estimatedHours = Number(estimatedHours);
     if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;
+    if (tagIds && Array.isArray(tagIds)) data.tagIds = tagIds as string[];
 
     const task = await createTask(data);
 

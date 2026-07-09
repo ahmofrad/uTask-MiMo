@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
+import { can } from "@/lib/rbac";
 import { search } from "@/lib/search";
 
 export async function GET(request: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
+  }
+
+  if (!await can(session.user.id, "task:create")) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
   const { searchParams } = new URL(request.url);

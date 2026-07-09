@@ -15,7 +15,7 @@ export default async function CustomFieldsPage({ params }: { params: { projectId
   const fields = await prisma.customField.findMany({
     where: { projectId: params.projectId, archivedAt: null },
     orderBy: { orderIndex: "asc" },
-    select: { id: true, name: true, key: true, type: true, required: true },
+    select: { id: true, name: true, key: true, type: true, required: true, configJson: true },
   });
 
   return (
@@ -28,6 +28,7 @@ export default async function CustomFieldsPage({ params }: { params: { projectId
           key: f.key,
           type: f.type,
           required: f.required,
+          configJson: (f.configJson ?? undefined) as Record<string, unknown> | undefined,
         }))}
       />
     </div>

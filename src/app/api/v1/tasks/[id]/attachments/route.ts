@@ -2,13 +2,7 @@ import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
 import { can, canProject } from "@/lib/rbac";
-import { logAudit } from "@/lib/audit/log";
-import { randomUUID } from "@/lib/crypto";
-import { putObject } from "@/lib/storage/upload";
-import { presignedGet } from "@/lib/storage/download";
-import type { AuditAction } from "@prisma/client";
-
-const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
+import { getAttachmentsByTask, getPresignedUrl, createAttachment } from "@/lib/attachments";
 
 async function hasProjectAccess(userId: string, taskId: string): Promise<boolean> {
   if (await can(userId, "task:edit_any")) return true;
@@ -33,24 +27,14 @@ export async function GET(
   const attachmentId = searchParams.get("attachmentId");
 
   if (presign && attachmentId) {
-    const attachment = await prisma.attachment.findUnique({
-      where: { id: attachmentId },
-      select: { id: true, taskId: true, storageKey: true },
-    });
-    if (!attachment) {
-      return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
-    }
-
-    // Verify attachment belongs to the task and user has access
-    if (attachment.taskId !== params.id) {
-      return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
-    }
-
     if (!(await hasProjectAccess(session.user.id, params.id))) {
       return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
     }
 
-    const url = await presignedGet(attachment.storageKey);
+    const url = await getPresignedUrl(attachmentId, params.id);
+    if (!url) {
+      return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+    }
     return NextResponse.json({ data: { url } });
   }
 
@@ -58,11 +42,7 @@ export async function GET(
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  const attachments = await prisma.attachment.findMany({
-    where: { taskId: params.id },
-    orderBy: { createdAt: "desc" },
-  });
-
+  const attachments = await getAttachmentsByTask(params.id);
   return NextResponse.json({ data: attachments });
 }
 
@@ -90,30 +70,20 @@ export async function POST(
     );
   }
 
-  if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "File size exceeds 25 MB limit" } },
-      { status: 400 },
+  try {
+    const attachment = await createAttachment(
+      params.id,
+      {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        buffer: Buffer.from(await file.arrayBuffer()),
+      },
+      session.user.id,
     );
+    return NextResponse.json({ data: attachment }, { status: 201 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: { code: "VALIDATION_ERROR", message } }, { status: 400 });
   }
-
-  const storageKey = `tasks/${params.id}/${randomUUID()}-${file.name}`;
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  await putObject(storageKey, buffer, file.type);
-
-  const attachment = await prisma.attachment.create({
-    data: {
-      taskId: params.id,
-      filename: file.name,
-      mimeType: file.type,
-      sizeBytes: file.size,
-      storageKey,
-      uploadedById: session.user.id,
-    },
-  });
-
-  await logAudit({ actorUserId: session.user.id, action: "created" as AuditAction, entityType: "attachment", entityId: attachment.id, after: { taskId: params.id, filename: file.name } as never });
-
-  return NextResponse.json({ data: attachment }, { status: 201 });
 }

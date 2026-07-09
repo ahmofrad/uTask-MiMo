@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { TagsModal } from "@/components/tags/tags-modal";
 import { Board } from "@/components/task/board";
 import { Timeline } from "@/components/task/timeline";
 import { CalendarView } from "@/components/task/calendar-view";
@@ -57,8 +59,37 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
   const [tasks, setTasks] = useState(initialTasks);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showCFModal, setShowCFModal] = useState(false);
+  const [showTagsModal, setShowTagsModal] = useState(false);
+  const [projectTags, setProjectTags] = useState<{ id: string; name: string; color?: string | null }[]>([]);
+  const [cfFields, setCfFields] = useState<Array<{ id: string; name: string; key: string; type: string; required: boolean }>>([]);
+  const [cfLoading, setCfLoading] = useState(false);
+
+  async function openCFModal() {
+    setShowCFModal(true);
+    setCfLoading(true);
+    try {
+      const res = await apiFetch(`/api/v1/projects/${project.id}/custom-fields`);
+      if (res.ok) {
+        const body = await res.json();
+        setCfFields(body.data ?? []);
+      }
+    } finally {
+      setCfLoading(false);
+    }
+  }
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("board");
+
+  useEffect(() => {
+    apiFetch(`/api/v1/tags?projectId=${project.id}`)
+      .then(async (res) => {
+        if (res.ok) {
+          const body = await res.json();
+          setProjectTags(body.data ?? []);
+        }
+      })
+      .catch(() => {});
+  }, [project.id]);
 
   async function handleCreateTask(data: Record<string, unknown>) {
     const res = await apiFetch(`/api/v1/tasks`, {
@@ -99,6 +130,16 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
 
   return (
     <>
+      <Link
+        href="/projects"
+        className="inline-flex items-center gap-1 text-sm text-fg-muted hover:text-fg transition-colors mb-3"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+        </svg>
+        {t("backToProjects")}
+      </Link>
+
       {/* Project Header */}
       <div className="bg-bg-surface border border-border rounded-xl p-6 mb-6">
         <div className="flex items-start justify-between mb-4">
@@ -108,15 +149,21 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
             )}
             <h1 className="text-xl font-bold text-fg-primary">{project.name}</h1>
           </div>
-          <span className="text-xs text-fg-muted bg-bg-surface-2 px-2 py-1 rounded-md">
-            {project.projectRole ?? "member"}
-          </span>
-          <button
-            onClick={() => { setShowCFModal(true); setShowCreateForm(false); }}
-            className="px-4 py-2 text-sm font-medium rounded-md border border-border-primary text-fg-secondary hover:bg-bg-surface transition-colors"
-          >
-            {t("customFields")}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => openCFModal()}
+              className="px-4 py-2 text-sm font-medium rounded-md border border-border-primary text-fg-secondary hover:bg-bg-surface transition-colors"
+            >
+              {t("customFields")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowTagsModal(true)}
+              className="px-4 py-2 text-sm font-medium rounded-md border border-border-primary text-fg-secondary hover:bg-bg-surface transition-colors"
+            >
+              {t("tags")}
+            </button>
+          </div>
         </div>
         {project.description && (
           <p className="text-sm text-fg-muted mb-4">{project.description}</p>
@@ -128,98 +175,69 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
             {t("membersCount", { count: project.memberCount })}
           </button>
         </div>
+        {projectTags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-3">
+            {projectTags.map((tag) => (
+              <span
+                key={tag.id}
+                className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border"
+                style={{ backgroundColor: tag.color ? `${tag.color}22` : undefined, borderColor: tag.color ?? "#cbd5e1", color: tag.color ?? "inherit" }}
+              >
+                {tag.name}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Tab Bar */}
-      <div className="flex items-center gap-1 p-1 bg-bg-surface-2 rounded-lg mb-6 overflow-x-auto scrollbar-hide">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              "flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap shrink-0",
-              activeTab === tab.key
-                ? "bg-bg-primary text-fg-primary shadow-sm"
-                : "text-fg-muted hover:text-fg-secondary",
-            )}
-          >
-            {tab.icon}
-            {tab.label}
-          </button>
-        ))}
+      <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-1 p-1 bg-bg-surface-2 rounded-lg overflow-x-auto scrollbar-hide flex-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap shrink-0",
+                activeTab === tab.key
+                  ? "bg-bg-primary text-fg-primary shadow-sm"
+                  : "text-fg-muted hover:text-fg-secondary",
+              )}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <button
+          onClick={() => setShowCreateForm(true)}
+          className="px-4 py-2 text-sm font-medium rounded-md bg-accent text-fg-inverse hover:opacity-90 transition-opacity whitespace-nowrap shrink-0"
+        >
+          + {taskT("create")}
+        </button>
       </div>
 
       {/* Tab Content */}
       {activeTab === "board" && (
         <div>
-          <div className="flex items-center justify-end mb-4">
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="px-4 py-2 text-sm font-medium rounded-md bg-accent text-fg-inverse hover:opacity-90 transition-opacity"
-            >
-              + {taskT("create")}
-            </button>
-          </div>
           <Board initialTasks={tasks} projectId={project.id} onDelete={handleBoardDelete} />
         </div>
       )}
 
       {activeTab === "timeline" && (
         <div>
-          <div className="flex items-center justify-end mb-4">
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="px-4 py-2 text-sm font-medium rounded-md bg-accent text-fg-inverse hover:opacity-90 transition-opacity"
-            >
-              + {taskT("create")}
-            </button>
-          </div>
           <Timeline tasks={tasks} />
         </div>
       )}
 
       {activeTab === "calendar" && (
         <div>
-          <div className="flex items-center justify-end mb-4">
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="px-4 py-2 text-sm font-medium rounded-md bg-accent text-fg-inverse hover:opacity-90 transition-opacity"
-            >
-              + {taskT("create")}
-            </button>
-          </div>
-          {showCreateForm && (
-            <div className="mb-6 p-4 bg-bg-surface border border-border rounded-xl">
-              <TaskForm
-                projectId={project.id}
-                onSubmit={handleCreateTask}
-                onCancel={() => setShowCreateForm(false)}
-              />
-            </div>
-          )}
           <CalendarView tasks={tasks} />
         </div>
       )}
 
       {activeTab === "gantt" && (
         <div>
-          <div className="flex items-center justify-end mb-4">
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="px-4 py-2 text-sm font-medium rounded-md bg-accent text-fg-inverse hover:opacity-90 transition-opacity"
-            >
-              + {taskT("create")}
-            </button>
-          </div>
-          {showCreateForm && (
-            <div className="mb-6 p-4 bg-bg-surface border border-border rounded-xl">
-              <TaskForm
-                projectId={project.id}
-                onSubmit={handleCreateTask}
-                onCancel={() => setShowCreateForm(false)}
-              />
-            </div>
-          )}
           <GanttChart tasks={tasks.map((t) => ({
             ...t,
             startDate: t.startDate ?? null,
@@ -275,7 +293,11 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
-            <CustomFieldsManager projectId={project.id} initialFields={[]} />
+            {cfLoading ? (
+              <p className="text-sm text-fg-muted text-center py-8">{t("loading")}</p>
+            ) : (
+              <CustomFieldsManager projectId={project.id} initialFields={cfFields} />
+            )}
           </div>
         </div>
       )}
@@ -284,6 +306,19 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
         open={showMembersModal}
         onClose={() => setShowMembersModal(false)}
         projectId={project.id}
+      />
+
+      <TagsModal
+        projectId={project.id}
+        open={showTagsModal}
+        onClose={() => setShowTagsModal(false)}
+        onChanged={() =>
+          apiFetch(`/api/v1/tags?projectId=${project.id}`)
+            .then(async (res) => {
+              if (res.ok) setProjectTags((await res.json()).data ?? []);
+            })
+            .catch(() => {})
+        }
       />
     </>
   );

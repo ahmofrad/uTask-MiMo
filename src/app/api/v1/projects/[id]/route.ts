@@ -32,9 +32,8 @@ export async function PATCH(
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
   }
 
-  // Project update: owner/admin globally, or project lead
-  const permitted = await can(session.user.id, "org:manage") ||
-    await canProject(session.user.id, "task:edit_any", params.id);
+  const permitted = await can(session.user.id, "project:update") ||
+    await canProject(session.user.id, "project_role:assign", params.id);
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }

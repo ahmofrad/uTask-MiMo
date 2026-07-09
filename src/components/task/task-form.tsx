@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
+import { TagPicker } from "@/components/tags/tag-picker";
 
 type TaskFormProps = {
   projectId?: string;
@@ -14,6 +15,7 @@ type TaskFormProps = {
     assigneeId?: string;
     dueDate?: string | null;
     estimatedHours?: number;
+    tagIds?: string[];
   };
   onSubmit: (_data: Record<string, unknown>) => Promise<void>;
   onCancel: () => void;
@@ -29,6 +31,7 @@ export function TaskForm({ projectId, initialData, onSubmit, onCancel }: TaskFor
   const [priority, setPriority] = useState(initialData?.priority ?? "med");
   const [dueDate, setDueDate] = useState(initialData?.dueDate ?? "");
   const [estimatedHours, setEstimatedHours] = useState(initialData?.estimatedHours?.toString() ?? "");
+  const [tagIds, setTagIds] = useState<string[]>(initialData?.tagIds ?? []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,6 +46,7 @@ export function TaskForm({ projectId, initialData, onSubmit, onCancel }: TaskFor
         priority,
         dueDate: dueDate || null,
         estimatedHours: estimatedHours ? Number(estimatedHours) : null,
+        tagIds: tagIds.length > 0 ? tagIds : undefined,
       });
     } finally {
       setLoading(false);
@@ -136,6 +140,15 @@ export function TaskForm({ projectId, initialData, onSubmit, onCancel }: TaskFor
           />
         </div>
       </div>
+
+      {projectId && (
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary mb-1.5">
+            {t("fields.tags")}
+          </label>
+          <TagPicker projectId={projectId} value={tagIds} onChange={setTagIds} />
+        </div>
+      )}
 
       <div className="flex justify-end gap-3 pt-4 border-t border-border-primary">
         <button

@@ -62,7 +62,7 @@ export async function PATCH(
     title, description, status: taskStatus, priority: taskPriority,
     dueDate, assigneeId, estimatedHours, spentHours, parentTaskId,
     deletedAt,
-    customFields,
+    customFields, tagIds,
   } = body as Record<string, unknown>;
 
   const data: UpdateTaskData = {};
@@ -77,6 +77,7 @@ export async function PATCH(
   if (parentTaskId !== undefined) data.parentTaskId = parentTaskId === null ? null : String(parentTaskId);
   if (deletedAt !== undefined) data.deletedAt = deletedAt === null ? null : String(deletedAt);
   if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;
+  if (tagIds && Array.isArray(tagIds)) data.tagIds = tagIds as string[];
 
   const { before, task } = await updateTask(params.id, data);
 

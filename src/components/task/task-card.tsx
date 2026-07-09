@@ -4,7 +4,6 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/task/status-badge";
 import { PriorityBadge } from "@/components/task/priority-badge";
 import { DueDateChip } from "@/components/task/due-date-chip";
-import { Avatar } from "@/components/ui/avatar";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 
 export type TaskCardData = {
@@ -103,14 +102,11 @@ export function TaskCard({ task, variant, onDelete, showDelete, showProject }: T
             <span className="text-[10px] text-fg-muted truncate max-w-[60%]">{task.projectName}</span>
           )}
           {task.assignee && (
-            <div className={`flex items-center gap-1.5 ${showProject ? "ms-auto" : ""}`}>
-              <span className="text-[10px] text-fg-muted hidden sm:inline truncate max-w-[80px]">{task.assignee.displayName}</span>
-              <Avatar
-                initials={task.assignee.displayName?.slice(0, 2).toUpperCase() ?? "?"}
-                imageUrl={task.assignee.avatarUrl}
-                size="sm"
-              />
-            </div>
+            <span
+              className={`text-[10px] text-fg-muted hidden sm:inline truncate max-w-[120px] ${showProject ? "ms-auto" : ""}`}
+            >
+              {task.assignee.displayName}
+            </span>
           )}
         </div>
       </div>
@@ -160,14 +156,9 @@ export function TaskCard({ task, variant, onDelete, showDelete, showProject }: T
           <span className="text-[10px] text-fg-muted bg-bg-secondary px-1.5 py-0.5 rounded hidden sm:inline">{task.projectName}</span>
         )}
         {task.assignee && (
-          <div className="flex items-center gap-1.5">
-            <span className="text-[10px] text-fg-muted hidden md:inline">{task.assignee.displayName}</span>
-            <Avatar
-              initials={task.assignee.displayName?.slice(0, 2).toUpperCase() ?? "?"}
-              imageUrl={task.assignee.avatarUrl}
-              size="sm"
-            />
-          </div>
+          <span className="text-[10px] text-fg-muted hidden md:inline truncate max-w-[120px]">
+            {task.assignee.displayName}
+          </span>
         )}
       </div>
     </Link>
