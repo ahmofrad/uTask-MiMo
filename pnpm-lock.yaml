@@ -68,6 +68,9 @@ importers:
       isomorphic-dompurify:
         specifier: ^3.18.0
         version: 3.18.0
+      jose:
+        specifier: ^6.2.3
+        version: 6.2.3
       ldapts:
         specifier: ^8.1.8
         version: 8.1.8
@@ -119,6 +122,9 @@ importers:
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
+      xml-crypto:
+        specifier: ^6.1.2
+        version: 6.1.2
       zod:
         specifier: ^4.4.3
         version: 4.4.3

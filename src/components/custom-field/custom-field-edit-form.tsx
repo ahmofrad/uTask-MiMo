@@ -16,7 +16,7 @@ export type CustomFieldConfig = {
 type Props = {
   field: CustomFieldConfig;
   projectId: string;
-  onChanged: (updated: CustomFieldConfig) => void;
+  onChanged: (_updated: CustomFieldConfig) => void;
   onCancel: () => void;
 };
 
