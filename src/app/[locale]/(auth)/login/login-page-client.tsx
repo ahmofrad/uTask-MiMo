@@ -2,6 +2,7 @@
 
 import { LoginForm } from "@/components/auth/login-form";
 import { LocaleSwitcher } from "@/components/locale/switcher";
+import { Logo } from "@/components/brand/logo";
 import { useTranslations } from "next-intl";
 
 type LoginPageClientProps = {
@@ -14,20 +15,20 @@ export function LoginPageClient({ ldapConfigured, ssoConfigured, ldapDomain }: L
   const t = useTranslations("auth.login");
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-app px-4 relative">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-bg-app to-bg-surface px-4 relative">
       <div className="absolute top-4 start-4">
         <LocaleSwitcher />
       </div>
 
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-fg-primary tracking-tight">uTask</h1>
-          <p className="text-sm text-fg-muted mt-2">{t("welcomeBack")}</p>
+        <div className="flex justify-center mb-8">
+          <Logo size={40} showWordmark />
         </div>
 
-        <div className="bg-bg-surface rounded-2xl shadow-lg border border-border-primary p-8">
+        <div className="bg-bg-surface rounded-2xl shadow-lg border border-border p-8">
           <div className="text-center mb-6">
-            <h2 className="text-xl font-semibold text-fg-primary">{t("title")}</h2>
+            <h2 className="text-xl font-semibold text-fg">{t("title")}</h2>
+            <p className="text-sm text-fg-muted mt-1">{t("welcomeBack")}</p>
           </div>
           <LoginForm ldapConfigured={ldapConfigured} ssoConfigured={ssoConfigured} ldapDomain={ldapDomain} />
         </div>

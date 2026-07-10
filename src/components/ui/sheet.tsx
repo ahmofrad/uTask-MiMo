@@ -30,7 +30,7 @@ export function Sheet({ open, onClose, title, children, side = "right" }: SheetP
   return (
     <div className="fixed inset-0 z-30">
       <div
-        className="absolute inset-0 bg-black/50 animate-in fade-in duration-200"
+        className="absolute inset-0 bg-bg-overlay animate-in fade-in duration-200"
         onClick={onClose}
       />
       <div className={cn(

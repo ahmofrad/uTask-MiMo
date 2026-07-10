@@ -44,7 +44,19 @@
     "showDetails": "Show details",
     "accentColor": "Accent color",
     "displayName": "Display name",
-    "emailLabel": "Email"
+    "emailLabel": "Email",
+    "settings": "Settings",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm new password",
+    "passwordChanged": "Your password has been changed.",
+    "passwordMismatch": "New password and confirmation do not match.",
+    "invalidCurrentPassword": "Your current password is incorrect.",
+    "noLocalPassword": "Your account uses SSO and has no local password to change.",
+    "passwordTooShort": "New password must be at least 8 characters.",
+    "saving": "Saving...",
+    "sessionExpired": "Your session has expired. Please sign in again."
   },
   "auth": {
     "login": {
@@ -595,6 +607,19 @@
     "placeholder": "e.g. CI/CD Integration",
     "createToken": "Create Token",
     "creating": "Creating..."
+  },
+  "home": {
+    "greeting": "Welcome back, {name}",
+    "subtitle": "Here's what needs your attention today.",
+    "myTasks": "My tasks",
+    "dueSoon": "Due soon",
+    "overdue": "Overdue",
+    "completed": "Completed",
+    "upNext": "Up next",
+    "viewAll": "View all",
+    "noUpcoming": "Nothing due soon. You're all caught up.",
+    "priority": "Priority",
+    "status": "Status"
   },
   "reports": {
     "myDashboard": "My Dashboard",

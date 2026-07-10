@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { buildAccentVars } from "@/lib/theme/color";
 
 export type Theme = "light" | "dark" | "system";
 export type Accent = "blue" | "green" | "purple" | "orange" | "red" | "teal" | "pink" | "indigo";
@@ -61,7 +62,10 @@ export function ThemeProvider({ children, initialTheme, initialAccent }: {
   useEffect(() => {
     if (!mounted) return;
     const root = document.documentElement;
-    root.style.setProperty("--accent", ACCENT_COLORS[accent]);
+    const vars = buildAccentVars(ACCENT_COLORS[accent]);
+    for (const [key, value] of Object.entries(vars)) {
+      root.style.setProperty(key, value);
+    }
     localStorage.setItem("accent", accent);
   }, [accent, mounted]);
 

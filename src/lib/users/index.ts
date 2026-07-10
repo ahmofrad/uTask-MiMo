@@ -109,3 +109,26 @@ export async function restoreUser(id: string) {
     data: { status: "active" },
   });
 }
+
+export type ChangePasswordError = "USER_NOT_FOUND" | "NO_LOCAL_PASSWORD" | "INVALID_CURRENT_PASSWORD";
+
+/**
+ * Verify the user's current local password and set a new one. SSO-only users
+ * (no `passwordHash`) cannot change a password this way.
+ */
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+): Promise<{ success: true }> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error("USER_NOT_FOUND" satisfies ChangePasswordError);
+  if (!user.passwordHash) throw new Error("NO_LOCAL_PASSWORD" satisfies ChangePasswordError);
+
+  const valid = await bcrypt.compare(currentPassword, user.passwordHash);
+  if (!valid) throw new Error("INVALID_CURRENT_PASSWORD" satisfies ChangePasswordError);
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
+  return { success: true };
+}

@@ -26,7 +26,7 @@ export default async function AppLayout({
       <CommandPalette />
       <Sidebar isAdmin={isAdmin} />
       <div className="flex-1 flex flex-col min-w-0">
-        <Header email={session.user?.email ?? ""} isAdmin={isAdmin} />
+        <Header email={session.user?.email ?? ""} name={session.user?.name ?? ""} isAdmin={isAdmin} />
         <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">{children}</main>
       </div>
     </div>

@@ -112,3 +112,58 @@ export async function getInboxTasks(userId: string) {
 
   return { unassigned, watching };
 }
+
+export type TaskStats = {
+  active: number;
+  done: number;
+  overdue: number;
+  dueSoon: number;
+};
+
+export async function getTaskStats(userId: string): Promise<TaskStats> {
+  const notDone = {
+    deletedAt: null,
+    assigneeId: userId,
+    parentTaskId: null,
+    status: { not: "done" as const },
+  };
+  const now = new Date();
+  const inSevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const [active, done, overdue, dueSoon] = await Promise.all([
+    prisma.task.count({
+      where: { ...notDone, status: { in: ["open", "in_progress"] } },
+    }),
+    prisma.task.count({
+      where: { deletedAt: null, assigneeId: userId, status: "done" },
+    }),
+    prisma.task.count({
+      where: { ...notDone, dueDate: { lt: now } },
+    }),
+    prisma.task.count({
+      where: { ...notDone, dueDate: { gte: now, lte: inSevenDays } },
+    }),
+  ]);
+
+  return { active, done, overdue, dueSoon };
+}
+
+export type UpcomingTask = Awaited<ReturnType<typeof getUpcomingTasks>>[number];
+
+export async function getUpcomingTasks(userId: string, limit = 6) {
+  return prisma.task.findMany({
+    where: {
+      deletedAt: null,
+      assigneeId: userId,
+      parentTaskId: null,
+      status: { not: "done" },
+      dueDate: { not: null },
+    },
+    orderBy: { dueDate: "asc" },
+    take: limit,
+    include: {
+      ...TASK_LIST_INCLUDE,
+      project: { select: { id: true, name: true } },
+    },
+  });
+}

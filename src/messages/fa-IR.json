@@ -44,7 +44,19 @@
     "showDetails": "نمایش جزئیات",
     "accentColor": "رنگ لهجه",
     "displayName": "نام نمایشی",
-    "emailLabel": "ایمیل"
+    "emailLabel": "ایمیل",
+    "settings": "تنظیمات",
+    "changePassword": "تغییر رمز عبور",
+    "currentPassword": "رمز عبور فعلی",
+    "newPassword": "رمز عبور جدید",
+    "confirmPassword": "تأیید رمز عبور جدید",
+    "passwordChanged": "رمز عبور شما تغییر یافت.",
+    "passwordMismatch": "رمز عبور جدید و تأیید آن مطابقت ندارند.",
+    "invalidCurrentPassword": "رمز عبور فعلی شما اشتباه است.",
+    "noLocalPassword": "حساب کاربری شما از SSO استفاده می‌کند و رمز عبور محلی ندارد.",
+    "passwordTooShort": "رمز عبور جدید باید حداقل ۸ کاراکتر باشد.",
+    "saving": "در حال ذخیره...",
+    "sessionExpired": "نشست شما منقضی شده است. لطفاً دوباره وارد شوید."
   },
   "auth": {
     "login": {
@@ -595,6 +607,19 @@
     "placeholder": "مثلاً یکپارچه‌سازی CI/CD",
     "createToken": "ایجاد توکن",
     "creating": "در حال ایجاد..."
+  },
+  "home": {
+    "greeting": "خوش آمدید، {name}",
+    "subtitle": "این‌ها مواردی است که امروز نیاز به توجه شما دارند.",
+    "myTasks": "وظایف من",
+    "dueSoon": "به‌زودی سررسید",
+    "overdue": "سررسید گذشته",
+    "completed": "انجام‌شده",
+    "upNext": "پیش‌رو",
+    "viewAll": "مشاهده همه",
+    "noUpcoming": "موردی با سررسید نزدیک ندارید. همه چیز انجام شده است.",
+    "priority": "اولویت",
+    "status": "وضعیت"
   },
   "reports": {
     "myDashboard": "داشبورد من",
