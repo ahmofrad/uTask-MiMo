@@ -70,9 +70,9 @@ export function Board({ initialTasks, projectId: _projectId, onDelete, showProje
 
   function handleDrop(e: React.DragEvent, targetStatus: string) {
     e.preventDefault();
-    const taskId = e.dataTransfer.getData("text/plain");
+    const taskId = e.dataTransfer.getData("text/plain") || draggedId;
     const task = tasks.find((tk) => tk.id === taskId);
-    if (task && task.status !== targetStatus) {
+    if (taskId && task && task.status !== targetStatus) {
       moveTask(taskId, targetStatus);
     }
     setDraggedId(null);
@@ -91,7 +91,11 @@ export function Board({ initialTasks, projectId: _projectId, onDelete, showProje
             }`}
             onDragOver={(e) => handleDragOver(e, col.key)}
             onDrop={(e) => handleDrop(e, col.key)}
-            onDragLeave={() => setDragOverCol(null)}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                setDragOverCol(null);
+              }
+            }}
           >
             <div className={`flex items-center justify-between px-3 py-2 rounded-t-xl ${col.color}`}>
               <span className="text-sm font-semibold text-fg-primary">{t(`status.${col.key}`)}</span>
@@ -99,7 +103,7 @@ export function Board({ initialTasks, projectId: _projectId, onDelete, showProje
                 {colTasks.length}
               </span>
             </div>
-            <div className="space-y-2 p-2 min-h-[200px]">
+            <div className="space-y-2 p-2 min-h-[200px]" onDragOver={(e) => e.preventDefault()}>
               {colTasks.map((task) => (
                 <div
                   key={task.id}
