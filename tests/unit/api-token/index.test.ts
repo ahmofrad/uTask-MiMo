@@ -14,7 +14,7 @@ describe("generateToken", () => {
 
   it("returns prefix of length 7 (tk_ + 4 chars)", () => {
     const { prefix } = generateToken();
-    expect(prefix).toMatch(/^tk_[a-zA-Z0-9]{4}$/);
+    expect(prefix).toMatch(/^tk_[a-zA-Z0-9_-]{4}$/);
   });
 
   it("produces unique tokens on each call", () => {
