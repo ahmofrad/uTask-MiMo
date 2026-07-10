@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { apiFetch } from "@/lib/api-fetch";
 import { TaskCard, type TaskCardData } from "@/components/task/task-card";
 
 export type BoardTask = TaskCardData & {
@@ -38,9 +39,8 @@ export function Board({ initialTasks, projectId: _projectId, onDelete, showProje
     );
 
     try {
-      const res = await fetch(`/api/v1/tasks/${taskId}`, {
+      const res = await apiFetch(`/api/v1/tasks/${taskId}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
       });
       if (!res.ok) {
