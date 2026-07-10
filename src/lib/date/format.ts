@@ -7,18 +7,49 @@ import { faIR as faIRJalali } from "date-fns-jalali/locale";
 export type Locale = "fa-IR" | "en-US";
 export type Calendar = "jalali" | "gregorian";
 
+// Pin a canonical timezone per locale so server (UTC runtime) and client
+// (browser local zone) render identical date strings and avoid hydration
+// mismatches.
+const TIMEZONE_BY_LOCALE: Record<Locale, string> = {
+  "fa-IR": "Asia/Tehran",
+  "en-US": "America/New_York",
+};
+
+// Convert an absolute instant into a Date whose *local* wall-clock equals the
+// wall-clock time in `timeZone`. date-fns formats local components, so this
+// makes the output deterministic regardless of the runtime's own timezone.
+function toZonedDate(date: Date, timeZone: string): Date {
+  const dtf = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  const parts: Record<string, string> = {};
+  for (const p of dtf.formatToParts(date)) {
+    if (p.type !== "literal") parts[p.type] = p.value;
+  }
+  const hour = parts.hour === "24" ? "00" : parts.hour;
+  return new Date(`${parts.year}-${parts.month}-${parts.day}T${hour}:${parts.minute}:${parts.second}`);
+}
+
 export function formatDate(
   date: Date,
   locale: Locale,
   calendar: Calendar = "jalali",
 ): string {
+  const d = toZonedDate(date, TIMEZONE_BY_LOCALE[locale]);
   if (locale === "fa-IR" && calendar === "jalali") {
-    return formatJalali(date, "d MMMM yyyy", { locale: faIRJalali });
+    return formatJalali(d, "d MMMM yyyy", { locale: faIRJalali });
   }
   if (locale === "fa-IR" && calendar === "gregorian") {
-    return formatGregorian(date, "d MMMM yyyy", { locale: faIRGregorian });
+    return formatGregorian(d, "d MMMM yyyy", { locale: faIRGregorian });
   }
-  return formatGregorian(date, "d MMMM yyyy", { locale: enUS });
+  return formatGregorian(d, "d MMMM yyyy", { locale: enUS });
 }
 
 export function formatDateTime(
@@ -26,13 +57,14 @@ export function formatDateTime(
   locale: Locale,
   calendar: Calendar = "jalali",
 ): string {
+  const d = toZonedDate(date, TIMEZONE_BY_LOCALE[locale]);
   if (locale === "fa-IR" && calendar === "jalali") {
-    return formatJalali(date, "d MMMM yyyy, HH:mm", { locale: faIRJalali });
+    return formatJalali(d, "d MMMM yyyy, HH:mm", { locale: faIRJalali });
   }
   if (locale === "fa-IR" && calendar === "gregorian") {
-    return formatGregorian(date, "d MMMM yyyy, HH:mm", { locale: faIRGregorian });
+    return formatGregorian(d, "d MMMM yyyy, HH:mm", { locale: faIRGregorian });
   }
-  return formatGregorian(date, "MMM d, yyyy, HH:mm", { locale: enUS });
+  return formatGregorian(d, "MMM d, yyyy, HH:mm", { locale: enUS });
 }
 
 export function formatRelative(
