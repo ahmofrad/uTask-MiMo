@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Board } from "@/components/task/board";
 import { Timeline } from "@/components/task/timeline";
@@ -57,12 +57,17 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
   useTranslations("reports");
   const taskT = useTranslations("task");
   const [activeTab, setActiveTab] = useState<Tab>("board");
-  const [taskFilter, setTaskFilter] = useState<"all" | "mine">(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("dashboardTaskFilter") as "all" | "mine") ?? "all";
+  const [taskFilter, setTaskFilter] = useState<"all" | "mine">("all");
+
+  // Load the persisted filter after mount so server and client render the same
+  // initial markup (reading localStorage during the first render causes a
+  // hydration mismatch).
+  useEffect(() => {
+    const stored = localStorage.getItem("dashboardTaskFilter");
+    if (stored === "all" || stored === "mine") {
+      setTaskFilter(stored);
     }
-    return "all";
-  });
+  }, []);
 
   function handleFilterChange(value: "all" | "mine") {
     setTaskFilter(value);
