@@ -22,7 +22,7 @@ export async function Header({ email, isAdmin }: HeaderProps) {
           <NotificationBell />
           <div className="relative group">
             <span className="text-sm text-fg-secondary cursor-pointer">{email}</span>
-            <div className="absolute right-0 top-full mt-1 w-40 bg-bg-primary border border-border-primary rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+            <div className="absolute end-0 top-full mt-1 w-40 bg-bg-primary border border-border-primary rounded-lg shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
               <SignOutButton />
             </div>
           </div>

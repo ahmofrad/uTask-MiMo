@@ -87,12 +87,12 @@ export function LoginForm({ ldapConfigured, ssoConfigured, ldapDomain }: LoginFo
             type={showPassword ? "text" : "password"}
             required
             autoComplete="current-password"
-            className="w-full px-3.5 py-2.5 pr-10 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm placeholder:text-fg-subtle focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
+            className="w-full px-3.5 py-2.5 pe-10 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm placeholder:text-fg-subtle focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
           />
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg-secondary transition-colors"
+            className="absolute end-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg-secondary transition-colors"
             tabIndex={-1}
           >
             {showPassword ? (

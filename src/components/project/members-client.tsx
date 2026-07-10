@@ -95,7 +95,7 @@ export function MembersClient({
               autoFocus
             />
             {results.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-bg-primary border border-border-primary rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+              <div className="absolute top-full start-0 end-0 mt-1 bg-bg-primary border border-border-primary rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
                 {results.map((user) => (
                   <button
                     key={user.id}
@@ -116,7 +116,7 @@ export function MembersClient({
               </div>
             )}
             {searching && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-bg-primary border border-border-primary rounded-lg shadow-lg z-50 p-3 text-center text-xs text-fg-muted">
+              <div className="absolute top-full start-0 end-0 mt-1 bg-bg-primary border border-border-primary rounded-lg shadow-lg z-50 p-3 text-center text-xs text-fg-muted">
                 Searching...
               </div>
             )}

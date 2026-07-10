@@ -74,7 +74,7 @@ export function UserSearchInput({ projectId, onSelect, placeholder = "Search use
         className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
       />
       {open && (query.length > 0 || results.length > 0) && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-bg-primary border border-border-primary rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+        <div className="absolute top-full start-0 end-0 mt-1 bg-bg-primary border border-border-primary rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
           {loading && (
             <div className="p-3 text-center text-xs text-fg-muted">Searching...</div>
           )}

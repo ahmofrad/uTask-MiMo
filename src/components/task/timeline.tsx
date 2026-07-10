@@ -43,12 +43,12 @@ export function Timeline({ tasks, showProject }: TimelineProps) {
   }
 
   return (
-    <div className="relative pl-6 space-y-6">
-      <div className="absolute left-2 top-0 bottom-0 w-px bg-border-primary" />
+    <div className="relative ps-6 space-y-6">
+      <div className="absolute start-2 top-0 bottom-0 w-px bg-border-primary" />
       {Array.from(grouped.entries()).map(([dateKey, dateTasks]) => (
         <div key={dateKey}>
           <div className="relative mb-3">
-            <div className="absolute -left-[18px] w-3 h-3 rounded-full bg-accent border-2 border-bg-primary" />
+            <div className="absolute -start-[18px] w-3 h-3 rounded-full bg-accent border-2 border-bg-primary" />
             <h3 className="text-sm font-semibold text-fg-primary">
               {dateKey === "no-date" ? t("noDate") : date(dateKey)}
             </h3>
