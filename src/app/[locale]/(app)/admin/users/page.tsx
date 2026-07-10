@@ -21,6 +21,7 @@ export default async function AdminUsersPage() {
       email: true,
       displayName: true,
       status: true,
+      ldapGroup: true,
       lastLoginAt: true,
       createdAt: true,
       roles: {

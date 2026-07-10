@@ -11,6 +11,7 @@ enum UserStatus {
   active
   suspended
   invited
+  ldapGroupRemoved
 }
 
 enum Locale {
@@ -115,6 +116,9 @@ enum AuditAction {
   password_reset_requested
   saml_config_changed
   ldap_config_changed
+  ldap_group_added
+  ldap_group_removed
+  ldap_sync
   api_token_created
   api_token_revoked
   webhook_created
@@ -166,6 +170,8 @@ model User {
   theme         Theme      @default(system)
   density       Density    @default(comfortable)
   status        UserStatus @default(active)
+  ldapGroup     String?    @db.VarChar(255)
+  ldapGroupId   String?    @db.Uuid
   lastLoginAt   DateTime?  @db.Timestamptz
   emailVerified DateTime?  @db.Timestamptz
   image         String?
@@ -548,6 +554,16 @@ model Settings {
 
   @@unique([scope, scopeId, key])
   @@map("Settings")
+}
+
+model LdapSyncGroup {
+  id           String    @id @default(uuid()) @db.Uuid
+  name         String    @db.VarChar(255)
+  dn           String    @unique @db.VarChar(512)
+  lastSyncedAt DateTime? @db.Timestamptz
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+
+  @@map("LdapSyncGroup")
 }
 
 model Account {

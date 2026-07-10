@@ -9,6 +9,7 @@ type UserWithRole = {
   email: string;
   displayName: string;
   status: string;
+  ldapGroup: string | null;
   lastLoginAt: string | null;
   createdAt: string;
   roles: { type: string }[];
@@ -47,6 +48,7 @@ export function AdminUserList({ users }: Props) {
             <th className="text-start ps-4 pe-4 py-3 font-medium">{t("name")}</th>
             <th className="text-start ps-4 pe-4 py-3 font-medium">{t("email")}</th>
             <th className="text-start ps-4 pe-4 py-3 font-medium">{t("role")}</th>
+            <th className="text-start ps-4 pe-4 py-3 font-medium">{t("ldapSource")}</th>
             <th className="text-start ps-4 pe-4 py-3 font-medium">{t("status")}</th>
             <th className="text-start ps-4 pe-4 py-3 font-medium">{t("actions")}</th>
           </tr>
@@ -62,6 +64,15 @@ export function AdminUserList({ users }: Props) {
                 </span>
               </td>
               <td className="ps-4 pe-4 py-3">
+                {user.ldapGroup ? (
+                  <span className="px-2 py-1 text-xs rounded-full bg-accent/10 text-accent">
+                    LDAP · {user.ldapGroup}
+                  </span>
+                ) : (
+                  <span className="text-xs text-fg-muted">{t("ldapLocal")}</span>
+                )}
+              </td>
+              <td className="ps-4 pe-4 py-3">
                 <span
                   className={`px-2 py-1 text-xs rounded-full ${
                     user.status === "active"
@@ -71,17 +82,21 @@ export function AdminUserList({ users }: Props) {
                         : "bg-warning-bg text-warning"
                   }`}
                 >
-                  {user.status}
+                  {user.status === "ldapGroupRemoved" ? t("ldapGroupRemoved") : user.status}
                 </span>
               </td>
               <td className="ps-4 pe-4 py-3">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => toggleSuspend(user.id, user.status)}
-                >
-                  {user.status === "suspended" ? t("restore") : t("suspend")}
-                </Button>
+                {user.status === "ldapGroupRemoved" ? (
+                  <span className="text-xs text-fg-muted">—</span>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleSuspend(user.id, user.status)}
+                  >
+                    {user.status === "suspended" ? t("restore") : t("suspend")}
+                  </Button>
+                )}
               </td>
             </tr>
           ))}

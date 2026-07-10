@@ -3,18 +3,17 @@ import { z } from "zod";
 export const ldapConfigSchema = z.object({
   enabled: z.boolean(),
   url: z.string().url(),
-  bindDn: z.string(),
+  // Admin/service account UPN used to bind and search the directory.
+  bindUpn: z.string(),
   bindPassword: z.string(),
-  searchBase: z.string(),
-  searchFilter: z.string(),
-  usernameAttribute: z.string().default("uid"),
+  // Optional UPN suffix (e.g. "@corp.local") appended when a user logs in with
+  // only a samaccountname. End users may also log in with their full UPN.
+  upnSuffix: z.string().optional(),
   emailAttribute: z.string().default("mail"),
   nameAttribute: z.string().default("cn"),
-  groupSearchBase: z.string().optional(),
-  groupSearchFilter: z.string().optional(),
   defaultRole: z.string().default("member"),
-  adminGroupDn: z.string().optional(),
-  syncIntervalMinutes: z.number().default(60),
+  // Hours between automatic group syncs.
+  syncIntervalHours: z.number().int().min(1).max(744).default(12),
   tlsCaCert: z.string().optional(),
 });
 
