@@ -16,7 +16,7 @@ const colorMap = {
 
 export function KpiCard({ label, value, color = "accent", change }: KpiCardProps) {
   return (
-    <div className={`rounded-xl border border-border-primary p-5 ${colorMap[color]}`}>
+      <div className={`rounded-xl border border-border-primary p-5 shadow-sm ${colorMap[color]}`}>
       <div className="text-3xl font-bold">{value}</div>
       <div className="text-sm opacity-80 mt-1">{label}</div>
       {change && (

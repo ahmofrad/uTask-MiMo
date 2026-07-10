@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { buildAccentVars } from "@/lib/theme/color";
+import { buildAccentVars, lighten } from "@/lib/theme/color";
 
 export type Theme = "light" | "dark" | "system";
 export type Accent = "blue" | "green" | "purple" | "orange" | "red" | "teal" | "pink" | "indigo";
@@ -62,12 +62,17 @@ export function ThemeProvider({ children, initialTheme, initialAccent }: {
   useEffect(() => {
     if (!mounted) return;
     const root = document.documentElement;
-    const vars = buildAccentVars(ACCENT_COLORS[accent]);
+    const isDark =
+      theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    // Lift the accent in dark mode so the hard 600-level hues read softer
+    // on dark surfaces (e.g. links, tags, focus rings).
+    const base = isDark ? lighten(ACCENT_COLORS[accent], 0.18) : ACCENT_COLORS[accent];
+    const vars = buildAccentVars(base);
     for (const [key, value] of Object.entries(vars)) {
       root.style.setProperty(key, value);
     }
     localStorage.setItem("accent", accent);
-  }, [accent, mounted]);
+  }, [accent, theme, mounted]);
 
   // Listen for system preference changes
   useEffect(() => {

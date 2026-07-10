@@ -18,7 +18,7 @@ const colorClasses: Record<string, string> = {
 export function DashboardCard({ label, value, color }: DashboardCardProps) {
   return (
     <div className={cn(
-      "rounded-xl border p-5 flex flex-col gap-1",
+      "rounded-xl border p-5 flex flex-col gap-1 shadow-sm",
       colorClasses[color] ?? colorClasses.accent,
     )}>
       <span className="text-3xl font-bold">{value}</span>

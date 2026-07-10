@@ -99,3 +99,11 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Default elevation: every primary surface box casts a subtle shadow.
+   Components can still override with shadow-* / shadow-none utilities. */
+@layer components {
+  .bg-bg-surface {
+    box-shadow: var(--shadow-sm);
+  }
+}

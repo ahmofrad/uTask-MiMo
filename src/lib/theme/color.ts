@@ -33,6 +33,13 @@ export function darken(hex: string, amount: number): string {
     .join("")}`;
 }
 
+export function lighten(hex: string, amount: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  return `#${[r, g, b]
+    .map((c) => clamp(c + (255 - c) * amount).toString(16).padStart(2, "0"))
+    .join("")}`;
+}
+
 function relativeLuminance({ r, g, b }: Rgb): number {
   const channel = (c: number) => {
     const s = c / 255;
