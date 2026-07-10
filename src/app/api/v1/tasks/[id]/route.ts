@@ -79,7 +79,7 @@ export async function PATCH(
   if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;
   if (tagIds && Array.isArray(tagIds)) data.tagIds = tagIds as string[];
 
-  const { before, task } = await updateTask(params.id, data);
+  const { before, task } = await updateTask(params.id, data, userId);
 
   await logAudit({ actorUserId: userId, action: "task_updated", entityType: "task", entityId: task.id, before: before as never, after: task as never });
 

@@ -4,15 +4,18 @@
  */
 import { startWorkers, getWorkers } from "@/lib/queue";
 import { startLdapSyncScheduler, stopLdapSyncScheduler } from "@/lib/auth/ldap-sync-scheduler";
+import { startDueSoonScheduler, stopDueSoonScheduler } from "@/lib/notifications/due-soon-scheduler";
 
 console.log("Starting BullMQ workers...");
 startWorkers();
 startLdapSyncScheduler();
+startDueSoonScheduler();
 console.log("Workers started. Press Ctrl+C to stop.");
 
 async function shutdown(signal: string) {
   console.log(`Received ${signal}. Shutting down workers...`);
   stopLdapSyncScheduler();
+  stopDueSoonScheduler();
   const { workers, queues } = getWorkers();
   const timeout = setTimeout(() => {
     console.error("Shutdown timed out after 30s, forcing exit");

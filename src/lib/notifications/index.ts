@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { logger } from "@/lib/logging";
 
 export async function createNotification(params: {
   userId: string;
@@ -15,6 +16,23 @@ export async function createNotification(params: {
     },
   });
   return notification;
+}
+
+/**
+ * Create a notification without ever throwing — a notification failure must not
+ * break the primary action (comment, assignment, status change, etc.).
+ */
+export async function notify(params: {
+  userId: string;
+  type: "assigned" | "mentioned" | "due_soon" | "commented" | "status_changed";
+  taskId?: string;
+  payload?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    await createNotification(params);
+  } catch (err) {
+    logger.warn({ err, userId: params.userId, type: params.type }, "Failed to create notification");
+  }
 }
 
 export async function getUnreadCount(userId: string): Promise<number> {

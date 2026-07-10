@@ -67,7 +67,7 @@ export type UpdateTaskData = {
   customFields?: Record<string, unknown>;
 };
 
-export async function updateTask(id: string, data: UpdateTaskData) {
+export async function updateTask(id: string, data: UpdateTaskData, actorId?: string) {
   const updateData: Record<string, unknown> = {};
 
   if (data.title !== undefined) updateData.title = data.title;
@@ -98,12 +98,12 @@ export async function updateTask(id: string, data: UpdateTaskData) {
     await ensureWatcher(task.id, data.assigneeId);
 
     // In-app notification
-    const { createNotification } = await import("@/lib/notifications");
-    await createNotification({
+    const { notify } = await import("@/lib/notifications");
+    await notify({
       userId: data.assigneeId,
       type: "assigned",
       taskId: task.id,
-      payload: { message: `You have been assigned to task "${task.title}"` },
+      payload: { taskTitle: task.title },
     });
 
     // Email notification
@@ -134,6 +134,18 @@ export async function updateTask(id: string, data: UpdateTaskData) {
     const fullTask = await prisma.task.findUnique({ where: { id }, select: { projectId: true } });
     if (fullTask) {
       await setCustomFieldValues(id, fullTask.projectId, data.customFields);
+    }
+  }
+
+  if (data.status !== undefined && before && before.status !== data.status) {
+    if (task.assigneeId && task.assigneeId !== actorId) {
+      const { notify } = await import("@/lib/notifications");
+      await notify({
+        userId: task.assigneeId,
+        type: "status_changed",
+        taskId: task.id,
+        payload: { taskTitle: task.title },
+      });
     }
   }
 

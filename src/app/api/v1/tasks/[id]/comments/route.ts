@@ -5,6 +5,9 @@ import { getTaskById } from "@/lib/tasks";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { getTaskComments, createComment } from "@/lib/comments";
+import { parseMentions, type MentionMatch } from "@/lib/mentions";
+import { notify } from "@/lib/notifications";
+import { prisma } from "@/lib/db";
 import { ensureWatcher } from "@/lib/watchers";
 import { checkIdempotency, setIdempotencyResult } from "@/lib/idempotency";
 import { logger } from "@/lib/logging";
@@ -18,6 +21,14 @@ async function checkCommentAccess(userId: string, taskId: string): Promise<{ all
   if (!task) return { allowed: false, projectId: undefined };
   const allowed = await canProject(userId, "comment:create", task.projectId);
   return { allowed, projectId: task.projectId };
+}
+
+async function resolveMentionTarget(m: MentionMatch): Promise<string | null> {
+  if (!m.userId) return null;
+  const user = m.userId.includes("@")
+    ? await prisma.user.findUnique({ where: { email: m.userId } })
+    : await prisma.user.findUnique({ where: { id: m.userId } });
+  return user?.id ?? null;
 }
 
 export async function GET(
@@ -86,6 +97,30 @@ export async function POST(
     await ensureWatcher(params.id, session.user.id);
 
     await emitTaskEvent("comment.created", params.id, { id: comment.id, taskId: params.id, bodyMarkdown: comment.bodyMarkdown }, session.user.id);
+
+    // In-app notifications: task assignee + any mentioned users
+    const task = await getTaskById(params.id);
+    const taskTitle = task?.title ?? "";
+    if (task?.assigneeId && task.assigneeId !== session.user.id) {
+      await notify({
+        userId: task.assigneeId,
+        type: "commented",
+        taskId: params.id,
+        payload: { taskTitle },
+      });
+    }
+    const mentions = parseMentions(bodyMarkdown);
+    for (const m of mentions) {
+      const uid = await resolveMentionTarget(m);
+      if (uid && uid !== session.user.id && uid !== task?.assigneeId) {
+        await notify({
+          userId: uid,
+          type: "mentioned",
+          taskId: params.id,
+          payload: { taskTitle, by: comment.author.displayName },
+        });
+      }
+    }
 
     const responseBody = { data: comment };
 

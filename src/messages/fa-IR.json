@@ -403,7 +403,17 @@
     "markRead": "خوانده شده",
     "markAllRead": "همه را خوانده کن",
     "empty": "اعلانی وجود ندارد",
-    "unread": "{count} خوانده نشده"
+    "unread": "{count} خوانده نشده",
+    "assignedTitle": "تسک اختصاص داده شد",
+    "assignedBody": "تسک «{task}» به شما اختصاص یافت",
+    "commentedTitle": "دیدگاه جدید",
+    "commentedBody": "دیدگاهی جدید در تسک «{task}» ثبت شد",
+    "mentionedTitle": "شما منش شدید",
+    "mentionedBody": "{by} شما را در تسک «{task}» منش کرد",
+    "statusChangedTitle": "تغییر وضعیت تسک",
+    "statusChangedBody": "وضعیت تسک «{task}» تغییر کرد",
+    "dueSoonTitle": "سررسید نزدیک",
+    "dueSoonBody": "سررسید تسک «{task}» نزدیک است"
   },
   "settings": {
     "title": "تنظیمات",

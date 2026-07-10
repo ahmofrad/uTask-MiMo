@@ -403,7 +403,17 @@
     "markRead": "Mark as read",
     "markAllRead": "Mark all as read",
     "empty": "No notifications",
-    "unread": "{count} unread"
+    "unread": "{count} unread",
+    "assignedTitle": "Task assigned",
+    "assignedBody": "You were assigned to “{task}”",
+    "commentedTitle": "New comment",
+    "commentedBody": "A new comment was added to “{task}”",
+    "mentionedTitle": "You were mentioned",
+    "mentionedBody": "{by} mentioned you in “{task}”",
+    "statusChangedTitle": "Task status changed",
+    "statusChangedBody": "The status of “{task}” changed",
+    "dueSoonTitle": "Task due soon",
+    "dueSoonBody": "“{task}” is due soon"
   },
   "settings": {
     "title": "Settings",

@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { useRouter } from "next/navigation";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
+import { notificationContent } from "@/lib/notifications/content";
 
 type Notification = {
   id: string;
@@ -11,10 +13,13 @@ type Notification = {
   taskId: string | null;
   readAt: string | null;
   createdAt: string;
+  payloadJson?: Record<string, unknown> | null;
 };
 
 export function NotificationBell() {
   const t = useTranslations("notification");
+  const locale = useLocale();
+  const router = useRouter();
   const { shortDate } = useFormattedDate();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(0);
@@ -43,6 +48,14 @@ export function NotificationBell() {
       prev.map((n) => (n.id === id ? { ...n, readAt: new Date().toISOString() } : n)),
     );
     setCount((c) => Math.max(0, c - 1));
+  }
+
+  function openNotification(n: Notification) {
+    void markRead(n.id);
+    if (n.taskId) {
+      router.push(`/${locale}/tasks/${n.taskId}`);
+      setOpen(false);
+    }
   }
 
   useEffect(() => {
@@ -78,27 +91,41 @@ export function NotificationBell() {
             {notifications.length === 0 ? (
               <p className="p-4 text-sm text-fg-tertiary text-center">{t("empty")}</p>
             ) : (
-              notifications.map((n) => (
-                <div
-                  key={n.id}
-                  className={`p-3 border-b border-border-primary last:border-b-0 cursor-pointer hover:bg-bg-secondary ${
-                    !n.readAt ? "bg-accent/5" : ""
-                  }`}
-                  onClick={() => markRead(n.id)}
-                >
-                  <div className="flex items-start gap-2">
-                    <span className="text-xs font-medium text-fg-secondary uppercase min-w-0">
-                      {n.type.replace(/_/g, " ")}
-                    </span>
-                    {!n.readAt && (
-                      <span className="w-2 h-2 rounded-full bg-accent shrink-0 mt-1" />
+              notifications.map((n) => {
+                const content = notificationContent(n.type, n.payloadJson, t);
+                return (
+                  <div
+                    key={n.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openNotification(n)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openNotification(n);
+                      }
+                    }}
+                    className={`p-3 border-b border-border-primary last:border-b-0 cursor-pointer hover:bg-bg-secondary ${
+                      !n.readAt ? "bg-accent/5" : ""
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span className="text-sm font-medium text-fg-primary min-w-0">
+                        {content.title}
+                      </span>
+                      {!n.readAt && (
+                        <span className="w-2 h-2 rounded-full bg-accent shrink-0 mt-1" />
+                      )}
+                    </div>
+                    {content.body && (
+                      <p className="text-xs text-fg-muted mt-1 line-clamp-2">{content.body}</p>
                     )}
+                    <p className="text-xs text-fg-tertiary mt-1">
+                      {shortDate(n.createdAt)}
+                    </p>
                   </div>
-                  <p className="text-xs text-fg-tertiary mt-1">
-                    {shortDate(n.createdAt)}
-                  </p>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </div>
