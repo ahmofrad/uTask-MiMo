@@ -302,15 +302,36 @@
 
 ## Backlog (post-V1, requires explicit approval)
 
+> **PMIS extension roadmap (detailed):** see [`docs/roadmap-pmis.md`](../docs/roadmap-pmis.md).
+> Each gap below is a **G** entry there with data model, endpoints, RBAC, audit, i18n, and dependencies.
+> Build order: planning spine G1→G2→G3→G4; resource/cost G5→G6→G7; lifecycle G8→G9→G10→G11→G12;
+> governance R0→G13→G14; cross-cutting G15 (anytime after Phase 4); platform/ops G16.
+
+### PMIS / EPM gaps (uTask does not yet have these)
+- **G1 — Task dependencies & enforcement** (FS/SS/FF/RELATES_TO, block/warn/off, unblock notifications).
+- **G2 — WBS (n-level task tree)** (outline codes, summary rollups; subtasks stay flat checklist).
+- **G3 — Gantt + CPM scheduling engine** (critical path, lag/lead, milestones, baseline ghost bars).
+- **G4 — Baselines & Earned Value Management (EVM)** (frozen baselines, CPI/SPI/EAC, S-curves).
+- **G5 — Resource management** (resource catalog, skills, capacity, task resource assignments).
+- **G6 — Timesheets & rate cards** (time entry, approval workflow, cost/bill rates).
+- **G7 — Cost control ledger** (CostAccount, BudgetLine, Commitment, Expense, append-only ActualCostEntry, FX, multi-currency).
+- **G8 — Risk register** (probability × impact scoring, response plans).
+- **G9 — Change requests** (DRAFT→APPROVED→APPLIED, baseline snapshot on apply).
+- **G10 — Procurement** (Vendor / Contract / PurchaseOrder → auto Commitment).
+- **G11 — Quality / NCR** (Non-Conformance Reports + corrective tasks).
+- **G12 — Records framework** (generic issue/RFI/document/stakeholder/MoM record types).
+- **G13 — Portfolio / Program / Org units** (HOLDING/COMPANY/PORTFOLIO/PROGRAM tree, subtree rollups).
+- **G14 — Project profiles + module registry** (enable/disable modules per project/team with dependency DAG).
+- **G15 — Cross-cutting collaboration/UX:** full RACI (Consulted/Informed), task approval gate, project RAG/health, automation rules engine, public intake forms, standalone personal tasks, holidays + working-day calendar.
+- **G16 — Platform/ops:** multiple themes (Midnight/Solarized/High-Contrast/Nord), PWA/installable, 2FA (TOTP), SCIM provisioning, password policy + lockout + SecurityAuditEvent, in-app backup scheduler + Kopia/offsite, self-updater sidecar, per-user datetime prefs (timezone/12-24h/dual calendar).
+
+### Carry-over backlog items (unchanged)
 - Multi-tenant SaaS mode.
 - Mobile native apps (Capacitor / React Native).
 - Calendar integrations (Google / Outlook).
-- Time tracking / pomodoro / Gantt.
 - AI features (auto-categorize, summarize, suggest assignee).
 - OAuth2 for public API.
 - Custom field types: file, relation, multi-user, formula.
-- Approval workflows.
-- SLA / due-date escalation policies.
 - Multi-region active-active DR.
 - Customer support ticketing.
 - Marketplace / plugins.

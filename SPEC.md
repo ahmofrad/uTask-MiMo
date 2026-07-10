@@ -708,7 +708,17 @@ Summary:
 - Antivirus for attachments (V2).
 - SSO for additional IdPs (WS-Federation, OIDC) (V2).
 
-These are listed in `TASKS.md` § Backlog for future planning.
+ These are listed in `TASKS.md` § Backlog for future planning.
+
+> **PMIS/EPM extension roadmap (detailed gap analysis):** a full PMIS feature set
+> (task dependencies, WBS, Gantt/CPM, baselines/EVM, resources, timesheets, cost
+> ledger, risk, change requests, procurement, quality/NCR, records framework,
+> portfolio/org-units, project profiles + module registry, full RACI, approval
+> gate, RAG, automations, intake forms, standalone tasks, holidays, multiple
+> themes, PWA, 2FA, SCIM, password policy, in-app backup, datetime prefs) is
+> documented in [`docs/roadmap-pmis.md`](../docs/roadmap-pmis.md) with per-module
+> data model, endpoints, RBAC, audit, i18n, and dependency order. It is **out of
+> scope for V1** and requires explicit approval to schedule.
 
 ---
 
@@ -745,6 +755,8 @@ See [`TASKS.md`](./TASKS.md) for the build plan.
 7. **Webhook dead-letter alerting** — alert admin via email when delivery permanently fails?
 8. **Multi-region DR** — V1 or V2?
 9. **Compliance certifications** — ISO 27001 / SOC 2 — target timeline?
+10. **PMIS scope** — Adopt the full PMIS/EPM model from [`docs/roadmap-pmis.md`](../docs/roadmap-pmis.md) (G1–G16), or stay an enterprise *task* manager and ship only a subset (recommended: planning spine G1–G4 + G15 first)? See the roadmap's "Open questions" section.
+11. **Money representation** — integer `amountMinor: bigint` (roadmap G7) vs uTask's existing `Decimal` budgets; decide before building cost features to avoid dual representations.
 
 ---
 
