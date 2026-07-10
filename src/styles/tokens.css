@@ -1,8 +1,8 @@
 :root {
-  --bg-app: #fafafa;
+  --bg-app: #f1f1f3;
   --bg-surface: #ffffff;
-  --bg-surface-2: #f4f4f5;
-  --bg-surface-3: #e4e4e7;
+  --bg-surface-2: #ececee;
+  --bg-surface-3: #e0e0e3;
   --bg-overlay: rgb(0 0 0 / 0.4);
 
   --fg: #18181b;
@@ -86,8 +86,8 @@
   --fg-subtle: #7e7e88;
   --fg-inverse: #18181b;
 
-  --border: #35353b;
-  --border-strong: #44444c;
+  --border: #43434b;
+  --border-strong: #56565f;
 
   --success-bg: #16321f;
   --warning-bg: #3f2a0c;
