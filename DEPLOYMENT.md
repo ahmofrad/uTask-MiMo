@@ -52,7 +52,7 @@ Same topology as medium, but:
 - Postgres primary: 8 vCPU / 32 GB RAM / 500 GB SSD; +1 read replica for reports.
 - Redis cluster (6 nodes, 3 shards × 2 replicas).
 - MinIO: 4 nodes × 1 TB each.
-- Separate worker queue for LDAP sync.
+- Separate **worker process** (`pnpm worker`) runs the BullMQ queues plus the scheduled jobs: **LDAP group sync** (every `syncIntervalHours`) and **due-soon notification** generation. Background schedulers do NOT run inside the Next.js app process.
 
 **Capacity:** 10k users, 5M tasks, 1 TB attachments.
 
@@ -265,11 +265,16 @@ SMTP_PASSWORD=***
 SMTP_FROM="TaskApp <taskapp@corp.example.com>"
 
 # LDAP (optional)
-LDAP_URL=ldaps://ldap.corp.example.com:636
-LDAP_BIND_DN=cn=svc-taskapp,...
-LDAP_BIND_PASSWORD=***
-LDAP_SEARCH_BASE=ou=people,dc=corp,dc=example,dc=com
-LDAP_DEFAULT_ROLE=member
+# NOTE: LDAP is configured through the admin **SSO / LDAP** settings page and stored
+# in the `Settings` table (scope=install, key=ldap). The application does NOT read
+# LDAP_* env vars at runtime — the block below is legacy and ignored by the code.
+# Config fields (see AUTH.md §4.2): url, bindUpn, bindPassword, upnSuffix,
+# emailAttribute, nameAttribute, defaultRole, syncIntervalHours, tlsCaCert.
+# LDAP_URL=ldaps://ldap.corp.example.com:636
+# LDAP_BIND_DN=cn=svc-taskapp,...
+# LDAP_BIND_PASSWORD=***
+# LDAP_SEARCH_BASE=ou=people,dc=corp,dc=example,dc=com
+# LDAP_DEFAULT_ROLE=member
 
 # SAML (optional)
 SAML_ENTITY_ID=https://taskapp.corp.example.com
@@ -455,6 +460,8 @@ Runs nightly via cron / CronJob:
 
 ### 7.3 DB migrations
 
+- Applied with `prisma migrate deploy` (kicked off by the pre-upgrade hook in k8s, or `./scripts/migrate.sh` in Compose).
+- **Migrations must be committed/available in the deployed artifact.** In this repository `prisma/migrations/` is currently gitignored, so a fresh clone has no migration history — fix the `.gitignore` (or vendor the migrations) before relying on `prisma migrate deploy` for installs/upgrades.
 - Backward-compatible migrations only (add column nullable → backfill → add constraint).
 - Multi-step migrations for breaking changes (deprecate old column in V1.1, drop in V1.2).
 - Never run a destructive migration without an explicit `--confirm-destructive` flag and a tested backup.

@@ -173,15 +173,21 @@ Single-org per install, so **no `orgId` everywhere**. The DB user is dedicated t
 
 ```
 User
-  id (uuid), email (citext, unique), passwordHash (nullable for SSO users),
-  displayName, avatarUrl, locale (fa-IR | en-US), accentColor,
-  theme (light | dark | system), density (compact | comfortable | spacious),
-  status (active | suspended | invited), createdAt, lastLoginAt
+   id (uuid), email (citext, unique), passwordHash (nullable for SSO users),
+   displayName, avatarUrl, locale (fa-IR | en-US), accentColor,
+   theme (light | dark | system), density (compact | comfortable | spacious),
+   status (active | suspended | invited | ldapGroupRemoved),
+   ldapGroup (nullable, group name synced from), ldapGroupId (nullable, group DN),
+   createdAt, lastLoginAt
 
 AuthIdentity                        -- one user can have multiple linked identities
-  id, userId, provider (local | ldap | saml),
-  providerSubject (DN or NameID), providerIssuer,
-  linkedAt, lastUsedAt
+   id, userId, provider (local | ldap | saml),
+   providerSubject (DN | UPN | NameID), providerIssuer,
+   linkedAt, lastUsedAt
+
+LdapSyncGroup                       -- selected AD/LDAP groups that provision users
+   id, dn (unique), name, description (nullable),
+   createdAt, createdBy
 
 Role                                -- 'owner' | 'admin' | 'manager' | 'member' | 'guest'
   id, userId, scopeType (global | project), scopeId (nullable),
@@ -306,7 +312,7 @@ See [`AUTH.md`](./AUTH.md) for the full integration guide.
 
 ### 9.1 Three providers, switchable
 - **Local:** email + bcrypt(12) password, magic-link recovery.
-- **LDAP:** bind to corporate AD/OpenLDAP. Sync users + groups on a schedule.
+- **LDAP:** UPN-based bind to corporate AD/OpenLDAP (accepts full UPN or bare `sAMAccountName`). Selected groups provision users and soft-de-provision them (`status = ldapGroupRemoved`) on a schedule; `providerSubject` is the UPN/email.
 - **SAML 2.0:** integrate with any IdP (Azure AD, Okta, AD FS, Keycloak). SP-initiated and IdP-initiated.
 
 ### 9.2 Just-In-Time provisioning
@@ -450,7 +456,7 @@ See [`AUTH.md`](./AUTH.md) for the full integration guide.
 ### 10.12 Admin
 - **Users:** list, invite, suspend, role change, force logout.
 - **Departments:** CRUD, tree view.
-- **LDAP config:** server URL, bind DN, base DN, sync schedule, attribute mapping.
+- **LDAP config:** UPN-based bind (full UPN or bare `sAMAccountName` + suffix), selected-group provisioning, scheduled sync, test connection, live group search. See `AUTH.md §4`.
 - **SAML config:** metadata upload, attribute mapping, test login.
 - **Email config (SMTP):** host, port, user, password, from address, test send.
 - **Storage config:** S3 / MinIO connection, bucket, test.
@@ -490,6 +496,11 @@ Session-cookie auth. Used by the web UI.
 | `POST` | `/api/v1/auth/logout` | Logout (revokes session) |
 | `POST` | `/api/v1/auth/ldap/start` | Begin LDAP flow |
 | `POST` | `/api/v1/auth/saml/start` | Begin SAML flow |
+| `POST` | `/api/v1/admin/ldap/test` | Test LDAP connection (admin) |
+| `GET` | `/api/v1/admin/ldap/groups` | List configured sync groups (admin) |
+| `POST` | `/api/v1/admin/ldap/groups` | Add a sync group (admin) |
+| `DELETE` | `/api/v1/admin/ldap/groups/:id` | Remove a sync group (admin) |
+| `POST` | `/api/v1/admin/ldap/sync` | Trigger sync now (admin) |
 | `GET/POST/PATCH/DELETE` | `/api/v1/users[/:id]` | User CRUD (admin) |
 | `POST` | `/api/v1/users/:id/suspend` | Suspend user |
 | `GET/POST/PATCH/DELETE` | `/api/v1/projects[/:id]` | Project CRUD |

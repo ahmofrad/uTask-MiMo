@@ -257,13 +257,17 @@ You are automatically added as a watcher when:
 
 You can manually watch/unwatch any task from the task detail page.
 
-### 7.4 Email Notifications
+### 7.4 Notifications
 
-If your administrator has configured SMTP, you receive email notifications for:
+You receive **in-app notifications** (bell icon, top-right) for:
 
 - New assignments.
 - @mentions.
-- Daily digest (if enabled in your preferences).
+- New comments on tasks you watch.
+- Status changes.
+- Due-soon reminders.
+
+> **Email and daily-digest notifications are not yet available (V1.1 backlog).** Clicking an in-app notification opens the related task.
 
 ---
 

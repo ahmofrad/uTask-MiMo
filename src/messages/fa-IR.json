@@ -479,10 +479,10 @@
     "notConfigured": "پیکربندی نشده",
     "serverUrl": "آدرس سرور",
     "baseDn": "Base DN",
-    "envNote": "SSO از طریق متغیرهای محیطی پیکربندی می‌شود. برای جزئیات به AUTH.md مراجعه کنید.",
-    "ldapEnvNote": "LDAP از طریق متغیرهای محیطی (LDAP_URL, LDAP_BIND_DN, و غیره) پیکربندی می‌شود.",
-    "samlEnvNote": "SAML از طریق متغیرهای محیطی (SAML_ENTITY_ID, SAML_ACS_URL, و غیره) پیکربندی می‌شود.",
-    "futureRelease": "ویرایش تنظیمات SSO از طریق پنل مدیریت به‌زودی اضافه خواهد شد.",
+    "envNote": "SSO از طریق صفحهٔ SSO مدیریت پیکربندی می‌شود و در Settings ذخیره می‌گردد. برای جزئیات به AUTH.md مراجعه کنید.",
+    "ldapEnvNote": "LDAP از طریق صفحهٔ SSO مدیریت (آدرس سرور، Bind UPN، پسوند UPN، همگام‌سازی گروه) پیکربندی و در Settings ذخیره می‌شود — نه متغیرهای محیطی.",
+    "samlEnvNote": "SAML از طریق صفحهٔ SSO مدیریت (متادیتای IdP، Entity ID، ACS URL) پیکربندی و در Settings ذخیره می‌شود — نه متغیرهای محیطی.",
+    "futureRelease": "تنظیمات SSO از طریق صفحهٔ SSO مدیریت ویرایش و در Settings ذخیره می‌شود.",
     "notConfiguredLabel": "(پیکربندی نشده)"
   },
   "smtp": {

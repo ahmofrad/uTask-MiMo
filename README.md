@@ -21,7 +21,7 @@ A multi-user, multi-project task management platform designed for companies that
 - **Per-user theming** — accent color customization, light/dark mode.
 - **RBAC** — Owner, Admin, Manager, Member, Guest roles with project-scoped permissions.
 - **Audit logging** — every action captured, queryable by admin.
-- **Notifications** — in-app + email, with daily digest option.
+- **Notifications** — in-app notifications (assigned, mentioned, commented, status changed, due soon). Email + daily digest is V1.1 backlog.
 
 ### Integrations
 - **Public REST API** — programmatic access via personal API tokens with per-token scopes. Full OpenAPI 3.1 spec and Swagger UI.
@@ -183,6 +183,7 @@ pnpm dev
 | Command | Purpose |
 |---------|---------|
 | `pnpm dev` | Run the dev server |
+| `pnpm worker` | Run the background worker (BullMQ queues + LDAP sync + due-soon schedulers) |
 | `pnpm build` | Production build |
 | `pnpm start` | Run the production build |
 | `pnpm lint` | ESLint |
@@ -252,7 +253,7 @@ See the [Webhook Integration Guide](./docs/webhook-integration.md) for signature
 Three modes, configurable per organization:
 
 1. **Local** — email + password, magic-link recovery.
-2. **LDAP / Active Directory** — bind to corporate AD, sync users and groups on schedule.
+2. **LDAP / Active Directory** — UPN-based bind (full UPN or `sAMAccountName`); selected groups provision users and soft-de-provision them (`ldapGroupRemoved`) on a schedule. Configured via the admin SSO page.
 3. **SAML 2.0 SSO** — integrate with Azure AD, Okta, AD FS, Keycloak, or any SAML IdP.
 
 A single user can be linked to multiple identities. See [`AUTH.md`](./AUTH.md) for the full integration guide.

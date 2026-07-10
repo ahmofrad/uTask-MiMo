@@ -79,56 +79,51 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
 ### 4.2 Configuration (per organization)
 
-Stored in `Settings` table, scope=`install`, encrypted at rest with a key from env:
+Stored in `Settings` (`scope:"install"`, `key:"ldap"`), configured through the admin **SSO / LDAP** settings page. It is **not** read from env vars at runtime (env vars only seed the initial default). Schema (`src/lib/auth/ldap-schema.ts`):
 
 ```json
 {
-  "ldap": {
-    "enabled": true,
-    "url": "ldaps://ldap.corp.example.com:636",
-    "bindDn": "cn=svc-taskapp,ou=service,dc=corp,dc=example,dc=com",
-    "bindPassword": "***",
-    "searchBase": "ou=people,dc=corp,dc=example,dc=com",
-    "searchFilter": "(&(objectClass=person)(uid={{username}}))",
-    "usernameAttribute": "uid",
-    "emailAttribute": "mail",
-    "nameAttribute": "cn",
-    "groupSearchBase": "ou=groups,dc=corp,dc=example,dc=com",
-    "groupSearchFilter": "(member={{dn}})",
-    "defaultRole": "member",
-    "adminGroupDn": "cn=taskapp-admins,ou=groups,...",
-    "syncIntervalMinutes": 60,
-    "tlsCaCert": "-----BEGIN CERTIFICATE-----..."
-  }
+  "enabled": true,
+  "url": "ldaps://ldap.corp.example.com:636",
+  "bindUpn": "svc-taskapp@corp.example.com",
+  "bindPassword": "***",
+  "upnSuffix": "@corp.example.com",
+  "emailAttribute": "mail",
+  "nameAttribute": "cn",
+  "defaultRole": "member",
+  "syncIntervalHours": 12,
+  "tlsCaCert": "-----BEGIN CERTIFICATE-----..."
 }
 ```
 
-### 4.3 Flow
+### 4.3 Login flow (UPN-based)
 
-1. User submits username + password to `/api/v1/auth/ldap/start`.
-2. Server creates an `ldapts` client with the configured URL.
-3. Search for the user DN by `(uid={{username}})`.
-4. Bind as that DN with the user's submitted password.
-5. On success: load email + display name from the entry.
-6. Upsert `AuthIdentity(provider='ldap', providerSubject=dn, ...)`.
-7. Find or create `User` by email (link if exists).
-8. Create a session, set cookie, return success.
+1. User submits `username` + password on `/login` (the LDAP card). `username` may be a full UPN (`user@corp.example.com`) or a bare `sAMAccountName`.
+2. The server resolves the bind identity: if no `@` is present, `upnSuffix` is appended, then it performs a **simple-bind as the full UPN** to authenticate the user (the service account `bindUpn` is used to search first).
+3. On success, the directory entry is read for `mail` / `cn` (configurable via `emailAttribute` / `nameAttribute`).
+4. The user is linked via `AuthIdentity(provider='ldap', providerSubject=<upn-or-email>, ...)`. **`providerSubject` is the UPN/email — not the DN.**
+5. `User` is found-or-created by `providerSubject` (linking to an existing local account by email if present).
+6. A session is created, the cookie is set, and the login is audited (`action='login'`, `provider='ldap'`).
 
-### 4.4 Group sync (periodic job)
+> **Critical:** the directory password is never stored. Only `providerSubject` (UPN/email) is kept for lookup.
 
-A BullMQ cron job (every 60 min by default) re-syncs groups:
+### 4.4 Group sync (scheduled + on-demand)
 
-- For each group in `groupSearchBase`, list members.
-- Map each member's DN to a local `User`.
-- Assign role per `adminGroupDn` mapping:
-  - In `adminGroupDn` → role `admin` (org-scoped).
-  - Not in any mapped group → role `defaultRole`.
+Selected AD/LDAP groups are stored in `LdapSyncGroup` and drive **provisioning / soft de-provisioning**:
+
+- `User` carries `ldapGroup` (`name`) and `ldapGroupId` (`dn`) once synced from a group.
+- **On sync / login**, each member of a selected group is JIT-created or re-activated and tagged with that group. If a user was previously `ldapGroupRemoved`, their status is reset to `active`.
+- **On sync**, users whose `ldapGroupId` no longer matches any selected group are set to `UserStatus.ldapGroupRemoved` — they cannot log in, but their local data (tasks, comments) is preserved. They are **not** hard-deleted.
+- The admin **Users** table shows a **Source** column (`LDAP · <group>` vs `Local`) and flags `ldapGroupRemoved` accounts; the suspend action is hidden for removed users.
+- Sync runs on a schedule from the **worker process** (BullMQ, every `syncIntervalHours`) and can be triggered on demand via `POST /api/v1/admin/ldap/sync` (the **Sync now** button). Group selection is managed via `GET` / `POST` / `DELETE /api/v1/admin/ldap/groups` (gated by `sso:configure`).
+
+> Group sync assigns `defaultRole` to synced users; it does **not** map groups to roles (no `adminGroupDn` mapping in the current implementation).
 
 ### 4.5 Failure handling
 
 - LDAP unreachable → return generic "auth unavailable" to user; log full error; alert via Prometheus + Alertmanager.
 - Bind failed (wrong password) → 401; audit log entry `action='login_failed', provider='ldap'`.
-- User suspended locally → reject even if LDAP bind succeeds.
+- User suspended locally, or `ldapGroupRemoved` (no longer in any synced group) → reject even if LDAP bind succeeds.
 
 ### 4.6 Testing
 

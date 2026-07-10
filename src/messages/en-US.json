@@ -479,10 +479,10 @@
     "notConfigured": "Not configured",
     "serverUrl": "Server URL",
     "baseDn": "Base DN",
-    "envNote": "SSO is configured via environment variables. See AUTH.md for details.",
-    "ldapEnvNote": "LDAP is configured via environment variables (LDAP_URL, LDAP_BIND_DN, etc.).",
-    "samlEnvNote": "SAML is configured via environment variables (SAML_ENTITY_ID, SAML_ACS_URL, etc.).",
-    "futureRelease": "SSO settings editing via admin UI coming in a future release.",
+    "envNote": "SSO is configured via the admin SSO page and stored in Settings. See AUTH.md for details.",
+    "ldapEnvNote": "LDAP is configured via the admin SSO page (server URL, bind UPN, UPN suffix, group sync) and stored in Settings — not environment variables.",
+    "samlEnvNote": "SAML is configured via the admin SSO page (IdP metadata, entity ID, ACS URL) and stored in Settings — not environment variables.",
+    "futureRelease": "SSO settings are edited via the admin SSO page and saved to Settings.",
     "notConfiguredLabel": "(not configured)"
   },
   "smtp": {

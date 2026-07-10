@@ -53,7 +53,7 @@
 
 - [ ] Auth.js v5 init with Prisma adapter.
 - [ ] **Local provider:** email + bcrypt(12) password; magic-link recovery (SMTP).
-- [ ] **LDAP provider:** `ldapts`; bind/search; sync users + groups on schedule (BullMQ job); JIT-create users on first login.
+- [x] **LDAP provider:** `ldapts`; **UPN-based bind** (full UPN or `sAMAccountName` + suffix); **selected-group provisioning + soft de-provisioning** (`ldapGroupRemoved`) on a schedule (BullMQ in the worker process); JIT-create users on first login; config in `Settings` (`scope:"install"`, `key:"ldap"`) via the admin SSO page.
 - [ ] **SAML provider:** `@node-saml/node-saml`; SP-initiated + IdP-initiated; metadata XML upload by admin; JIT-create users on first login.
 - [ ] Identity linking: a single user can have multiple AuthIdentity rows. Login merges them.
 - [ ] Session strategy: opaque session id in Redis, 30-min idle / 12-h max, revocation supported.
