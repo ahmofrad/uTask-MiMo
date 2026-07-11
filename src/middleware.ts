@@ -136,6 +136,8 @@ export default async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|webp|gif|ico)$).*)",
+    // Exclude Next static assets and PWA files (manifest, service worker,
+    // offline page, icons) so they are served publicly without the auth gate.
+    "/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|webp|gif|ico|js|mjs|css|json|webmanifest|html|woff2|woff|ttf|map)$).*)",
   ],
 };

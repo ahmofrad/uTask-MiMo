@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@/styles/globals.css";
 import "@/styles/tokens.css";
 import { Vazirmatn, Inter } from "next/font/google";
+import { PwaRegister } from "@/components/pwa/register";
 
 const vazirmatn = Vazirmatn({
   subsets: ["arabic", "latin"],
@@ -28,6 +29,9 @@ export default function RootLayout({
   return (
     <html lang="fa-IR" dir="rtl" className={`${vazirmatn.variable} ${inter.variable}`}>
       <head>
+        <link rel="manifest" href="/manifest.webmanifest" />
+        <meta name="theme-color" content="#2563eb" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -45,7 +49,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="bg-bg-primary text-fg font-sans antialiased overflow-x-clip">{children}</body>
+      <body className="bg-bg-primary text-fg font-sans antialiased overflow-x-clip">
+        {children}
+        <PwaRegister />
+      </body>
     </html>
   );
 }
