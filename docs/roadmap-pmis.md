@@ -443,9 +443,26 @@ needed by G15f. Audit holiday CRUD/import. i18n `holidays.*`, `calendar.*`.
 before React mounts. i18n `theme.*`.
 
 ### G16b — PWA / installable
-`vite-plugin-pwa` (Workbox), `registerType: 'autoUpdate'`. Manifest: standalone display, maskable icons. Precache
-shell; `StaleWhileRevalidate` scripts/styles, `CacheFirst` fonts/images, `navigateFallback → index.html`; `/api/*`
-always `NetworkOnly`. No offline data sync. Install requires HTTPS (localhost OK). i18n `pwa.*`.
+
+> **Status: ✅ SHIPPED (post-GA).** Commit `124b823`. Implementation differs from the original
+> Workbox sketch below (Next.js App Router → Serwist instead of `vite-plugin-pwa`).
+
+**Actual implementation (as shipped):**
+- **Service worker:** [`Serwist`](https://serwist.pages.dev/) (`@serwist/next` v9) wrapping the Next.js build via `next.config.mjs` (`withSerwist({ swSrc: "src/app/sw.ts", swDest: "public/sw.js" })`).
+- **Strategy:** `NetworkFirst` navigations (5s timeout → offline fallback), `NetworkOnly` for `/api/*` (no offline
+  data sync — per the original "No offline data sync" constraint), `StaleWhileRevalidate` for static assets.
+- **Manifest:** standalone display, `theme_color`, maskable icons (192/512) + apple-touch icon; `public/manifest.webmanifest`.
+- **Offline page:** `public/offline.html` precached and served as the navigation fallback.
+- **Icons:** generated from `public/icon.svg` by `scripts/gen-pwa-icons.ts` (`@resvg/resvg-js`); re-run via `pnpm pwa:gen-icons`.
+- **Registration:** `src/components/pwa/register.tsx` registers the SW **in production only** (`NODE_ENV === "production"`);
+  dev server never registers it. `scripts/pwa-check.ts` (`pnpm pwa:check`) validates manifest + icons + offline page in CI.
+- **Middleware:** `src/middleware.ts` matcher excludes PWA static assets (`manifest.webmanifest`, `sw.js`, `offline.html`,
+  icons) from the locale/auth gate so they are served publicly without a redirect.
+- **Install:** requires HTTPS (localhost OK for dev testing).
+- **i18n:** `pwa.*` keys reserved (currently the manifest is locale-neutral; translations can be added later).
+
+**Original sketch (for reference):** `vite-plugin-pwa` (Workbox), `registerType: 'autoUpdate'`, `StaleWhileRevalidate`
+scripts/styles, `CacheFirst` fonts/images, `navigateFallback → index.html`; `/api/*` always `NetworkOnly`.
 
 ### G16c — 2FA (TOTP)
 Per-user TOTP enrollment + recovery codes; login second step when enabled. Bind secret encrypted. i18n `twoFactor.*`.

@@ -22,6 +22,7 @@ A multi-user, multi-project task management platform designed for companies that
 - **RBAC** — Owner, Admin, Manager, Member, Guest roles with project-scoped permissions.
 - **Audit logging** — every action captured, queryable by admin.
 - **Notifications** — in-app notifications (assigned, mentioned, commented, status changed, due soon). Email + daily digest is V1.1 backlog.
+- **Installable PWA** — add to the home screen; the app shell works offline while live data stays network-only. Web app manifest + maskable icons; service worker via Serwist.
 
 ### Integrations
 - **Public REST API** — programmatic access via personal API tokens with per-token scopes. Full OpenAPI 3.1 spec and Swagger UI.
@@ -72,6 +73,7 @@ A multi-user, multi-project task management platform designed for companies that
 | Logging | Pino → Loki |
 | Metrics | prom-client → Prometheus → Grafana |
 | Tracing | OpenTelemetry (optional Tempo export) |
+| PWA | Serwist service worker + web app manifest (installable, offline app shell) |
 | Testing | Vitest + Playwright + Testcontainers |
 | Deployment | Docker Compose (small) + Helm (large) |
 
@@ -200,6 +202,8 @@ pnpm dev
 | `pnpm i18n:extract` | Extract i18n keys from code |
 | `pnpm i18n:check` | Fail CI if `fa-IR` has missing keys |
 | `pnpm design:check` | Lint for hardcoded colors / physical CSS properties |
+| `pnpm pwa:gen-icons` | Regenerate PWA icons from `public/icon.svg` (`@resvg/resvg-js`) |
+| `pnpm pwa:check` | Validate PWA manifest + icons + offline page for CI |
 
 ---
 

@@ -719,6 +719,8 @@ Summary:
 > documented in [`docs/roadmap-pmis.md`](../docs/roadmap-pmis.md) with per-module
 > data model, endpoints, RBAC, audit, i18n, and dependency order. It is **out of
 > scope for V1** and requires explicit approval to schedule.
+>
+> **Post-GA update:** **PWA / installable** (G16b) has shipped — see `docs/roadmap-pmis.md` G16b.
 
 ---
 

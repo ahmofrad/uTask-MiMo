@@ -325,6 +325,9 @@
 - **G15 — Cross-cutting collaboration/UX:** full RACI (Consulted/Informed), task approval gate, project RAG/health, automation rules engine, public intake forms, standalone personal tasks, holidays + working-day calendar.
 - **G16 — Platform/ops:** multiple themes (Midnight/Solarized/High-Contrast/Nord), PWA/installable, 2FA (TOTP), SCIM provisioning, password policy + lockout + SecurityAuditEvent, in-app backup scheduler + Kopia/offsite, self-updater sidecar, per-user datetime prefs (timezone/12-24h/dual calendar).
 
+> **Shipped post-GA:**
+> - **G16b — PWA / installable** is implemented (commit `124b823`): Serwist service worker (NetworkFirst navigations, NetworkOnly `/api/*`), web app manifest (standalone, maskable icons), offline fallback page, prod-only registration. See [`docs/roadmap-pmis.md`](../docs/roadmap-pmis.md) G16b.
+
 ### Carry-over backlog items (unchanged)
 - Multi-tenant SaaS mode.
 - Mobile native apps (Capacitor / React Native).
