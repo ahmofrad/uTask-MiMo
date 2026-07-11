@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { samlProvider } from "@/lib/auth/providers/saml";
 import { signIn } from "@/lib/auth/config";
+import { createSsoToken } from "@/lib/auth/sso-token";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit/log";
 
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
     const signInResult = await signIn("credentials", {
       email: result.user!.email,
       password: "",
-      _ssoVerified: true,
+      ssoToken: createSsoToken(result.user!.email, "saml"),
       redirect: false,
     });
 

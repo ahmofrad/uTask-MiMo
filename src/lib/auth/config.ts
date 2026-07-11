@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
+import { verifySsoToken } from "@/lib/auth/sso-token";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -11,8 +12,34 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       name: "credentials",
-      credentials: { email: {}, password: {}, _ssoVerified: {} },
+      credentials: { email: {}, password: {}, ssoToken: {} },
       authorize: async (credentials) => {
+        // SSO-verified login: the user was authenticated by an external
+        // identity provider (LDAP/SAML). Trust is established only via a
+        // server-signed, short-lived token minted by the SSO route handler —
+        // never by a client-supplied boolean flag.
+        const ssoToken = credentials?.ssoToken ? String(credentials.ssoToken) : undefined;
+        if (ssoToken) {
+          const verified = verifySsoToken(ssoToken);
+          const email = credentials.email ? String(credentials.email) : undefined;
+          if (!verified) return null;
+          if (email && verified.email !== email) return null;
+
+          const user = await prisma.user.findUnique({ where: { email: verified.email } });
+          if (!user || user.status !== "active") return null;
+
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { lastLoginAt: new Date() },
+          });
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.displayName,
+            image: user.avatarUrl,
+          };
+        }
+
         if (!credentials?.email) {
           return null;
         }
@@ -21,25 +48,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return null;
         if (user.status !== "active") return null;
-
-        // SSO-verified login: user was authenticated externally (LDAP/SAML)
-        // The _ssoVerified flag is set server-side by SSO route handlers
-        if (credentials._ssoVerified) {
-          if (!user.passwordHash) {
-            // SSO user without local password — allow
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { lastLoginAt: new Date() },
-            });
-            return {
-              id: user.id,
-              email: user.email,
-              name: user.displayName,
-              image: user.avatarUrl,
-            };
-          }
-          // User has a local password — fall through to password check
-        }
 
         // Local login: require password
         const password = String(credentials.password ?? "");

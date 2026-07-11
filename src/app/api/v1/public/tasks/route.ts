@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { can, canProject } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 
@@ -51,6 +52,17 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { error: { code: "VALIDATION_ERROR", message: "projectId and title are required" } },
       { status: 400 },
+    );
+  }
+
+  const allowed =
+    (await can(userId, "task:edit_any")) ||
+    (await canProject(userId, "task:edit_any", String(projectId))) ||
+    (await canProject(userId, "task:edit_own", String(projectId)));
+  if (!allowed) {
+    return NextResponse.json(
+      { error: { code: "FORBIDDEN", message: "You are not a member of this project" } },
+      { status: 403 },
     );
   }
 

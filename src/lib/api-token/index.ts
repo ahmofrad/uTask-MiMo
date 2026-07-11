@@ -1,5 +1,7 @@
 import { sha256, randomBytes } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
+import { can } from "@/lib/rbac";
+import type { Permission } from "@/lib/rbac/roles";
 
 const TOKEN_PREFIX = "tk_";
 
@@ -90,4 +92,47 @@ export type PublicScope = (typeof PUBLIC_SCOPES)[number];
 
 export function tokenHasScope(tokenScopes: string[], requiredScope: string): boolean {
   return tokenScopes.includes(requiredScope);
+}
+
+/**
+ * Maps each public API scope to the global permission(s) a user must hold in
+ * order to mint a token carrying that scope. Scopes with an empty list are
+ * read scopes grantable by any active, authenticated user (actual data access
+ * is still bounded by per-request RBAC). This prevents privilege escalation:
+ * a user can only delegate capabilities they already possess.
+ */
+export const SCOPE_PERMISSIONS: Record<PublicScope, Permission[]> = {
+  "tasks:read": [],
+  "tasks:write": ["task:create", "task:edit_any", "task:edit_own"],
+  "projects:read": [],
+  "projects:write": ["project:create"],
+  "users:read": [],
+  "users:write": ["user:manage"],
+  "comments:write": ["comment:create"],
+  "webhooks:manage": ["webhook:manage"],
+};
+
+/** Normalize a request body `scopes` value into a de-duplicated string array. */
+export function normalizeScopes(scopes: unknown): string[] | null {
+  if (!Array.isArray(scopes)) return null;
+  const out = Array.from(
+    new Set(scopes.filter((s): s is string => typeof s === "string" && s.length > 0)),
+  );
+  return out;
+}
+
+/** Return the subset of `scopes` that are not part of the allowlist. */
+export function invalidScopes(scopes: string[]): string[] {
+  return scopes.filter((s) => !PUBLIC_SCOPES.includes(s as PublicScope));
+}
+
+/** Whether the user is entitled to grant the given (allowlisted) scope. */
+export async function userCanGrantScope(userId: string, scope: string): Promise<boolean> {
+  const required = SCOPE_PERMISSIONS[scope as PublicScope];
+  if (!required) return false;
+  if (required.length === 0) return true;
+  for (const perm of required) {
+    if (await can(userId, perm)) return true;
+  }
+  return false;
 }

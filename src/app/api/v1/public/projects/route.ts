@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 
@@ -33,6 +34,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { userId, error } = await authenticatePublicApi(request, "projects:write");
   if (error) return error;
+
+  if (!(await can(userId, "project:create"))) {
+    return NextResponse.json(
+      { error: { code: "FORBIDDEN", message: "You are not allowed to create projects" } },
+      { status: 403 },
+    );
+  }
 
   const body = await request.json();
   const { name, description, visibility } = body as Record<string, string>;

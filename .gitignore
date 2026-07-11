@@ -46,3 +46,4 @@ prisma/migrations/
 .vscode/
 *.swp
 *.swo
+.grok/

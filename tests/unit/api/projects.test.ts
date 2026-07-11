@@ -110,28 +110,28 @@ describe("GET /api/v1/projects", () => {
   });
 });
 
-describe("DELETE /api/v1/projects/[id]", () => {
+describe("DELETE /api/v1/projects/[projectId]", () => {
   it("returns 401 when unauthenticated", async () => {
     unauthenticatedSession();
-    const { DELETE } = await import("@/app/api/v1/projects/[id]/route");
-    const res = await DELETE(makeRequest("DELETE"), { params: { id: "p1" } });
+    const { DELETE } = await import("@/app/api/v1/projects/[projectId]/route");
+    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1" } });
     expect(res.status).toBe(401);
   });
 
   it("returns 403 when can denies", async () => {
     mockCan.mockResolvedValue(false);
-    const { DELETE } = await import("@/app/api/v1/projects/[id]/route");
-    const res = await DELETE(makeRequest("DELETE"), { params: { id: "p1" } });
+    const { DELETE } = await import("@/app/api/v1/projects/[projectId]/route");
+    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1" } });
     expect(res.status).toBe(403);
   });
 
   it("archives project and logs audit", async () => {
     mockCan.mockResolvedValue(true);
-    mockGetProjectById.mockResolvedValue({ id: "p1", name: "Proj" });
+    mockGetProjectById.mockResolvedValue({ projectId: "p1", name: "Proj" });
     mockArchiveProject.mockResolvedValue(undefined);
 
-    const { DELETE } = await import("@/app/api/v1/projects/[id]/route");
-    const res = await DELETE(makeRequest("DELETE"), { params: { id: "p1" } });
+    const { DELETE } = await import("@/app/api/v1/projects/[projectId]/route");
+    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1" } });
 
     expect(res.status).toBe(200);
     expect(mockArchiveProject).toHaveBeenCalledWith("p1");

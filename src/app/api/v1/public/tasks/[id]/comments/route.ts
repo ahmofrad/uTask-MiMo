@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { canProject } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { renderMarkdown } from "@/lib/markdown/render";
@@ -28,6 +29,21 @@ export async function POST(
 ) {
   const { userId, error } = await authenticatePublicApi(request, "comments:write");
   if (error) return error;
+
+  const task = await prisma.task.findUnique({
+    where: { id: params.id },
+    select: { projectId: true },
+  });
+  if (!task) {
+    return NextResponse.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, { status: 404 });
+  }
+
+  if (!(await canProject(userId, "comment:create", task.projectId))) {
+    return NextResponse.json(
+      { error: { code: "FORBIDDEN", message: "You are not a member of this project" } },
+      { status: 403 },
+    );
+  }
 
   const body = await request.json();
   const { bodyMarkdown } = body as { bodyMarkdown?: string };

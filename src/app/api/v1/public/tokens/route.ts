@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
 import { prisma } from "@/lib/db";
-import { createApiToken } from "@/lib/api-token";
+import { createApiToken, invalidScopes, normalizeScopes, userCanGrantScope, PUBLIC_SCOPES } from "@/lib/api-token";
 import { logAudit } from "@/lib/audit/log";
 
 export async function GET(request: Request) {
@@ -25,19 +25,49 @@ export async function POST(request: Request) {
   if (error) return error;
 
   const body = await request.json();
-  const { name, scopes, expiresAt } = body as { name?: string; scopes?: string[]; expiresAt?: string | null };
+  const { name, scopes, expiresAt } = body as { name?: string; scopes?: unknown; expiresAt?: string | null };
 
-  if (!name || !scopes || !Array.isArray(scopes)) {
+  if (!name || typeof name !== "string") {
     return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "name and scopes array required" } },
+      { error: { code: "VALIDATION_ERROR", message: "name is required" } },
       { status: 400 },
     );
+  }
+
+  const normalized = normalizeScopes(scopes);
+  if (!normalized || normalized.length === 0) {
+    return NextResponse.json(
+      { error: { code: "VALIDATION_ERROR", message: "a non-empty scopes array is required" } },
+      { status: 400 },
+    );
+  }
+
+  const bad = invalidScopes(normalized);
+  if (bad.length > 0) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "INVALID_SCOPE",
+          message: `Unknown scope(s): ${bad.join(", ")}. Allowed: ${PUBLIC_SCOPES.join(", ")}`,
+        },
+      },
+      { status: 400 },
+    );
+  }
+
+  for (const scope of normalized) {
+    if (!(await userCanGrantScope(userId, scope))) {
+      return NextResponse.json(
+        { error: { code: "FORBIDDEN", message: `You are not allowed to grant the scope: ${scope}` } },
+        { status: 403 },
+      );
+    }
   }
 
   const { raw, prefix, id } = await createApiToken({
     userId,
     name,
-    scopes,
+    scopes: normalized,
     expiresAt: expiresAt ? new Date(expiresAt) : null,
   });
 
@@ -46,8 +76,8 @@ export async function POST(request: Request) {
     action: "api_token_created",
     entityType: "api_token",
     entityId: id,
-    after: { name, scopes, expiresAt },
+    after: { name, scopes: normalized, expiresAt },
   });
 
-  return NextResponse.json({ data: { raw, prefix, name, scopes } }, { status: 201 });
+  return NextResponse.json({ data: { raw, prefix, name, scopes: normalized } }, { status: 201 });
 }
