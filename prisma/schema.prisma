@@ -130,6 +130,7 @@ enum AuditAction {
   task_updated
   task_deleted
   task_reordered
+  task_moved
   comment_created
   comment_updated
   comment_deleted
@@ -345,6 +346,7 @@ model Task {
   estimatedHours Decimal?     @db.Decimal(10, 2)
   spentHours     Decimal?     @db.Decimal(10, 2)
   orderIndex     Decimal?     @db.Decimal(30, 10)
+  progress       Int          @default(0)
   completedAt    DateTime?    @db.Timestamptz
   deletedAt      DateTime?    @db.Timestamptz
   createdAt      DateTime     @default(now()) @db.Timestamptz
@@ -366,6 +368,7 @@ model Task {
   @@index([projectId, status, dueDate])
   @@index([assigneeId, status, dueDate])
   @@index([projectId, orderIndex])
+  @@index([parentTaskId])
   @@index([reporterId])
   @@index([createdById])
   @@index([dueDate])

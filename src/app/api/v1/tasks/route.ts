@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { listTasks, createTask } from "@/lib/tasks";
+import { WbsGuardError } from "@/lib/tasks/wbs";
 import { checkIdempotency, setIdempotencyResult, acquirePending, releasePending } from "@/lib/idempotency";
 import type { ListTasksParams, CreateTaskData } from "@/lib/tasks";
 
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
     const {
       projectId, title, description, parentTaskId,
       status: taskStatus, priority: taskPriority,
-      dueDate, assigneeId, estimatedHours,
+      dueDate, assigneeId, estimatedHours, progress,
       customFields, tagIds,
     } = body as Record<string, unknown>;
 
@@ -110,10 +111,23 @@ export async function POST(request: Request) {
     if (dueDate) data.dueDate = String(dueDate);
     if (assigneeId) data.assigneeId = String(assigneeId);
     if (estimatedHours) data.estimatedHours = Number(estimatedHours);
+    if (progress !== undefined) data.progress = Number(progress);
     if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;
     if (tagIds && Array.isArray(tagIds)) data.tagIds = tagIds as string[];
 
-    const task = await createTask(data);
+    let task: Awaited<ReturnType<typeof createTask>>;
+    try {
+      task = await createTask(data);
+    } catch (err) {
+      if (err instanceof WbsGuardError) {
+        const status = err.code === "CYCLE" ? 409 : 400;
+        return NextResponse.json(
+          { error: { code: err.code, message: err.message } },
+          { status },
+        );
+      }
+      throw err;
+    }
 
     await logAudit({ actorUserId: session.user.id, action: "task_created", entityType: "task", entityId: task.id, after: task as never });
 

@@ -29,10 +29,12 @@ function TreeNode({
   task,
   childrenMap,
   depth,
+  code,
 }: {
   task: WBSTask;
   childrenMap: Map<string, WBSTask[]>;
   depth: number;
+  code: string;
 }) {
   const [expanded, setExpanded] = useState(true);
   const childTasks = childrenMap.get(task.id) ?? [];
@@ -62,6 +64,8 @@ function TreeNode({
           )}
         </button>
 
+        <span className="text-[10px] font-mono text-fg-subtle w-10 shrink-0">{code}</span>
+
         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${STATUS_COLORS[task.status] || "bg-info"}`} />
 
         <Link
@@ -84,8 +88,8 @@ function TreeNode({
 
       {expanded && hasChildren && (
         <div>
-          {childTasks.map((child) => (
-            <TreeNode key={child.id} task={child} childrenMap={childrenMap} depth={depth + 1} />
+          {childTasks.map((child, i) => (
+            <TreeNode key={child.id} task={child} childrenMap={childrenMap} depth={depth + 1} code={`${code}.${i + 1}`} />
           ))}
         </div>
       )}
@@ -136,9 +140,9 @@ export function WBSTree({ tasks }: WBSTreeProps) {
       </div>
 
       <div className="border border-border-primary rounded-lg overflow-hidden">
-        {rootTasks.map((task) => (
+        {rootTasks.map((task, i) => (
           <div key={task.id} className="border-b border-border-secondary last:border-b-0">
-            <TreeNode task={task} childrenMap={childrenMap} depth={0} />
+            <TreeNode task={task} childrenMap={childrenMap} depth={0} code={`${i + 1}`} />
           </div>
         ))}
       </div>

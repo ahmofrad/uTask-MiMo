@@ -1,4 +1,13 @@
 import { prisma } from "@/lib/db";
+import {
+  computeSiblingOrderIndex,
+  loadProjectParentMaps,
+  ancestorDepth,
+  subtreeMaxRelativeDepth,
+  hasCycle,
+  MAX_WBS_DEPTH,
+  WbsGuardError,
+} from "@/lib/tasks/wbs";
 
 export type CreateTaskData = {
   title: string;
@@ -12,22 +21,51 @@ export type CreateTaskData = {
   priority?: string;
   dueDate?: string | null;
   estimatedHours?: number | null;
+  progress?: number;
   tagIds?: string[];
   customFields?: Record<string, unknown>;
 };
 
+function clampProgress(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
 export async function createTask(data: CreateTaskData) {
-  const maxOrder = await prisma.task.aggregate({
-    where: { projectId: data.projectId },
-    _max: { orderIndex: true },
-  });
+  const parentTaskId: string | null = data.parentTaskId ?? null;
+  let orderIndex: number;
+
+  if (parentTaskId) {
+    const parent = await prisma.task.findUnique({
+      where: { id: parentTaskId },
+      select: { id: true, projectId: true, deletedAt: true, parentTaskId: true },
+    });
+    if (!parent || parent.deletedAt) {
+      throw new WbsGuardError("PARENT_NOT_FOUND", "Parent task not found");
+    }
+    if (parent.projectId !== data.projectId) {
+      throw new WbsGuardError("CROSS_PROJECT", "Parent task belongs to another project");
+    }
+    const maps = await loadProjectParentMaps(data.projectId);
+    if (ancestorDepth(maps, parentTaskId) + 1 > MAX_WBS_DEPTH) {
+      throw new WbsGuardError("MAX_DEPTH", `WBS depth exceeds the maximum of ${MAX_WBS_DEPTH} levels`);
+    }
+    orderIndex = await computeSiblingOrderIndex(data.projectId, parentTaskId, Number.MAX_SAFE_INTEGER);
+  } else {
+    const maxOrder = await prisma.task.aggregate({
+      where: { projectId: data.projectId },
+      _max: { orderIndex: true },
+    });
+    orderIndex = Number(maxOrder._max.orderIndex ?? 0) + 1000;
+  }
 
   const task = await prisma.task.create({
     data: {
       projectId: data.projectId,
       title: data.title,
       description: data.description ?? null,
-      parentTaskId: data.parentTaskId ?? null,
+      parentTaskId,
       assigneeId: data.assigneeId ?? null,
       reporterId: data.reporterId,
       createdById: data.createdById,
@@ -35,7 +73,8 @@ export async function createTask(data: CreateTaskData) {
       priority: (data.priority as never) ?? "med",
       dueDate: data.dueDate ? new Date(data.dueDate) : null,
       estimatedHours: data.estimatedHours ?? null,
-      orderIndex: Number(maxOrder._max.orderIndex ?? 0) + 1000,
+      progress: clampProgress(data.progress),
+      orderIndex,
     },
   });
 
@@ -62,6 +101,7 @@ export type UpdateTaskData = {
   estimatedHours?: number | null;
   spentHours?: number | null;
   parentTaskId?: string | null;
+  progress?: number;
   deletedAt?: string | null;
   tagIds?: string[];
   customFields?: Record<string, unknown>;
@@ -81,8 +121,12 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
   if (data.parentTaskId !== undefined) updateData.parentTaskId = data.parentTaskId;
   if (data.deletedAt !== undefined) updateData.deletedAt = data.deletedAt === null ? null : new Date(data.deletedAt);
 
+  if (data.progress !== undefined) updateData.progress = clampProgress(data.progress);
+
   if (data.status === "done") {
     updateData.completedAt = new Date();
+    // Mark fully complete unless the caller set an explicit progress.
+    if (data.progress === undefined) updateData.progress = 100;
   }
 
   const before = await prisma.task.findUnique({ where: { id } });
@@ -173,4 +217,64 @@ export async function reorderTasks(projectId: string, taskIds: string[]) {
   );
 
   await prisma.$transaction(updates);
+}
+
+export type MoveTaskData = {
+  newParentId?: string | null;
+  position?: number;
+};
+
+export async function moveTask(id: string, data: MoveTaskData) {
+  const task = await prisma.task.findUnique({
+    where: { id },
+    select: { id: true, projectId: true, parentTaskId: true, deletedAt: true },
+  });
+  if (!task || task.deletedAt) {
+    throw new Error("Task not found");
+  }
+
+  const newParentId = data.newParentId === undefined ? task.parentTaskId : data.newParentId;
+  const position = data.position ?? Number.MAX_SAFE_INTEGER;
+
+  if (newParentId === id) {
+    throw new WbsGuardError("SELF_PARENT", "A task cannot be its own parent");
+  }
+
+  if (newParentId != null) {
+    const newParent = await prisma.task.findUnique({
+      where: { id: newParentId },
+      select: { id: true, projectId: true, deletedAt: true },
+    });
+    if (!newParent || newParent.deletedAt) {
+      throw new WbsGuardError("PARENT_DELETED", "Target parent task is deleted or does not exist");
+    }
+    if (newParent.projectId !== task.projectId) {
+      throw new WbsGuardError("CROSS_PROJECT", "Target parent belongs to another project");
+    }
+  }
+
+  const maps = await loadProjectParentMaps(task.projectId);
+
+  if (hasCycle(maps, id, newParentId)) {
+    throw new WbsGuardError("CYCLE", "Moving here would create a cycle");
+  }
+
+  if (newParentId != null) {
+    const newDepth = ancestorDepth(maps, newParentId) + 1;
+    const subtreeDepth = subtreeMaxRelativeDepth(maps.childrenMap, id);
+    if (newDepth + subtreeDepth > MAX_WBS_DEPTH) {
+      throw new WbsGuardError("MAX_DEPTH", `WBS depth exceeds the maximum of ${MAX_WBS_DEPTH} levels`);
+    }
+  }
+
+  const orderIndex = await computeSiblingOrderIndex(task.projectId, newParentId, position);
+
+  const before = await prisma.task.findUnique({ where: { id } });
+
+  const updated = await prisma.task.update({
+    where: { id },
+    data: { parentTaskId: newParentId, orderIndex },
+  });
+
+  return { before, task: updated };
 }

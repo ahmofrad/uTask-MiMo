@@ -9,7 +9,7 @@ import { Board } from "@/components/task/board";
 import { Timeline } from "@/components/task/timeline";
 import { CalendarView } from "@/components/task/calendar-view";
 import { GanttChart } from "@/components/task/gantt-chart";
-import { WBSTree } from "@/components/task/wbs-tree";
+import { WbsEditor } from "@/components/task/wbs-editor";
 import { TaskCard } from "@/components/task/task-card";
 import { TaskForm } from "@/components/task/task-form";
 import { CustomFieldsManager } from "@/components/custom-field/custom-fields-manager";
@@ -248,11 +248,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
 
       {activeTab === "wbs" && (
         <div>
-          <WBSTree tasks={tasks.map((t) => ({
-            ...t,
-            parentTaskId: t.parentTaskId ?? null,
-            assigneeName: null,
-          }))} />
+          <WbsEditor projectId={project.id} />
         </div>
       )}
 
