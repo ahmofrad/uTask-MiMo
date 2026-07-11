@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
 import { can, canProject } from "@/lib/rbac";
+import { getUserReadableProjectIds } from "@/lib/projects/queries";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 
 export async function GET(request: Request) {
-  const { error } = await authenticatePublicApi(request, "tasks:read");
+  const { userId, error } = await authenticatePublicApi(request, "tasks:read");
   if (error) return error;
 
   const { searchParams } = new URL(request.url);
@@ -14,8 +15,17 @@ export async function GET(request: Request) {
   const projectId = searchParams.get("projectId");
   const assigneeId = searchParams.get("assigneeId");
 
+  const readable = await getUserReadableProjectIds(userId);
+  if (projectId && readable !== null && !readable.includes(projectId)) {
+    return NextResponse.json(
+      { error: { code: "FORBIDDEN", message: "You are not a member of this project" } },
+      { status: 403 },
+    );
+  }
+
   const where: Record<string, unknown> = { deletedAt: null };
   if (projectId) where.projectId = projectId;
+  else if (readable !== null) where.projectId = { in: readable };
   if (assigneeId) where.assigneeId = assigneeId;
 
   const tasks = await prisma.task.findMany({

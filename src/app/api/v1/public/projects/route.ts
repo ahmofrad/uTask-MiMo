@@ -1,34 +1,26 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
 import { can } from "@/lib/rbac";
+import { getUserReadableProjectIds, listProjects } from "@/lib/projects/queries";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 
 export async function GET(request: Request) {
-  const { error } = await authenticatePublicApi(request, "projects:read");
+  const { userId, error } = await authenticatePublicApi(request, "projects:read");
   if (error) return error;
 
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
 
-  const projects = await prisma.project.findMany({
-    where: { archivedAt: null },
-    take: limit + 1,
-    skip: cursor ? 1 : 0,
-    ...(cursor ? { cursor: { id: cursor } } : {}),
-    orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, description: true, color: true, visibility: true, createdAt: true },
+  const readable = await getUserReadableProjectIds(userId);
+  const projects = await listProjects({
+    limit,
+    ...(cursor ? { cursor } : {}),
+    ...(readable ? { projectIds: readable } : {}),
   });
 
-  const hasMore = projects.length > limit;
-  if (hasMore) projects.pop();
-  const lastItem = projects[projects.length - 1];
-
-  return NextResponse.json({
-    data: projects,
-    meta: { nextCursor: hasMore && lastItem ? lastItem.id : null, hasMore },
-  });
+  return NextResponse.json(projects);
 }
 
 export async function POST(request: Request) {
