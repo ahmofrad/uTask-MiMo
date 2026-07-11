@@ -9,6 +9,7 @@ import {
   WbsGuardError,
 } from "@/lib/tasks/wbs";
 import { evaluateStatusChange, notifyUnblocked, DependencyBlockedError } from "@/lib/tasks/dependencies";
+import { bumpScheduleVersion } from "@/lib/scheduling/cpm";
 
 export type CreateTaskData = {
   title: string;
@@ -147,6 +148,10 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
     where: { id },
     data: updateData,
   });
+
+  if (before && (data.startDate !== undefined || data.dueDate !== undefined)) {
+    await bumpScheduleVersion(before.projectId);
+  }
 
   // Auto-watch on assignment + email notification
   if (data.assigneeId !== undefined && data.assigneeId !== null && data.assigneeId !== before?.assigneeId) {

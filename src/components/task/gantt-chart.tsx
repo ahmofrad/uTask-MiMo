@@ -1,31 +1,19 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toJalali, getMonthName } from "@/lib/date/jalali";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
+import { apiFetch } from "@/lib/api-fetch";
+import type { GanttReport, GanttRow } from "@/lib/gantt-types";
 
-export type GanttTask = {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  startDate: string | null;
-  dueDate: string | null;
-  assigneeId: string | null;
-  parentTaskId: string | null;
-};
-
-type GanttChartProps = {
-  tasks: GanttTask[];
-};
+const DAY_WIDTH = 28;
 
 const STATUS_COLORS: Record<string, string> = {
-  open: "bg-info/70",
-  in_progress: "bg-warning/70",
-  done: "bg-success/70",
-  cancelled: "bg-fg-subtle/40",
+  open: "bg-info",
+  in_progress: "bg-warning",
+  done: "bg-success",
+  cancelled: "bg-fg-subtle",
 };
 
 function startOfDay(d: Date): Date {
@@ -38,103 +26,116 @@ function diffDays(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function jalaliDateLabel(date: Date): string {
-  const j = toJalali(date);
-  return `${j.jd}`;
-}
-
-function jalaliMonthYear(date: Date): string {
-  const j = toJalali(date);
-  return `${getMonthName(j.jm, "fa-IR")} ${j.jy}`;
-}
-
-export function GanttChart({ tasks }: GanttChartProps) {
+export function GanttChart({ report, projectId: _projectId }: { report: GanttReport; projectId: string }) {
   const t = useTranslations("task");
   const { shortDate } = useFormattedDate();
+  const [overrides, setOverrides] = useState<Record<string, { startDate: string | null; dueDate: string | null }>>({});
+  const dragRef = useRef<{ id: string; startX: number; origStart: Date; origEnd: Date } | null>(null);
 
-  const { rows, totalDays, ticks, rangeStart } = useMemo(() => {
+  const rows = report.tasks;
+
+  const { rangeStart, totalDays, ticks } = useMemo(() => {
     const today = startOfDay(new Date());
-
-    const rows = tasks
-      .filter((tk) => tk.startDate || tk.dueDate)
-      .map((tk) => {
-        const start = tk.startDate ? startOfDay(new Date(tk.startDate)) : today;
-        const end = tk.dueDate ? startOfDay(new Date(tk.dueDate)) : start;
-        return { ...tk, start, end };
-      })
-      .sort((a, b) => a.start.getTime() - b.start.getTime());
-
-    if (rows.length === 0) {
-      const emptyStart = startOfDay(new Date());
-      return { rows: [], totalDays: 30, ticks: [], rangeStart: emptyStart };
-    }
-
-    const allDates = rows.flatMap((r) => [r.start, r.end]);
-    const minDate = new Date(Math.min(...allDates.map((d) => d.getTime())));
-    const maxDate = new Date(Math.max(...allDates.map((d) => d.getTime())));
-
-    const rangeStart = new Date(minDate);
-    rangeStart.setDate(rangeStart.getDate() - 7);
-    const rangeEnd = new Date(maxDate);
-    rangeEnd.setDate(rangeEnd.getDate() + 90);
-
-    const dayRange = diffDays(rangeStart, rangeEnd);
-    if (dayRange < 14) {
-      rangeEnd.setDate(rangeEnd.getDate() + (14 - dayRange));
-    }
-
-    const totalDays = diffDays(rangeStart, rangeEnd);
-    const ticks: { date: Date; label: string; isMonth: boolean }[] = [];
-    const cursor = new Date(rangeStart);
+    const withDates = rows.flatMap((r) => {
+      const s = r.startDate ?? r.summaryStart;
+      const e = r.dueDate ?? r.summaryEnd;
+      return [s, e].filter(Boolean).map((d) => new Date(d as string));
+    });
+    let start = withDates.length ? new Date(Math.min(...withDates.map((d) => d.getTime()))) : today;
+    let end = withDates.length ? new Date(Math.max(...withDates.map((d) => d.getTime()))) : today;
+    start = startOfDay(start);
+    end = startOfDay(end);
+    start.setDate(start.getDate() - 7);
+    end.setDate(end.getDate() + 90);
+    const total = Math.max(diffDays(start, end), 14);
+    const tk: { date: Date; label: string; isMonth: boolean }[] = [];
+    const cursor = new Date(start);
     let lastMonth = -1;
-
-    for (let i = 0; i <= totalDays; i++) {
-      const jalaliMonth = toJalali(cursor).jm;
-      const isMonth = jalaliMonth !== lastMonth;
+    for (let i = 0; i <= total; i++) {
+      const jm = toJalali(cursor).jm;
+      const isMonth = jm !== lastMonth;
       if (isMonth || i % 7 === 0) {
-        ticks.push({
+        tk.push({
           date: new Date(cursor),
-          label: isMonth ? jalaliMonthYear(cursor) : jalaliDateLabel(cursor),
+          label: isMonth ? `${getMonthName(toJalali(cursor).jm, "fa-IR")} ${toJalali(cursor).jy}` : `${toJalali(cursor).jd}`,
           isMonth,
         });
-        lastMonth = jalaliMonth;
+        lastMonth = jm;
       }
       cursor.setDate(cursor.getDate() + 1);
     }
+    return { rangeStart: start, totalDays: total, ticks: tk };
+  }, [rows]);
 
-    return { rows, totalDays, ticks, rangeStart };
-  }, [tasks]);
-
-  const totalDaysVal = totalDays || 30;
-
-  const getPosition = (date: Date) => {
-    const days = diffDays(rangeStart, date);
-    return Math.max(0, (days / totalDaysVal) * 100);
+  const dayPos = (date: Date | string | null): number => {
+    if (!date) return 0;
+    return diffDays(rangeStart, startOfDay(new Date(date))) * DAY_WIDTH;
   };
 
-  const getWidth = (start: Date, end: Date) => {
-    const w = diffDays(start, end);
-    return Math.max(((w + 1) / totalDaysVal) * 100, 2);
+  const dateFor = (r: GanttRow): { start: Date | null; end: Date | null } => {
+    const o = overrides[r.id];
+    const startStr = o?.startDate ?? r.startDate ?? r.summaryStart ?? null;
+    const endStr = o?.dueDate ?? r.dueDate ?? r.summaryEnd ?? null;
+    return { start: startStr ? new Date(startStr) : null, end: endStr ? new Date(endStr) : null };
   };
 
-  if (tasks.length === 0) {
-    return (
-      <div className="text-center py-12 text-fg-muted text-sm">
-        {t("ganttNoTasks")}
-      </div>
-    );
+  const onPointerDown = (e: React.PointerEvent, r: GanttRow) => {
+    if (r.isSummary) return;
+    const { start, end } = dateFor(r);
+    if (!start) return;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { id: r.id, startX: e.clientX, origStart: start, origEnd: end ?? start };
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const deltaDays = Math.round((e.clientX - d.startX) / DAY_WIDTH);
+    const ns = new Date(d.origStart);
+    ns.setDate(ns.getDate() + deltaDays);
+    const ne = new Date(d.origEnd);
+    ne.setDate(ne.getDate() + deltaDays);
+    setOverrides((prev) => ({ ...prev, [d.id]: { startDate: ns.toISOString(), dueDate: ne.toISOString() } }));
+  };
+
+  const onPointerUp = async () => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d) return;
+    const o = overrides[d.id];
+    if (!o) return;
+    try {
+      await apiFetch(`/api/v1/tasks/${d.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ startDate: o.startDate, dueDate: o.dueDate }),
+      });
+    } catch {
+      setOverrides((prev) => {
+        const next = { ...prev };
+        delete next[d.id];
+        return next;
+      });
+    }
+  };
+
+  if (rows.length === 0) {
+    return <div className="text-center py-12 text-fg-muted text-sm">{t("ganttNoTasks")}</div>;
   }
 
-  const noDateTasks = tasks.filter((tk) => !tk.startDate && !tk.dueDate);
+  const noDateTasks = rows.filter((r) => !r.startDate && !r.dueDate && !r.summaryStart && !r.summaryEnd);
+  const totalWidth = totalDays * DAY_WIDTH;
+
+  const rowIndex = new Map<string, number>();
+  rows.forEach((r, i) => rowIndex.set(r.id, i));
 
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto border border-border-primary rounded-lg">
-        <div style={{ minWidth: Math.max(totalDaysVal * 30, 600) }}>
-          {/* Header: date ticks */}
+        <div style={{ minWidth: totalWidth + 192 }}>
+          {/* Header */}
           <div className="flex border-b border-border-primary bg-bg-secondary">
             <div className="w-48 shrink-0 border-e border-border-primary p-2 text-xs font-medium text-fg-muted">
-              {t("title")}
+              {t("wbs")}
             </div>
             <div className="flex-1 relative h-8">
               {ticks.map((tick, i) => (
@@ -143,64 +144,118 @@ export function GanttChart({ tasks }: GanttChartProps) {
                   className={`absolute top-0 h-full border-e border-border-secondary text-[10px] ${
                     tick.isMonth ? "font-semibold text-fg-primary" : "text-fg-muted"
                   }`}
-                  style={{ right: `${getPosition(tick.date)}%` }}
+                  style={{ left: `${dayPos(tick.date)}px` }}
                 >
-                  <span className="pr-1 leading-8">{tick.label}</span>
+                  <span className="pl-1 leading-8">{tick.label}</span>
                 </div>
               ))}
-              {/* Today line */}
               <div
                 className="absolute top-0 h-full w-px bg-danger/50 z-10"
-                style={{ right: `${getPosition(startOfDay(new Date()))}%` }}
+                style={{ left: `${dayPos(startOfDay(new Date()))}px` }}
               />
             </div>
           </div>
 
-          {/* Rows */}
-          {rows.map((row) => (
-            <div key={row.id} className="flex border-b border-border-secondary hover:bg-bg-secondary/50 transition-colors">
-              <div className="w-48 shrink-0 border-e border-border-primary p-2">
-                <Link
-                  href={`/tasks/${row.id}`}
-                  className="text-xs font-medium text-fg-primary hover:text-accent line-clamp-2 leading-snug block"
-                >
-                  {row.title}
-                </Link>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-[10px] text-fg-muted capitalize">{row.priority}</span>
-                  <span className="text-[10px] text-fg-muted">·</span>
-                  <span className="text-[10px] text-fg-muted">{shortDate(row.start)}</span>
-                  {row.start.getTime() !== row.end.getTime() && (
-                    <>
-                      <span className="text-[10px] text-fg-muted">→</span>
-                      <span className="text-[10px] text-fg-muted">{shortDate(row.end)}</span>
-                    </>
-                  )}
-                </div>
-              </div>
-              <div className="flex-1 relative h-12 my-auto">
-                {/* Grid lines */}
-                {ticks.filter((tk) => tk.isMonth).map((tick, i) => (
-                  <div
-                    key={i}
-                    className="absolute top-0 h-full border-e border-border-secondary/50"
-                    style={{ right: `${getPosition(tick.date)}%` }}
+          {/* Dependency arrows overlay */}
+          <div className="relative" style={{ height: rows.length * 48 }}>
+            <svg className="absolute inset-0 pointer-events-none" width={totalWidth + 192} height={rows.length * 48}>
+              <defs>
+                <marker id="gantt-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                  <path d="M0,0 L6,3 L0,6 Z" className="fill-fg-muted" />
+                </marker>
+              </defs>
+              {report.links.map((link) => {
+                const sRow = rowIndex.get(link.source);
+                const tRow = rowIndex.get(link.target);
+                if (sRow == null || tRow == null) return null;
+                const sTask = rows[sRow];
+                const tTask = rows[tRow];
+                if (!sTask || !tTask) return null;
+                const sEnd = dateFor(sTask).end ?? dateFor(sTask).start;
+                const tStart = dateFor(tTask).start ?? dateFor(tTask).end;
+                if (!sEnd || !tStart) return null;
+                const x1 = 192 + dayPos(sEnd) + DAY_WIDTH;
+                const y1 = sRow * 48 + 24;
+                const x2 = 192 + dayPos(tStart);
+                const y2 = tRow * 48 + 24;
+                const mx = (x1 + x2) / 2;
+                return (
+                  <path
+                    key={link.id}
+                    d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={1}
+                    className="text-fg-subtle"
+                    markerEnd="url(#gantt-arrow)"
                   />
-                ))}
-                {/* Task bar — clickable */}
-                <Link
-                  href={`/tasks/${row.id}`}
-                  className={`absolute top-1.5 h-8 rounded-md ${STATUS_COLORS[row.status] || "bg-info/70"} flex items-center px-2 cursor-pointer hover:opacity-80 hover:shadow-md transition-all shadow-sm`}
-                  style={{
-                    left: `${getPosition(row.start)}%`,
-                    width: `${getWidth(row.start, row.end)}%`,
-                  }}
+                );
+              })}
+            </svg>
+
+            {/* Rows */}
+            {rows.map((row, i) => {
+              const { start, end } = dateFor(row);
+              const left = dayPos(start);
+              const right = dayPos(end);
+              const width = Math.max(right - left, DAY_WIDTH);
+              const isCritical = row.critical;
+              return (
+                <div
+                  key={row.id}
+                  className="flex border-b border-border-secondary hover:bg-bg-secondary/50 transition-colors"
+                  style={{ position: "absolute", top: i * 48, left: 0, right: 0, height: 48 }}
                 >
-                  <span className="text-[11px] font-medium text-fg-primary drop-shadow-sm">{row.title}</span>
-                </Link>
-              </div>
-            </div>
-          ))}
+                  <div className="w-48 shrink-0 border-e border-border-primary p-2 flex flex-col justify-center">
+                    <span className="text-[10px] font-mono text-fg-subtle">{row.wbsCode}</span>
+                    <span className="text-xs font-medium text-fg-primary truncate block">{row.title}</span>
+                    {(row.startDate ?? row.summaryStart) && (row.dueDate ?? row.summaryEnd) ? (
+                      <span className="text-[10px] text-fg-muted truncate">
+                        {shortDate(row.startDate ?? row.summaryStart ?? "")} – {shortDate(row.dueDate ?? row.summaryEnd ?? "")}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="flex-1 relative">
+                    {ticks.filter((tk) => tk.isMonth).map((tk, idx) => (
+                      <div
+                        key={idx}
+                        className="absolute top-0 h-full border-e border-border-secondary/40"
+                        style={{ left: `${dayPos(tk.date)}px` }}
+                      />
+                    ))}
+                    {row.isMilestone && start ? (
+                      <div
+                        className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rotate-45 bg-accent border border-bg-surface"
+                        style={{ left: `${dayPos(start) + DAY_WIDTH / 2 - 7}px` }}
+                        title={row.title}
+                      />
+                    ) : !row.isSummary && start ? (
+                      <div
+                        onPointerDown={(e) => onPointerDown(e, row)}
+                        onPointerMove={onPointerMove}
+                        onPointerUp={onPointerUp}
+                        className={`absolute top-3 h-6 rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} shadow-sm cursor-grab hover:opacity-80 ${
+                          isCritical ? "ring-2 ring-danger" : ""
+                        }`}
+                        style={{ left: `${left + DAY_WIDTH}px`, width: `${width}px` }}
+                      >
+                        <div
+                          className="h-full rounded-md bg-fg-inverse/20"
+                          style={{ width: `${row.progress}%` }}
+                        />
+                      </div>
+                    ) : row.isSummary && start ? (
+                      <div
+                        className="absolute top-4 h-3 rounded-sm bg-accent/50 border border-accent"
+                        style={{ left: `${left + DAY_WIDTH}px`, width: `${width}px` }}
+                        title={row.title}
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -210,15 +265,12 @@ export function GanttChart({ tasks }: GanttChartProps) {
         </div>
       )}
 
-      {/* Legend */}
-      <div className="flex items-center gap-4 text-xs text-fg-muted">
-        {Object.entries(STATUS_COLORS).map(([status, color]) => (
-          <div key={status} className="flex items-center gap-1.5">
-            <span className={`w-3 h-3 rounded ${color}`} />
-            <span className="capitalize">{t(`status.${status}`)}</span>
-          </div>
-        ))}
-      </div>
+      {report.criticalChain.length > 0 && (
+        <div className="flex items-center gap-2 text-xs text-fg-muted">
+          <span className="w-3 h-3 rounded ring-2 ring-danger" />
+          {t("ganttCriticalPath")}
+        </div>
+      )}
     </div>
   );
 }

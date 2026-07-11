@@ -7,7 +7,7 @@ import { logAudit } from "@/lib/audit/log";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: { projectId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -15,7 +15,7 @@ export async function GET(
   }
 
   const fields = await prisma.customField.findMany({
-    where: { projectId: params.id, archivedAt: null },
+    where: { projectId: params.projectId, archivedAt: null },
     orderBy: { orderIndex: "asc" },
   });
 
@@ -24,7 +24,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: { projectId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -48,7 +48,7 @@ export async function POST(
   const { name, key, type, required, orderIndex, configJson } = parsed.data;
 
   const existing = await prisma.customField.findFirst({
-    where: { projectId: params.id, key },
+    where: { projectId: params.projectId, key },
   });
   if (existing) {
     return NextResponse.json(
@@ -58,13 +58,13 @@ export async function POST(
   }
 
   const maxOrder = await prisma.customField.aggregate({
-    where: { projectId: params.id },
+    where: { projectId: params.projectId },
     _max: { orderIndex: true },
   });
 
   const field = await prisma.customField.create({
     data: {
-      projectId: params.id,
+      projectId: params.projectId,
       name,
       key,
       type: type as never,

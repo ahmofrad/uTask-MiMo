@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { Board } from "@/components/task/board";
 import { Timeline } from "@/components/task/timeline";
 import { CalendarView } from "@/components/task/calendar-view";
-import { GanttChart } from "@/components/task/gantt-chart";
+import { GanttView } from "@/components/task/gantt-view";
 import { WBSTree } from "@/components/task/wbs-tree";
 import { TaskCard } from "@/components/task/task-card";
 import { cn } from "@/lib/cn";
@@ -39,7 +39,7 @@ type ProjectSummary = {
 type DashboardPageProps = {
   stats: DashboardStat[];
   recentTasks: RecentTask[];
-  allTasks: { id: string; title: string; description: string | null; status: string; priority: string; dueDate: string | null; assigneeId: string | null; startDate: string | null; parentTaskId: string | null; assignee: { displayName: string; avatarUrl: string | null } | null; projectName: string; tags: { id: string; name: string }[]; subtaskCount: number; subtaskDone: number }[];
+  allTasks: { id: string; title: string; description: string | null; status: string; priority: string; dueDate: string | null; assigneeId: string | null; startDate: string | null; parentTaskId: string | null; assignee: { displayName: string; avatarUrl: string | null } | null; projectId: string; projectName: string; tags: { id: string; name: string }[]; subtaskCount: number; subtaskDone: number }[];
   projects: ProjectSummary[];
   userId: string;
 };
@@ -154,11 +154,23 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
       )}
 
       {activeTab === "gantt" && (
-        <GanttChart tasks={filteredTasks.map((t) => ({
-          id: t.id, title: t.title, status: t.status, priority: t.priority,
-          startDate: t.startDate, dueDate: t.dueDate, assigneeId: t.assigneeId,
-          parentTaskId: t.parentTaskId,
-        }))} />
+        <div className="space-y-6">
+          {Object.values(
+            filteredTasks.reduce<Record<string, { projectId: string; projectName: string; tasks: typeof filteredTasks }>>(
+              (acc, t) => {
+                const group = (acc[t.projectId] ??= { projectId: t.projectId, projectName: t.projectName, tasks: [] });
+                group.tasks.push(t);
+                return acc;
+              },
+              {},
+            ),
+          ).map((group) => (
+            <div key={group.projectId} className="space-y-2">
+              <h3 className="text-sm font-medium text-fg-muted">{group.projectName}</h3>
+              <GanttView projectId={group.projectId} />
+            </div>
+          ))}
+        </div>
       )}
 
       {activeTab === "wbs" && (

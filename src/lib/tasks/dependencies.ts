@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { notify } from "@/lib/notifications";
 import { getInstanceSetting, DEFAULT_DEPENDENCY_ENFORCEMENT, type DependencyEnforcement } from "@/lib/settings/instance";
+import { bumpScheduleVersion } from "@/lib/scheduling/cpm";
 
 export type DependencyCode =
   | "SELF"
@@ -155,6 +156,8 @@ export async function addDependency(input: {
     input.createdBy,
   );
 
+  await bumpScheduleVersion(task.projectId);
+
   return {
     id: created.id,
     taskId: created.taskId,
@@ -185,6 +188,9 @@ export async function removeDependency(taskId: string, dependsOnId: string, type
   if (!existing) throw new DependencyError("TASK_NOT_FOUND", "Dependency not found", 404);
 
   await prisma.taskDependency.update({ where: { id: existing.id }, data: { deletedAt: new Date() } });
+
+  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
+  if (task) await bumpScheduleVersion(task.projectId);
 }
 
 export async function listDependencies(taskId: string): Promise<{ outgoing: Edge[]; incoming: Edge[] }> {

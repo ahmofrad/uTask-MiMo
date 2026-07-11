@@ -5,7 +5,7 @@ import { getWbsForProject } from "@/lib/tasks/wbs";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: { projectId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -13,7 +13,7 @@ export async function GET(
   }
 
   const userId = session.user.id;
-  const projectId = params.id;
+  const projectId = params.projectId;
 
   const hasAccess =
     (await can(userId, "task:edit_any")) ||

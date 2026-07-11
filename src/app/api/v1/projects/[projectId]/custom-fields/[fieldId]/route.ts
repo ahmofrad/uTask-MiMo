@@ -7,7 +7,7 @@ import { logAudit } from "@/lib/audit/log";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string; fieldId: string } },
+  { params }: { params: { projectId: string; fieldId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -31,7 +31,7 @@ export async function PATCH(
   const before = await prisma.customField.findUnique({ where: { id: params.fieldId } });
 
   const field = await prisma.customField.update({
-    where: { id: params.fieldId, projectId: params.id },
+    where: { id: params.fieldId, projectId: params.projectId },
     data: parsed.data as never,
   });
 
@@ -42,7 +42,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string; fieldId: string } },
+  { params }: { params: { projectId: string; fieldId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -57,7 +57,7 @@ export async function DELETE(
   const before = await prisma.customField.findUnique({ where: { id: params.fieldId } });
 
   await prisma.customField.update({
-    where: { id: params.fieldId, projectId: params.id },
+    where: { id: params.fieldId, projectId: params.projectId },
     data: { archivedAt: new Date() },
   });
 

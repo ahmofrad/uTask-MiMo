@@ -8,7 +8,7 @@ import { TagsModal } from "@/components/tags/tags-modal";
 import { Board } from "@/components/task/board";
 import { Timeline } from "@/components/task/timeline";
 import { CalendarView } from "@/components/task/calendar-view";
-import { GanttChart } from "@/components/task/gantt-chart";
+import { GanttView } from "@/components/task/gantt-view";
 import { WbsEditor } from "@/components/task/wbs-editor";
 import { TaskCard } from "@/components/task/task-card";
 import { TaskForm } from "@/components/task/task-form";
@@ -238,11 +238,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
 
       {activeTab === "gantt" && (
         <div>
-          <GanttChart tasks={tasks.map((t) => ({
-            ...t,
-            startDate: t.startDate ?? null,
-            parentTaskId: t.parentTaskId ?? null,
-          }))} />
+          <GanttView projectId={project.id} />
         </div>
       )}
 

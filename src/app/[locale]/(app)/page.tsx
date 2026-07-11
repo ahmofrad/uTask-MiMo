@@ -60,7 +60,7 @@ export default async function AppHomePage() {
           startDate: true,
           parentTaskId: true,
           assignee: { select: { displayName: true, avatarUrl: true } },
-          project: { select: { name: true } },
+          project: { select: { id: true, name: true } },
           tags: { include: { tag: { select: { id: true, name: true } } } },
           subtasks: {
             where: { deletedAt: null },
@@ -118,6 +118,7 @@ export default async function AppHomePage() {
           startDate: t.startDate?.toISOString() ?? null,
           parentTaskId: t.parentTaskId,
           assignee: t.assignee,
+          projectId: t.project.id,
           projectName: t.project.name,
           tags: t.tags.map((tt) => ({ id: tt.tag.id, name: tt.tag.name })),
           subtaskCount: t._count.subtasks,

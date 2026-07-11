@@ -324,6 +324,7 @@
     "wbs": "WBS",
     "ganttNoTasks": "No tasks with dates to display",
     "ganttNoDates": "task without start/due dates",
+    "ganttCriticalPath": "Critical path",
     "wbsNoTasks": "No tasks to display in WBS view",
     "wbsTotal": "total tasks",
     "wbsCompleted": "completed",

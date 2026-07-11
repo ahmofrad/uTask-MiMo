@@ -7,14 +7,14 @@ import { getProjectById, updateProject, archiveProject } from "@/lib/projects";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: { projectId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
   }
 
-  const project = await getProjectById(params.id);
+  const project = await getProjectById(params.projectId);
 
   if (!project) {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, { status: 404 });
@@ -25,7 +25,7 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: { projectId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -33,7 +33,7 @@ export async function PATCH(
   }
 
   const permitted = await can(session.user.id, "project:update") ||
-    await canProject(session.user.id, "project_role:assign", params.id);
+    await canProject(session.user.id, "project_role:assign", params.projectId);
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
@@ -41,9 +41,9 @@ export async function PATCH(
   const body = await request.json();
   const { name, description, color, status, visibility } = body as Record<string, string>;
 
-  const before = await getProjectById(params.id);
+  const before = await getProjectById(params.projectId);
 
-  const project = await updateProject(params.id, {
+  const project = await updateProject(params.projectId, {
     ...(name !== undefined ? { name } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(color !== undefined ? { color } : {}),
@@ -51,16 +51,16 @@ export async function PATCH(
     ...(visibility !== undefined ? { visibility: visibility as never } : {}),
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "project_updated", entityType: "project", entityId: params.id, before: before as never, after: project as never });
+  await logAudit({ actorUserId: session.user.id, action: "project_updated", entityType: "project", entityId: params.projectId, before: before as never, after: project as never });
 
-  await emitTaskEvent("project.updated", params.id, { id: params.id, name: project.name }, session.user.id);
+  await emitTaskEvent("project.updated", params.projectId, { id: params.projectId, name: project.name }, session.user.id);
 
   return NextResponse.json({ data: project });
 }
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: { projectId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -72,11 +72,11 @@ export async function DELETE(
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const before = await getProjectById(params.id);
+  const before = await getProjectById(params.projectId);
 
-  await archiveProject(params.id);
+  await archiveProject(params.projectId);
 
-  await logAudit({ actorUserId: session.user.id, action: "project_archived", entityType: "project", entityId: params.id, before: before as never });
+  await logAudit({ actorUserId: session.user.id, action: "project_archived", entityType: "project", entityId: params.projectId, before: before as never });
 
   return NextResponse.json({ data: { success: true } });
 }

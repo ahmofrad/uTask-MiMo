@@ -6,7 +6,7 @@ import { logAudit } from "@/lib/audit/log";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: { projectId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -14,7 +14,7 @@ export async function GET(
   }
 
   const members = await prisma.projectMember.findMany({
-    where: { projectId: params.id },
+    where: { projectId: params.projectId },
     include: {
       user: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
     },
@@ -26,7 +26,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: { projectId: string } },
 ) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -47,14 +47,14 @@ export async function POST(
 
   const member = await prisma.projectMember.create({
     data: {
-      projectId: params.id,
+      projectId: params.projectId,
       userId,
       projectRole: (projectRole as never) ?? "contributor",
       addedBy: session.user.id,
     },
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "project_member_added", entityType: "projectMember", entityId: `${params.id}:${userId}`, after: member as never });
+  await logAudit({ actorUserId: session.user.id, action: "project_member_added", entityType: "projectMember", entityId: `${params.projectId}:${userId}`, after: member as never });
 
   return NextResponse.json({ data: member }, { status: 201 });
 }
