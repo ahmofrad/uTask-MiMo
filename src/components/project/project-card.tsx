@@ -9,10 +9,11 @@ type ProjectCardProps = {
   taskCount?: number;
   memberCount?: number;
   color?: string | null | undefined;
+  ownerName?: string | null;
   className?: string;
 };
 
-export function ProjectCard({ id, name, description, taskCount, memberCount, color, className }: ProjectCardProps) {
+export function ProjectCard({ id, name, description, taskCount, memberCount, color, ownerName, className }: ProjectCardProps) {
   const t = useTranslations("project");
   return (
     <Link
@@ -34,6 +35,7 @@ export function ProjectCard({ id, name, description, taskCount, memberCount, col
       <div className="flex items-center gap-3 text-xs text-fg-subtle">
         {taskCount !== undefined && <span>{t("tasksCount", { count: taskCount })}</span>}
         {memberCount !== undefined && <span>{t("membersCount", { count: memberCount })}</span>}
+        {ownerName && <span className="ms-auto">{t("owner")}: {ownerName}</span>}
       </div>
     </Link>
   );

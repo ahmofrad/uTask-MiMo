@@ -52,3 +52,14 @@ export async function canProject(
   if (!member) return false;
   return hasProjectPermission(member.projectRole as ProjectMemberRole, permission);
 }
+
+export async function isProjectOwner(
+  userId: string,
+  projectId: string,
+): Promise<boolean> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { ownerId: true },
+  });
+  return project?.ownerId === userId;
+}

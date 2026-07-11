@@ -15,9 +15,11 @@ export default async function ProjectDetail({
 
   // Check access: user must be a member or global admin/owner
   const isAdmin = await can(userId, "user:manage");
+  let membership: { projectRole: string } | null = null;
   if (!isAdmin) {
-    const membership = await prisma.projectMember.findUnique({
+    membership = await prisma.projectMember.findUnique({
       where: { projectId_userId: { projectId, userId } },
+      select: { projectRole: true },
     });
     if (!membership) notFound();
   }
@@ -37,6 +39,11 @@ export default async function ProjectDetail({
   });
 
   if (!project) notFound();
+
+  const canManage =
+    (await can(userId, "project:update")) ||
+    project.owner.id === userId ||
+    membership?.projectRole === "lead";
 
   const tasks = await prisma.task.findMany({
     where: { projectId, deletedAt: null },
@@ -65,13 +72,18 @@ export default async function ProjectDetail({
 
   return (
     <div className="px-6 py-6">
-      <ProjectDetailPage
+       <ProjectDetailPage
         project={{
           id: project.id,
           name: project.name,
           description: project.description,
           color: project.color,
+          status: project.status,
+          visibility: project.visibility,
           ownerName: project.owner.displayName,
+          ownerId: project.owner.id,
+          isOwner: project.owner.id === userId,
+          canManage: canManage,
           memberCount: project._count.members,
           taskCount: project._count.tasks,
           members: project.members.map((m) => ({

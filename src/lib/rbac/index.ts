@@ -1,4 +1,4 @@
-export { can, canProject, getUserRole } from "@/lib/rbac/can";
+export { can, canProject, getUserRole, isProjectOwner } from "@/lib/rbac/can";
 export type { UserRoleInfo } from "@/lib/rbac/can";
 export {
   getRolePermissions,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth/config";
-import { can, canProject } from "@/lib/rbac";
+import { can, canProject, isProjectOwner } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { getProjectById, updateProject, archiveProject } from "@/lib/projects";
@@ -32,8 +32,10 @@ export async function PATCH(
     return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
   }
 
-  const permitted = await can(session.user.id, "project:update") ||
-    await canProject(session.user.id, "project_role:assign", params.projectId);
+  const permitted =
+    (await can(session.user.id, "project:update")) ||
+    (await canProject(session.user.id, "project_role:assign", params.projectId)) ||
+    (await isProjectOwner(session.user.id, params.projectId));
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }

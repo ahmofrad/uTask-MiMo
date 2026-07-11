@@ -15,6 +15,7 @@ export default async function ProjectsPage() {
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { tasks: true, members: true } },
+      owner: { select: { id: true, displayName: true } },
     },
   });
 
@@ -40,6 +41,7 @@ export default async function ProjectsPage() {
               taskCount={p._count.tasks}
               memberCount={p._count.members}
               color={p.color ?? undefined}
+              ownerName={p.owner.displayName}
             />
           ))}
         </div>
