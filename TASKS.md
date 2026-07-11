@@ -306,6 +306,11 @@
 > Each gap below is a **G** entry there with data model, endpoints, RBAC, audit, i18n, and dependencies.
 > Build order: planning spine G1→G2→G3→G4; resource/cost G5→G6→G7; lifecycle G8→G9→G10→G11→G12;
 > governance R0→G13→G14; cross-cutting G15 (anytime after Phase 4); platform/ops G16.
+>
+> **External competitive analysis (Mizito):** see [`docs/mizito-analysis.md`](./mizito-analysis.md)
+> for the verified feature/GUI inventory of Mizito and the gap register **M1–M18** (what the
+> competitor ships that uTask lacks), with buildability classes and a recommended build sequence.
+> This is the *intake* for future PMIS-fit gaps; promote items to G-entries in `roadmap-pmis.md` when built.
 
 ### PMIS / EPM gaps (uTask does not yet have these)
 - **G1 — Task dependencies & enforcement** (FS/SS/FF/RELATES_TO, block/warn/off, unblock notifications).
