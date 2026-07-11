@@ -28,7 +28,9 @@ export async function POST(
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, { status: 404 });
   }
 
-  const permitted = await canProject(userId, "task:edit_any", task.projectId);
+  const permitted =
+    (await canProject(userId, "task:edit_any", task.projectId)) ||
+    (await canProject(userId, "task:edit_own", task.projectId));
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }

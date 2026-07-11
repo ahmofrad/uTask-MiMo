@@ -67,6 +67,8 @@ function WbsRow(props: RowProps) {
 
   return (
     <div
+      data-testid="wbs-row"
+      data-task-id={node.id}
       className={`flex items-center gap-1.5 py-1.5 px-2 rounded-md hover:bg-bg-secondary transition-colors group ${dropClass}`}
       style={{ paddingInlineStart: `${node.depth * 20 + 8}px` }}
       onDragOver={(e) => onDragOver(node, e)}
@@ -107,7 +109,7 @@ function WbsRow(props: RowProps) {
         )}
       </button>
 
-      <span className="text-[10px] font-mono text-fg-subtle w-10 shrink-0">{node.wbsCode}</span>
+      <span data-testid="wbs-code" className="text-[10px] font-mono text-fg-subtle w-10 shrink-0">{node.wbsCode}</span>
 
       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${STATUS_COLOR[node.status] || "bg-info"}`} />
 
@@ -133,6 +135,7 @@ function WbsRow(props: RowProps) {
         </div>
         {!node.isSummary ? (
           <input
+            data-testid="wbs-progress"
             type="range"
             min={0}
             max={100}
@@ -151,6 +154,7 @@ function WbsRow(props: RowProps) {
 
       <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
         <button
+          data-testid="wbs-indent"
           onClick={() => onIndent(node)}
           disabled={busy}
           className="p-1 rounded hover:bg-bg-primary text-fg-muted hover:text-fg-primary disabled:opacity-40"
@@ -162,6 +166,7 @@ function WbsRow(props: RowProps) {
           </svg>
         </button>
         <button
+          data-testid="wbs-outdent"
           onClick={() => onOutdent(node)}
           disabled={busy || !node.parentTaskId}
           className="p-1 rounded hover:bg-bg-primary text-fg-muted hover:text-fg-primary disabled:opacity-40"
@@ -173,6 +178,7 @@ function WbsRow(props: RowProps) {
           </svg>
         </button>
         <button
+          data-testid="wbs-add-child"
           onClick={() => onAddChild(node.id, newChildTitle)}
           disabled={busy}
           className="p-1 rounded hover:bg-bg-primary text-fg-muted hover:text-fg-primary disabled:opacity-40"
