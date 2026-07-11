@@ -36,8 +36,12 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
     try {
       const [depRes, taskRes] = await Promise.all([
         apiFetch(`/api/v1/projects/${projectId}/tasks/${taskId}/dependencies`),
-        apiFetch(`/api/v1/projects/${projectId}/tasks?limit=200`),
+        apiFetch(`/api/v1/tasks?projectId=${projectId}&limit=200`),
       ]);
+      if (!depRes.ok || !taskRes.ok) {
+        setError(t("dependencies.loadError"));
+        return;
+      }
       const depJson = await depRes.json();
       const taskJson = await taskRes.json();
       setDeps(depJson.data ?? { outgoing: [], incoming: [] });
@@ -45,7 +49,7 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
       setCandidates(list);
       if (!selected && list.length) setSelected(list[0]?.id ?? "");
     } catch {
-      setError(t("wbsMoveError"));
+      setError(t("dependencies.loadError"));
     } finally {
       setLoading(false);
     }
@@ -70,7 +74,7 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
       }
       await load();
     } catch {
-      setError(t("wbsMoveError"));
+      setError(t("dependencies.loadError"));
     }
   };
 
@@ -88,7 +92,7 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
       }
       await load();
     } catch {
-      setError(t("wbsMoveError"));
+      setError(t("dependencies.loadError"));
     }
   };
 

@@ -325,6 +325,7 @@
     "ganttNoTasks": "وظیفه‌ای با تاریخ برای نمایش وجود ندارد",
     "ganttNoDates": "وظیفه بدون تاریخ شروع/پایان",
     "ganttCriticalPath": "مسیر حساس",
+    "ganttLegend": "راهنما",
     "wbsNoTasks": "وظیفه‌ای برای نمایش در نمودار WBS وجود ندارد",
     "wbsTotal": "کل وظایف",
     "wbsCompleted": "تکمیل شده",
@@ -346,6 +347,7 @@
     "wbsMoveErrorParentNotFound": "وظیفه والد مقصد یافت نشد.",
     "dependencies": {
       "title": "وابستگی‌ها",
+      "loadError": "بارگذاری وابستگی‌ها با خطا مواجه شد",
       "blocked": "مسدود شده به دلیل وابستگی‌های ناتمام",
       "unblocked": "رفع انسداد",
       "cycleError": "وابستگی باعث ایجاد چرخه می‌شود",
@@ -388,12 +390,19 @@
     "title": "پروژه‌ها",
     "create": "ایجاد پروژه",
     "edit": "ویرایش پروژه",
+    "save": "ذخیره",
+    "cancel": "انصراف",
+    "saving": "در حال ذخیره…",
+    "editError": "به‌روزرسانی پروژه با خطا مواجه شد",
     "delete": "حذف پروژه",
+    "statusActive": "فعال",
+    "statusArchived": "بایگانی‌شده",
     "fields": {
       "name": "نام",
       "description": "توضیحات",
       "color": "رنگ",
-      "visibility": "قابلیت مشاهده"
+      "visibility": "قابلیت مشاهده",
+      "status": "وضعیت"
     },
     "visibilityOptions": {
       "private": "خصوصی",

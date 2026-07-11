@@ -444,7 +444,7 @@ export function TaskDetailPage({
           {/* Dependencies card */}
           <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
             <h3 className="text-xs font-medium text-fg-muted mb-4 uppercase tracking-wide">
-              {t("dependencies.title")}
+              {t("task.dependencies.title")}
             </h3>
             <TaskDependencies projectId={task.projectId} taskId={task.id} />
           </div>

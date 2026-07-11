@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { toJalali, getMonthName } from "@/lib/date/jalali";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 import type { GanttReport, GanttRow } from "@/lib/gantt-types";
 
-const DAY_WIDTH = 28;
+const DAY_WIDTH = 52;
+const BOX_WIDTH = 64;
+const LEFT_WIDTH = 288;
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-info",
@@ -74,8 +77,15 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
 
   const dateFor = (r: GanttRow): { start: Date | null; end: Date | null } => {
     const o = overrides[r.id];
-    const startStr = o?.startDate ?? r.startDate ?? r.summaryStart ?? null;
-    const endStr = o?.dueDate ?? r.dueDate ?? r.summaryEnd ?? null;
+    const realStart = o?.startDate ?? r.startDate ?? null;
+    const realEnd = o?.dueDate ?? r.dueDate ?? null;
+    const sumStart = r.summaryStart ?? null;
+    const sumEnd = r.summaryEnd ?? null;
+    let startStr = realStart ?? sumStart;
+    let endStr = realEnd ?? sumEnd;
+    // Ensure a bar is visible even when only one bound exists.
+    if (!startStr && endStr) startStr = endStr;
+    if (!endStr && startStr) endStr = startStr;
     return { start: startStr ? new Date(startStr) : null, end: endStr ? new Date(endStr) : null };
   };
 
@@ -131,10 +141,10 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
   return (
     <div className="space-y-4">
       <div className="overflow-x-auto border border-border-primary rounded-lg">
-        <div style={{ minWidth: totalWidth + 192 }}>
+        <div style={{ minWidth: totalWidth + LEFT_WIDTH }}>
           {/* Header */}
           <div className="flex border-b border-border-primary bg-bg-secondary">
-            <div className="w-48 shrink-0 border-e border-border-primary p-2 text-xs font-medium text-fg-muted">
+            <div className="w-72 shrink-0 border-e border-border-primary p-2 text-xs font-medium text-fg-muted">
               {t("wbs")}
             </div>
             <div className="flex-1 relative h-8">
@@ -158,7 +168,7 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
 
           {/* Dependency arrows overlay */}
           <div className="relative" style={{ height: rows.length * 48 }}>
-            <svg className="absolute inset-0 pointer-events-none" width={totalWidth + 192} height={rows.length * 48}>
+            <svg className="absolute inset-0 pointer-events-none" width={totalWidth + LEFT_WIDTH} height={rows.length * 48}>
               <defs>
                 <marker id="gantt-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
                   <path d="M0,0 L6,3 L0,6 Z" className="fill-fg-muted" />
@@ -174,9 +184,9 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                 const sEnd = dateFor(sTask).end ?? dateFor(sTask).start;
                 const tStart = dateFor(tTask).start ?? dateFor(tTask).end;
                 if (!sEnd || !tStart) return null;
-                const x1 = 192 + dayPos(sEnd) + DAY_WIDTH;
+                const x1 = LEFT_WIDTH + dayPos(sEnd) + BOX_WIDTH;
                 const y1 = sRow * 48 + 24;
-                const x2 = 192 + dayPos(tStart);
+                const x2 = LEFT_WIDTH + dayPos(tStart);
                 const y2 = tRow * 48 + 24;
                 const mx = (x1 + x2) / 2;
                 return (
@@ -197,8 +207,7 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
             {rows.map((row, i) => {
               const { start, end } = dateFor(row);
               const left = dayPos(start);
-              const right = dayPos(end);
-              const width = Math.max(right - left, DAY_WIDTH);
+              const width = BOX_WIDTH;
               const isCritical = row.critical;
               return (
                 <div
@@ -206,12 +215,20 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                   className="flex border-b border-border-secondary hover:bg-bg-secondary/50 transition-colors"
                   style={{ position: "absolute", top: i * 48, left: 0, right: 0, height: 48 }}
                 >
-                  <div className="w-48 shrink-0 border-e border-border-primary p-2 flex flex-col justify-center">
-                    <span className="text-[10px] font-mono text-fg-subtle">{row.wbsCode}</span>
-                    <span className="text-xs font-medium text-fg-primary truncate block">{row.title}</span>
-                    {(row.startDate ?? row.summaryStart) && (row.dueDate ?? row.summaryEnd) ? (
+                  <div className="w-72 shrink-0 border-e border-border-primary p-2 flex flex-col justify-center gap-0.5 overflow-hidden">
+                    <div className="flex items-baseline gap-1 min-w-0">
+                      <span className="text-[10px] font-mono text-fg-subtle shrink-0">{row.wbsCode}</span>
+                      <Link
+                        href={`/tasks/${row.id}`}
+                        className="text-xs font-medium text-fg-primary hover:text-accent truncate"
+                        title={row.title}
+                      >
+                        {row.title}
+                      </Link>
+                    </div>
+                    {start || end ? (
                       <span className="text-[10px] text-fg-muted truncate">
-                        {shortDate(row.startDate ?? row.summaryStart ?? "")} – {shortDate(row.dueDate ?? row.summaryEnd ?? "")}
+                        {shortDate((start ?? end)!.toISOString())} – {shortDate((end ?? start)!.toISOString())}
                       </span>
                     ) : null}
                   </div>
@@ -225,8 +242,8 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                     ))}
                     {row.isMilestone && start ? (
                       <div
-                        className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rotate-45 bg-accent border border-bg-surface"
-                        style={{ left: `${dayPos(start) + DAY_WIDTH / 2 - 7}px` }}
+                        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rotate-45 bg-accent border border-bg-surface"
+                        style={{ left: `${dayPos(start) + DAY_WIDTH / 2 - 8}px` }}
                         title={row.title}
                       />
                     ) : !row.isSummary && start ? (
@@ -234,10 +251,10 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                         onPointerDown={(e) => onPointerDown(e, row)}
                         onPointerMove={onPointerMove}
                         onPointerUp={onPointerUp}
-                        className={`absolute top-3 h-6 rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} shadow-sm cursor-grab hover:opacity-80 ${
+                        className={`absolute top-2.5 h-7 rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} shadow-sm cursor-grab hover:opacity-80 ${
                           isCritical ? "ring-2 ring-danger" : ""
                         }`}
-                        style={{ left: `${left + DAY_WIDTH}px`, width: `${width}px` }}
+                        style={{ left: `${left}px`, width: `${width}px` }}
                       >
                         <div
                           className="h-full rounded-md bg-fg-inverse/20"
@@ -246,8 +263,10 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                       </div>
                     ) : row.isSummary && start ? (
                       <div
-                        className="absolute top-4 h-3 rounded-sm bg-accent/50 border border-accent"
-                        style={{ left: `${left + DAY_WIDTH}px`, width: `${width}px` }}
+                        className={`absolute top-2.5 h-7 rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} border border-fg-primary/40 shadow-sm ${
+                          isCritical ? "ring-2 ring-danger" : ""
+                        }`}
+                        style={{ left: `${left}px`, width: `${width}px` }}
                         title={row.title}
                       />
                     ) : null}
@@ -271,6 +290,30 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
           {t("ganttCriticalPath")}
         </div>
       )}
+
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-fg-muted pt-1">
+        <span className="font-medium text-fg-primary">{t("ganttLegend")}</span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-info" />
+          {t("status.open")}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-warning" />
+          {t("status.in_progress")}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-success" />
+          {t("status.done")}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-fg-subtle" />
+          {t("status.cancelled")}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm ring-2 ring-danger" />
+          {t("ganttCriticalPath")}
+        </span>
+      </div>
     </div>
   );
 }

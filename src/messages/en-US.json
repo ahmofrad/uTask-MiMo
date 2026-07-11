@@ -325,6 +325,7 @@
     "ganttNoTasks": "No tasks with dates to display",
     "ganttNoDates": "task without start/due dates",
     "ganttCriticalPath": "Critical path",
+    "ganttLegend": "Legend",
     "wbsNoTasks": "No tasks to display in WBS view",
     "wbsTotal": "total tasks",
     "wbsCompleted": "completed",
@@ -346,6 +347,7 @@
     "wbsMoveErrorParentNotFound": "The target parent task was not found.",
     "dependencies": {
       "title": "Dependencies",
+      "loadError": "Could not load dependencies",
       "blocked": "Blocked by incomplete dependencies",
       "unblocked": "Unblocked",
       "cycleError": "Dependency would create a cycle",
@@ -388,12 +390,19 @@
     "title": "Projects",
     "create": "Create project",
     "edit": "Edit project",
+    "save": "Save",
+    "cancel": "Cancel",
+    "saving": "Saving…",
+    "editError": "Could not update project",
     "delete": "Delete project",
+    "statusActive": "Active",
+    "statusArchived": "Archived",
     "fields": {
       "name": "Name",
       "description": "Description",
       "color": "Color",
-      "visibility": "Visibility"
+      "visibility": "Visibility",
+      "status": "Status"
     },
     "visibilityOptions": {
       "private": "Private",

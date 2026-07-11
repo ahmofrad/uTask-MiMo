@@ -37,6 +37,7 @@ type RowProps = {
   onToggle: (_id: string) => void;
   onIndent: (_node: WbsNode) => void;
   onOutdent: (_node: WbsNode) => void;
+  onBeginAddChild: (_parentId: string) => void;
   onAddChild: (_parentId: string, _title: string) => void;
   onCancelAddChild: () => void;
   onChildTitle: (_v: string) => void;
@@ -51,7 +52,7 @@ function WbsRow(props: RowProps) {
   const t = useTranslations("task");
   const {
     node, busy, dropTarget, addingChildId, newChildTitle,
-    onToggle, onIndent, onOutdent, onAddChild, onCancelAddChild, onChildTitle,
+    onToggle, onIndent, onOutdent, onBeginAddChild, onAddChild, onCancelAddChild, onChildTitle,
     onDragOver, onDrop, onDragEnd, onProgress, expanded,
   } = props;
 
@@ -69,7 +70,7 @@ function WbsRow(props: RowProps) {
     <div
       data-testid="wbs-row"
       data-task-id={node.id}
-      className={`flex items-center gap-1.5 py-1.5 px-2 rounded-md hover:bg-bg-secondary transition-colors group ${dropClass}`}
+      className={`relative flex items-center gap-1.5 py-1.5 px-2 rounded-md hover:bg-bg-secondary transition-colors group ${dropClass}`}
       style={{ paddingInlineStart: `${node.depth * 20 + 8}px` }}
       onDragOver={(e) => onDragOver(node, e)}
       onDrop={(e) => onDrop(node, e)}
@@ -179,7 +180,7 @@ function WbsRow(props: RowProps) {
         </button>
         <button
           data-testid="wbs-add-child"
-          onClick={() => onAddChild(node.id, newChildTitle)}
+          onClick={() => onBeginAddChild(node.id)}
           disabled={busy}
           className="p-1 rounded hover:bg-bg-primary text-fg-muted hover:text-fg-primary disabled:opacity-40"
           title={t("wbsAddChild")}
@@ -289,6 +290,11 @@ export function WbsEditor({ projectId }: EditorProps) {
     doMove(target.id, parent.parentTaskId, pos + 1);
   };
 
+  const beginAddChild = (parentId: string) => {
+    setAddingChildId(parentId);
+    setNewChildTitle("");
+  };
+
   const addChild = async (parentId: string, title: string) => {
     if (!title.trim()) return;
     setBusyId(parentId);
@@ -302,7 +308,13 @@ export function WbsEditor({ projectId }: EditorProps) {
         setNewChildTitle("");
         await load();
         setExpanded((prev) => new Set(prev).add(parentId));
+      } else {
+        const json = await res.json().catch(() => null);
+        const code = json?.error?.code;
+        setError(t(ERROR_KEY[code] ?? "wbsMoveError"));
       }
+    } catch {
+      setError(t("wbsMoveError"));
     } finally {
       setBusyId(null);
     }
@@ -389,6 +401,7 @@ export function WbsEditor({ projectId }: EditorProps) {
               onToggle={toggle}
               onIndent={indent}
               onOutdent={outdent}
+              onBeginAddChild={beginAddChild}
               onAddChild={addChild}
               onCancelAddChild={() => {
                 setAddingChildId(null);
