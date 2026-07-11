@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "@/styles/globals.css";
 import "@/styles/tokens.css";
 import { Vazirmatn, Inter } from "next/font/google";
+import { getLocale } from "next-intl/server";
 import { PwaRegister } from "@/components/pwa/register";
 
 const vazirmatn = Vazirmatn({
@@ -21,33 +22,20 @@ export const metadata: Metadata = {
   description: "Enterprise task management platform",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const locale = await getLocale();
+  const dir = locale === "fa-IR" ? "rtl" : "ltr";
+
   return (
-    <html lang="fa-IR" dir="rtl" className={`${vazirmatn.variable} ${inter.variable}`}>
+    <html lang={locale} dir={dir} className={`${vazirmatn.variable} ${inter.variable}`}>
       <head>
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="theme-color" content="#2563eb" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  var locale = document.cookie.match(/NEXT_LOCALE=([^;]+)/);
-                  if (locale) {
-                    var l = locale[1];
-                    document.documentElement.lang = l;
-                    document.documentElement.dir = l === 'fa-IR' ? 'rtl' : 'ltr';
-                  }
-                } catch(e) {}
-              })();
-            `,
-          }}
-        />
       </head>
       <body className="bg-bg-primary text-fg font-sans antialiased overflow-x-clip">
         {children}
