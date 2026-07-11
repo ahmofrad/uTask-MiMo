@@ -98,6 +98,19 @@ enum NotificationType {
   due_soon
   commented
   status_changed
+  unblocked
+}
+
+enum DependencyType {
+  FINISH_TO_START
+  START_TO_START
+  FINISH_TO_FINISH
+  RELATES_TO
+}
+
+enum LagUnit {
+  DAY
+  HOUR
 }
 
 enum AuditAction {
@@ -131,6 +144,8 @@ enum AuditAction {
   task_deleted
   task_reordered
   task_moved
+  task_dependency_created
+  task_dependency_deleted
   comment_created
   comment_updated
   comment_deleted
@@ -365,6 +380,9 @@ model Task {
   watchers          Watcher[]
   tags              TaskTag[]
 
+  dependencies TaskDependency[] @relation("DependencyDependent")
+  dependsOn    TaskDependency[] @relation("DependencyPredecessor")
+
   @@index([projectId, status, dueDate])
   @@index([assigneeId, status, dueDate])
   @@index([projectId, orderIndex])
@@ -374,6 +392,37 @@ model Task {
   @@index([dueDate])
   @@index([deletedAt])
   @@map("Task")
+}
+
+model TaskDependency {
+  id          String        @id @default(uuid()) @db.Uuid
+  taskId      String        @db.Uuid
+  dependsOnId String        @db.Uuid
+  type        DependencyType @default(FINISH_TO_START)
+  lag         Int           @default(0)
+  lagUnit     LagUnit       @default(DAY)
+  teamId      String?
+  createdBy   String        @db.Uuid
+  createdAt   DateTime      @default(now()) @db.Timestamptz
+  deletedAt   DateTime?     @db.Timestamptz
+
+  task      Task @relation("DependencyDependent", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn Task @relation("DependencyPredecessor", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnId, type])
+  @@index([dependsOnId])
+  @@index([teamId])
+  @@index([deletedAt])
+  @@map("TaskDependency")
+}
+
+model InstanceSetting {
+  key       String @id
+  value     Json
+  updatedAt DateTime @updatedAt @db.Timestamptz
+  updatedBy String?  @db.Uuid
+
+  @@map("InstanceSetting")
 }
 
 model Tag {

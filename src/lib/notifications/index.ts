@@ -3,7 +3,7 @@ import { logger } from "@/lib/logging";
 
 export async function createNotification(params: {
   userId: string;
-  type: "assigned" | "mentioned" | "due_soon" | "commented" | "status_changed";
+  type: "assigned" | "mentioned" | "due_soon" | "commented" | "status_changed" | "unblocked";
   taskId?: string;
   payload?: Record<string, unknown>;
 }) {
@@ -24,7 +24,7 @@ export async function createNotification(params: {
  */
 export async function notify(params: {
   userId: string;
-  type: "assigned" | "mentioned" | "due_soon" | "commented" | "status_changed";
+  type: "assigned" | "mentioned" | "due_soon" | "commented" | "status_changed" | "unblocked";
   taskId?: string;
   payload?: Record<string, unknown>;
 }): Promise<void> {

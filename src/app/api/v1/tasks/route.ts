@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     const {
       projectId, title, description, parentTaskId,
       status: taskStatus, priority: taskPriority,
-      dueDate, assigneeId, estimatedHours, progress,
+      startDate, dueDate, assigneeId, estimatedHours, progress,
       customFields, tagIds,
     } = body as Record<string, unknown>;
 
@@ -108,6 +108,7 @@ export async function POST(request: Request) {
     if (parentTaskId) data.parentTaskId = String(parentTaskId);
     if (taskStatus) data.status = String(taskStatus);
     if (taskPriority) data.priority = String(taskPriority);
+    if (startDate) data.startDate = String(startDate);
     if (dueDate) data.dueDate = String(dueDate);
     if (assigneeId) data.assigneeId = String(assigneeId);
     if (estimatedHours) data.estimatedHours = Number(estimatedHours);

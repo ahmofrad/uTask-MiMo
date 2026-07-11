@@ -9,6 +9,7 @@ import { formatDateTime } from "@/lib/date/format";
 import { TagPicker } from "@/components/tags/tag-picker";
 import { SubtaskList } from "@/components/task/subtask-list";
 import { AttachmentList } from "@/components/task/attachment-list";
+import { TaskDependencies } from "@/components/task/task-dependencies";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { CustomFieldInput } from "@/components/custom-field/custom-field-input";
 import { CommentThread } from "@/components/comment/comment-thread";
@@ -438,6 +439,14 @@ export function TaskDetailPage({
               onUpload={handleAttachmentUpload}
               onDelete={handleAttachmentDelete}
             />
+          </div>
+
+          {/* Dependencies card */}
+          <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
+            <h3 className="text-xs font-medium text-fg-muted mb-4 uppercase tracking-wide">
+              {t("dependencies.title")}
+            </h3>
+            <TaskDependencies projectId={task.projectId} taskId={task.id} />
           </div>
 
           {/* Comments card */}

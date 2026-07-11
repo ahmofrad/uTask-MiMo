@@ -8,6 +8,7 @@ import {
   MAX_WBS_DEPTH,
   WbsGuardError,
 } from "@/lib/tasks/wbs";
+import { evaluateStatusChange, notifyUnblocked, DependencyBlockedError } from "@/lib/tasks/dependencies";
 
 export type CreateTaskData = {
   title: string;
@@ -19,6 +20,7 @@ export type CreateTaskData = {
   createdById: string;
   status?: string;
   priority?: string;
+  startDate?: string | null;
   dueDate?: string | null;
   estimatedHours?: number | null;
   progress?: number;
@@ -71,6 +73,7 @@ export async function createTask(data: CreateTaskData) {
       createdById: data.createdById,
       status: (data.status as never) ?? "open",
       priority: (data.priority as never) ?? "med",
+      startDate: data.startDate ? new Date(data.startDate) : null,
       dueDate: data.dueDate ? new Date(data.dueDate) : null,
       estimatedHours: data.estimatedHours ?? null,
       progress: clampProgress(data.progress),
@@ -97,6 +100,7 @@ export type UpdateTaskData = {
   status?: string;
   priority?: string;
   assigneeId?: string | null;
+  startDate?: string | null;
   dueDate?: string | null;
   estimatedHours?: number | null;
   spentHours?: number | null;
@@ -114,6 +118,7 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
   if (data.description !== undefined) updateData.description = data.description;
   if (data.status !== undefined) updateData.status = data.status;
   if (data.priority !== undefined) updateData.priority = data.priority;
+  if (data.startDate !== undefined) updateData.startDate = data.startDate ? new Date(data.startDate) : null;
   if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
   if (data.assigneeId !== undefined) updateData.assigneeId = data.assigneeId;
   if (data.estimatedHours !== undefined) updateData.estimatedHours = data.estimatedHours ?? null;
@@ -130,6 +135,13 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
   }
 
   const before = await prisma.task.findUnique({ where: { id } });
+
+  if (data.status !== undefined && before && before.status !== data.status) {
+    const evaluation = await evaluateStatusChange(id, data.status);
+    if (!evaluation.allowed) {
+      throw new DependencyBlockedError(evaluation.blockers);
+    }
+  }
 
   const task = await prisma.task.update({
     where: { id },
@@ -191,6 +203,10 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
         payload: { taskTitle: task.title },
       });
     }
+  }
+
+  if (data.status === "done") {
+    await notifyUnblocked(task.id, actorId ?? task.createdById);
   }
 
   return { before, task };

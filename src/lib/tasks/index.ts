@@ -19,3 +19,18 @@ export {
   WbsGuardError,
 } from "./wbs";
 export type { WbsNode, WbsSourceTask, WbsGuardCode, ParentMaps } from "./wbs";
+
+export {
+  addDependency,
+  removeDependency,
+  listDependencies,
+  countBlockersFor,
+  wouldCreateCycle,
+  evaluateStatusChange,
+  notifyUnblocked,
+  getEnforcementMode,
+  DependencyError,
+  DependencyBlockedError,
+  DEPENDENCY_TYPES,
+} from "./dependencies";
+export type { DependencyCode, DependencyTypeValue, Edge, BlockerCounts } from "./dependencies";

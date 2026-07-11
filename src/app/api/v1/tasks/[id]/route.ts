@@ -3,7 +3,7 @@ import { auth } from "@/lib/auth/config";
 import { can, canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
-import { getTaskById, updateTask, deleteTask } from "@/lib/tasks";
+import { getTaskById, updateTask, deleteTask, DependencyBlockedError } from "@/lib/tasks";
 import { getCustomFieldValuesForTask as getFieldValues } from "@/lib/custom-fields/values";
 import type { UpdateTaskData } from "@/lib/tasks";
 
@@ -60,7 +60,7 @@ export async function PATCH(
   const body = await request.json();
   const {
     title, description, status: taskStatus, priority: taskPriority,
-    dueDate, assigneeId, estimatedHours, spentHours, progress,
+    startDate, dueDate, assigneeId, estimatedHours, spentHours, progress,
     deletedAt,
     customFields, tagIds,
   } = body as Record<string, unknown>;
@@ -70,6 +70,7 @@ export async function PATCH(
   if (description !== undefined) data.description = description === null ? null : String(description);
   if (taskStatus !== undefined) data.status = String(taskStatus);
   if (taskPriority !== undefined) data.priority = String(taskPriority);
+  if (startDate !== undefined) data.startDate = startDate === null ? null : String(startDate);
   if (dueDate !== undefined) data.dueDate = dueDate === null ? null : String(dueDate);
   if (assigneeId !== undefined) data.assigneeId = assigneeId === null ? null : String(assigneeId);
   if (estimatedHours !== undefined) data.estimatedHours = estimatedHours === null ? null : Number(estimatedHours);
@@ -79,7 +80,21 @@ export async function PATCH(
   if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;
   if (tagIds && Array.isArray(tagIds)) data.tagIds = tagIds as string[];
 
-  const { before, task } = await updateTask(params.id, data, userId);
+  let before: Awaited<ReturnType<typeof updateTask>>["before"];
+  let task: Awaited<ReturnType<typeof updateTask>>["task"];
+  try {
+    const result = await updateTask(params.id, data, userId);
+    before = result.before;
+    task = result.task;
+  } catch (err) {
+    if (err instanceof DependencyBlockedError) {
+      return NextResponse.json(
+        { error: { code: "DEPENDENCY_BLOCKED", message: err.message, details: err.blockers } },
+        { status: 403 },
+      );
+    }
+    throw err;
+  }
 
   await logAudit({ actorUserId: userId, action: "task_updated", entityType: "task", entityId: task.id, before: before as never, after: task as never });
 
