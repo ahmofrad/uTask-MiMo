@@ -112,7 +112,8 @@
     "projects": "پروژه‌ها",
     "settings": "تنظیمات",
     "admin": "مدیریت",
-    "tasks": "وظایف"
+    "tasks": "وظایف",
+    "calendar": "تقویم"
   },
   "admin": {
     "title": "مدیریت",
@@ -330,6 +331,10 @@
     "ganttDelayedDays": "تأخیر {count} روز",
     "ganttInvalidDep": "وابستگی نامعتبر (تداخل زمانی)",
     "ganttInvalidDeps": "وابستگی‌های نامعتبر",
+    "prevMonth": "ماه قبل",
+    "nextMonth": "ماه بعد",
+    "dragToReschedule": "برای تغییر زمان بکشید",
+    "dragHint": "تسک را روی روز دیگری بکشید تا زمان آن تغییر کند (دوره حفظ می‌شود).",
     "wbsNoTasks": "وظیفه‌ای برای نمایش در نمودار WBS وجود ندارد",
     "wbsTotal": "کل وظایف",
     "wbsCompleted": "تکمیل شده",

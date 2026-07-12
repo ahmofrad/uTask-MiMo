@@ -112,7 +112,8 @@
     "projects": "Projects",
     "settings": "Settings",
     "admin": "Admin",
-    "tasks": "Tasks"
+    "tasks": "Tasks",
+    "calendar": "Calendar"
   },
   "admin": {
     "title": "Administration",
@@ -330,6 +331,10 @@
     "ganttDelayedDays": "Delayed {count} days",
     "ganttInvalidDep": "Invalid dependency (overlapping dates)",
     "ganttInvalidDeps": "Invalid dependencies",
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "dragToReschedule": "Drag to reschedule",
+    "dragHint": "Drag a task onto another day to reschedule it (duration is preserved).",
     "wbsNoTasks": "No tasks to display in WBS view",
     "wbsTotal": "total tasks",
     "wbsCompleted": "completed",

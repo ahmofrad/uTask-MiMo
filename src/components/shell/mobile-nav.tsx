@@ -28,6 +28,7 @@ export function MobileNav({ isAdmin }: MobileNavProps) {
         <nav className="space-y-1">
           <Link href="/" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("home")}</Link>
           <Link href="/projects" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("projects")}</Link>
+          <Link href="/calendar" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("calendar")}</Link>
           <Link href="/settings" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("settings")}</Link>
           {isAdmin && <Link href="/admin/users" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("admin")}</Link>}
         </nav>
