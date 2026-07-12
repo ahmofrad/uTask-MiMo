@@ -89,6 +89,30 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
     return { start: startStr ? new Date(startStr) : null, end: endStr ? new Date(endStr) : null };
   };
 
+  const todayStart = startOfDay(new Date());
+
+  const isDelayed = (r: GanttRow): boolean => {
+    if (r.status === "done") return false;
+    const { end } = dateFor(r);
+    if (!end) return false;
+    return end < todayStart;
+  };
+
+  const delayedDays = (r: GanttRow): number => {
+    const { end } = dateFor(r);
+    if (!end) return 0;
+    return Math.max(0, diffDays(todayStart, end));
+  };
+
+  // A dependency is invalid when the predecessor's end overlaps the successor's start
+  // (Mizito's "incorrect dependency" rule).
+  const isInvalidLink = (source: GanttRow, target: GanttRow): boolean => {
+    const sEnd = dateFor(source).end;
+    const tStart = dateFor(target).start;
+    if (!sEnd || !tStart) return false;
+    return sEnd > tStart;
+  };
+
   const onPointerDown = (e: React.PointerEvent, r: GanttRow) => {
     if (r.isSummary) return;
     const { start, end } = dateFor(r);
@@ -189,16 +213,19 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                 const x2 = LEFT_WIDTH + dayPos(tStart);
                 const y2 = tRow * 48 + 24;
                 const mx = (x1 + x2) / 2;
+                const invalid = isInvalidLink(sTask, tTask);
                 return (
                   <path
                     key={link.id}
                     d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth={1}
-                    className="text-fg-subtle"
+                    strokeWidth={invalid ? 1.5 : 1}
+                    className={invalid ? "text-danger" : "text-fg-subtle"}
                     markerEnd="url(#gantt-arrow)"
-                  />
+                  >
+                    {invalid ? <title>{t("ganttInvalidDep")}</title> : null}
+                  </path>
                 );
               })}
             </svg>
@@ -242,9 +269,11 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                     ))}
                     {row.isMilestone && start ? (
                       <div
-                        className="absolute top-1/2 -translate-y-1/2 w-4 h-4 rotate-45 bg-accent border border-bg-surface"
+                        className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rotate-45 bg-accent border border-bg-surface ${
+                          isDelayed(row) ? "ring-2 ring-danger" : ""
+                        }`}
                         style={{ left: `${dayPos(start) + DAY_WIDTH / 2 - 8}px` }}
-                        title={row.title}
+                        title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : row.title}
                       />
                     ) : !row.isSummary && start ? (
                       <div
@@ -253,8 +282,9 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                         onPointerUp={onPointerUp}
                         className={`absolute top-2.5 h-7 rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} shadow-sm cursor-grab hover:opacity-80 ${
                           isCritical ? "ring-2 ring-danger" : ""
-                        }`}
+                        } ${isDelayed(row) ? "ring-2 ring-danger" : ""}`}
                         style={{ left: `${left}px`, width: `${width}px` }}
+                        title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : undefined}
                       >
                         <div
                           className="h-full rounded-md bg-fg-inverse/20"
@@ -265,9 +295,9 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                       <div
                         className={`absolute top-2.5 h-7 rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} border border-fg-primary/40 shadow-sm ${
                           isCritical ? "ring-2 ring-danger" : ""
-                        }`}
+                        } ${isDelayed(row) ? "ring-2 ring-danger" : ""}`}
                         style={{ left: `${left}px`, width: `${width}px` }}
-                        title={row.title}
+                        title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : row.title}
                       />
                     ) : null}
                   </div>
@@ -312,6 +342,14 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
         <span className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm ring-2 ring-danger" />
           {t("ganttCriticalPath")}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-fg-subtle ring-2 ring-danger" />
+          {t("ganttDelayed")}
+        </span>
+        <span className="flex items-center gap-1.5 text-danger">
+          <span className="w-3 h-0.5 bg-danger" />
+          {t("ganttInvalidDeps")}
         </span>
       </div>
     </div>
