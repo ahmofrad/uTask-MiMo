@@ -49,6 +49,7 @@ type TaskItem = {
   tags?: { id: string; name: string }[];
   subtaskCount?: number;
   subtaskDone?: number;
+  progress?: number | null;
 };
 
 type ProjectDetailPageProps = {
@@ -193,6 +194,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
         startDate: result.data.startDate?.toISOString() ?? null,
         parentTaskId: result.data.parentTaskId ?? null,
         orderIndex: result.data.orderIndex ?? 0,
+        progress: result.data.progress ?? 0,
       }]);
       setShowCreateForm(false);
     }

@@ -11,7 +11,8 @@ type TaskDTO = {
   status: string;
   priority: string;
   dueDate: string | null;
-  startDate: string | null;
+  startDate?: string | null;
+  progress?: number | null;
 };
 
 export default function CalendarPage() {
@@ -37,6 +38,7 @@ export default function CalendarPage() {
                 priority: tk.priority,
                 dueDate: tk.dueDate,
                 startDate: tk.startDate == null ? null : tk.startDate,
+                progress: tk.progress == null ? null : tk.progress,
               })),
           );
         }

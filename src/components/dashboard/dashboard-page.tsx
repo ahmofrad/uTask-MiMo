@@ -39,7 +39,7 @@ type ProjectSummary = {
 type DashboardPageProps = {
   stats: DashboardStat[];
   recentTasks: RecentTask[];
-  allTasks: { id: string; title: string; description: string | null; status: string; priority: string; dueDate: string | null; assigneeId: string | null; startDate: string | null; parentTaskId: string | null; assignee: { displayName: string; avatarUrl: string | null } | null; projectId: string; projectName: string; tags: { id: string; name: string }[]; subtaskCount: number; subtaskDone: number }[];
+  allTasks: { id: string; title: string; description: string | null; status: string; priority: string; dueDate: string | null; assigneeId: string | null; startDate: string | null; parentTaskId: string | null; assignee: { displayName: string; avatarUrl: string | null } | null; projectId: string; projectName: string; tags: { id: string; name: string }[]; subtaskCount: number; subtaskDone: number; progress?: number | null }[];
   projects: ProjectSummary[];
   userId: string;
 };
@@ -150,6 +150,7 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
         <CalendarView tasks={filteredTasks.map((t) => ({
           id: t.id, title: t.title, status: t.status, priority: t.priority,
           dueDate: t.dueDate,
+          progress: t.progress ?? null,
         }        ))} />
       )}
 

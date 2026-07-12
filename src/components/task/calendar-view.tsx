@@ -13,7 +13,24 @@ export type CalendarTask = {
   priority: string;
   dueDate: string | null;
   startDate?: string | null;
+  progress?: number | null;
 };
+
+const STATUS_CHIP: Record<string, string> = {
+  open: "border-s-info",
+  in_progress: "border-s-warning",
+  done: "border-s-success",
+  cancelled: "border-s-fg-muted",
+};
+
+// getDayName indexes 0=Sat..6=Fri. Friday (index 6) is the weekend for the
+// Jalali locale; Saturday+Sunday (indices 0 and 1) for the Gregorian locale.
+function isWeekend(date: Date, locale: string): boolean {
+  const jsDay = date.getDay(); // 0=Sun..6=Sat
+  const idx = (jsDay + 1) % 7; // 0=Sat..6=Fri
+  if (locale === "fa-IR") return idx === 6;
+  return idx === 0 || idx === 1;
+}
 
 type CalendarViewProps = {
   tasks: CalendarTask[];
@@ -46,6 +63,16 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
   const firstDayDate = isJalali ? toGregorian(year, month, 1) : new Date(year, month - 1, 1);
   const startOffset = (firstDayDate.getDay() + 1) % 7;
   const weekdays = Array.from({ length: 7 }, (_, i) => getDayName(i, locale));
+
+  const todayJ = toJalali(now);
+  const isToday = (day: number) =>
+    isJalali
+      ? todayJ.jy === year && todayJ.jm === month && todayJ.jd === day
+      : now.getFullYear() === year && now.getMonth() + 1 === month && now.getDate() === day;
+  const isWeekendDay = (day: number) => {
+    const g = isJalali ? toGregorian(year, month, day) : new Date(year, month - 1, day);
+    return isWeekend(g, locale);
+  };
 
   function cellDate(day: number): Date {
     if (isJalali) {
@@ -138,6 +165,8 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
               className={cn(
                 "min-h-[60px] p-1 rounded-lg border text-xs transition-colors",
                 dayTasks.length > 0 ? "border-accent/30 bg-accent-bg/30" : "border-border-primary",
+                isWeekendDay(day) ? "bg-secondary/40" : "",
+                isToday(day) ? "ring-2 ring-accent" : "",
                 onMove ? "hover:border-accent/60" : "",
               )}
               onDrop={(e) => {
@@ -147,7 +176,7 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                 if (id) void handleDrop(id, day);
               }}
             >
-              <div className="text-right text-fg-muted mb-1">{day}</div>
+              <div className={cn("text-start mb-1", isToday(day) ? "font-semibold text-accent" : "text-fg-muted")}>{day}</div>
               {dayTasks.slice(0, 3).map((task) => {
                 const draggable = !!onMove && !!task.dueDate;
                 return (
@@ -163,10 +192,24 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                           }
                         : undefined
                     }
-                    className="block text-[10px] text-fg-primary truncate px-1 py-0.5 rounded hover:bg-accent/20 cursor-grab active:cursor-grabbing"
+                    className={cn(
+                      "block text-[10px] text-fg-primary truncate px-1 py-0.5 rounded border-s-2 hover:shadow-sm hover:bg-accent/20 cursor-grab active:cursor-grabbing",
+                      STATUS_CHIP[task.status] ?? "border-s-fg-muted",
+                    )}
                     title={draggable ? t("dragToReschedule") : undefined}
                   >
-                    {task.title}
+                    <span className="flex items-center gap-1">
+                      {task.priority === "high" && <span className="inline-block w-1.5 h-1.5 rounded-full bg-danger shrink-0" />}
+                      <span className="truncate">{task.title}</span>
+                    </span>
+                    {task.progress != null && task.status !== "done" && (
+                      <span className="mt-0.5 block h-0.5 w-full rounded-full bg-secondary overflow-hidden">
+                        <span
+                          className="block h-full bg-accent"
+                          style={{ width: `${Math.max(0, Math.min(100, task.progress))}%` }}
+                        />
+                      </span>
+                    )}
                   </Link>
                 );
               })}
@@ -176,6 +219,22 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
             </div>
           );
         })}
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fg-muted">
+        {(["open", "in_progress", "done", "cancelled"] as const).map((s) => (
+          <span key={s} className="inline-flex items-center gap-1.5">
+            <span className={cn("inline-block w-2.5 h-2.5 rounded-full border-s-2", STATUS_CHIP[s])} />
+            {t(`status.${s}`)}
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-danger" />
+          {t("priority.high")}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded ring-2 ring-accent" />
+          {t("todayLabel")}
+        </span>
       </div>
       {onMove && <p className="text-xs text-fg-muted">{t("dragHint")}</p>}
     </div>
