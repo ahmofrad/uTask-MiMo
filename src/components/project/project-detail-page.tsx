@@ -200,11 +200,6 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
     }
   }
 
-  async function handleBoardDelete(taskId: string) {
-    await apiFetch(`/api/v1/tasks/${taskId}`, { method: "DELETE" });
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
-  }
-
   async function handleCalendarMove(taskId: string, dueDate: string, startDate: string | null) {
     await apiFetch(`/api/v1/tasks/${taskId}`, {
       method: "PATCH",
@@ -388,7 +383,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
       {/* Tab Content */}
       {activeTab === "board" && (
         <div>
-          <Board initialTasks={tasks} projectId={project.id} onDelete={handleBoardDelete} />
+          <Board initialTasks={tasks} projectId={project.id} />
         </div>
       )}
 

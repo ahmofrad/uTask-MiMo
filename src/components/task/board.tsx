@@ -12,7 +12,6 @@ export type BoardTask = TaskCardData & {
 type BoardProps = {
   initialTasks: BoardTask[];
   projectId: string;
-  onDelete?: (_taskId: string) => void;
   showProject?: boolean;
 };
 
@@ -23,7 +22,7 @@ const COLUMNS = [
   { key: "cancelled", color: "bg-bg-surface-2 border-border" },
 ];
 
-export function Board({ initialTasks, projectId: _projectId, onDelete, showProject }: BoardProps) {
+export function Board({ initialTasks, projectId: _projectId, showProject }: BoardProps) {
   const t = useTranslations("task");
   const [tasks, setTasks] = useState(initialTasks);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -117,8 +116,6 @@ export function Board({ initialTasks, projectId: _projectId, onDelete, showProje
                   <TaskCard
                     task={task}
                     variant="compact"
-                    onDelete={onDelete}
-                    showDelete={!!onDelete}
                     showProject={showProject}
                   />
                 </div>
