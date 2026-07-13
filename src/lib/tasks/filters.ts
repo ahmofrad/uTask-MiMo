@@ -4,6 +4,7 @@ export type TaskFilterParams = {
   projectId?: string | null;
   projectIds?: string[] | null;
   assigneeId?: string | null;
+  assigneeIds?: string[] | null;
   status?: string | null;
   priority?: string | null;
   dueDateGte?: string | null;
@@ -20,8 +21,12 @@ export function buildTaskFilters(params: TaskFilterParams): Prisma.TaskWhereInpu
     where.projectId = { in: params.projectIds };
   }
 
-  if (params.assigneeId) {
-    where.assigneeId = params.assigneeId;
+  if (params.assigneeIds && params.assigneeIds.length > 0) {
+    where.assignees = { some: { userId: { in: params.assigneeIds } } };
+  } else if (params.assigneeId) {
+    where.assignees = { some: { userId: params.assigneeId } };
+  } else if (params.assigneeId === null) {
+    where.assignees = { none: {} };
   }
 
   if (params.status) {

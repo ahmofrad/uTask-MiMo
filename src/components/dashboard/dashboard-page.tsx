@@ -38,7 +38,7 @@ type ProjectSummary = {
 type DashboardPageProps = {
   stats: DashboardStat[];
   recentTasks: RecentTask[];
-  allTasks: { id: string; title: string; description: string | null; status: string; priority: string; dueDate: string | null; assigneeId: string | null; startDate: string | null; parentTaskId: string | null; assignee: { displayName: string; avatarUrl: string | null } | null; projectId: string; projectName: string; tags: { id: string; name: string }[]; subtaskCount: number; subtaskDone: number; progress?: number | null }[];
+  allTasks: { id: string; title: string; description: string | null; status: string; priority: string; dueDate: string | null; assignees?: { id: string; displayName: string; avatarUrl?: string | null }[]; startDate: string | null; parentTaskId: string | null; projectId: string; projectName: string; tags: { id: string; name: string }[]; subtaskCount: number; subtaskDone: number; progress?: number | null }[];
   projects: ProjectSummary[];
   userId: string;
 };
@@ -74,7 +74,7 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
   }
 
   const filteredTasks = taskFilter === "mine"
-    ? allTasks.filter((t) => t.assigneeId === userId)
+    ? allTasks.filter((t) => (t.assignees ?? []).some((a) => a.id === userId))
     : allTasks;
 
   const tabs = [
@@ -130,8 +130,8 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
       {activeTab === "board" && (
         <Board initialTasks={filteredTasks.map((t) => ({
           id: t.id, title: t.title, description: t.description, status: t.status, priority: t.priority,
-          projectId: "", assigneeId: t.assigneeId, dueDate: t.dueDate,
-          assignee: t.assignee, projectName: t.projectName,
+          projectId: "", assignees: t.assignees ?? [], dueDate: t.dueDate,
+          projectName: t.projectName,
           tags: t.tags, subtaskCount: t.subtaskCount, subtaskDone: t.subtaskDone,
         }))} projectId="" />
       )}
@@ -139,8 +139,8 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
       {activeTab === "timeline" && (
         <Timeline tasks={filteredTasks.map((t) => ({
           id: t.id, title: t.title, description: t.description, status: t.status, priority: t.priority,
-          dueDate: t.dueDate, assigneeId: t.assigneeId,
-          assignee: t.assignee, projectName: t.projectName,
+          dueDate: t.dueDate,
+          assignees: t.assignees ?? [], projectName: t.projectName,
           tags: t.tags, subtaskCount: t.subtaskCount, subtaskDone: t.subtaskDone,
         }))} showProject />
       )}
@@ -176,7 +176,9 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
       {activeTab === "wbs" && (
         <WBSTree tasks={filteredTasks.map((t) => ({
           id: t.id, title: t.title, status: t.status, priority: t.priority,
-          startDate: t.startDate, dueDate: t.dueDate, assigneeId: t.assigneeId,
+          startDate: t.startDate, dueDate: t.dueDate,
+          assigneeIds: (t.assignees ?? []).map((a) => a.id),
+          assigneeNames: (t.assignees ?? []).map((a) => a.displayName),
           parentTaskId: t.parentTaskId,
         }))} />
       )}
@@ -189,7 +191,7 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
               task={{
                 id: task.id, title: task.title, description: task.description,
                 status: task.status, priority: task.priority,
-                dueDate: task.dueDate, assignee: task.assignee, projectName: task.projectName,
+                dueDate: task.dueDate, assignees: task.assignees ?? [], projectName: task.projectName,
                 tags: task.tags, subtaskCount: task.subtaskCount, subtaskDone: task.subtaskDone,
               }}
               variant="list"

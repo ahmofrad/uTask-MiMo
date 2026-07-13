@@ -14,9 +14,14 @@ describe("buildTaskFilters", () => {
     expect(result.projectId).toBe("proj-1");
   });
 
-  it("adds assigneeId filter", () => {
+  it("adds assigneeId filter (single alias)", () => {
     const result = buildTaskFilters({ assigneeId: "user-1" });
-    expect(result.assigneeId).toBe("user-1");
+    expect(result.assignees).toEqual({ some: { userId: "user-1" } });
+  });
+
+  it("adds assigneeIds filter (multi)", () => {
+    const result = buildTaskFilters({ assigneeIds: ["user-1", "user-2"] });
+    expect(result.assignees).toEqual({ some: { userId: { in: ["user-1", "user-2"] } } });
   });
 
   it("adds status filter", () => {
@@ -80,11 +85,11 @@ describe("buildTaskFilters", () => {
       projectId: "proj-1",
       status: "open",
       priority: "high",
-      assigneeId: "user-1",
+      assignees: { some: { userId: "user-1" } },
     });
   });
 
-  it("ignores null values", () => {
+  it("null assigneeId means no assignees", () => {
     const result = buildTaskFilters({
       projectId: null,
       assigneeId: null,
@@ -93,5 +98,6 @@ describe("buildTaskFilters", () => {
     expect(result.projectId).toBeUndefined();
     expect(result.assigneeId).toBeUndefined();
     expect(result.status).toBeUndefined();
+    expect(result.assignees).toEqual({ none: {} });
   });
 });

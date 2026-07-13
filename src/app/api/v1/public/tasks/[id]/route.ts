@@ -3,6 +3,7 @@ import { authenticatePublicApi } from "@/lib/public-api/middleware";
 import { can, canProject } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { mapAssignees } from "@/lib/tasks/serialize";
 
 async function checkProjectAccess(userId: string, taskId: string): Promise<{ allowed: boolean; projectId: string | undefined }> {
   if (await can(userId, "task:edit_any")) {
@@ -32,7 +33,7 @@ export async function GET(
     where: { id: params.id },
     include: {
       project: { select: { id: true, name: true } },
-      assignee: { select: { id: true, displayName: true } },
+      assignees: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
     },
   });
 
@@ -40,7 +41,7 @@ export async function GET(
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
-  return NextResponse.json({ data: task });
+  return NextResponse.json({ data: { ...task, assignees: mapAssignees(task.assignees) } });
 }
 
 export async function PATCH(
@@ -56,7 +57,7 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const { title, description, status, priority, dueDate, assigneeId } = body as Record<string, unknown>;
+  const { title, description, status, priority, dueDate, assigneeId, assigneeIds } = body as Record<string, unknown>;
 
   const updateData: Record<string, unknown> = {};
   if (title !== undefined) updateData.title = title;
@@ -64,7 +65,29 @@ export async function PATCH(
   if (status !== undefined) updateData.status = status;
   if (priority !== undefined) updateData.priority = priority;
   if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(String(dueDate)) : null;
-  if (assigneeId !== undefined) updateData.assigneeId = assigneeId;
+  if (assigneeIds !== undefined) {
+    const next = Array.isArray(assigneeIds) ? (assigneeIds as string[]) : [];
+    const current = (
+      await prisma.taskAssignee.findMany({ where: { taskId: params.id }, select: { userId: true } })
+    ).map((a) => a.userId);
+    const added = next.filter((uid) => !current.includes(uid));
+    const removed = current.filter((uid) => !next.includes(uid));
+    updateData.assignees = {
+      deleteMany: { userId: { in: removed } },
+      create: added.map((uid) => ({ userId: uid })),
+    };
+  } else if (assigneeId !== undefined) {
+    const next = assigneeId ? [String(assigneeId)] : [];
+    const current = (
+      await prisma.taskAssignee.findMany({ where: { taskId: params.id }, select: { userId: true } })
+    ).map((a) => a.userId);
+    const added = next.filter((uid) => !current.includes(uid));
+    const removed = current.filter((uid) => !next.includes(uid));
+    updateData.assignees = {
+      deleteMany: { userId: { in: removed } },
+      create: added.map((uid) => ({ userId: uid })),
+    };
+  }
 
   const before = await prisma.task.findUnique({ where: { id: params.id } });
 

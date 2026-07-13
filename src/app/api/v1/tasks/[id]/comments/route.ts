@@ -98,21 +98,24 @@ export async function POST(
 
     await emitTaskEvent("comment.created", params.id, { id: comment.id, taskId: params.id, bodyMarkdown: comment.bodyMarkdown }, session.user.id);
 
-    // In-app notifications: task assignee + any mentioned users
+    // In-app notifications: all task assignees + any mentioned users
     const task = await getTaskById(params.id);
     const taskTitle = task?.title ?? "";
-    if (task?.assigneeId && task.assigneeId !== session.user.id) {
-      await notify({
-        userId: task.assigneeId,
-        type: "commented",
-        taskId: params.id,
-        payload: { taskTitle },
-      });
+    const assigneeIds = (task?.assignees ?? []).map((a) => a.userId);
+    for (const aid of assigneeIds) {
+      if (aid !== session.user.id) {
+        await notify({
+          userId: aid,
+          type: "commented",
+          taskId: params.id,
+          payload: { taskTitle },
+        });
+      }
     }
     const mentions = parseMentions(bodyMarkdown);
     for (const m of mentions) {
       const uid = await resolveMentionTarget(m);
-      if (uid && uid !== session.user.id && uid !== task?.assigneeId) {
+      if (uid && uid !== session.user.id && !assigneeIds.includes(uid)) {
         await notify({
           userId: uid,
           type: "mentioned",

@@ -16,30 +16,31 @@ async function tick() {
         dueDate: { gte: now, lte: until },
         status: { not: "done" },
         deletedAt: null,
-        assigneeId: { not: null },
+        assignees: { some: {} },
       },
-      select: { id: true, title: true, assigneeId: true },
+      select: { id: true, title: true, assignees: { select: { userId: true } } },
     });
 
     for (const task of tasks) {
-      if (!task.assigneeId) continue;
-      // Avoid duplicate "due soon" notices within the window.
-      const existing = await prisma.notification.findFirst({
-        where: {
-          userId: task.assigneeId,
+      for (const a of task.assignees) {
+        // Avoid duplicate "due soon" notices within the window.
+        const existing = await prisma.notification.findFirst({
+          where: {
+            userId: a.userId,
+            type: "due_soon",
+            taskId: task.id,
+            createdAt: { gte: new Date(now.getTime() - WINDOW_MS) },
+          },
+        });
+        if (existing) continue;
+
+        await notify({
+          userId: a.userId,
           type: "due_soon",
           taskId: task.id,
-          createdAt: { gte: new Date(now.getTime() - WINDOW_MS) },
-        },
-      });
-      if (existing) continue;
-
-      await notify({
-        userId: task.assigneeId,
-        type: "due_soon",
-        taskId: task.id,
-        payload: { taskTitle: task.title },
-      });
+          payload: { taskTitle: task.title },
+        });
+      }
     }
   } catch (err) {
     logger.error({ err }, "due-soon notification check failed");

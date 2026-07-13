@@ -12,11 +12,11 @@ export default async function AppHomePage() {
   const [assignedTasks, overdueTasks, completedThisWeek, unreadNotifications, recentTasks, allTasks, projects] =
     await Promise.all([
       prisma.task.count({
-        where: { assigneeId: userId, deletedAt: null, parentTaskId: null, status: { not: "done" } },
+        where: { assignees: { some: { userId } }, deletedAt: null, parentTaskId: null, status: { not: "done" } },
       }),
       prisma.task.count({
         where: {
-          assigneeId: userId,
+          assignees: { some: { userId } },
           deletedAt: null, parentTaskId: null,
           dueDate: { lt: new Date() },
           status: { not: "done" },
@@ -24,7 +24,7 @@ export default async function AppHomePage() {
       }),
       prisma.task.count({
         where: {
-          assigneeId: userId,
+          assignees: { some: { userId } },
           status: "done",
           updatedAt: { gte: new Date(Date.now() - 7 * 86400000) },
         },
@@ -32,8 +32,8 @@ export default async function AppHomePage() {
       prisma.notification.count({
         where: { userId, readAt: null },
       }),
-      prisma.task.findMany({
-        where: { deletedAt: null, parentTaskId: null, assigneeId: userId },
+       prisma.task.findMany({
+        where: { deletedAt: null, parentTaskId: null, assignees: { some: { userId } } },
         orderBy: { updatedAt: "desc" },
         take: 5,
         select: {
@@ -56,11 +56,10 @@ export default async function AppHomePage() {
           status: true,
           priority: true,
           dueDate: true,
-          assigneeId: true,
           startDate: true,
           progress: true,
           parentTaskId: true,
-          assignee: { select: { displayName: true, avatarUrl: true } },
+          assignees: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
           project: { select: { id: true, name: true } },
           tags: { include: { tag: { select: { id: true, name: true } } } },
           subtasks: {
@@ -115,11 +114,14 @@ export default async function AppHomePage() {
           status: t.status,
           priority: t.priority,
           dueDate: t.dueDate?.toISOString() ?? null,
-          assigneeId: t.assigneeId,
+          assignees: t.assignees.map((a) => ({
+            id: a.user.id,
+            displayName: a.user.displayName,
+            avatarUrl: a.user.avatarUrl,
+          })),
           startDate: t.startDate?.toISOString() ?? null,
           parentTaskId: t.parentTaskId,
           progress: t.progress ?? null,
-          assignee: t.assignee,
           projectId: t.project.id,
           projectName: t.project.name,
           tags: t.tags.map((tt) => ({ id: tt.tag.id, name: tt.tag.name })),

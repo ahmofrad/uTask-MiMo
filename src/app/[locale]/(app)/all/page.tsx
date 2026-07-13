@@ -20,7 +20,7 @@ export default async function AllTasksPage() {
       priority: true,
       dueDate: true,
       project: { select: { name: true } },
-      assignee: { select: { displayName: true } },
+      assignees: { include: { user: { select: { displayName: true } } } },
     },
   });
 
@@ -43,7 +43,9 @@ export default async function AllTasksPage() {
             }`} />
             <span className="flex-1 text-sm text-fg-primary truncate">{task.title}</span>
             <span className="text-xs text-fg-muted">{task.project?.name}</span>
-            <span className="text-xs text-fg-muted">{task.assignee?.displayName ?? "Unassigned"}</span>
+            <span className="text-xs text-fg-muted">
+              {task.assignees.map((a) => a.user.displayName).join(", ") || "Unassigned"}
+            </span>
           </a>
         ))}
         {tasks.length === 0 && (

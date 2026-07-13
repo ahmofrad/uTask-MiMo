@@ -10,8 +10,8 @@ export type WBSTask = {
   status: string;
   priority: string;
   parentTaskId: string | null;
-  assigneeId: string | null;
-  assigneeName?: string | null;
+  assigneeIds: string[];
+  assigneeNames: string[];
 };
 
 type WBSTreeProps = {
@@ -79,9 +79,9 @@ function TreeNode({
           {task.priority}
         </span>
 
-        {task.assigneeName && (
-          <span className="text-[10px] text-fg-muted shrink-0 hidden sm:inline">
-            {task.assigneeName}
+        {task.assigneeNames.length > 0 && (
+          <span className="text-[10px] text-fg-muted shrink-0 hidden sm:inline truncate max-w-[160px]">
+            {task.assigneeNames.join(", ")}
           </span>
         )}
       </div>

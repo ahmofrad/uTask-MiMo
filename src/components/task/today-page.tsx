@@ -1,6 +1,7 @@
 "use client";
 
 import { TaskList } from "@/components/task/task-list";
+import { type AssigneeUser } from "@/components/task/assignee-stack";
 import { useTranslations } from "next-intl";
 
 type TaskItem = {
@@ -9,7 +10,7 @@ type TaskItem = {
   status: string;
   priority: string;
   projectId: string;
-  assigneeId: string | null;
+  assignees: AssigneeUser[];
   dueDate: string | null;
   orderIndex: number;
 };

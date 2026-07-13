@@ -4,6 +4,7 @@ import { can } from "@/lib/rbac/can";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
+import { mapAssignees } from "@/lib/tasks/serialize";
 
 export async function GET(
   _request: Request,
@@ -17,10 +18,18 @@ export async function GET(
   const subtasks = await prisma.task.findMany({
     where: { parentTaskId: params.id, deletedAt: null },
     orderBy: { orderIndex: "asc" },
-    select: { id: true, title: true, status: true, priority: true, assigneeId: true },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      priority: true,
+      assignees: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
+    },
   });
 
-  return NextResponse.json({ data: subtasks });
+  const data = subtasks.map((st) => ({ ...st, assignees: mapAssignees(st.assignees) }));
+
+  return NextResponse.json({ data });
 }
 
 export async function POST(

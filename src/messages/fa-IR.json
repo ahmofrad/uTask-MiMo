@@ -271,6 +271,7 @@
       "status": "وضعیت",
       "priority": "اولویت",
       "assignee": "انجام‌دهنده",
+      "assignees": "انجام‌دهندگان",
       "dueDate": "تاریخ سررسید",
       "estimatedHours": "ساعت تخمینی",
       "spentHours": "ساعت صرف شده",

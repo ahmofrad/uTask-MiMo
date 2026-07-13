@@ -53,13 +53,13 @@ export type Edge = {
     status: string;
     startDate: Date | null;
     dueDate: Date | null;
-    assigneeId: string | null;
+    assigneeIds: string[];
   } | null;
   dependent: {
     id: string;
     title: string;
     status: string;
-    assigneeId: string | null;
+    assigneeIds: string[];
   } | null;
 };
 
@@ -67,11 +67,11 @@ async function loadEdgeTasks(taskId: string, dependsOnId: string) {
   const [task, predecessor] = await Promise.all([
     prisma.task.findUnique({
       where: { id: taskId },
-      select: { id: true, projectId: true, deletedAt: true, title: true, status: true, assigneeId: true, startDate: true, dueDate: true },
+      select: { id: true, projectId: true, deletedAt: true, title: true, status: true, assignees: { select: { userId: true } }, startDate: true, dueDate: true },
     }),
     prisma.task.findUnique({
       where: { id: dependsOnId },
-      select: { id: true, projectId: true, deletedAt: true, title: true, status: true, assigneeId: true },
+      select: { id: true, projectId: true, deletedAt: true, title: true, status: true, assignees: { select: { userId: true } } },
     }),
   ]);
   return { task, predecessor };
@@ -146,7 +146,7 @@ export async function addDependency(input: {
       teamId: project?.departmentId ?? null,
       createdBy: input.createdBy,
     },
-    include: { dependsOn: { select: { id: true, title: true, status: true, startDate: true, dueDate: true, assigneeId: true } } },
+    include: { dependsOn: { select: { id: true, title: true, status: true, startDate: true, dueDate: true, assignees: { select: { userId: true } } } } },
   });
 
   await emitTaskEvent(
@@ -173,7 +173,7 @@ export async function addDependency(input: {
           status: created.dependsOn.status,
           startDate: created.dependsOn.startDate,
           dueDate: created.dependsOn.dueDate,
-          assigneeId: created.dependsOn.assigneeId,
+          assigneeIds: created.dependsOn.assignees.map((a) => a.userId),
         }
       : null,
     dependent: null,
@@ -198,14 +198,14 @@ export async function listDependencies(taskId: string): Promise<{ outgoing: Edge
     prisma.taskDependency.findMany({
       where: { taskId, deletedAt: null },
       include: {
-        dependsOn: { select: { id: true, title: true, status: true, startDate: true, dueDate: true, assigneeId: true } },
+        dependsOn: { select: { id: true, title: true, status: true, startDate: true, dueDate: true, assignees: { select: { userId: true } } } },
       },
       orderBy: { createdAt: "asc" },
     }),
     prisma.taskDependency.findMany({
       where: { dependsOnId: taskId, deletedAt: null },
       include: {
-        task: { select: { id: true, title: true, status: true, assigneeId: true } },
+        task: { select: { id: true, title: true, status: true, assignees: { select: { userId: true } } } },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -220,7 +220,7 @@ export async function listDependencies(taskId: string): Promise<{ outgoing: Edge
     lagUnit: e.lagUnit,
     createdBy: e.createdBy,
     predecessor: e.dependsOn
-      ? { id: e.dependsOn.id, title: e.dependsOn.title, status: e.dependsOn.status, startDate: e.dependsOn.startDate, dueDate: e.dependsOn.dueDate, assigneeId: e.dependsOn.assigneeId }
+      ? { id: e.dependsOn.id, title: e.dependsOn.title, status: e.dependsOn.status, startDate: e.dependsOn.startDate, dueDate: e.dependsOn.dueDate, assigneeIds: e.dependsOn.assignees.map((a) => a.userId) }
       : null,
     dependent: null,
   }));
@@ -235,7 +235,7 @@ export async function listDependencies(taskId: string): Promise<{ outgoing: Edge
     createdBy: e.createdBy,
     predecessor: null,
     dependent: e.task
-      ? { id: e.task.id, title: e.task.title, status: e.task.status, assigneeId: e.task.assigneeId }
+      ? { id: e.task.id, title: e.task.title, status: e.task.status, assigneeIds: e.task.assignees.map((a) => a.userId) }
       : null,
   }));
 
@@ -296,7 +296,7 @@ export async function evaluateStatusChange(taskId: string, nextStatus: string): 
 export async function notifyUnblocked(taskId: string, actorUserId: string): Promise<void> {
   const incoming = await prisma.taskDependency.findMany({
     where: { dependsOnId: taskId, deletedAt: null, type: { not: "RELATES_TO" } },
-    include: { task: { select: { id: true, title: true, status: true, assigneeId: true, projectId: true } } },
+    include: { task: { select: { id: true, title: true, status: true, assignees: { select: { userId: true } }, projectId: true } } },
   });
 
   for (const edge of incoming) {
@@ -311,9 +311,9 @@ export async function notifyUnblocked(taskId: string, actorUserId: string): Prom
       select: { title: true },
     });
 
-    if (dependent.assigneeId) {
+    for (const a of dependent.assignees) {
       await notify({
-        userId: dependent.assigneeId,
+        userId: a.userId,
         type: "unblocked",
         taskId: dependent.id,
         payload: { taskTitle: dependent.title, predecessorTitle: predecessor?.title ?? "" },

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import type { AssigneeUser } from "@/components/task/assignee-stack";
 
 export type Task = {
   id: string;
@@ -8,7 +9,7 @@ export type Task = {
   status: string;
   priority: string;
   projectId: string;
-  assigneeId: string | null;
+  assignees: AssigneeUser[];
   dueDate: string | null;
   orderIndex: number;
 };

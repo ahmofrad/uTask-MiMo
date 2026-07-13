@@ -1,18 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/cn";
+import { apiFetch } from "@/lib/api-fetch";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { TagPicker } from "@/components/tags/tag-picker";
 
+type Member = { id: string; displayName: string; avatarUrl?: string | null };
+
 type TaskFormProps = {
   projectId?: string;
+  initialMembers?: Member[];
   initialData?: {
     title?: string;
     description?: string;
     status?: string;
     priority?: string;
-    assigneeId?: string;
+    assigneeIds?: string[];
     dueDate?: string | null;
     estimatedHours?: number;
     tagIds?: string[];
@@ -21,7 +26,7 @@ type TaskFormProps = {
   onCancel: () => void;
 };
 
-export function TaskForm({ projectId, initialData, onSubmit, onCancel }: TaskFormProps) {
+export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onCancel }: TaskFormProps) {
   const t = useTranslations("task");
   const tc = useTranslations("common");
   const [loading, setLoading] = useState(false);
@@ -32,6 +37,33 @@ export function TaskForm({ projectId, initialData, onSubmit, onCancel }: TaskFor
   const [dueDate, setDueDate] = useState(initialData?.dueDate ?? "");
   const [estimatedHours, setEstimatedHours] = useState(initialData?.estimatedHours?.toString() ?? "");
   const [tagIds, setTagIds] = useState<string[]>(initialData?.tagIds ?? []);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(initialData?.assigneeIds ?? []);
+  const [members, setMembers] = useState<Member[]>(initialMembers ?? []);
+
+  useEffect(() => {
+    if (initialMembers) {
+      setMembers(initialMembers);
+      return;
+    }
+    if (!projectId) return;
+    let active = true;
+    (async () => {
+      try {
+        const res = await apiFetch(`/api/v1/projects/${projectId}/members`);
+        const json = (await res.json()) as { data?: Member[] };
+        if (active) setMembers(json.data ?? []);
+      } catch {
+        /* non-fatal: assignee picker stays empty */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [projectId, initialMembers]);
+
+  function toggleAssignee(id: string) {
+    setAssigneeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,6 +76,7 @@ export function TaskForm({ projectId, initialData, onSubmit, onCancel }: TaskFor
         projectId,
         status,
         priority,
+        assigneeIds,
         dueDate: dueDate || null,
         estimatedHours: estimatedHours ? Number(estimatedHours) : null,
         tagIds: tagIds.length > 0 ? tagIds : undefined,
@@ -147,6 +180,38 @@ export function TaskForm({ projectId, initialData, onSubmit, onCancel }: TaskFor
             {t("fields.tags")}
           </label>
           <TagPicker projectId={projectId} value={tagIds} onChange={setTagIds} />
+        </div>
+      )}
+
+      {projectId && (
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary mb-1.5">
+            {t("fields.assignees")}
+          </label>
+          {members.length === 0 ? (
+            <p className="text-xs text-fg-muted">{t("noMembers")}</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {members.map((m) => {
+                const selected = assigneeIds.includes(m.id);
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => toggleAssignee(m.id)}
+                    className={cn(
+                      "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                      selected
+                        ? "bg-accent/10 border-accent text-accent"
+                        : "border-border-primary text-fg-secondary hover:bg-bg-surface",
+                    )}
+                  >
+                    {m.displayName}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 

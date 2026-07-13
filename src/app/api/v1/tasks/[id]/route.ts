@@ -4,6 +4,7 @@ import { can, canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { getTaskById, updateTask, deleteTask, DependencyBlockedError } from "@/lib/tasks";
+import { mapAssignees } from "@/lib/tasks/serialize";
 import { getCustomFieldValuesForTask as getFieldValues } from "@/lib/custom-fields/values";
 import type { UpdateTaskData } from "@/lib/tasks";
 
@@ -34,7 +35,13 @@ export async function GET(
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  return NextResponse.json({ data: task });
+  return NextResponse.json({
+    data: {
+      ...task,
+      assignees: mapAssignees(task.assignees),
+      subtasks: (task.subtasks ?? []).map((st) => ({ ...st, assignees: mapAssignees(st.assignees) })),
+    },
+  });
 }
 
 async function checkTaskPermission(userId: string, taskId: string): Promise<boolean> {
@@ -60,7 +67,7 @@ export async function PATCH(
   const body = await request.json();
   const {
     title, description, status: taskStatus, priority: taskPriority,
-    startDate, dueDate, assigneeId, estimatedHours, spentHours, progress,
+    startDate, dueDate, assigneeId, assigneeIds, estimatedHours, spentHours, progress,
     deletedAt,
     customFields, tagIds,
   } = body as Record<string, unknown>;
@@ -72,7 +79,11 @@ export async function PATCH(
   if (taskPriority !== undefined) data.priority = String(taskPriority);
   if (startDate !== undefined) data.startDate = startDate === null ? null : String(startDate);
   if (dueDate !== undefined) data.dueDate = dueDate === null ? null : String(dueDate);
-  if (assigneeId !== undefined) data.assigneeId = assigneeId === null ? null : String(assigneeId);
+  if (assigneeIds !== undefined) {
+    data.assigneeIds = Array.isArray(assigneeIds) ? (assigneeIds as string[]) : [];
+  } else if (assigneeId !== undefined) {
+    data.assigneeIds = assigneeId === null ? [] : [String(assigneeId)];
+  }
   if (estimatedHours !== undefined) data.estimatedHours = estimatedHours === null ? null : Number(estimatedHours);
   if (spentHours !== undefined) data.spentHours = spentHours === null ? null : Number(spentHours);
   if (progress !== undefined) data.progress = Number(progress);

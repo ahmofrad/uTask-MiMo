@@ -108,7 +108,7 @@ export function generateSpec() {
             status: { type: "string", enum: ["open", "in_progress", "done", "cancelled"] },
             priority: { type: "string", enum: ["low", "med", "high", "urgent"] },
             projectId: { type: "string", format: "uuid" },
-            assigneeId: { type: "string", format: "uuid", nullable: true },
+            assigneeIds: { type: "array", items: { type: "string", format: "uuid" } },
             dueDate: { type: "string", format: "date-time", nullable: true },
             createdAt: { type: "string", format: "date-time" },
           },

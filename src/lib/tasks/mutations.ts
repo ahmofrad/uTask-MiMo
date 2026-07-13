@@ -16,7 +16,7 @@ export type CreateTaskData = {
   description?: string | null;
   projectId: string;
   parentTaskId?: string | null;
-  assigneeId?: string | null;
+  assigneeIds?: string[] | null;
   reporterId: string;
   createdById: string;
   status?: string;
@@ -33,6 +33,34 @@ function clampProgress(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+async function notifyNewAssignees(taskId: string, title: string, userIds: string[]) {
+  if (userIds.length === 0) return;
+  const { ensureWatcher } = await import("@/lib/watchers");
+  const { notify } = await import("@/lib/notifications");
+  const baseUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+
+  for (const userId of userIds) {
+    await ensureWatcher(taskId, userId);
+    await notify({
+      userId,
+      type: "assigned",
+      taskId,
+      payload: { taskTitle: title },
+    });
+
+    try {
+      const { notifyAssigned } = await import("@/lib/mail/send");
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+      if (user?.email) {
+        await notifyAssigned(user.email, title, `${baseUrl}/tasks/${taskId}`);
+      }
+    } catch (err) {
+      const { logger } = await import("@/lib/logging");
+      logger.warn({ err, taskId, userId }, "Failed to send assignment email");
+    }
+  }
 }
 
 export async function createTask(data: CreateTaskData) {
@@ -69,7 +97,9 @@ export async function createTask(data: CreateTaskData) {
       title: data.title,
       description: data.description ?? null,
       parentTaskId,
-      assigneeId: data.assigneeId ?? null,
+      assignees: {
+        create: (data.assigneeIds ?? []).map((userId) => ({ userId })),
+      },
       reporterId: data.reporterId,
       createdById: data.createdById,
       status: (data.status as never) ?? "open",
@@ -81,6 +111,8 @@ export async function createTask(data: CreateTaskData) {
       orderIndex,
     },
   });
+
+  await notifyNewAssignees(task.id, task.title, data.assigneeIds ?? []);
 
   if (data.customFields && typeof data.customFields === "object") {
     const { setCustomFieldValues } = await import("@/lib/custom-fields/values");
@@ -100,7 +132,7 @@ export type UpdateTaskData = {
   description?: string | null;
   status?: string;
   priority?: string;
-  assigneeId?: string | null;
+  assigneeIds?: string[] | null;
   startDate?: string | null;
   dueDate?: string | null;
   estimatedHours?: number | null;
@@ -121,7 +153,6 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
   if (data.priority !== undefined) updateData.priority = data.priority;
   if (data.startDate !== undefined) updateData.startDate = data.startDate ? new Date(data.startDate) : null;
   if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
-  if (data.assigneeId !== undefined) updateData.assigneeId = data.assigneeId;
   if (data.estimatedHours !== undefined) updateData.estimatedHours = data.estimatedHours ?? null;
   if (data.spentHours !== undefined) updateData.spentHours = data.spentHours ?? null;
   if (data.parentTaskId !== undefined) updateData.parentTaskId = data.parentTaskId;
@@ -144,6 +175,21 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
     }
   }
 
+  // Sync the multi-assignee list when provided.
+  if (data.assigneeIds !== undefined) {
+    const currentIds = (
+      await prisma.taskAssignee.findMany({ where: { taskId: id }, select: { userId: true } })
+    ).map((a) => a.userId);
+    const nextIds = data.assigneeIds ?? [];
+    const added = nextIds.filter((uid) => !currentIds.includes(uid));
+    const removed = currentIds.filter((uid) => !nextIds.includes(uid));
+    updateData.assignees = {
+      deleteMany: { userId: { in: removed } },
+      create: added.map((userId) => ({ userId })),
+    };
+    await notifyNewAssignees(id, before?.title ?? "", added);
+  }
+
   const task = await prisma.task.update({
     where: { id },
     data: updateData,
@@ -151,38 +197,6 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
 
   if (before && (data.startDate !== undefined || data.dueDate !== undefined)) {
     await bumpScheduleVersion(before.projectId);
-  }
-
-  // Auto-watch on assignment + email notification
-  if (data.assigneeId !== undefined && data.assigneeId !== null && data.assigneeId !== before?.assigneeId) {
-    const { ensureWatcher } = await import("@/lib/watchers");
-    await ensureWatcher(task.id, data.assigneeId);
-
-    // In-app notification
-    const { notify } = await import("@/lib/notifications");
-    await notify({
-      userId: data.assigneeId,
-      type: "assigned",
-      taskId: task.id,
-      payload: { taskTitle: task.title },
-    });
-
-    // Email notification
-    try {
-      const { notifyAssigned } = await import("@/lib/mail/send");
-      const assignee = await prisma.user.findUnique({
-        where: { id: data.assigneeId },
-        select: { email: true },
-      });
-      if (assignee?.email) {
-        const baseUrl = process.env.AUTH_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
-        await notifyAssigned(assignee.email, task.title, `${baseUrl}/tasks/${task.id}`);
-      }
-    } catch (err) {
-      // Email failure should not block task update
-      const { logger } = await import("@/lib/logging");
-      logger.warn({ err, taskId: task.id }, "Failed to send assignment email");
-    }
   }
 
   if (data.tagIds) {
@@ -199,14 +213,19 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
   }
 
   if (data.status !== undefined && before && before.status !== data.status) {
-    if (task.assigneeId && task.assigneeId !== actorId) {
-      const { notify } = await import("@/lib/notifications");
-      await notify({
-        userId: task.assigneeId,
-        type: "status_changed",
-        taskId: task.id,
-        payload: { taskTitle: task.title },
-      });
+    const assigneeIds = (
+      await prisma.taskAssignee.findMany({ where: { taskId: id }, select: { userId: true } })
+    ).map((a) => a.userId);
+    const { notify } = await import("@/lib/notifications");
+    for (const uid of assigneeIds) {
+      if (uid !== actorId) {
+        await notify({
+          userId: uid,
+          type: "status_changed",
+          taskId: task.id,
+          payload: { taskTitle: task.title },
+        });
+      }
     }
   }
 

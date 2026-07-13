@@ -4,9 +4,7 @@ import { useTranslations } from "next-intl";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { TaskCard, type TaskCardData } from "@/components/task/task-card";
 
-type TimelineTask = TaskCardData & {
-  assigneeId: string | null;
-};
+type TimelineTask = TaskCardData;
 
 type TimelineProps = {
   tasks: TimelineTask[];

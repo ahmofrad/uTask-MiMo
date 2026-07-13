@@ -271,6 +271,7 @@
       "status": "Status",
       "priority": "Priority",
       "assignee": "Assignee",
+      "assignees": "Assignees",
       "dueDate": "Due date",
       "estimatedHours": "Estimated hours",
       "spentHours": "Spent hours",

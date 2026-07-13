@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/cn";
 
 export type Filters = {
-  status?: string;
-  priority?: string;
-  assigneeId?: string;
-  search?: string;
+  status?: string | undefined;
+  priority?: string | undefined;
+  assigneeIds?: string[] | undefined;
+  search?: string | undefined;
 };
 
 type TaskFiltersProps = {
@@ -21,9 +22,9 @@ export function TaskFilters({ filters, onChange, projectMembers = [] }: TaskFilt
   const tc = useTranslations("common");
   const [expanded, setExpanded] = useState(false);
 
-  const activeCount = Object.values(filters).filter(Boolean).length;
+  const activeCount = Object.values(filters).filter((v) => (Array.isArray(v) ? v.length > 0 : Boolean(v))).length;
 
-  function updateFilter(key: keyof Filters, value: string) {
+  function updateFilter(key: "status" | "priority" | "search", value: string) {
     const next = { ...filters };
     if (value === "") {
       delete next[key];
@@ -31,6 +32,12 @@ export function TaskFilters({ filters, onChange, projectMembers = [] }: TaskFilt
       next[key] = value;
     }
     onChange(next);
+  }
+
+  function toggleAssignee(id: string) {
+    const current = filters.assigneeIds ?? [];
+    const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+    onChange({ ...filters, assigneeIds: next.length > 0 ? next : undefined });
   }
 
   return (
@@ -82,20 +89,32 @@ export function TaskFilters({ filters, onChange, projectMembers = [] }: TaskFilt
             </select>
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-fg-muted mb-1">{t("fields.assignee")}</label>
-            <select
-              value={filters.assigneeId ?? ""}
-              onChange={(e) => updateFilter("assigneeId", e.target.value)}
-              className="w-full px-2 py-1.5 text-sm border border-border-primary rounded-md bg-bg-primary text-fg-primary"
-            >
-              <option value="">{tc("all")}</option>
-              {projectMembers.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.displayName}
-                </option>
-              ))}
-            </select>
+          <div className="md:col-span-2">
+            <label className="block text-xs font-medium text-fg-muted mb-1">{t("fields.assignees")}</label>
+            {projectMembers.length === 0 ? (
+              <p className="text-xs text-fg-muted">{t("noMembers")}</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {projectMembers.map((member) => {
+                  const selected = (filters.assigneeIds ?? []).includes(member.id);
+                  return (
+                    <button
+                      key={member.id}
+                      type="button"
+                      onClick={() => toggleAssignee(member.id)}
+                      className={cn(
+                        "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                        selected
+                          ? "bg-accent/10 border-accent text-accent"
+                          : "border-border-primary text-fg-secondary hover:bg-bg-surface",
+                      )}
+                    >
+                      {member.displayName}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           <div className="md:col-span-2">

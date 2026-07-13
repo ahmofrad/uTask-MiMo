@@ -78,12 +78,12 @@ export async function getProjectReport(projectId: string) {
 
 export async function getMyDashboard(userId: string) {
   const assignedTasks = await prisma.task.count({
-    where: { assigneeId: userId, deletedAt: null, status: { not: "done" } },
+    where: { assignees: { some: { userId } }, deletedAt: null, status: { not: "done" } },
   });
 
   const overdueTasks = await prisma.task.count({
     where: {
-      assigneeId: userId,
+      assignees: { some: { userId } },
       deletedAt: null,
       dueDate: { lt: new Date() },
       status: { not: "done" },
@@ -92,7 +92,7 @@ export async function getMyDashboard(userId: string) {
 
   const completedThisWeek = await prisma.task.count({
     where: {
-      assigneeId: userId,
+      assignees: { some: { userId } },
       status: "done",
       deletedAt: null,
       updatedAt: { gte: new Date(Date.now() - 7 * 86400000) },

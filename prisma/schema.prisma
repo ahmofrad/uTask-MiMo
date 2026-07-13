@@ -201,7 +201,7 @@ model User {
   ownedProjects      Project[]       @relation("ProjectOwner")
   projectMembers     ProjectMember[] @relation("ProjectMemberUser")
   projectMemberAdded ProjectMember[] @relation("ProjectMemberAddedBy")
-  assignedTasks      Task[]          @relation("TaskAssignee")
+  assignedTasks      TaskAssignee[]  @relation("UserAssignedTasks")
   reportedTasks      Task[]          @relation("TaskReporter")
   createdTasks       Task[]          @relation("TaskCreator")
   attachments        Attachment[]
@@ -356,7 +356,6 @@ model Task {
   dueDate        DateTime?    @db.Timestamptz
   startDate      DateTime?    @db.Timestamptz
   recurrenceRule String?      @db.VarChar(500)
-  assigneeId     String?      @db.Uuid
   reporterId     String?      @db.Uuid
   createdById    String       @db.Uuid
   estimatedHours Decimal?     @db.Decimal(10, 2)
@@ -373,7 +372,7 @@ model Task {
   project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   parentTask Task?   @relation("Subtask", fields: [parentTaskId], references: [id])
   subtasks   Task[]  @relation("Subtask")
-  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assignees  TaskAssignee[] @relation("TaskAssignees")
   reporter   User?   @relation("TaskReporter", fields: [reporterId], references: [id])
   createdBy  User    @relation("TaskCreator", fields: [createdById], references: [id])
 
@@ -387,7 +386,6 @@ model Task {
   dependsOn    TaskDependency[] @relation("DependencyPredecessor")
 
   @@index([projectId, status, dueDate])
-  @@index([assigneeId, status, dueDate])
   @@index([projectId, orderIndex])
   @@index([parentTaskId])
   @@index([reporterId])
@@ -395,6 +393,21 @@ model Task {
   @@index([dueDate])
   @@index([deletedAt])
   @@map("Task")
+}
+
+model TaskAssignee {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
+  userId    String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  task Task @relation("TaskAssignees", fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation("UserAssignedTasks", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@index([taskId])
+  @@map("TaskAssignee")
 }
 
 model TaskDependency {

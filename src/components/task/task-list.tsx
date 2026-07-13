@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useOptimisticTasks, type Task } from "@/hooks/use-optimistic-task";
 import { BulkActionsBar } from "@/components/task/bulk-actions";
 import { TaskForm } from "@/components/task/task-form";
+import { AssigneeStack } from "@/components/task/assignee-stack";
 import { StatusBadge } from "@/components/task/status-badge";
 import { PriorityBadge } from "@/components/task/priority-badge";
 import { DueDateChip } from "@/components/task/due-date-chip";
@@ -126,14 +127,10 @@ export function TaskList({ initialTasks }: { initialTasks: Task[] }) {
               {task.title}
             </Link>
 
-            {/* Bottom row: due date + assignee */}
+            {/* Bottom row: due date + assignees */}
             <div className="flex items-center justify-between mt-auto pt-1">
               <DueDateChip dueDate={task.dueDate} isCompleted={task.status === "done"} />
-              {task.assigneeId && (
-                <span className="w-6 h-6 rounded-full bg-accent-bg text-accent text-xs flex items-center justify-center font-medium">
-                  {task.assigneeId.slice(0, 2).toUpperCase()}
-                </span>
-              )}
+              <AssigneeStack assignees={task.assignees} size="sm" />
             </div>
           </div>
         ))}
@@ -176,6 +173,7 @@ export function TaskList({ initialTasks }: { initialTasks: Task[] }) {
                   status: editingTask.status,
                   priority: editingTask.priority,
                   dueDate: editingTask.dueDate,
+                  assigneeIds: editingTask.assignees.map((a) => a.id),
                 }}
                 onSubmit={handleUpdate}
                 onCancel={() => setEditingTask(null)}

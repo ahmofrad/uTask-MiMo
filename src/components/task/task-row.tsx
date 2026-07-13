@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { PriorityBadge } from "@/components/task/priority-badge";
 import { StatusBadge } from "@/components/task/status-badge";
 import { DueDateChip } from "@/components/task/due-date-chip";
-import { Avatar } from "@/components/ui/avatar";
+import { AssigneeStack, type AssigneeUser } from "@/components/task/assignee-stack";
 
 type TaskRowProps = {
   id: string;
@@ -13,7 +13,7 @@ type TaskRowProps = {
   status: "open" | "in_progress" | "done" | "cancelled";
   priority: "low" | "med" | "high" | "urgent";
   dueDate: string | null;
-  assignee?: { displayName: string; avatarUrl?: string | null } | null;
+  assignees?: AssigneeUser[];
   projectName?: string;
   isSelected?: boolean;
   onSelect?: (_id: string) => void;
@@ -21,7 +21,7 @@ type TaskRowProps = {
 };
 
 export function TaskRow({
-  id, title, status, priority, dueDate, assignee, projectName,
+  id, title, status, priority, dueDate, assignees, projectName,
   isSelected, onSelect, className,
 }: TaskRowProps) {
   return (
@@ -56,13 +56,7 @@ export function TaskRow({
           <StatusBadge status={status} />
           <PriorityBadge priority={priority} />
           <DueDateChip dueDate={dueDate} isCompleted={status === "done"} />
-          {assignee && (
-            <Avatar
-              initials={assignee.displayName.slice(0, 2).toUpperCase()}
-              imageUrl={assignee.avatarUrl}
-              size="sm"
-            />
-          )}
+          <AssigneeStack assignees={assignees ?? []} size="sm" />
           {projectName && (
             <span className="text-xs text-fg-muted">{projectName}</span>
           )}

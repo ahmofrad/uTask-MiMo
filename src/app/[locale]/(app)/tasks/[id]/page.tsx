@@ -18,14 +18,20 @@ export default async function TaskDetailRoute({
     where: { id: params.id },
     include: {
       project: { select: { id: true, name: true } },
-      assignee: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
+      assignees: { include: { user: { select: { id: true, displayName: true, email: true, avatarUrl: true } } } },
       reporter: { select: { id: true, displayName: true, email: true } },
       createdBy: { select: { id: true, displayName: true } },
       parentTask: { select: { id: true, title: true } },
       subtasks: {
         where: { deletedAt: null },
         orderBy: { orderIndex: "asc" },
-        select: { id: true, title: true, status: true, priority: true, assigneeId: true },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          priority: true,
+          assignees: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
+        },
       },
       tags: { include: { tag: true } },
       _count: { select: { comments: true, attachments: true, watchers: true } },
@@ -112,9 +118,11 @@ export default async function TaskDetailRoute({
         spentHours: task.spentHours?.toNumber() ?? null,
         projectId: task.projectId,
         projectName: task.project.name,
-        assignee: task.assignee
-          ? { id: task.assignee.id, displayName: task.assignee.displayName, avatarUrl: task.assignee.avatarUrl }
-          : null,
+        assignees: task.assignees.map((a) => ({
+          id: a.user.id,
+          displayName: a.user.displayName,
+          avatarUrl: a.user.avatarUrl,
+        })),
         reporter: task.reporter
           ? { id: task.reporter.id, displayName: task.reporter.displayName }
           : null,
@@ -124,7 +132,11 @@ export default async function TaskDetailRoute({
           title: st.title,
           status: st.status as "open" | "in_progress" | "done" | "cancelled",
           priority: st.priority as "low" | "med" | "high" | "urgent",
-          assigneeId: st.assigneeId,
+          assignees: st.assignees.map((a) => ({
+            id: a.user.id,
+            displayName: a.user.displayName,
+            avatarUrl: a.user.avatarUrl,
+          })),
         })),
         createdAt: task.createdAt.toISOString(),
         updatedAt: task.updatedAt.toISOString(),

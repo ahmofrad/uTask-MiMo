@@ -8,6 +8,7 @@ interface EndpointEntry {
     in: string;
     required?: boolean;
     schema: { type: string };
+    description?: string;
   }>;
   requestBody?: Record<string, unknown>;
 }
@@ -22,7 +23,8 @@ const endpoints: EndpointEntry[] = [
       { name: "cursor", in: "query", schema: { type: "string" } },
       { name: "limit", in: "query", schema: { type: "integer" } },
       { name: "projectId", in: "query", schema: { type: "string" } },
-      { name: "assigneeId", in: "query", schema: { type: "string" } },
+      { name: "assigneeId", in: "query", schema: { type: "string" }, description: "Filter by a single assignee (alias for assigneeIds with one id)" },
+      { name: "assigneeIds", in: "query", schema: { type: "string" }, description: "Comma-separated user ids; task must have at least one of them assigned" },
     ],
   },
   {
@@ -41,7 +43,7 @@ const endpoints: EndpointEntry[] = [
               title: { type: "string" },
               description: { type: "string" },
               priority: { type: "string", enum: ["low", "med", "high", "urgent"] },
-              assigneeId: { type: "string" },
+              assigneeIds: { type: "array", items: { type: "string" } },
               dueDate: { type: "string", format: "date-time" },
             },
             required: ["projectId", "title"],
@@ -74,7 +76,7 @@ const endpoints: EndpointEntry[] = [
               description: { type: "string" },
               status: { type: "string", enum: ["open", "in_progress", "done", "cancelled"] },
               priority: { type: "string", enum: ["low", "med", "high", "urgent"] },
-              assigneeId: { type: "string" },
+              assigneeIds: { type: "array", items: { type: "string" } },
               dueDate: { type: "string", format: "date-time" },
             },
           },

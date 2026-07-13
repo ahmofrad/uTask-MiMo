@@ -27,8 +27,8 @@ export type WbsSourceTask = {
   status: string;
   priority: string;
   parentTaskId: string | null;
-  assigneeId: string | null;
-  assigneeName?: string | null;
+  assigneeIds: string[];
+  assigneeNames: string[];
   progress: number;
   estimatedHours: number | null;
   orderIndex: number | null;
@@ -41,8 +41,8 @@ export type WbsNode = {
   status: string;
   priority: string;
   parentTaskId: string | null;
-  assigneeId: string | null;
-  assigneeName: string | null;
+  assigneeIds: string[];
+  assigneeNames: string[];
   progress: number;
   estimatedHours: number | null;
   depth: number;
@@ -209,8 +209,8 @@ export function buildWbsTree(tasks: WbsSourceTask[]): WbsNode[] {
       status: task.status,
       priority: task.priority,
       parentTaskId: task.parentTaskId,
-      assigneeId: task.assigneeId,
-      assigneeName: task.assigneeName ?? null,
+      assigneeIds: task.assigneeIds,
+      assigneeNames: task.assigneeNames,
       progress: task.progress,
       estimatedHours: task.estimatedHours,
       depth,
@@ -236,8 +236,7 @@ export async function getWbsForProject(projectId: string): Promise<WbsNode[]> {
       status: true,
       priority: true,
       parentTaskId: true,
-      assigneeId: true,
-      assignee: { select: { displayName: true } },
+      assignees: { include: { user: { select: { displayName: true } } } },
       progress: true,
       estimatedHours: true,
       orderIndex: true,
@@ -252,8 +251,8 @@ export async function getWbsForProject(projectId: string): Promise<WbsNode[]> {
     status: t.status,
     priority: t.priority,
     parentTaskId: t.parentTaskId,
-    assigneeId: t.assigneeId,
-    assigneeName: t.assignee?.displayName ?? null,
+    assigneeIds: t.assignees.map((a) => a.userId),
+    assigneeNames: t.assignees.map((a) => a.user.displayName),
     progress: t.progress,
     estimatedHours: t.estimatedHours != null ? Number(t.estimatedHours) : null,
     orderIndex: t.orderIndex != null ? Number(t.orderIndex) : null,

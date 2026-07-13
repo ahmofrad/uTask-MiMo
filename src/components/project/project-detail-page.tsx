@@ -40,12 +40,11 @@ type TaskItem = {
   status: string;
   priority: string;
   projectId: string;
-  assigneeId: string | null;
+  assignees?: { id: string; displayName: string; avatarUrl?: string | null }[];
   dueDate: string | null;
   startDate: string | null;
   parentTaskId: string | null;
   orderIndex: number;
-  assignee?: { displayName: string; avatarUrl: string | null } | null;
   tags?: { id: string; name: string }[];
   subtaskCount?: number;
   subtaskDone?: number;
@@ -189,7 +188,11 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
         status: result.data.status,
         priority: result.data.priority,
         projectId: project.id,
-        assigneeId: result.data.assigneeId,
+        assignees: (result.data.assignees ?? []).map((a: { id: string; displayName: string; avatarUrl?: string | null }) => ({
+          id: a.id,
+          displayName: a.displayName,
+          avatarUrl: a.avatarUrl,
+        })),
         dueDate: result.data.dueDate?.toISOString() ?? null,
         startDate: result.data.startDate?.toISOString() ?? null,
         parentTaskId: result.data.parentTaskId ?? null,

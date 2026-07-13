@@ -12,7 +12,14 @@ export default async function BoardPage({ params }: { params: { projectId: strin
 
   const tasks = await prisma.task.findMany({
     where: { projectId: params.projectId, deletedAt: null, parentTaskId: null },
-    select: { id: true, title: true, status: true, priority: true, assigneeId: true, dueDate: true },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      priority: true,
+      dueDate: true,
+      assignees: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
+    },
     orderBy: { orderIndex: "asc" },
   });
 
@@ -26,6 +33,11 @@ export default async function BoardPage({ params }: { params: { projectId: strin
         initialTasks={tasks.map((t) => ({
           ...t,
           dueDate: t.dueDate?.toISOString() ?? null,
+          assignees: t.assignees.map((a) => ({
+            id: a.user.id,
+            displayName: a.user.displayName,
+            avatarUrl: a.user.avatarUrl,
+          })),
         }))}
         projectId={params.projectId}
       />

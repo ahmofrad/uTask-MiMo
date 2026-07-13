@@ -4,6 +4,7 @@ import Link from "next/link";
 import { StatusBadge } from "@/components/task/status-badge";
 import { PriorityBadge } from "@/components/task/priority-badge";
 import { DueDateChip } from "@/components/task/due-date-chip";
+import { AssigneeStack, type AssigneeUser } from "@/components/task/assignee-stack";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 
 export type TaskCardData = {
@@ -13,7 +14,7 @@ export type TaskCardData = {
   status: string;
   priority: string;
   dueDate: string | null;
-  assignee?: { displayName: string; avatarUrl?: string | null } | null;
+  assignees?: AssigneeUser[];
   projectName?: string;
   tags?: { id: string; name: string }[];
   subtaskCount?: number;
@@ -86,18 +87,12 @@ export function TaskCard({ task, variant, showProject }: TaskCardProps) {
           </div>
         )}
 
-        {/* Footer: project + assignee */}
-        <div className="flex items-center justify-between mt-1">
+        {/* Footer: project + assignees */}
+        <div className="flex items-center justify-between mt-1 gap-2">
           {showProject && task.projectName && (
             <span className="text-[10px] text-fg-muted truncate max-w-[60%]">{task.projectName}</span>
           )}
-          {task.assignee && (
-            <span
-              className={`text-[10px] text-fg-muted hidden sm:inline truncate max-w-[120px] ${showProject ? "ms-auto" : ""}`}
-            >
-              {task.assignee.displayName}
-            </span>
-          )}
+          <AssigneeStack assignees={task.assignees ?? []} size="sm" />
         </div>
       </div>
     );
@@ -146,11 +141,7 @@ export function TaskCard({ task, variant, showProject }: TaskCardProps) {
         {showProject && task.projectName && (
           <span className="text-[10px] text-fg-muted bg-bg-secondary px-1.5 py-0.5 rounded hidden sm:inline">{task.projectName}</span>
         )}
-        {task.assignee && (
-          <span className="text-[10px] text-fg-muted hidden md:inline truncate max-w-[120px]">
-            {task.assignee.displayName}
-          </span>
-        )}
+        <AssigneeStack assignees={task.assignees ?? []} size="sm" />
       </div>
     </Link>
   );

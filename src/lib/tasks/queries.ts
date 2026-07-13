@@ -7,8 +7,16 @@ import {
 import { getCustomFieldValuesForTask } from "@/lib/custom-fields/values";
 import { buildTaskFilters, type TaskFilterParams } from "./filters";
 
+const ASSIGNEES_INCLUDE = {
+  assignees: {
+    include: {
+      user: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
+    },
+  },
+} as const;
+
 const TASK_LIST_INCLUDE = {
-  assignee: { select: { id: true, displayName: true, email: true } },
+  ...ASSIGNEES_INCLUDE,
   reporter: { select: { id: true, displayName: true } },
   tags: { include: { tag: true } },
   _count: { select: { comments: true, attachments: true, subtasks: true } },
@@ -16,14 +24,22 @@ const TASK_LIST_INCLUDE = {
 
 const TASK_DETAIL_INCLUDE = {
   project: { select: { id: true, name: true } },
-  assignee: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
+  ...ASSIGNEES_INCLUDE,
   reporter: { select: { id: true, displayName: true, email: true } },
   createdBy: { select: { id: true, displayName: true } },
   parentTask: { select: { id: true, title: true } },
   subtasks: {
     where: { deletedAt: null },
     orderBy: { orderIndex: "asc" as const },
-    select: { id: true, title: true, status: true, priority: true, assigneeId: true },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      priority: true,
+      assignees: {
+        include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
+      },
+    },
   },
   tags: { include: { tag: true } },
   _count: { select: { comments: true, attachments: true, watchers: true } },
@@ -37,7 +53,7 @@ const INBOX_TASK_INCLUDE = {
 
 const INBOX_WATCHING_INCLUDE = {
   project: { select: { id: true, name: true } },
-  assignee: { select: { id: true, displayName: true } },
+  ...ASSIGNEES_INCLUDE,
   reporter: { select: { id: true, displayName: true } },
   tags: { include: { tag: true } },
 } as const;
@@ -92,7 +108,7 @@ export async function getInboxTasks(userId: string) {
 
   const [unassigned, watching] = await Promise.all([
     prisma.task.findMany({
-      where: { assigneeId: null, deletedAt: null, parentTaskId: null, ...notDoneFilter },
+      where: { assignees: { none: {} }, deletedAt: null, parentTaskId: null, ...notDoneFilter },
       orderBy: { createdAt: "desc" },
       take: 50,
       include: INBOX_TASK_INCLUDE,
@@ -123,7 +139,7 @@ export type TaskStats = {
 export async function getTaskStats(userId: string): Promise<TaskStats> {
   const notDone = {
     deletedAt: null,
-    assigneeId: userId,
+    assignees: { some: { userId } },
     parentTaskId: null,
     status: { not: "done" as const },
   };
@@ -135,7 +151,7 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
       where: { ...notDone, status: { in: ["open", "in_progress"] } },
     }),
     prisma.task.count({
-      where: { deletedAt: null, assigneeId: userId, status: "done" },
+      where: { deletedAt: null, assignees: { some: { userId } }, status: "done" },
     }),
     prisma.task.count({
       where: { ...notDone, dueDate: { lt: now } },
@@ -154,7 +170,7 @@ export async function getUpcomingTasks(userId: string, limit = 6) {
   return prisma.task.findMany({
     where: {
       deletedAt: null,
-      assigneeId: userId,
+      assignees: { some: { userId } },
       parentTaskId: null,
       status: { not: "done" },
       dueDate: { not: null },

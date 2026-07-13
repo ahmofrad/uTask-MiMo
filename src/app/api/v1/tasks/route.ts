@@ -6,6 +6,7 @@ import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { listTasks, createTask } from "@/lib/tasks";
 import { WbsGuardError } from "@/lib/tasks/wbs";
+import { mapAssignees } from "@/lib/tasks/serialize";
 import { checkIdempotency, setIdempotencyResult, acquirePending, releasePending } from "@/lib/idempotency";
 import type { ListTasksParams, CreateTaskData } from "@/lib/tasks";
 
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
   const projectId = searchParams.get("projectId");
   const assigneeId = searchParams.get("assigneeId");
+  const assigneeIdsRaw = searchParams.get("assigneeIds");
   const status = searchParams.get("status");
   const priority = searchParams.get("priority");
   const search = searchParams.get("search");
@@ -29,7 +31,11 @@ export async function GET(request: Request) {
 
   const params: ListTasksParams = { limit };
   if (cursor) params.cursor = cursor;
-  if (assigneeId) params.assigneeId = assigneeId;
+  if (assigneeIdsRaw) {
+    params.assigneeIds = assigneeIdsRaw.split(",").map((s) => s.trim()).filter(Boolean);
+  } else if (assigneeId) {
+    params.assigneeId = assigneeId;
+  }
   if (status) params.status = status;
   if (priority) params.priority = priority;
   if (search) params.search = search;
@@ -52,8 +58,9 @@ export async function GET(request: Request) {
   }
 
   const result = await listTasks(params);
+  const data = result.data.map((task) => ({ ...task, assignees: mapAssignees((task as { assignees?: unknown }).assignees as never) }));
 
-  return NextResponse.json(result);
+  return NextResponse.json({ data, meta: result.meta });
 }
 
 export async function POST(request: Request) {
@@ -82,7 +89,7 @@ export async function POST(request: Request) {
     const {
       projectId, title, description, parentTaskId,
       status: taskStatus, priority: taskPriority,
-      startDate, dueDate, assigneeId, estimatedHours, progress,
+      startDate, dueDate, assigneeId, assigneeIds, estimatedHours, progress,
       customFields, tagIds,
     } = body as Record<string, unknown>;
 
@@ -110,7 +117,11 @@ export async function POST(request: Request) {
     if (taskPriority) data.priority = String(taskPriority);
     if (startDate) data.startDate = String(startDate);
     if (dueDate) data.dueDate = String(dueDate);
-    if (assigneeId) data.assigneeId = String(assigneeId);
+    if (Array.isArray(assigneeIds)) {
+      data.assigneeIds = assigneeIds as string[];
+    } else if (assigneeId) {
+      data.assigneeIds = [String(assigneeId)];
+    }
     if (estimatedHours) data.estimatedHours = Number(estimatedHours);
     if (progress !== undefined) data.progress = Number(progress);
     if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;

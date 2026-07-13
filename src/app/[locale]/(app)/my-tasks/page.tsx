@@ -10,7 +10,7 @@ export default async function MyTasksPage() {
   const t = await getTranslations();
 
   const tasks = await prisma.task.findMany({
-    where: { assigneeId: session.user.id, deletedAt: null, parentTaskId: null },
+    where: { assignees: { some: { userId: session.user.id } }, deletedAt: null, parentTaskId: null },
     orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
     take: 50,
     select: {

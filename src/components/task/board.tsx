@@ -5,9 +5,7 @@ import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { TaskCard, type TaskCardData } from "@/components/task/task-card";
 
-export type BoardTask = TaskCardData & {
-  assigneeId: string | null;
-};
+export type BoardTask = TaskCardData;
 
 type BoardProps = {
   initialTasks: BoardTask[];

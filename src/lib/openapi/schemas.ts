@@ -40,7 +40,7 @@ export const TaskSchema = z.object({
   status: z.enum(["open", "in_progress", "done", "cancelled"]),
   priority: z.enum(["low", "med", "high", "urgent"]),
   projectId: z.string().uuid(),
-  assigneeId: z.string().uuid().nullable(),
+  assigneeIds: z.array(z.string().uuid()),
   dueDate: z.string().datetime().nullable(),
   createdAt: z.string().datetime(),
 });

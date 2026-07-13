@@ -9,6 +9,9 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(),
       findMany: vi.fn(),
     },
+    taskAssignee: {
+      findMany: vi.fn(() => Promise.resolve([])),
+    },
     instanceSetting: {
       findUnique: vi.fn(),
     },

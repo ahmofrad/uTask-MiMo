@@ -29,10 +29,10 @@ type TaskData = {
   spentHours?: number | null;
   projectId: string;
   projectName: string;
-  assignee: { id: string; displayName: string; avatarUrl?: string | null } | null;
+  assignees: { id: string; displayName: string; avatarUrl?: string | null }[];
   reporter: { id: string; displayName: string } | null;
   tags: { id: string; name: string }[];
-  subtasks: { id: string; title: string; status: string; priority: string; assigneeId: string | null }[];
+  subtasks: { id: string; title: string; status: string; priority: string; assignees: { id: string; displayName: string; avatarUrl?: string | null }[] }[];
   createdAt: string;
   updatedAt: string;
 };
@@ -496,26 +496,33 @@ export function TaskDetailPage({
         <div className="space-y-4">
           {/* Details card */}
           <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-4">
-            <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.fields.assignee")}</h4>
-            <select
-              value={task.assignee?.id ?? ""}
-              onChange={(e) => {
-                const val = e.target.value || null;
-                setTask((prev) => ({
-                  ...prev,
-                  assignee: val ? projectMembers.find((m) => m.id === val) ?? { id: val, displayName: "" } : null,
-                }));
-                updateTask({ assigneeId: val });
-              }}
-              className="w-full text-sm bg-bg-primary border border-border rounded-lg px-3 py-1.5 text-fg"
-            >
-              <option value="">{t("task.unassigned")}</option>
-              {projectMembers.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.displayName}
-                </option>
-              ))}
-            </select>
+            <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.fields.assignees")}</h4>
+            <div className="flex flex-wrap gap-2">
+              {projectMembers.map((member) => {
+                const selected = task.assignees.some((a) => a.id === member.id);
+                return (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() => {
+                      const next = selected
+                        ? task.assignees.filter((a) => a.id !== member.id)
+                        : [...task.assignees, member];
+                      setTask((prev) => ({ ...prev, assignees: next }));
+                      updateTask({ assigneeIds: next.map((a) => a.id) });
+                    }}
+                    className={cn(
+                      "px-2.5 py-1 rounded-full text-xs border transition-colors",
+                      selected
+                        ? "bg-accent/10 border-accent text-accent"
+                        : "border-border-primary text-fg-secondary hover:bg-bg-surface",
+                    )}
+                  >
+                    {member.displayName}
+                  </button>
+                );
+              })}
+            </div>
 
             {task.reporter && (
               <>

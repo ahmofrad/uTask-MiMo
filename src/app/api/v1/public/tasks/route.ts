@@ -4,6 +4,7 @@ import { can, canProject } from "@/lib/rbac";
 import { getUserReadableProjectIds } from "@/lib/projects/queries";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { mapAssignees } from "@/lib/tasks/serialize";
 
 export async function GET(request: Request) {
   const { userId, error } = await authenticatePublicApi(request, "tasks:read");
@@ -14,6 +15,7 @@ export async function GET(request: Request) {
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
   const projectId = searchParams.get("projectId");
   const assigneeId = searchParams.get("assigneeId");
+  const assigneeIdsRaw = searchParams.get("assigneeIds");
 
   const readable = await getUserReadableProjectIds(userId);
   if (projectId && readable !== null && !readable.includes(projectId)) {
@@ -26,7 +28,11 @@ export async function GET(request: Request) {
   const where: Record<string, unknown> = { deletedAt: null };
   if (projectId) where.projectId = projectId;
   else if (readable !== null) where.projectId = { in: readable };
-  if (assigneeId) where.assigneeId = assigneeId;
+  if (assigneeIdsRaw) {
+    where.assignees = { some: { userId: { in: assigneeIdsRaw.split(",").map((s) => s.trim()).filter(Boolean) } } };
+  } else if (assigneeId) {
+    where.assignees = { some: { userId: assigneeId } };
+  }
 
   const tasks = await prisma.task.findMany({
     where,
@@ -36,17 +42,20 @@ export async function GET(request: Request) {
     orderBy: { createdAt: "desc" },
     select: {
       id: true, title: true, description: true, status: true, priority: true,
-      dueDate: true, projectId: true, assigneeId: true, reporterId: true,
+      dueDate: true, projectId: true, reporterId: true,
       estimatedHours: true, spentHours: true, createdAt: true, updatedAt: true,
+      assignees: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
     },
   });
+
+  const data = tasks.map((t) => ({ ...t, assignees: mapAssignees(t.assignees) }));
 
   const hasMore = tasks.length > limit;
   if (hasMore) tasks.pop();
   const lastItem = tasks[tasks.length - 1];
 
   return NextResponse.json({
-    data: tasks,
+    data,
     meta: { nextCursor: hasMore && lastItem ? lastItem.id : null, hasMore },
   });
 }
@@ -56,7 +65,7 @@ export async function POST(request: Request) {
   if (error) return error;
 
   const body = await request.json();
-  const { projectId, title, description, status, priority, dueDate, assigneeId } = body as Record<string, unknown>;
+  const { projectId, title, description, status, priority, dueDate, assigneeId, assigneeIds } = body as Record<string, unknown>;
 
   if (!projectId || !title) {
     return NextResponse.json(
@@ -84,7 +93,13 @@ export async function POST(request: Request) {
       status: (status as never) ?? "open",
       priority: (priority as never) ?? "med",
       dueDate: dueDate ? new Date(String(dueDate)) : null,
-      assigneeId: assigneeId ? String(assigneeId) : null,
+      assignees: {
+        create: Array.isArray(assigneeIds)
+          ? (assigneeIds as string[]).map((uid) => ({ userId: uid }))
+          : assigneeId
+            ? [{ userId: String(assigneeId) }]
+            : [],
+      },
       reporterId: userId,
       createdById: userId,
     },
