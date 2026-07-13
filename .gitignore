@@ -46,3 +46,6 @@ next-env.d.ts
 *.swp
 *.swo
 .grok/
+
+# MiMoCode skills (installed, not project code)
+.mimocode/skills/
