@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { cn } from "@/lib/cn";
 import { apiFetch } from "@/lib/api-fetch";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { TagPicker } from "@/components/tags/tag-picker";
+import { AssigneeSelect } from "@/components/task/assignee-select";
 
 type Member = { id: string; displayName: string; avatarUrl?: string | null };
 
@@ -60,10 +60,6 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
       active = false;
     };
   }, [projectId, initialMembers]);
-
-  function toggleAssignee(id: string) {
-    setAssigneeIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -191,26 +187,12 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
           {members.length === 0 ? (
             <p className="text-xs text-fg-muted">{t("noMembers")}</p>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {members.map((m) => {
-                const selected = assigneeIds.includes(m.id);
-                return (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => toggleAssignee(m.id)}
-                    className={cn(
-                      "px-2.5 py-1 rounded-full text-xs border transition-colors",
-                      selected
-                        ? "bg-accent/10 border-accent text-accent"
-                        : "border-border-primary text-fg-secondary hover:bg-bg-surface",
-                    )}
-                  >
-                    {m.displayName}
-                  </button>
-                );
-              })}
-            </div>
+            <AssigneeSelect
+              members={members}
+              value={assigneeIds}
+              onChange={setAssigneeIds}
+              placeholder={t("searchMembers")}
+            />
           )}
         </div>
       )}

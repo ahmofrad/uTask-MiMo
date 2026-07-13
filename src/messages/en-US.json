@@ -394,7 +394,9 @@
     "toggleAssign": "Assign to this task",
     "upload": "Upload",
     "backToProject": "Back to project",
-    "assigned": "Assigned"
+    "assigned": "Assigned",
+    "noMembers": "No members yet",
+    "searchMembers": "Search members to assign…"
   },
   "project": {
     "title": "Projects",

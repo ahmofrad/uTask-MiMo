@@ -394,7 +394,9 @@
     "toggleAssign": "تخصیص به این تسک",
     "upload": "بارگذاری",
     "backToProject": "بازگشت به پروژه",
-    "assigned": "محول‌شده"
+    "assigned": "محول‌شده",
+    "noMembers": "هنوز عضوی وجود ندارد",
+    "searchMembers": "جستجوی اعضا برای تخصیص…"
   },
   "project": {
     "title": "پروژه‌ها",

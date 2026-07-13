@@ -14,6 +14,7 @@ import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { CustomFieldInput } from "@/components/custom-field/custom-field-input";
 import { CommentThread } from "@/components/comment/comment-thread";
 import { ActivityTimeline } from "@/components/task/activity-timeline";
+import { AssigneeSelect } from "@/components/task/assignee-select";
 import type { ActivityEvent } from "@/lib/activity/types";
 import { Avatar } from "@/components/ui/avatar";
 import { apiFetch } from "@/lib/api-fetch";
@@ -497,32 +498,16 @@ export function TaskDetailPage({
           {/* Details card */}
           <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-4">
             <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.fields.assignees")}</h4>
-            <div className="flex flex-wrap gap-2">
-              {projectMembers.map((member) => {
-                const selected = task.assignees.some((a) => a.id === member.id);
-                return (
-                  <button
-                    key={member.id}
-                    type="button"
-                    onClick={() => {
-                      const next = selected
-                        ? task.assignees.filter((a) => a.id !== member.id)
-                        : [...task.assignees, member];
-                      setTask((prev) => ({ ...prev, assignees: next }));
-                      updateTask({ assigneeIds: next.map((a) => a.id) });
-                    }}
-                    className={cn(
-                      "px-2.5 py-1 rounded-full text-xs border transition-colors",
-                      selected
-                        ? "bg-accent/10 border-accent text-accent"
-                        : "border-border-primary text-fg-secondary hover:bg-bg-surface",
-                    )}
-                  >
-                    {member.displayName}
-                  </button>
-                );
-              })}
-            </div>
+            <AssigneeSelect
+              members={projectMembers}
+              value={task.assignees.map((a) => a.id)}
+              onChange={(ids) => {
+                const next = projectMembers.filter((m) => ids.includes(m.id));
+                setTask((prev) => ({ ...prev, assignees: next }));
+                updateTask({ assigneeIds: ids });
+              }}
+              placeholder={t("task.searchMembers")}
+            />
 
             {task.reporter && (
               <>
