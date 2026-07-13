@@ -1,0 +1,1 @@
+ALTER TYPE "SettingsScope" ADD VALUE IF NOT EXISTS 'org';

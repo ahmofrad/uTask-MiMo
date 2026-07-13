@@ -1,0 +1,27 @@
+{
+  "version": "5.22.0",
+  "steps": [
+    {
+      "tag": "CreateTable",
+      "table": "Account"
+    },
+    {
+      "tag": "CreateTable",
+      "table": "Session"
+    },
+    {
+      "tag": "CreateTable",
+      "table": "VerificationToken"
+    },
+    {
+      "tag": "AlterTable",
+      "table": "User",
+      "property": "emailVerified"
+    },
+    {
+      "tag": "AlterTable",
+      "table": "User",
+      "property": "image"
+    }
+  ]
+}
