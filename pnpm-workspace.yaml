@@ -11,6 +11,7 @@ allowBuilds:
   msgpackr-extract: true
   prisma: true
   protobufjs: true
+  sharp: true
   ssh2: true
   unrs-resolver: true
 minimumReleaseAgeExclude:

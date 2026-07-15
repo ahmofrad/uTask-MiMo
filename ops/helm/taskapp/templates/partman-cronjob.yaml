@@ -1,0 +1,45 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "taskapp.fullname" . }}-partman
+  labels:
+    {{- include "taskapp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: partman
+spec:
+  schedule: "0 */6 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: partman
+              image: "{{ .Values.postgres.image }}:{{ .Values.postgres.tag }}"
+              imagePullPolicy: IfNotPresent
+              command:
+                - psql
+                - -c
+                - "SELECT partman.run_maintenance()"
+              env:
+                - name: PGHOST
+                  value: {{ include "taskapp.fullname" . }}-postgres
+                - name: PGPORT
+                  value: "5432"
+                - name: PGDATABASE
+                  value: taskapp
+                - name: PGUSER
+                  value: taskapp
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "taskapp.fullname" . }}
+                      key: db-password
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "256Mi"
+{{- end }}

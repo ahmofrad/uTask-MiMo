@@ -44,6 +44,10 @@ postgres:
   storageSize: 200Gi
   storageClass: ssd
   version: "16"
+  image: taskapp-postgres
+  tag: "16-pg_partman"
+  imagePullPolicy: IfNotPresent
+  # Build the custom image with: docker build -t taskapp-postgres:16-pg_partman ops/docker/postgres/
 
 pgbouncer:
   enabled: true

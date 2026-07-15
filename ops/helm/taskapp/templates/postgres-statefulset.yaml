@@ -21,8 +21,8 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: postgres:{{ .Values.postgres.version }}-alpine
-          imagePullPolicy: IfNotPresent
+          image: "{{ .Values.postgres.image }}:{{ .Values.postgres.tag }}"
+          imagePullPolicy: {{ .Values.postgres.imagePullPolicy }}
           ports:
             - containerPort: 5432
               name: postgres
