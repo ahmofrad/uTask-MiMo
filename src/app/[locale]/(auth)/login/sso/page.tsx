@@ -12,6 +12,7 @@ export default async function SsoLoginPage() {
       </div>
 
       <div className="space-y-3">
+        {/* eslint-disable @next/next/no-html-link-for-pages */}
         <a
           href="/api/v1/auth/ldap/start"
           className="flex items-center gap-3 p-4 rounded-lg border border-border-primary bg-bg-primary hover:bg-bg-surface transition-colors"
@@ -41,6 +42,7 @@ export default async function SsoLoginPage() {
             <div className="text-xs text-fg-muted">{t("ssoSamlDesc")}</div>
           </div>
         </a>
+        {/* eslint-enable @next/next/no-html-link-for-pages */}
       </div>
 
       <div className="text-center">
