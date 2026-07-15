@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { getCommentById, updateComment, deleteComment } from "@/lib/comments";
 
@@ -8,22 +7,20 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "comment:create");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("comment:create");
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const comment = await getCommentById(params.id);
   if (!comment) {
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
-  if (comment.authorId !== session.user.id) {
+  if (comment.authorId !== userId) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
@@ -34,13 +31,13 @@ export async function PATCH(
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "bodyMarkdown is required" } }, { status: 400 });
   }
 
-  const result = await updateComment(params.id, session.user.id, { bodyMarkdown });
+  const result = await updateComment(params.id, userId, { bodyMarkdown });
 
   if (!result || "forbidden" in result) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  await logAudit({ actorUserId: session.user.id, action: "comment_updated", entityType: "comment", entityId: params.id, before: comment as never, after: result as never });
+  await logAudit({ actorUserId: userId, action: "comment_updated", entityType: "comment", entityId: params.id, before: comment as never, after: result as never });
 
   return NextResponse.json({ data: result });
 }
@@ -49,29 +46,27 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "comment:create");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("comment:create");
+  const guardResult = await guard(_request, { params });
+  if (guardResult) return guardResult;
 
   const comment = await getCommentById(params.id);
   if (!comment) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
-  if (comment.authorId !== session.user.id) {
+  if (comment.authorId !== userId) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  const result = await deleteComment(params.id, session.user.id);
+  const result = await deleteComment(params.id, userId);
 
   if (!result || "forbidden" in result) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  await logAudit({ actorUserId: session.user.id, action: "comment_deleted", entityType: "comment", entityId: params.id, before: comment as never });
+  await logAudit({ actorUserId: userId, action: "comment_deleted", entityType: "comment", entityId: params.id, before: comment as never });
 
   return NextResponse.json({ data: { success: true } });
 }

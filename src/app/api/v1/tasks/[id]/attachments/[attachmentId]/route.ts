@@ -1,24 +1,21 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { deleteAttachment } from "@/lib/attachments";
 
 export async function DELETE(
   _request: Request,
   { params }: { params: { id: string; attachmentId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "task:edit_any");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("task:edit_any");
+  const guardResult = await guard(_request, { params });
+  if (guardResult) return guardResult;
 
   try {
-    await deleteAttachment(params.attachmentId, params.id, session.user.id);
+    await deleteAttachment(params.attachmentId, params.id, userId);
     return NextResponse.json({ data: { success: true } });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

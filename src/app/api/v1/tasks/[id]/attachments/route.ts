@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { can, canProject } from "@/lib/rbac";
 import { getAttachmentsByTask, getPresignedUrl, createAttachment } from "@/lib/attachments";
 
@@ -17,17 +17,16 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   const { searchParams } = new URL(request.url);
   const presign = searchParams.get("presign") === "true";
   const attachmentId = searchParams.get("attachmentId");
 
   if (presign && attachmentId) {
-    if (!(await hasProjectAccess(session.user.id, params.id))) {
+    if (!(await hasProjectAccess(userId, params.id))) {
       return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
     }
 
@@ -38,7 +37,7 @@ export async function GET(
     return NextResponse.json({ data: { url } });
   }
 
-  if (!(await hasProjectAccess(session.user.id, params.id))) {
+  if (!(await hasProjectAccess(userId, params.id))) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
@@ -50,15 +49,13 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "task:edit_any");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("task:edit_any");
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const formData = await request.formData();
   const file = formData.get("file") as File | null;
@@ -79,7 +76,7 @@ export async function POST(
         size: file.size,
         buffer: Buffer.from(await file.arrayBuffer()),
       },
-      session.user.id,
+      userId,
     );
     return NextResponse.json({ data: attachment }, { status: 201 });
   } catch (err) {

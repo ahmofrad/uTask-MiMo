@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 
@@ -8,10 +7,8 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
 
   const tag = await prisma.tag.findUnique({
     where: { id: params.id },
@@ -29,15 +26,13 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "task:create");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("task:create");
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { name, color } = body as { name?: string; color?: string };
@@ -56,7 +51,7 @@ export async function PATCH(
   });
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "updated",
     entityType: "tag",
     entityId: params.id,
@@ -71,15 +66,13 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "task:create");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("task:create");
+  const guardResult = await guard(_request, { params });
+  if (guardResult) return guardResult;
 
   const tag = await prisma.tag.findUnique({ where: { id: params.id } });
   if (!tag) {
@@ -92,7 +85,7 @@ export async function DELETE(
   await prisma.tag.delete({ where: { id: params.id } });
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "deleted",
     entityType: "tag",
     entityId: params.id,

@@ -1,45 +1,32 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { getSettings, updateSettings } from "@/lib/settings";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
-      { status: 401 },
-    );
-  }
+  const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const map = await getSettings("user", session.user.id);
+  const map = await getSettings("user", userId);
 
   return NextResponse.json({ data: map });
 }
 
 export async function PATCH(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json(
-      { error: { code: "UNAUTHORIZED", message: "Authentication required" } },
-      { status: 401 },
-    );
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "settings:update");
-  if (!permitted) {
-    return NextResponse.json(
-      { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
-      { status: 403 },
-    );
-  }
+  const guard = requirePermission("settings:update");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const body = await request.json() as Record<string, unknown>;
 
-  await updateSettings("user", session.user.id, body);
+  await updateSettings("user", userId, body);
 
-  await logAudit({ actorUserId: session.user.id, action: "settings_updated", entityType: "settings", entityId: session.user.id, after: body as never });
+  await logAudit({ actorUserId: userId, action: "settings_updated", entityType: "settings", entityId: userId, after: body as never });
 
   return NextResponse.json({ data: { success: true } });
 }

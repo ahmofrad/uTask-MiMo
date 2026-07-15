@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 import { can, canProject } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
@@ -8,13 +8,12 @@ export async function DELETE(
   request: Request,
   { params }: { params: { projectId: string; userId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "user:manage") ||
-    await canProject(session.user.id, "project_role:assign", params.projectId);
+  const permitted = await can(userId, "user:manage") ||
+    await canProject(userId, "project_role:assign", params.projectId);
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
@@ -32,7 +31,7 @@ export async function DELETE(
   });
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "project_member_removed",
     entityType: "projectMember",
     entityId: `${params.projectId}:${params.userId}`,

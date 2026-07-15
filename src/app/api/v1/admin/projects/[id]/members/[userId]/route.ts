@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can, canProject } from "@/lib/rbac";
+import { requireAuth, requireAnyPermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 
@@ -8,17 +7,13 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string; userId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  // Must be admin globally or lead in this project
-  const permitted = await can(session.user.id, "user:manage") ||
-    await canProject(session.user.id, "project_role:assign", params.id);
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requireAnyPermission(["user:manage", "project_role:assign"]);
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { projectRole } = body as { projectRole?: string };
@@ -47,7 +42,7 @@ export async function PATCH(
   });
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "updated",
     entityType: "project_member",
     entityId: `${params.id}:${params.userId}`,

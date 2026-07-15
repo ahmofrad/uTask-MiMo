@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac/can";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { getOrgReport } from "@/lib/reports";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
 
-  if (!(await can(session.user.id, "org:reports"))) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("org:reports");
+  const guardResult = await guard(new Request("http://localhost"), { params: {} });
+  if (guardResult) return guardResult;
 
   const report = await getOrgReport();
 

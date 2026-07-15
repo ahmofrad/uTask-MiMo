@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -8,15 +7,13 @@ import { promisify } from "util";
 const execAsync = promisify(exec);
 
 export async function POST() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "user:manage");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("user:manage");
+  const guardResult = await guard(new Request("http://localhost"), { params: {} });
+  if (guardResult) return guardResult;
 
   const scriptPath = `${process.cwd()}/scripts/backup.sh`;
 
@@ -27,7 +24,7 @@ export async function POST() {
     });
 
     await logAudit({
-      actorUserId: session.user.id,
+      actorUserId: userId,
       action: "created",
       entityType: "backup",
       entityId: "manual",
@@ -41,7 +38,7 @@ export async function POST() {
     const message = err instanceof Error ? err.message : String(err);
 
     await logAudit({
-      actorUserId: session.user.id,
+      actorUserId: userId,
       action: "created",
       entityType: "backup",
       entityId: "manual",

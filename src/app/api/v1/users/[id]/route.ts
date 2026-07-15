@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { getUserById } from "@/lib/users";
 
@@ -9,10 +8,8 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
 
   const user = await getUserById(params.id);
 
@@ -30,16 +27,14 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  if (session.user.id !== params.id) {
-    const permitted = await can(session.user.id, "user:manage");
-    if (!permitted) {
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-    }
+  if (userId !== params.id) {
+    const guard = requirePermission("user:manage");
+    const guardResult = await guard(request, { params });
+    if (guardResult) return guardResult;
   }
 
   const body = await request.json();
@@ -60,7 +55,7 @@ export async function PATCH(
     select: { id: true, email: true, displayName: true, locale: true, accentColor: true, theme: true, density: true },
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "user_updated", entityType: "user", entityId: params.id, before: before as never, after: user as never });
+  await logAudit({ actorUserId: userId, action: "user_updated", entityType: "user", entityId: params.id, before: before as never, after: user as never });
 
   return NextResponse.json({ data: user });
 }
@@ -69,15 +64,13 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "user:manage");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("user:manage");
+  const guardResult = await guard(_request, { params });
+  if (guardResult) return guardResult;
 
   const before = await prisma.user.findUnique({ where: { id: params.id } });
 
@@ -86,7 +79,7 @@ export async function DELETE(
     data: { status: "suspended" },
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "user_suspended", entityType: "user", entityId: params.id, before: before as never });
+  await logAudit({ actorUserId: userId, action: "user_suspended", entityType: "user", entityId: params.id, before: before as never });
 
   return NextResponse.json({ data: { success: true } });
 }

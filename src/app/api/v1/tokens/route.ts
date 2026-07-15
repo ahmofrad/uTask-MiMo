@@ -1,17 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { createApiToken } from "@/lib/api-token";
 import { logAudit } from "@/lib/audit/log";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   const tokens = await prisma.apiToken.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     select: {
       id: true, name: true, prefix: true, scopes: true,
       expiresAt: true, lastUsedAt: true, createdAt: true, revokedAt: true,
@@ -23,10 +22,9 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   const body = await request.json();
   const { name, scopes, expiresAt } = body as { name?: string; scopes?: string[]; expiresAt?: string | null };
@@ -39,14 +37,14 @@ export async function POST(request: Request) {
   }
 
   const { raw, prefix, id } = await createApiToken({
-    userId: session.user.id,
+    userId,
     name,
     scopes,
     expiresAt: expiresAt ? new Date(expiresAt) : null,
   });
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "api_token_created",
     entityType: "api_token",
     entityId: id,

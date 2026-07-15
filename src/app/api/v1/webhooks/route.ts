@@ -1,22 +1,18 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { randomHex } from "@/lib/crypto";
 import { encrypt } from "@/lib/crypto/encrypt";
 import { validateWebhookUrl } from "@/lib/webhook";
 import { logAudit } from "@/lib/audit/log";
 
-export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+export async function GET(request: Request) {
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
 
-  const permitted = await can(session.user.id, "webhook:manage");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("webhook:manage");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const webhooks = await prisma.webhook.findMany({
     where: { deletedAt: null },
@@ -28,15 +24,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "webhook:manage");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("webhook:manage");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { name, url, events } = body as { name?: string; url?: string; events?: string[] };
@@ -61,12 +55,12 @@ export async function POST(request: Request) {
       url,
       secret: `${iv}:${ciphertext}:${tag}`,
       events,
-      createdById: session.user.id,
+      createdById: userId,
     },
   });
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "webhook_created",
     entityType: "webhook",
     entityId: webhook.id,

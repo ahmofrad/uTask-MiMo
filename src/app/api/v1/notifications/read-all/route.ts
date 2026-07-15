@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 
 export async function POST() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   const { markAllAsRead } = await import("@/lib/notifications");
-  await markAllAsRead(session.user.id);
+  await markAllAsRead(userId);
 
   return NextResponse.json({ data: { success: true } });
 }

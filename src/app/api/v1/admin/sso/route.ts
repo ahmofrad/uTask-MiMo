@@ -1,20 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { updateSettings, getSettings } from "@/lib/settings";
 import { logAudit } from "@/lib/audit/log";
 import { encrypt } from "@/lib/crypto/encrypt";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
 
-  const permitted = await can(session.user.id, "sso:configure");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("sso:configure");
+  const guardResult = await guard(new Request("http://localhost"), { params: {} });
+  if (guardResult) return guardResult;
 
   const allSettings = await getSettings("install", null);
   const ldap = (allSettings.ldap ?? {}) as Record<string, unknown>;
@@ -24,15 +20,13 @@ export async function GET() {
 }
 
 export async function PATCH(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "sso:configure");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("sso:configure");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { ldap, saml } = body as { ldap?: Record<string, unknown>; saml?: Record<string, unknown> };
@@ -87,7 +81,7 @@ export async function PATCH(request: Request) {
   const afterSaml = (allAfter.saml ?? {}) as Record<string, unknown>;
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "updated",
     entityType: "settings",
     entityId: "sso",

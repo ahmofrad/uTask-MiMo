@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
-import { search } from "@/lib/search";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { search as searchFn } from "@/lib/search";
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
 
-  if (!await can(session.user.id, "task:create")) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("task:create");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
@@ -25,7 +22,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const results = await search({ query: q, type: type as "task" | "comment" | "project" | "custom_field" | "all", limit });
+  const results = await searchFn({ query: q, type: type as "task" | "comment" | "project" | "custom_field" | "all", limit });
 
   return NextResponse.json({ data: results });
 }

@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { listProjects, createProject } from "@/lib/projects";
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
 
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
@@ -28,15 +25,13 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Authentication required" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "project:create");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("project:create");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { name, description, color, departmentId, visibility } = body as Record<string, string>;
@@ -48,15 +43,15 @@ export async function POST(request: Request) {
   const project = await createProject({
     name,
     description: description ?? null,
-    ownerId: session.user.id,
+    ownerId: userId,
     departmentId: departmentId ?? null,
     ...(color ? { color } : {}),
     ...(visibility ? { visibility: visibility as never } : {}),
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "project_created", entityType: "project", entityId: project.id, after: project as never });
+  await logAudit({ actorUserId: userId, action: "project_created", entityType: "project", entityId: project.id, after: project as never });
 
-  await emitTaskEvent("project.created", project.id, { id: project.id, name: project.name }, session.user.id);
+  await emitTaskEvent("project.created", project.id, { id: project.id, name: project.name }, userId);
 
   return NextResponse.json({ data: project }, { status: 201 });
 }

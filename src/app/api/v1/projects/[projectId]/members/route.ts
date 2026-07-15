@@ -1,17 +1,14 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 
 export async function GET(
   _request: Request,
   { params }: { params: { projectId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
 
   const members = await prisma.projectMember.findMany({
     where: { projectId: params.projectId },
@@ -28,33 +25,31 @@ export async function POST(
   request: Request,
   { params }: { params: { projectId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "project_role:assign");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("project_role:assign");
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
-  const { userId, projectRole } = body as { userId?: string; projectRole?: string };
+  const { userId: targetUserId, projectRole } = body as { userId?: string; projectRole?: string };
 
-  if (!userId) {
+  if (!targetUserId) {
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "userId is required" } }, { status: 400 });
   }
 
   const member = await prisma.projectMember.create({
     data: {
       projectId: params.projectId,
-      userId,
+      userId: targetUserId,
       projectRole: (projectRole as never) ?? "contributor",
-      addedBy: session.user.id,
+      addedBy: userId,
     },
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "project_member_added", entityType: "projectMember", entityId: `${params.projectId}:${userId}`, after: member as never });
+  await logAudit({ actorUserId: userId, action: "project_member_added", entityType: "projectMember", entityId: `${params.projectId}:${targetUserId}`, after: member as never });
 
   return NextResponse.json({ data: member }, { status: 201 });
 }

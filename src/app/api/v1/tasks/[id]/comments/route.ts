@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 import { can, canProject } from "@/lib/rbac";
 import { getTaskById } from "@/lib/tasks";
 import { logAudit } from "@/lib/audit/log";
@@ -35,12 +35,11 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const access = await checkCommentAccess(session.user.id, params.id);
+  const access = await checkCommentAccess(userId, params.id);
   if (!access.allowed) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
@@ -55,12 +54,11 @@ export async function POST(
   { params }: { params: { id: string } },
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-    }
+    const authResult = await requireAuth(request, { params });
+    if (authResult instanceof NextResponse) return authResult;
+    const { userId } = authResult;
 
-    const access = await checkCommentAccess(session.user.id, params.id);
+    const access = await checkCommentAccess(userId, params.id);
     if (!access.allowed) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
     }
@@ -68,7 +66,7 @@ export async function POST(
     // Idempotency check
     const idempotencyKey = request.headers.get("idempotency-key");
     if (idempotencyKey) {
-      const cached = checkIdempotency(idempotencyKey);
+      const cached = await checkIdempotency(idempotencyKey);
       if (cached.hit) {
         return NextResponse.json(cached.response.body, { status: cached.response.status });
       }
@@ -86,24 +84,24 @@ export async function POST(
 
     const comment = await createComment({
       taskId: params.id,
-      authorId: session.user.id,
+      authorId: userId,
       bodyMarkdown,
       parentCommentId: parentCommentId ?? null,
     });
 
-    await logAudit({ actorUserId: session.user.id, action: "comment_created", entityType: "comment", entityId: comment.id, after: comment as never });
+    await logAudit({ actorUserId: userId, action: "comment_created", entityType: "comment", entityId: comment.id, after: comment as never });
 
     // Auto-watch on comment
-    await ensureWatcher(params.id, session.user.id);
+    await ensureWatcher(params.id, userId);
 
-    await emitTaskEvent("comment.created", params.id, { id: comment.id, taskId: params.id, bodyMarkdown: comment.bodyMarkdown }, session.user.id);
+    await emitTaskEvent("comment.created", params.id, { id: comment.id, taskId: params.id, bodyMarkdown: comment.bodyMarkdown }, userId);
 
     // In-app notifications: all task assignees + any mentioned users
     const task = await getTaskById(params.id);
     const taskTitle = task?.title ?? "";
     const assigneeIds = (task?.assignees ?? []).map((a) => a.userId);
     for (const aid of assigneeIds) {
-      if (aid !== session.user.id) {
+      if (aid !== userId) {
         await notify({
           userId: aid,
           type: "commented",
@@ -115,7 +113,7 @@ export async function POST(
     const mentions = parseMentions(bodyMarkdown);
     for (const m of mentions) {
       const uid = await resolveMentionTarget(m);
-      if (uid && uid !== session.user.id && !assigneeIds.includes(uid)) {
+      if (uid && uid !== userId && !assigneeIds.includes(uid)) {
         await notify({
           userId: uid,
           type: "mentioned",
@@ -128,7 +126,7 @@ export async function POST(
     const responseBody = { data: comment };
 
     if (idempotencyKey) {
-      setIdempotencyResult(idempotencyKey, 201, responseBody);
+      await setIdempotencyResult(idempotencyKey, 201, responseBody);
     }
 
     return NextResponse.json(responseBody, { status: 201 });

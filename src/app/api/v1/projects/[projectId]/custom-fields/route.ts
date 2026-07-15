@@ -1,18 +1,15 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { CreateCustomFieldSchema } from "@/lib/custom-fields/schemas";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 
 export async function GET(
   _request: Request,
   { params }: { params: { projectId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
 
   const fields = await prisma.customField.findMany({
     where: { projectId: params.projectId, archivedAt: null },
@@ -26,15 +23,13 @@ export async function POST(
   request: Request,
   { params }: { params: { projectId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "custom_field:define");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("custom_field:define");
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const parsed = CreateCustomFieldSchema.safeParse(body);
@@ -74,7 +69,7 @@ export async function POST(
     },
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "custom_field_created", entityType: "customField", entityId: field.id, after: field as never });
+  await logAudit({ actorUserId: userId, action: "custom_field_created", entityType: "customField", entityId: field.id, after: field as never });
 
   return NextResponse.json({ data: field }, { status: 201 });
 }

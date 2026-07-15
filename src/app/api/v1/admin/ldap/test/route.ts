@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { normalizeLdapConfig, testLdapConnection } from "@/lib/auth/providers/ldap";
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
-  const permitted = await can(session.user.id, "sso:configure");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+
+  const guard = requirePermission("sso:configure");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const body = await request.json().catch(() => ({}));
   const ldap = (body as { ldap?: Record<string, unknown> }).ldap;

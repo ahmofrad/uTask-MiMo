@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { listDepartments, createDepartment } from "@/lib/departments";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
 
-  const permitted = await can(session.user.id, "org:settings");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("org:settings");
+  const guardResult = await guard(new Request("http://localhost"), { params: {} });
+  if (guardResult) return guardResult;
 
   const departments = await listDepartments();
 
@@ -21,15 +17,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "org:settings");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("org:settings");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { name, parentId, managerUserId } = body as {
@@ -51,7 +45,7 @@ export async function POST(request: Request) {
     ...(managerUserId !== undefined ? { managerUserId } : {}),
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "department_created", entityType: "department", entityId: department.id, after: department as never });
+  await logAudit({ actorUserId: userId, action: "department_created", entityType: "department", entityId: department.id, after: department as never });
 
   return NextResponse.json({ data: department }, { status: 201 });
 }

@@ -1,23 +1,20 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { UpdateCustomFieldSchema } from "@/lib/custom-fields/schemas";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 
 export async function PATCH(
   request: Request,
   { params }: { params: { projectId: string; fieldId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "custom_field:define");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("custom_field:define");
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const parsed = UpdateCustomFieldSchema.safeParse(body);
@@ -35,7 +32,7 @@ export async function PATCH(
     data: parsed.data as never,
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "custom_field_updated", entityType: "customField", entityId: params.fieldId, before: before as never, after: field as never });
+  await logAudit({ actorUserId: userId, action: "custom_field_updated", entityType: "customField", entityId: params.fieldId, before: before as never, after: field as never });
 
   return NextResponse.json({ data: field });
 }
@@ -44,15 +41,13 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { projectId: string; fieldId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "custom_field:define");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("custom_field:define");
+  const guardResult = await guard(_request, { params });
+  if (guardResult) return guardResult;
 
   const before = await prisma.customField.findUnique({ where: { id: params.fieldId } });
 
@@ -61,7 +56,7 @@ export async function DELETE(
     data: { archivedAt: new Date() },
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "custom_field_archived", entityType: "customField", entityId: params.fieldId, before: before as never });
+  await logAudit({ actorUserId: userId, action: "custom_field_archived", entityType: "customField", entityId: params.fieldId, before: before as never });
 
   return NextResponse.json({ data: { success: true } });
 }

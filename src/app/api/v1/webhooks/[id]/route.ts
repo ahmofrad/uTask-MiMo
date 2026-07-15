@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac/can";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { validateWebhookUrl } from "@/lib/webhook";
@@ -9,10 +8,13 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id || !(await can(session.user.id, "webhook:manage"))) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
+
+  const guard = requirePermission("webhook:manage");
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { name, url, events, active } = body as Record<string, unknown>;
@@ -34,7 +36,7 @@ export async function PATCH(
   });
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "webhook_updated",
     entityType: "webhook",
     entityId: params.id,
@@ -49,10 +51,13 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id || !(await can(session.user.id, "webhook:manage"))) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
+
+  const guard = requirePermission("webhook:manage");
+  const guardResult = await guard(_request, { params });
+  if (guardResult) return guardResult;
 
   await prisma.webhook.update({
     where: { id: params.id },
@@ -60,7 +65,7 @@ export async function DELETE(
   });
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "webhook_deleted",
     entityType: "webhook",
     entityId: params.id,

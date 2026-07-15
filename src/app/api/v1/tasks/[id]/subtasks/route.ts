@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac/can";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
@@ -10,10 +9,8 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
 
   const subtasks = await prisma.task.findMany({
     where: { parentTaskId: params.id, deletedAt: null },
@@ -36,15 +33,13 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "task:edit_any");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("task:edit_any");
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { title } = body as { title?: string };
@@ -68,21 +63,22 @@ export async function POST(
       parentTaskId: params.id,
       status: "open",
       priority: "med",
-      reporterId: session.user.id,
-      createdById: session.user.id,
+      reporterId: userId,
+      createdById: userId,
       orderIndex: 0,
     },
   });
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "created",
     entityType: "task",
     entityId: subtask.id,
     after: { title: subtask.title, parentTaskId: params.id },
   });
 
-  await emitTaskEvent("subtask.created", subtask.id, { id: subtask.id, title: subtask.title, parentTaskId: params.id }, session.user.id);
+  await emitTaskEvent("subtask.created", subtask.id, { id: subtask.id, title: subtask.title, parentTaskId: params.id }, userId);
 
   return NextResponse.json({ data: subtask }, { status: 201 });
 }
+

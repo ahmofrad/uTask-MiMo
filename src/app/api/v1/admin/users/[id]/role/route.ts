@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 
@@ -8,15 +7,13 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "user:manage");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const guard = requirePermission("user:manage");
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { role } = body as { role?: string };
@@ -50,13 +47,13 @@ export async function PATCH(
         type: role as never,
         scopeType: "global",
         scopeId: null,
-        grantedBy: session.user.id,
+        grantedBy: userId,
       },
     });
   }
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "updated",
     entityType: "user",
     entityId: params.id,

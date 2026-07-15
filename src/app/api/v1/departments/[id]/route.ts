@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { getDepartmentById, updateDepartment, deleteDepartment } from "@/lib/departments";
 
@@ -8,15 +7,12 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
 
-  const permitted = await can(session.user.id, "org:settings");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("org:settings");
+  const guardResult = await guard(_request, { params });
+  if (guardResult) return guardResult;
 
   const department = await getDepartmentById(params.id);
 
@@ -34,15 +30,13 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "org:settings");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("org:settings");
+  const guardResult = await guard(request, { params });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { name, parentId, managerUserId } = body as Record<string, unknown>;
@@ -55,7 +49,7 @@ export async function PATCH(
     ...(managerUserId !== undefined ? { managerUserId: managerUserId as string | null } : {}),
   });
 
-  await logAudit({ actorUserId: session.user.id, action: "department_updated", entityType: "department", entityId: params.id, before: before as never, after: department as never });
+  await logAudit({ actorUserId: userId, action: "department_updated", entityType: "department", entityId: params.id, before: before as never, after: department as never });
 
   return NextResponse.json({ data: department });
 }
@@ -64,21 +58,19 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "org:settings");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("org:settings");
+  const guardResult = await guard(_request, { params });
+  if (guardResult) return guardResult;
 
   const before = await getDepartmentById(params.id);
 
   await deleteDepartment(params.id);
 
-  await logAudit({ actorUserId: session.user.id, action: "department_deleted", entityType: "department", entityId: params.id, before: before as never });
+  await logAudit({ actorUserId: userId, action: "department_deleted", entityType: "department", entityId: params.id, before: before as never });
 
   return NextResponse.json({ data: { success: true } });
 }

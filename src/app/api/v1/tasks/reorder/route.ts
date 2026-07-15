@@ -1,20 +1,17 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { reorderTasks } from "@/lib/tasks";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "task:edit_any");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("task:edit_any");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const body = await request.json();
   const { projectId, taskIds } = body as { projectId?: string; taskIds?: string[] };
@@ -28,9 +25,9 @@ export async function POST(request: Request) {
 
   await reorderTasks(projectId, taskIds);
 
-  await logAudit({ actorUserId: session.user.id, action: "task_reordered", entityType: "task", entityId: projectId, after: { projectId, taskIds } as never });
+  await logAudit({ actorUserId: userId, action: "task_reordered", entityType: "task", entityId: projectId, after: { projectId, taskIds } as never });
 
-  await emitTaskEvent("tasks.reordered", projectId, { projectId, taskIds }, session.user.id);
+  await emitTaskEvent("tasks.reordered", projectId, { projectId, taskIds }, userId);
 
   return NextResponse.json({ data: { success: true } });
 }

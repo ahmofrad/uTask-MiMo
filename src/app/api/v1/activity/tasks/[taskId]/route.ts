@@ -1,21 +1,20 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 import { getTaskActivity } from "@/lib/activity";
 
 export async function GET(
   request: Request,
   { params }: { params: { taskId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   const { searchParams } = new URL(request.url);
   const cursorParam = searchParams.get("cursor");
   const limitParam = searchParams.get("limit");
 
-  const result = await getTaskActivity(params.taskId, session.user.id, {
+  const result = await getTaskActivity(params.taskId, userId, {
     ...(cursorParam ? { cursor: cursorParam } : {}),
     ...(limitParam ? { limit: parseInt(limitParam, 10) } : {}),
   });

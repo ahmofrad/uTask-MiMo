@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 
@@ -8,14 +7,13 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
-  const permitted = await can(session.user.id, "sso:configure");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
+
+  const guard = requirePermission("sso:configure");
+  const guardResult = await guard(_request, { params });
+  if (guardResult) return guardResult;
 
   const group = await prisma.ldapSyncGroup.findUnique({ where: { id: params.id } });
   if (!group) {
@@ -31,7 +29,7 @@ export async function DELETE(
   await prisma.ldapSyncGroup.delete({ where: { id: params.id } });
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "ldap_group_removed",
     entityType: "ldapgroup",
     entityId: group.id,

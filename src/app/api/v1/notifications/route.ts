@@ -1,19 +1,18 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
 
   const notifications = await prisma.notification.findMany({
-    where: { userId: session.user.id },
+    where: { userId },
     orderBy: { createdAt: "desc" },
     take: limit + 1,
     skip: cursor ? 1 : 0,

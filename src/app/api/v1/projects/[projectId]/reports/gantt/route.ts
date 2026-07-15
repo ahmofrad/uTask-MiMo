@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 import { canProject } from "@/lib/rbac";
 import { getWbsForProject } from "@/lib/tasks";
 import { computeSchedule } from "@/lib/scheduling/cpm";
@@ -9,11 +9,10 @@ export async function GET(
   request: Request,
   { params }: { params: { projectId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
+
   const permitted =
     (await canProject(userId, "task:edit_any", params.projectId)) ||
     (await canProject(userId, "task:edit_own", params.projectId)) ||

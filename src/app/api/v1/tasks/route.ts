@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 import { can, canProject } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
+import { emitToProject } from "@/lib/realtime/server";
 import { listTasks, createTask } from "@/lib/tasks";
 import { WbsGuardError } from "@/lib/tasks/wbs";
 import { mapAssignees } from "@/lib/tasks/serialize";
@@ -11,12 +12,10 @@ import { checkIdempotency, setIdempotencyResult, acquirePending, releasePending 
 import type { ListTasksParams, CreateTaskData } from "@/lib/tasks";
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const userId = session.user.id;
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
@@ -64,19 +63,18 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   // Idempotency check
   const idempotencyKey = request.headers.get("idempotency-key");
   if (idempotencyKey) {
-    const cached = checkIdempotency(idempotencyKey);
+    const cached = await checkIdempotency(idempotencyKey);
     if (cached.hit) {
       return NextResponse.json(cached.response.body, { status: cached.response.status });
     }
-    if (!acquirePending(idempotencyKey)) {
+    if (!(await acquirePending(idempotencyKey))) {
       return NextResponse.json(
         { error: { code: "CONFLICT", message: "Request already in progress" } },
         { status: 409 },
@@ -100,7 +98,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const projectPermitted = await canProject(session.user.id, "task:create", String(projectId));
+    const projectPermitted = await canProject(userId, "task:create", String(projectId));
     if (!projectPermitted) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient project permissions" } }, { status: 403 });
     }
@@ -108,8 +106,8 @@ export async function POST(request: Request) {
     const data: CreateTaskData = {
       projectId: String(projectId),
       title: String(title),
-      reporterId: session.user.id,
-      createdById: session.user.id,
+      reporterId: userId,
+      createdById: userId,
     };
     if (description) data.description = String(description);
     if (parentTaskId) data.parentTaskId = String(parentTaskId);
@@ -141,18 +139,19 @@ export async function POST(request: Request) {
       throw err;
     }
 
-    await logAudit({ actorUserId: session.user.id, action: "task_created", entityType: "task", entityId: task.id, after: task as never });
+    await logAudit({ actorUserId: userId, action: "task_created", entityType: "task", entityId: task.id, after: task as never });
 
-    await emitTaskEvent("task.created", task.id, { id: task.id, title: task.title, projectId: task.projectId }, session.user.id);
+    await emitTaskEvent("task.created", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
+    emitToProject(task.projectId, "task.created", { id: task.id, title: task.title, projectId: task.projectId });
 
     const responseBody = { data: task };
 
     if (idempotencyKey) {
-      setIdempotencyResult(idempotencyKey, 201, responseBody);
+      await setIdempotencyResult(idempotencyKey, 201, responseBody);
     }
 
     return NextResponse.json(responseBody, { status: 201 });
   } finally {
-    if (idempotencyKey) releasePending(idempotencyKey);
+    if (idempotencyKey) await releasePending(idempotencyKey);
   }
 }

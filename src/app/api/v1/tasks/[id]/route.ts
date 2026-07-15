@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 import { can, canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
+import { emitToProject, emitToTask } from "@/lib/realtime/server";
 import { getTaskById, updateTask, deleteTask, DependencyBlockedError } from "@/lib/tasks";
 import { mapAssignees } from "@/lib/tasks/serialize";
 import { getCustomFieldValuesForTask as getFieldValues } from "@/lib/custom-fields/values";
@@ -12,10 +13,9 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   const task = await getTaskById(params.id);
 
@@ -23,8 +23,6 @@ export async function GET(
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, { status: 404 });
   }
 
-  // Verify user has access to this task's project
-  const userId = session.user.id;
   const hasAccess =
     await can(userId, "task:edit_any") ||
     await canProject(userId, "task:edit_any", task.projectId) ||
@@ -54,12 +52,10 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const userId = session.user.id;
   if (!await checkTaskPermission(userId, params.id)) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
@@ -110,6 +106,8 @@ export async function PATCH(
   await logAudit({ actorUserId: userId, action: "task_updated", entityType: "task", entityId: task.id, before: before as never, after: task as never });
 
   await emitTaskEvent("task.updated", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
+  emitToProject(task.projectId, "task.updated", { id: task.id, title: task.title, projectId: task.projectId });
+  emitToTask(task.id, "task.updated", { id: task.id, title: task.title, projectId: task.projectId });
 
   // Include custom field values in response so client can update immediately
   const customFieldValues = await getFieldValues(params.id);
@@ -124,12 +122,10 @@ export async function DELETE(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const userId = session.user.id;
   if (!await checkTaskPermission(userId, params.id)) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
@@ -139,6 +135,9 @@ export async function DELETE(
   await logAudit({ actorUserId: userId, action: "task_deleted", entityType: "task", entityId: params.id, before: before as never });
 
   await emitTaskEvent("task.deleted", params.id, { id: params.id }, userId);
+  if (before?.projectId) {
+    emitToProject(before.projectId, "task.deleted", { id: params.id, projectId: before.projectId });
+  }
 
   return NextResponse.json({ data: { success: true } });
 }

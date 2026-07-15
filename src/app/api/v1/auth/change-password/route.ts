@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 import { changePassword } from "@/lib/users";
 
 const schema = z
@@ -15,10 +15,9 @@ const schema = z
   });
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   let body: unknown;
   try {
@@ -34,7 +33,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    await changePassword(session.user.id!, parsed.data.currentPassword, parsed.data.newPassword);
+    await changePassword(userId, parsed.data.currentPassword, parsed.data.newPassword);
   } catch (err) {
     const code = err instanceof Error ? err.message : "UNKNOWN";
     if (code === "USER_NOT_FOUND") {

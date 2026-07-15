@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac/can";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id || !(await can(session.user.id, "webhook:manage"))) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+
+  const guard = requirePermission("webhook:manage");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const { searchParams } = new URL(request.url);
   const webhookId = searchParams.get("webhookId");

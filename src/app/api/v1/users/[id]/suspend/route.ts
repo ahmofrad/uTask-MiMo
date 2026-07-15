@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { suspendUser, restoreUser } from "@/lib/users";
 
@@ -9,15 +8,13 @@ export async function POST(
   _request: Request,
   { params }: { params: { id: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
-  const permitted = await can(session.user.id, "user:manage");
-  if (!permitted) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
-  }
+  const guard = requirePermission("user:manage");
+  const guardResult = await guard(_request, { params });
+  if (guardResult) return guardResult;
 
   const user = await prisma.user.findUnique({ where: { id: params.id } });
   if (!user) {
@@ -35,7 +32,7 @@ export async function POST(
     await restoreUser(params.id);
   }
 
-  await logAudit({ actorUserId: session.user.id, action: newStatus === "suspended" ? "user_suspended" : "user_unsuspended", entityType: "user", entityId: params.id, before: user as never });
+  await logAudit({ actorUserId: userId, action: newStatus === "suspended" ? "user_suspended" : "user_unsuspended", entityType: "user", entityId: params.id, before: user as never });
 
   return NextResponse.json({
     data: { id: user.id, status: newStatus },

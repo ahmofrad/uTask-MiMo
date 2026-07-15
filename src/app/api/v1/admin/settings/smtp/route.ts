@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
-import { can } from "@/lib/rbac/can";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { getSettings, updateSettings } from "@/lib/settings";
 import { logAudit } from "@/lib/audit/log";
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id || !(await can(session.user.id, "org:settings"))) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+
+  const guard = requirePermission("org:settings");
+  const guardResult = await guard(new Request("http://localhost"), { params: {} });
+  if (guardResult) return guardResult;
 
   const allSettings = await getSettings("install", null);
   const smtp = (allSettings.smtp ?? {}) as Record<string, unknown>;
@@ -25,10 +26,13 @@ export async function GET() {
 }
 
 export async function PUT(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id || !(await can(session.user.id, "org:settings"))) {
-    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
-  }
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
+
+  const guard = requirePermission("org:settings");
+  const guardResult = await guard(request, { params: {} });
+  if (guardResult) return guardResult;
 
   const body = (await request.json()) as Record<string, unknown>;
 
@@ -47,7 +51,7 @@ export async function PUT(request: Request) {
   }
 
   await logAudit({
-    actorUserId: session.user.id,
+    actorUserId: userId,
     action: "updated",
     entityType: "settings",
     entityId: "smtp",

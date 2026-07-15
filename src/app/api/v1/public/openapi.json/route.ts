@@ -1,6 +1,6 @@
-import { generateSpec } from "@/lib/openapi/spec";
+import { generateOpenApiSpec } from "@/lib/openapi/generator";
 
 export async function GET() {
-  const spec = generateSpec();
+  const spec = generateOpenApiSpec();
   return Response.json(spec);
 }

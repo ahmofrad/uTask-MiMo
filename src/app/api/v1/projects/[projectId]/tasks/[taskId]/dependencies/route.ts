@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth/config";
+import { requireAuth } from "@/lib/rbac/middleware";
 import { canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { addDependency, listDependencies, DependencyError, type DependencyTypeValue } from "@/lib/tasks";
@@ -8,11 +8,10 @@ export async function GET(
   _request: Request,
   { params }: { params: { projectId: string; taskId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const authResult = await requireAuth(_request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
+
   const permitted =
     (await canProject(userId, "task:edit_any", params.projectId)) ||
     (await canProject(userId, "task:edit_own", params.projectId)) ||
@@ -29,11 +28,10 @@ export async function POST(
   request: Request,
   { params }: { params: { projectId: string; taskId: string } },
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: { code: "UNAUTHORIZED" } }, { status: 401 });
-  }
-  const userId = session.user.id;
+  const authResult = await requireAuth(request, { params });
+  if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
+
   const permitted = await canProject(userId, "task:edit_any", params.projectId);
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
