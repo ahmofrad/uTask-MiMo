@@ -3,6 +3,7 @@ interface EndpointEntry {
   path: string;
   summary: string;
   security: string[];
+  responseSchema?: string;
   parameters?: Array<{
     name: string;
     in: string;
@@ -19,6 +20,7 @@ const endpoints: EndpointEntry[] = [
     path: "/tasks",
     summary: "List tasks",
     security: ["tasks:read"],
+    responseSchema: "Task",
     parameters: [
       { name: "cursor", in: "query", schema: { type: "string" } },
       { name: "limit", in: "query", schema: { type: "integer" } },

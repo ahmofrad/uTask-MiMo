@@ -2,7 +2,10 @@ import { PrismaClient } from "@prisma/client";
 import { logger } from "@/lib/logging";
 
 function createPrismaClient() {
+  const url = new URL(process.env.DATABASE_URL ?? "postgresql://localhost:5432/taskapp");
+  url.searchParams.set("statement_timeout", "30000");
   const client = new PrismaClient({
+    datasourceUrl: url.toString(),
     log: [
       { emit: "event", level: "query" },
       { emit: "event", level: "info" },

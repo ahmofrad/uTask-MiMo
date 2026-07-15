@@ -16,7 +16,8 @@ export async function applyRateLimit(
 
   // Extract client IP
   const forwardedFor = req.headers.get("x-forwarded-for");
-  const clientIp = forwardedFor?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
+  const realIp = req.headers.get("x-real-ip");
+  const clientIp = forwardedFor?.split(",")[0]?.trim() ?? realIp ?? "unknown";
 
   // Try token-based rate limit first (Bearer token from Authorization header)
   const authHeader = req.headers.get("authorization");

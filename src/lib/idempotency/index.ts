@@ -1,63 +1,57 @@
-type IdempotencyEntry = {
-  response: { status: number; body: unknown };
-  createdAt: number;
-};
+import { getRedis } from "@/lib/redis";
 
-const store = new Map<string, IdempotencyEntry>();
-const TTL_MS = 60 * 60 * 24; // 24 hours
-const MAX_STORE_SIZE = 50_000;
-const pending = new Set<string>();
+const IDEMPOTENCY_TTL = 86400; // 24 hours
 
-function evictOldest() {
-  let oldestKey: string | null = null;
-  let oldestTime = Infinity;
-  for (const [key, entry] of store) {
-    if (entry.createdAt < oldestTime) {
-      oldestTime = entry.createdAt;
-      oldestKey = key;
-    }
-  }
-  if (oldestKey) store.delete(oldestKey);
-}
-
-export function checkIdempotency(
+export async function checkIdempotency(
   key: string,
-): { hit: true; response: { status: number; body: unknown } } | { hit: false } {
-  const entry = store.get(key);
-  if (entry && Date.now() - entry.createdAt < TTL_MS) {
-    return { hit: true, response: entry.response };
+): Promise<{ hit: true; response: { status: number; body: unknown } } | { hit: false }> {
+  try {
+    const redis = await getRedis();
+    const raw = await redis.get(`idempotency:${key}`);
+    if (raw) {
+      const entry = JSON.parse(raw) as { status: number; body: unknown };
+      return { hit: true, response: { status: entry.status, body: entry.body } };
+    }
+  } catch {
+    // Redis unavailable — treat as miss
   }
-  if (entry) store.delete(key);
   return { hit: false };
 }
 
-export function setIdempotencyResult(
+export async function setIdempotencyResult(
   key: string,
   status: number,
   body: unknown,
-): void {
-  if (store.size >= MAX_STORE_SIZE) evictOldest();
-  store.set(key, { response: { status, body }, createdAt: Date.now() });
-  pending.delete(key);
+): Promise<void> {
+  try {
+    const redis = await getRedis();
+    const data = JSON.stringify({ status, body });
+    await redis.setex(`idempotency:${key}`, IDEMPOTENCY_TTL, data);
+    await redis.del(`idempotency-pending:${key}`);
+  } catch {
+    // Redis unavailable — silently skip
+  }
 }
 
-/** Returns true if this key is currently being processed (prevents duplicate concurrent writes). */
-export function acquirePending(key: string): boolean {
-  if (pending.has(key)) return false;
-  pending.add(key);
-  return true;
-}
-
-export function releasePending(key: string): void {
-  pending.delete(key);
-}
-
-// Cleanup stale entries every 10 minutes
-if (typeof setInterval !== "undefined") {
-  setInterval(() => {
-    const now = Date.now();
-    for (const [key, entry] of store) {
-      if (now - entry.createdAt > TTL_MS) store.delete(key);
+export async function acquirePending(key: string): Promise<boolean> {
+  try {
+    const redis = await getRedis();
+    const result = await redis.setnx(`idempotency-pending:${key}`, "1");
+    if (result === 1) {
+      await redis.expire(`idempotency-pending:${key}`, 30);
+      return true;
     }
-  }, 600_000);
+    return false;
+  } catch {
+    return true; // If Redis is down, allow the request through
+  }
+}
+
+export async function releasePending(key: string): Promise<void> {
+  try {
+    const redis = await getRedis();
+    await redis.del(`idempotency-pending:${key}`);
+  } catch {
+    // Best-effort
+  }
 }
