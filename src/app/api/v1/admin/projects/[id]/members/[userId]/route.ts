@@ -5,14 +5,15 @@ import { logAudit } from "@/lib/audit/log";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string; userId: string } },
+  { params }: { params: Promise<{ id: string; userId: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requireAnyPermission(["user:manage", "project_role:assign"]);
-  const guardResult = await guard(request, { params });
+  const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const body = await request.json();
@@ -27,7 +28,7 @@ export async function PATCH(
   }
 
   const membership = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId: params.id, userId: params.userId } },
+    where: { projectId_userId: { projectId: resolvedParams.id, userId: resolvedParams.userId } },
   });
 
   if (!membership) {
@@ -37,7 +38,7 @@ export async function PATCH(
   const oldRole = membership.projectRole;
 
   await prisma.projectMember.update({
-    where: { projectId_userId: { projectId: params.id, userId: params.userId } },
+    where: { projectId_userId: { projectId: resolvedParams.id, userId: resolvedParams.userId } },
     data: { projectRole: projectRole as never },
   });
 
@@ -45,7 +46,7 @@ export async function PATCH(
     actorUserId: userId,
     action: "updated",
     entityType: "project_member",
-    entityId: `${params.id}:${params.userId}`,
+    entityId: `${resolvedParams.id}:${resolvedParams.userId}`,
     before: { projectRole: oldRole },
     after: { projectRole },
   });

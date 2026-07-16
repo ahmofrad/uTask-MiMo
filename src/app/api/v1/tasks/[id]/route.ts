@@ -11,13 +11,14 @@ import type { UpdateTaskData } from "@/lib/tasks";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const task = await getTaskById(params.id);
+  const task = await getTaskById(resolvedParams.id);
 
   if (!task) {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, { status: 404 });
@@ -50,13 +51,14 @@ async function checkTaskPermission(userId: string, taskId: string): Promise<bool
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  if (!await checkTaskPermission(userId, params.id)) {
+  if (!await checkTaskPermission(userId, resolvedParams.id)) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
@@ -90,7 +92,7 @@ export async function PATCH(
   let before: Awaited<ReturnType<typeof updateTask>>["before"];
   let task: Awaited<ReturnType<typeof updateTask>>["task"];
   try {
-    const result = await updateTask(params.id, data, userId);
+    const result = await updateTask(resolvedParams.id, data, userId);
     before = result.before;
     task = result.task;
   } catch (err) {
@@ -110,33 +112,34 @@ export async function PATCH(
   emitToTask(task.id, "task.updated", { id: task.id, title: task.title, projectId: task.projectId });
 
   // Include custom field values in response so client can update immediately
-  const customFieldValues = await getFieldValues(params.id);
+  const customFieldValues = await getFieldValues(resolvedParams.id);
 
   const { logger } = await import("@/lib/logging");
-  logger.info({ taskId: params.id, customFieldValues, hasCustomFields: !!data.customFields }, "PATCH task with custom fields");
+  logger.info({ taskId: resolvedParams.id, customFieldValues, hasCustomFields: !!data.customFields }, "PATCH task with custom fields");
 
   return NextResponse.json({ data: { ...task, customFields: customFieldValues } });
 }
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  if (!await checkTaskPermission(userId, params.id)) {
+  if (!await checkTaskPermission(userId, resolvedParams.id)) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const { before } = await deleteTask(params.id);
+  const { before } = await deleteTask(resolvedParams.id);
 
-  await logAudit({ actorUserId: userId, action: "task_deleted", entityType: "task", entityId: params.id, before: before as never });
+  await logAudit({ actorUserId: userId, action: "task_deleted", entityType: "task", entityId: resolvedParams.id, before: before as never });
 
-  await emitTaskEvent("task.deleted", params.id, { id: params.id }, userId);
+  await emitTaskEvent("task.deleted", resolvedParams.id, { id: resolvedParams.id }, userId);
   if (before?.projectId) {
-    emitToProject(before.projectId, "task.deleted", { id: params.id, projectId: before.projectId });
+    emitToProject(before.projectId, "task.deleted", { id: resolvedParams.id, projectId: before.projectId });
   }
 
   return NextResponse.json({ data: { success: true } });

@@ -5,28 +5,29 @@ import { logAudit } from "@/lib/audit/log";
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("sso:configure");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const group = await prisma.ldapSyncGroup.findUnique({ where: { id: params.id } });
+  const group = await prisma.ldapSyncGroup.findUnique({ where: { id: resolvedParams.id } });
   if (!group) {
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
   // Mark the group's users as removed (do not delete them); they can no longer log in.
   const updated = await prisma.user.updateMany({
-    where: { ldapGroupId: params.id },
+    where: { ldapGroupId: resolvedParams.id },
     data: { status: "ldapGroupRemoved", ldapGroupId: null },
   });
 
-  await prisma.ldapSyncGroup.delete({ where: { id: params.id } });
+  await prisma.ldapSyncGroup.delete({ where: { id: resolvedParams.id } });
 
   await logAudit({
     actorUserId: userId,

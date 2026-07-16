@@ -5,13 +5,14 @@ import { logAudit } from "@/lib/audit/log";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { projectId: string } },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
 
   const members = await prisma.projectMember.findMany({
-    where: { projectId: params.projectId },
+    where: { projectId: resolvedParams.projectId },
     include: {
       user: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
     },
@@ -23,14 +24,15 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { projectId: string } },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("project_role:assign");
-  const guardResult = await guard(request, { params });
+  const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const body = await request.json();
@@ -42,14 +44,14 @@ export async function POST(
 
   const member = await prisma.projectMember.create({
     data: {
-      projectId: params.projectId,
+      projectId: resolvedParams.projectId,
       userId: targetUserId,
       projectRole: (projectRole as never) ?? "contributor",
       addedBy: userId,
     },
   });
 
-  await logAudit({ actorUserId: userId, action: "project_member_added", entityType: "projectMember", entityId: `${params.projectId}:${targetUserId}`, after: member as never });
+  await logAudit({ actorUserId: userId, action: "project_member_added", entityType: "projectMember", entityId: `${resolvedParams.projectId}:${targetUserId}`, after: member as never });
 
   return NextResponse.json({ data: member }, { status: 201 });
 }

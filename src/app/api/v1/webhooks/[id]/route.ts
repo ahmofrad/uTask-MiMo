@@ -6,14 +6,15 @@ import { validateWebhookUrl } from "@/lib/webhook";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("webhook:manage");
-  const guardResult = await guard(request, { params });
+  const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const body = await request.json();
@@ -31,7 +32,7 @@ export async function PATCH(
   if (active !== undefined) updateData.active = active;
 
   const webhook = await prisma.webhook.update({
-    where: { id: params.id },
+    where: { id: resolvedParams.id },
     data: updateData,
   });
 
@@ -39,7 +40,7 @@ export async function PATCH(
     actorUserId: userId,
     action: "webhook_updated",
     entityType: "webhook",
-    entityId: params.id,
+    entityId: resolvedParams.id,
     before: { name, url, events, active },
     after: updateData,
   });
@@ -49,18 +50,19 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("webhook:manage");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   await prisma.webhook.update({
-    where: { id: params.id },
+    where: { id: resolvedParams.id },
     data: { deletedAt: new Date() },
   });
 
@@ -68,7 +70,7 @@ export async function DELETE(
     actorUserId: userId,
     action: "webhook_deleted",
     entityType: "webhook",
-    entityId: params.id,
+    entityId: resolvedParams.id,
   });
 
   return NextResponse.json({ data: { success: true } });

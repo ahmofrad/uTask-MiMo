@@ -33,32 +33,34 @@ async function resolveMentionTarget(m: MentionMatch): Promise<string | null> {
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const access = await checkCommentAccess(userId, params.id);
+  const access = await checkCommentAccess(userId, resolvedParams.id);
   if (!access.allowed) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const comments = await getTaskComments(params.id);
+  const comments = await getTaskComments(resolvedParams.id);
 
   return NextResponse.json({ data: comments });
 }
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const resolvedParams = await params;
   try {
-    const authResult = await requireAuth(request, { params });
+    const authResult = await requireAuth(request, { params: resolvedParams });
     if (authResult instanceof NextResponse) return authResult;
     const { userId } = authResult;
 
-    const access = await checkCommentAccess(userId, params.id);
+    const access = await checkCommentAccess(userId, resolvedParams.id);
     if (!access.allowed) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
     }
@@ -83,7 +85,7 @@ export async function POST(
     }
 
     const comment = await createComment({
-      taskId: params.id,
+      taskId: resolvedParams.id,
       authorId: userId,
       bodyMarkdown,
       parentCommentId: parentCommentId ?? null,
@@ -92,12 +94,12 @@ export async function POST(
     await logAudit({ actorUserId: userId, action: "comment_created", entityType: "comment", entityId: comment.id, after: comment as never });
 
     // Auto-watch on comment
-    await ensureWatcher(params.id, userId);
+    await ensureWatcher(resolvedParams.id, userId);
 
-    await emitTaskEvent("comment.created", params.id, { id: comment.id, taskId: params.id, bodyMarkdown: comment.bodyMarkdown }, userId);
+    await emitTaskEvent("comment.created", resolvedParams.id, { id: comment.id, taskId: resolvedParams.id, bodyMarkdown: comment.bodyMarkdown }, userId);
 
     // In-app notifications: all task assignees + any mentioned users
-    const task = await getTaskById(params.id);
+    const task = await getTaskById(resolvedParams.id);
     const taskTitle = task?.title ?? "";
     const assigneeIds = (task?.assignees ?? []).map((a) => a.userId);
     for (const aid of assigneeIds) {
@@ -105,7 +107,7 @@ export async function POST(
         await notify({
           userId: aid,
           type: "commented",
-          taskId: params.id,
+          taskId: resolvedParams.id,
           payload: { taskTitle },
         });
       }
@@ -117,7 +119,7 @@ export async function POST(
         await notify({
           userId: uid,
           type: "mentioned",
-          taskId: params.id,
+          taskId: resolvedParams.id,
           payload: { taskTitle, by: comment.author.displayName },
         });
       }
@@ -131,7 +133,7 @@ export async function POST(
 
     return NextResponse.json(responseBody, { status: 201 });
   } catch (err) {
-    logger.error({ err, taskId: params.id }, "Failed to create comment");
+    logger.error({ err, taskId: resolvedParams.id }, "Failed to create comment");
     return NextResponse.json(
       { error: { code: "INTERNAL_ERROR", message: "Failed to create comment" } },
       { status: 500 },

@@ -4,13 +4,14 @@ import { prisma } from "@/lib/db";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const resolvedParams = await params;
   const { error } = await authenticatePublicApi(request, "projects:read");
   if (error) return error;
 
   const project = await prisma.project.findUnique({
-    where: { id: params.id },
+    where: { id: resolvedParams.id },
     select: {
       id: true, name: true, description: true, color: true, visibility: true,
       status: true, createdAt: true, updatedAt: true,

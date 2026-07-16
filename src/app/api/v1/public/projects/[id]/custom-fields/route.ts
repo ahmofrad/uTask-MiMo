@@ -4,13 +4,14 @@ import { prisma } from "@/lib/db";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const resolvedParams = await params;
   const { error } = await authenticatePublicApi(request, "projects:read");
   if (error) return error;
 
   const fields = await prisma.customField.findMany({
-    where: { projectId: params.id, archivedAt: null },
+    where: { projectId: resolvedParams.id, archivedAt: null },
     orderBy: { orderIndex: "asc" },
   });
 

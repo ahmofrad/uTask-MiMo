@@ -6,21 +6,20 @@ import { TagsManager } from "@/components/tags/tags-manager";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProjectTagsPage({
-  params,
-}: {
-  params: { projectId: string };
+export default async function ProjectTagsPage(props: {
+  params: Promise<{ projectId: string }>;
 }) {
+  const { projectId } = await props.params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const t = await getTranslations();
 
-  const project = await prisma.project.findUnique({ where: { id: params.projectId } });
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) notFound();
 
   const tags = await prisma.tag.findMany({
-    where: { projectId: params.projectId },
+    where: { projectId },
     orderBy: { name: "asc" },
     include: { _count: { select: { tasks: true } } },
   });
@@ -30,7 +29,7 @@ export default async function ProjectTagsPage({
       <h1 className="text-2xl font-bold text-fg-primary mb-6">
         {t("task.tags")} — {project.name}
       </h1>
-      <TagsManager projectId={params.projectId} initialTags={tags} />
+      <TagsManager projectId={projectId} initialTags={tags} />
     </div>
   );
 }

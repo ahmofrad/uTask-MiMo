@@ -1,10 +1,9 @@
 import { getTranslations } from "next-intl/server";
 
-export default async function InviteAcceptPage({
-  params,
-}: {
-  params: { token: string };
+export default async function InviteAcceptPage(props: {
+  params: Promise<{ token: string }>;
 }) {
+  const { token } = await props.params;
   const t = await getTranslations("auth.login");
 
   return (
@@ -16,7 +15,7 @@ export default async function InviteAcceptPage({
         </p>
       </div>
 
-      <form className="space-y-4" action={`/api/v1/auth/invite/${params.token}`} method="POST">
+      <form className="space-y-4" action={`/api/v1/auth/invite/${token}`} method="POST">
         <div>
           <label htmlFor="displayName" className="block text-sm font-medium text-fg-secondary mb-1">
             {t("inviteDisplayName")}

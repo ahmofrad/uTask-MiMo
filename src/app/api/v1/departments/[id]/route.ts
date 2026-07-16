@@ -5,16 +5,17 @@ import { getDepartmentById, updateDepartment, deleteDepartment } from "@/lib/dep
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
 
   const guard = requirePermission("org:settings");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const department = await getDepartmentById(params.id);
+  const department = await getDepartmentById(resolvedParams.id);
 
   if (!department) {
     return NextResponse.json(
@@ -28,49 +29,51 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("org:settings");
-  const guardResult = await guard(request, { params });
+  const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const body = await request.json();
   const { name, parentId, managerUserId } = body as Record<string, unknown>;
 
-  const before = await getDepartmentById(params.id);
+  const before = await getDepartmentById(resolvedParams.id);
 
-  const department = await updateDepartment(params.id, {
+  const department = await updateDepartment(resolvedParams.id, {
     ...(name !== undefined ? { name: name as string } : {}),
     ...(parentId !== undefined ? { parentId: parentId as string | null } : {}),
     ...(managerUserId !== undefined ? { managerUserId: managerUserId as string | null } : {}),
   });
 
-  await logAudit({ actorUserId: userId, action: "department_updated", entityType: "department", entityId: params.id, before: before as never, after: department as never });
+  await logAudit({ actorUserId: userId, action: "department_updated", entityType: "department", entityId: resolvedParams.id, before: before as never, after: department as never });
 
   return NextResponse.json({ data: department });
 }
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("org:settings");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const before = await getDepartmentById(params.id);
+  const before = await getDepartmentById(resolvedParams.id);
 
-  await deleteDepartment(params.id);
+  await deleteDepartment(resolvedParams.id);
 
-  await logAudit({ actorUserId: userId, action: "department_deleted", entityType: "department", entityId: params.id, before: before as never });
+  await logAudit({ actorUserId: userId, action: "department_deleted", entityType: "department", entityId: resolvedParams.id, before: before as never });
 
   return NextResponse.json({ data: { success: true } });
 }

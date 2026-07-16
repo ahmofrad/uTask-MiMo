@@ -5,14 +5,15 @@ import { emitTaskEvent } from "@/lib/webhook/emit";
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { taskId: string } },
+  { params }: { params: Promise<{ taskId: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(request, { params });
+  const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const { searchParams } = new URL(request.url);
@@ -22,8 +23,8 @@ export async function DELETE(
   }
 
   const { removeWatcher } = await import("@/lib/watchers");
-  await removeWatcher(params.taskId, targetUserId);
-  await logAudit({ actorUserId: userId, action: "watcher_removed", entityType: "watcher", entityId: params.taskId, after: { taskId: params.taskId, userId: targetUserId } as never });
-  await emitTaskEvent("watcher.removed", params.taskId, { taskId: params.taskId, userId: targetUserId }, userId);
+  await removeWatcher(resolvedParams.taskId, targetUserId);
+  await logAudit({ actorUserId: userId, action: "watcher_removed", entityType: "watcher", entityId: resolvedParams.taskId, after: { taskId: resolvedParams.taskId, userId: targetUserId } as never });
+  await emitTaskEvent("watcher.removed", resolvedParams.taskId, { taskId: resolvedParams.taskId, userId: targetUserId }, userId);
   return NextResponse.json({ data: { success: true } });
 }

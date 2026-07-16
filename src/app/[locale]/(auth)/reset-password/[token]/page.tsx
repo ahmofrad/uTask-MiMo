@@ -1,10 +1,9 @@
 import { getTranslations } from "next-intl/server";
 
-export default async function ResetPasswordPage({
-  params,
-}: {
-  params: { token: string };
+export default async function ResetPasswordPage(props: {
+  params: Promise<{ token: string }>;
 }) {
+  const { token } = await props.params;
   const t = await getTranslations("auth.login");
 
   return (
@@ -14,7 +13,7 @@ export default async function ResetPasswordPage({
       </div>
 
       <form className="space-y-4" action="/api/v1/auth/reset-password" method="POST">
-        <input type="hidden" name="token" value={params.token} />
+        <input type="hidden" name="token" value={token} />
 
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-fg-secondary mb-1">

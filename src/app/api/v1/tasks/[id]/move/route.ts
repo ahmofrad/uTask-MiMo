@@ -10,13 +10,14 @@ import { prisma } from "@/lib/db";
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const taskId = params.id;
+  const taskId = resolvedParams.id;
 
   const task = await prisma.task.findUnique({
     where: { id: taskId },

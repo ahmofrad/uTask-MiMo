@@ -6,17 +6,18 @@ import { suspendUser, restoreUser } from "@/lib/users";
 
 export async function POST(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("user:manage");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const user = await prisma.user.findUnique({ where: { id: params.id } });
+  const user = await prisma.user.findUnique({ where: { id: resolvedParams.id } });
   if (!user) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "User not found" } },
@@ -27,12 +28,12 @@ export async function POST(
   const newStatus = user.status === "suspended" ? "active" : "suspended";
 
   if (newStatus === "suspended") {
-    await suspendUser(params.id);
+    await suspendUser(resolvedParams.id);
   } else {
-    await restoreUser(params.id);
+    await restoreUser(resolvedParams.id);
   }
 
-  await logAudit({ actorUserId: userId, action: newStatus === "suspended" ? "user_suspended" : "user_unsuspended", entityType: "user", entityId: params.id, before: user as never });
+  await logAudit({ actorUserId: userId, action: newStatus === "suspended" ? "user_suspended" : "user_unsuspended", entityType: "user", entityId: resolvedParams.id, before: user as never });
 
   return NextResponse.json({
     data: { id: user.id, status: newStatus },

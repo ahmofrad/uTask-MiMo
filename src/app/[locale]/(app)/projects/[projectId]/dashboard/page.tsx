@@ -3,20 +3,21 @@ import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
 
-export default async function ProjectDashboardPage({ params }: { params: { projectId: string } }) {
+export default async function ProjectDashboardPage(props: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await props.params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const t = await getTranslations();
 
-  const project = await prisma.project.findUnique({ where: { id: params.projectId } });
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) notFound();
 
   const [totalTasks, openTasks, inProgressTasks, doneTasks] = await Promise.all([
-    prisma.task.count({ where: { projectId: params.projectId, deletedAt: null } }),
-    prisma.task.count({ where: { projectId: params.projectId, deletedAt: null, status: "open" } }),
-    prisma.task.count({ where: { projectId: params.projectId, deletedAt: null, status: "in_progress" } }),
-    prisma.task.count({ where: { projectId: params.projectId, deletedAt: null, status: "done" } }),
+    prisma.task.count({ where: { projectId: projectId, deletedAt: null } }),
+    prisma.task.count({ where: { projectId: projectId, deletedAt: null, status: "open" } }),
+    prisma.task.count({ where: { projectId: projectId, deletedAt: null, status: "in_progress" } }),
+    prisma.task.count({ where: { projectId: projectId, deletedAt: null, status: "done" } }),
   ]);
 
   const stats = [

@@ -7,13 +7,14 @@ import { mapAssignees } from "@/lib/tasks/serialize";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
 
   const subtasks = await prisma.task.findMany({
-    where: { parentTaskId: params.id, deletedAt: null },
+    where: { parentTaskId: resolvedParams.id, deletedAt: null },
     orderBy: { orderIndex: "asc" },
     select: {
       id: true,
@@ -31,14 +32,15 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(request, { params });
+  const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const body = await request.json();
@@ -51,7 +53,7 @@ export async function POST(
     );
   }
 
-  const parent = await prisma.task.findUnique({ where: { id: params.id } });
+  const parent = await prisma.task.findUnique({ where: { id: resolvedParams.id } });
   if (!parent) {
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
@@ -60,7 +62,7 @@ export async function POST(
     data: {
       title: title.trim(),
       projectId: parent.projectId,
-      parentTaskId: params.id,
+      parentTaskId: resolvedParams.id,
       status: "open",
       priority: "med",
       reporterId: userId,
@@ -74,10 +76,10 @@ export async function POST(
     action: "created",
     entityType: "task",
     entityId: subtask.id,
-    after: { title: subtask.title, parentTaskId: params.id },
+    after: { title: subtask.title, parentTaskId: resolvedParams.id },
   });
 
-  await emitTaskEvent("subtask.created", subtask.id, { id: subtask.id, title: subtask.title, parentTaskId: params.id }, userId);
+  await emitTaskEvent("subtask.created", subtask.id, { id: subtask.id, title: subtask.title, parentTaskId: resolvedParams.id }, userId);
 
   return NextResponse.json({ data: subtask }, { status: 201 });
 }

@@ -4,11 +4,10 @@ import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { ProjectDetailPage } from "@/components/project/project-detail-page";
 
-export default async function ProjectDetail({
-  params: { projectId },
-}: {
-  params: { projectId: string };
+export default async function ProjectDetail(props: {
+  params: Promise<{ projectId: string }>;
 }) {
+  const { projectId } = await props.params;
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) redirect("/login");

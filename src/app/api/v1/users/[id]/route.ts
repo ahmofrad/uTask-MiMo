@@ -6,12 +6,13 @@ import { getUserById } from "@/lib/users";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
 
-  const user = await getUserById(params.id);
+  const user = await getUserById(resolvedParams.id);
 
   if (!user) {
     return NextResponse.json(
@@ -25,15 +26,16 @@ export async function GET(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  if (userId !== params.id) {
+  if (userId !== resolvedParams.id) {
     const guard = requirePermission("user:manage");
-    const guardResult = await guard(request, { params });
+    const guardResult = await guard(request, { params: resolvedParams });
     if (guardResult) return guardResult;
   }
 
@@ -47,39 +49,40 @@ export async function PATCH(
   if (theme !== undefined) updateData.theme = theme;
   if (density !== undefined) updateData.density = density;
 
-  const before = await prisma.user.findUnique({ where: { id: params.id } });
+  const before = await prisma.user.findUnique({ where: { id: resolvedParams.id } });
 
   const user = await prisma.user.update({
-    where: { id: params.id },
+    where: { id: resolvedParams.id },
     data: updateData,
     select: { id: true, email: true, displayName: true, locale: true, accentColor: true, theme: true, density: true },
   });
 
-  await logAudit({ actorUserId: userId, action: "user_updated", entityType: "user", entityId: params.id, before: before as never, after: user as never });
+  await logAudit({ actorUserId: userId, action: "user_updated", entityType: "user", entityId: resolvedParams.id, before: before as never, after: user as never });
 
   return NextResponse.json({ data: user });
 }
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("user:manage");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const before = await prisma.user.findUnique({ where: { id: params.id } });
+  const before = await prisma.user.findUnique({ where: { id: resolvedParams.id } });
 
   await prisma.user.update({
-    where: { id: params.id },
+    where: { id: resolvedParams.id },
     data: { status: "suspended" },
   });
 
-  await logAudit({ actorUserId: userId, action: "user_suspended", entityType: "user", entityId: params.id, before: before as never });
+  await logAudit({ actorUserId: userId, action: "user_suspended", entityType: "user", entityId: resolvedParams.id, before: before as never });
 
   return NextResponse.json({ data: { success: true } });
 }

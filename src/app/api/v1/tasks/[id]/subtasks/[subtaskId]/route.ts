@@ -6,14 +6,15 @@ import { emitTaskEvent } from "@/lib/webhook/emit";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string; subtaskId: string } },
+  { params }: { params: Promise<{ id: string; subtaskId: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(request, { params });
+  const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const body = await request.json();
@@ -26,7 +27,7 @@ export async function PATCH(
     );
   }
 
-  const before = await prisma.task.findUnique({ where: { id: params.subtaskId } });
+  const before = await prisma.task.findUnique({ where: { id: resolvedParams.subtaskId } });
 
   const updateData: Record<string, unknown> = {};
   if (status) updateData.status = status;
@@ -34,7 +35,7 @@ export async function PATCH(
   if (status === "done") updateData.completedAt = new Date();
 
   const subtask = await prisma.task.update({
-    where: { id: params.subtaskId, parentTaskId: params.id },
+    where: { id: resolvedParams.subtaskId, parentTaskId: resolvedParams.id },
     data: updateData,
   });
 
@@ -54,20 +55,21 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string; subtaskId: string } },
+  { params }: { params: Promise<{ id: string; subtaskId: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const before = await prisma.task.findUnique({ where: { id: params.subtaskId } });
+  const before = await prisma.task.findUnique({ where: { id: resolvedParams.subtaskId } });
 
   await prisma.task.update({
-    where: { id: params.subtaskId, parentTaskId: params.id },
+    where: { id: resolvedParams.subtaskId, parentTaskId: resolvedParams.id },
     data: { deletedAt: new Date() },
   });
 
@@ -75,11 +77,11 @@ export async function DELETE(
     actorUserId: userId,
     action: "deleted",
     entityType: "task",
-    entityId: params.subtaskId,
+    entityId: resolvedParams.subtaskId,
     before,
   });
 
-  await emitTaskEvent("subtask.deleted", params.subtaskId, { id: params.subtaskId, parentTaskId: params.id }, userId);
+  await emitTaskEvent("subtask.deleted", resolvedParams.subtaskId, { id: resolvedParams.subtaskId, parentTaskId: resolvedParams.id }, userId);
 
   return NextResponse.json({ data: { success: true } });
 }

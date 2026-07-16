@@ -6,13 +6,14 @@ import { removeDependency, DependencyError, type DependencyTypeValue } from "@/l
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { projectId: string; taskId: string; dependsOnId: string } },
+  { params }: { params: Promise<{ projectId: string; taskId: string; dependsOnId: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const permitted = await canProject(userId, "task:edit_any", params.projectId);
+  const permitted = await canProject(userId, "task:edit_any", resolvedParams.projectId);
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
@@ -21,13 +22,13 @@ export async function DELETE(
   const typeParam = url.searchParams.get("type") as DependencyTypeValue | null;
 
   try {
-    await removeDependency(params.taskId, params.dependsOnId, typeParam ?? undefined);
+    await removeDependency(resolvedParams.taskId, resolvedParams.dependsOnId, typeParam ?? undefined);
 
     await logAudit({
       actorUserId: userId,
       action: "task_dependency_deleted",
       entityType: "taskDependency",
-      entityId: `${params.taskId}:${params.dependsOnId}`,
+      entityId: `${resolvedParams.taskId}:${resolvedParams.dependsOnId}`,
     });
 
     return NextResponse.json({ data: { success: true } });

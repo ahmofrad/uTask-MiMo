@@ -4,15 +4,16 @@ import { prisma } from "@/lib/db";
 
 export async function POST(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   // Verify notification belongs to this user
   const notification = await prisma.notification.findUnique({
-    where: { id: params.id },
+    where: { id: resolvedParams.id },
     select: { userId: true },
   });
 
@@ -21,7 +22,7 @@ export async function POST(
   }
 
   const { markAsRead } = await import("@/lib/notifications");
-  await markAsRead(params.id);
+  await markAsRead(resolvedParams.id);
 
   return NextResponse.json({ data: { success: true } });
 }

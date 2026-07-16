@@ -4,18 +4,19 @@ import { deleteAttachment } from "@/lib/attachments";
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string; attachmentId: string } },
+  { params }: { params: Promise<{ id: string; attachmentId: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   try {
-    await deleteAttachment(params.attachmentId, params.id, userId);
+    await deleteAttachment(resolvedParams.attachmentId, resolvedParams.id, userId);
     return NextResponse.json({ data: { success: true } });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

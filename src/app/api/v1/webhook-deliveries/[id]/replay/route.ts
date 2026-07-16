@@ -6,17 +6,18 @@ import { logAudit } from "@/lib/audit/log";
 
 export async function POST(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("webhook:manage");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const delivery = await prisma.webhookDelivery.findUnique({ where: { id: params.id } });
+  const delivery = await prisma.webhookDelivery.findUnique({ where: { id: resolvedParams.id } });
   if (!delivery) {
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
@@ -32,7 +33,7 @@ export async function POST(
     actorUserId: userId,
     action: "webhook_delivery_replayed",
     entityType: "webhook_delivery",
-    entityId: params.id,
+    entityId: resolvedParams.id,
     after: { webhookId: delivery.webhookId, eventType: delivery.eventType },
   });
 

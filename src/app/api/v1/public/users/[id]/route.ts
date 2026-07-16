@@ -4,13 +4,14 @@ import { prisma } from "@/lib/db";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const resolvedParams = await params;
   const { error } = await authenticatePublicApi(request, "users:read");
   if (error) return error;
 
   const user = await prisma.user.findUnique({
-    where: { id: params.id },
+    where: { id: resolvedParams.id },
     select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true },
   });
 

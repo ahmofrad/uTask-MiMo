@@ -5,17 +5,18 @@ import { getCommentById, updateComment, deleteComment } from "@/lib/comments";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("comment:create");
-  const guardResult = await guard(request, { params });
+  const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const comment = await getCommentById(params.id);
+  const comment = await getCommentById(resolvedParams.id);
   if (!comment) {
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
@@ -31,42 +32,43 @@ export async function PATCH(
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "bodyMarkdown is required" } }, { status: 400 });
   }
 
-  const result = await updateComment(params.id, userId, { bodyMarkdown });
+  const result = await updateComment(resolvedParams.id, userId, { bodyMarkdown });
 
   if (!result || "forbidden" in result) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  await logAudit({ actorUserId: userId, action: "comment_updated", entityType: "comment", entityId: params.id, before: comment as never, after: result as never });
+  await logAudit({ actorUserId: userId, action: "comment_updated", entityType: "comment", entityId: resolvedParams.id, before: comment as never, after: result as never });
 
   return NextResponse.json({ data: result });
 }
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("comment:create");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const comment = await getCommentById(params.id);
+  const comment = await getCommentById(resolvedParams.id);
   if (!comment) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   if (comment.authorId !== userId) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  const result = await deleteComment(params.id, userId);
+  const result = await deleteComment(resolvedParams.id, userId);
 
   if (!result || "forbidden" in result) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  await logAudit({ actorUserId: userId, action: "comment_deleted", entityType: "comment", entityId: params.id, before: comment as never });
+  await logAudit({ actorUserId: userId, action: "comment_deleted", entityType: "comment", entityId: resolvedParams.id, before: comment as never });
 
   return NextResponse.json({ data: { success: true } });
 }

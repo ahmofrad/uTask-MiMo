@@ -15,9 +15,10 @@ async function hasProjectAccess(userId: string, taskId: string): Promise<boolean
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
@@ -26,35 +27,36 @@ export async function GET(
   const attachmentId = searchParams.get("attachmentId");
 
   if (presign && attachmentId) {
-    if (!(await hasProjectAccess(userId, params.id))) {
+    if (!(await hasProjectAccess(userId, resolvedParams.id))) {
       return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
     }
 
-    const url = await getPresignedUrl(attachmentId, params.id);
+    const url = await getPresignedUrl(attachmentId, resolvedParams.id);
     if (!url) {
       return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
     }
     return NextResponse.json({ data: { url } });
   }
 
-  if (!(await hasProjectAccess(userId, params.id))) {
+  if (!(await hasProjectAccess(userId, resolvedParams.id))) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  const attachments = await getAttachmentsByTask(params.id);
+  const attachments = await getAttachmentsByTask(resolvedParams.id);
   return NextResponse.json({ data: attachments });
 }
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(request, { params });
+  const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const formData = await request.formData();
@@ -69,7 +71,7 @@ export async function POST(
 
   try {
     const attachment = await createAttachment(
-      params.id,
+      resolvedParams.id,
       {
         name: file.name,
         type: file.type,

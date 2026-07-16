@@ -6,19 +6,20 @@ import crypto from "crypto";
 
 export async function POST(
   _request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("webhook:manage");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const eventId = crypto.randomUUID();
 
-  await dispatchWebhook(params.id, "test", eventId, {
+  await dispatchWebhook(resolvedParams.id, "test", eventId, {
     type: "test",
     data: { message: "This is a test webhook event" },
   });
@@ -27,7 +28,7 @@ export async function POST(
     actorUserId: userId,
     action: "webhook_tested",
     entityType: "webhook",
-    entityId: params.id,
+    entityId: resolvedParams.id,
     after: { eventId },
   });
 

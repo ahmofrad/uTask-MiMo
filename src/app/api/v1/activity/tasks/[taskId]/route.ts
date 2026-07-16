@@ -4,9 +4,10 @@ import { getTaskActivity } from "@/lib/activity";
 
 export async function GET(
   request: Request,
-  { params }: { params: { taskId: string } },
+  { params }: { params: Promise<{ taskId: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const { taskId } = await params;
+  const authResult = await requireAuth(request, { params: { taskId } });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
@@ -14,7 +15,7 @@ export async function GET(
   const cursorParam = searchParams.get("cursor");
   const limitParam = searchParams.get("limit");
 
-  const result = await getTaskActivity(params.taskId, userId, {
+  const result = await getTaskActivity(taskId, userId, {
     ...(cursorParam ? { cursor: cursorParam } : {}),
     ...(limitParam ? { limit: parseInt(limitParam, 10) } : {}),
   });

@@ -6,16 +6,15 @@ import { getTaskActivity } from "@/lib/activity";
 
 export const dynamic = "force-dynamic";
 
-export default async function TaskDetailRoute({
-  params,
-}: {
-  params: { id: string };
+export default async function TaskDetailRoute(props: {
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await props.params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const task = await prisma.task.findUnique({
-    where: { id: params.id },
+    where: { id: id },
     include: {
       project: { select: { id: true, name: true } },
       assignees: { include: { user: { select: { id: true, displayName: true, email: true, avatarUrl: true } } } },
@@ -46,10 +45,10 @@ export default async function TaskDetailRoute({
       orderBy: { orderIndex: "asc" },
     }),
     prisma.customFieldValue.findMany({
-      where: { taskId: params.id },
+      where: { taskId: id },
     }),
     prisma.comment.findMany({
-      where: { taskId: params.id, deletedAt: null, parentCommentId: null },
+      where: { taskId: id, deletedAt: null, parentCommentId: null },
       orderBy: { createdAt: "asc" },
       include: {
         author: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
@@ -63,14 +62,14 @@ export default async function TaskDetailRoute({
       },
     }),
     prisma.watcher.findMany({
-      where: { taskId: params.id },
+      where: { taskId: id },
       include: { user: { select: { id: true, displayName: true, email: true, avatarUrl: true } } },
     }),
     prisma.attachment.findMany({
-      where: { taskId: params.id },
+      where: { taskId: id },
       orderBy: { createdAt: "desc" },
     }),
-    getTaskActivity(params.id, session.user.id, { limit: 10 }),
+    getTaskActivity(id, session.user.id, { limit: 10 }),
     prisma.projectMember.findMany({
       where: { projectId: task.projectId },
       include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },

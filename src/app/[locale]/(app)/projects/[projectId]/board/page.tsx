@@ -3,15 +3,16 @@ import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Board } from "@/components/task/board";
 
-export default async function BoardPage({ params }: { params: { projectId: string } }) {
+export default async function BoardPage(props: { params: Promise<{ projectId: string }> }) {
+  const { projectId } = await props.params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const project = await prisma.project.findUnique({ where: { id: params.projectId } });
+  const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) notFound();
 
   const tasks = await prisma.task.findMany({
-    where: { projectId: params.projectId, deletedAt: null, parentTaskId: null },
+    where: { projectId: projectId, deletedAt: null, parentTaskId: null },
     select: {
       id: true,
       title: true,
@@ -39,7 +40,7 @@ export default async function BoardPage({ params }: { params: { projectId: strin
             avatarUrl: a.user.avatarUrl,
           })),
         }))}
-        projectId={params.projectId}
+        projectId={projectId}
       />
     </div>
   );

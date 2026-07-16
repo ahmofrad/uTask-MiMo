@@ -6,13 +6,14 @@ import { logAudit } from "@/lib/audit/log";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { projectId: string } },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
 
   const fields = await prisma.customField.findMany({
-    where: { projectId: params.projectId, archivedAt: null },
+    where: { projectId: resolvedParams.projectId, archivedAt: null },
     orderBy: { orderIndex: "asc" },
   });
 
@@ -21,14 +22,15 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { projectId: string } },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("custom_field:define");
-  const guardResult = await guard(request, { params });
+  const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const body = await request.json();
@@ -43,7 +45,7 @@ export async function POST(
   const { name, key, type, required, orderIndex, configJson } = parsed.data;
 
   const existing = await prisma.customField.findFirst({
-    where: { projectId: params.projectId, key },
+    where: { projectId: resolvedParams.projectId, key },
   });
   if (existing) {
     return NextResponse.json(
@@ -53,13 +55,13 @@ export async function POST(
   }
 
   const maxOrder = await prisma.customField.aggregate({
-    where: { projectId: params.projectId },
+    where: { projectId: resolvedParams.projectId },
     _max: { orderIndex: true },
   });
 
   const field = await prisma.customField.create({
     data: {
-      projectId: params.projectId,
+      projectId: resolvedParams.projectId,
       name,
       key,
       type: type as never,

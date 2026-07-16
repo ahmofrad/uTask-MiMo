@@ -5,50 +5,53 @@ import { emitTaskEvent } from "@/lib/webhook/emit";
 
 export async function GET(
   _request: Request,
-  { params }: { params: { taskId: string } },
+  { params }: { params: Promise<{ taskId: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
 
   const { getWatchers } = await import("@/lib/watchers");
-  const watchers = await getWatchers(params.taskId);
+  const watchers = await getWatchers(resolvedParams.taskId);
   return NextResponse.json({ data: watchers });
 }
 
 export async function POST(
   _request: Request,
-  { params }: { params: { taskId: string } },
+  { params }: { params: Promise<{ taskId: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const { addWatcher } = await import("@/lib/watchers");
-  await addWatcher(params.taskId, userId);
-  await logAudit({ actorUserId: userId, action: "watcher_added", entityType: "watcher", entityId: params.taskId, after: { taskId: params.taskId, userId } as never });
-  await emitTaskEvent("watcher.added", params.taskId, { taskId: params.taskId, userId }, userId);
+  await addWatcher(resolvedParams.taskId, userId);
+  await logAudit({ actorUserId: userId, action: "watcher_added", entityType: "watcher", entityId: resolvedParams.taskId, after: { taskId: resolvedParams.taskId, userId } as never });
+  await emitTaskEvent("watcher.added", resolvedParams.taskId, { taskId: resolvedParams.taskId, userId }, userId);
   return NextResponse.json({ data: { success: true } });
 }
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { taskId: string } },
+  { params }: { params: Promise<{ taskId: string }> },
 ) {
-  const authResult = await requireAuth(_request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(_request, { params });
+  const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
   const { removeWatcher } = await import("@/lib/watchers");
-  await removeWatcher(params.taskId, userId);
-  await logAudit({ actorUserId: userId, action: "watcher_removed", entityType: "watcher", entityId: params.taskId, after: { taskId: params.taskId, userId } as never });
-  await emitTaskEvent("watcher.removed", params.taskId, { taskId: params.taskId, userId }, userId);
+  await removeWatcher(resolvedParams.taskId, userId);
+  await logAudit({ actorUserId: userId, action: "watcher_removed", entityType: "watcher", entityId: resolvedParams.taskId, after: { taskId: resolvedParams.taskId, userId } as never });
+  await emitTaskEvent("watcher.removed", resolvedParams.taskId, { taskId: resolvedParams.taskId, userId }, userId);
   return NextResponse.json({ data: { success: true } });
 }

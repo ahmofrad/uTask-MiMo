@@ -6,20 +6,21 @@ import { logAudit } from "@/lib/audit/log";
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { projectId: string; userId: string } },
+  { params }: { params: Promise<{ projectId: string; userId: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const permitted = await can(userId, "user:manage") ||
-    await canProject(userId, "project_role:assign", params.projectId);
+    await canProject(userId, "project_role:assign", resolvedParams.projectId);
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
   const membership = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId: params.projectId, userId: params.userId } },
+    where: { projectId_userId: { projectId: resolvedParams.projectId, userId: resolvedParams.userId } },
   });
 
   if (!membership) {
@@ -27,14 +28,14 @@ export async function DELETE(
   }
 
   await prisma.projectMember.delete({
-    where: { projectId_userId: { projectId: params.projectId, userId: params.userId } },
+    where: { projectId_userId: { projectId: resolvedParams.projectId, userId: resolvedParams.userId } },
   });
 
   await logAudit({
     actorUserId: userId,
     action: "project_member_removed",
     entityType: "projectMember",
-    entityId: `${params.projectId}:${params.userId}`,
+    entityId: `${resolvedParams.projectId}:${resolvedParams.userId}`,
     before: membership as never,
   });
 

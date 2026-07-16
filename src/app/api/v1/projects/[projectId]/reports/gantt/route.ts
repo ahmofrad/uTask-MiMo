@@ -7,16 +7,17 @@ import type { GanttRow, GanttLink, GanttReport } from "@/lib/gantt-types";
 
 export async function GET(
   request: Request,
-  { params }: { params: { projectId: string } },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const authResult = await requireAuth(request, { params });
+  const resolvedParams = await params;
+  const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
   const permitted =
-    (await canProject(userId, "task:edit_any", params.projectId)) ||
-    (await canProject(userId, "task:edit_own", params.projectId)) ||
-    (await canProject(userId, "comment:create", params.projectId));
+    (await canProject(userId, "task:edit_any", resolvedParams.projectId)) ||
+    (await canProject(userId, "task:edit_own", resolvedParams.projectId)) ||
+    (await canProject(userId, "comment:create", resolvedParams.projectId));
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
@@ -25,9 +26,9 @@ export async function GET(
   const include = new Set((url.searchParams.get("include") ?? "").split(",").map((s) => s.trim()).filter(Boolean));
   const withCritical = include.has("criticalPath");
 
-  const tree = await getWbsForProject(params.projectId);
-  const dateRows = await prismaDateRows(params.projectId);
-  const schedule = await computeSchedule(params.projectId);
+  const tree = await getWbsForProject(resolvedParams.projectId);
+  const dateRows = await prismaDateRows(resolvedParams.projectId);
+  const schedule = await computeSchedule(resolvedParams.projectId);
 
   const childrenMap = new Map<string | null, string[]>();
   for (const n of tree) {
@@ -80,7 +81,7 @@ export async function GET(
     return critical === undefined ? base : { ...base, critical };
   });
 
-  const depRows = await prismaTaskDeps(params.projectId);
+  const depRows = await prismaTaskDeps(resolvedParams.projectId);
   const links: GanttLink[] = depRows.map((e) => ({
     id: e.id,
     source: e.dependsOnId,

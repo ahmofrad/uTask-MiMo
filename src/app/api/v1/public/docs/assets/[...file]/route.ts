@@ -13,9 +13,10 @@ const MIME_TYPES: Record<string, string> = {
 
 export async function GET(
   _request: Request,
-  { params }: { params: { file: string[] } },
+  { params }: { params: Promise<{ file: string[] }> },
 ) {
-  const filePath = params.file.join("/");
+  const resolvedParams = await params;
+  const filePath = resolvedParams.file.join("/");
   const swaggerDir = path.join(
     process.cwd(),
     "node_modules",

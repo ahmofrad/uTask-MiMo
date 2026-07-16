@@ -7,13 +7,14 @@ import { renderMarkdown } from "@/lib/markdown/render";
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const resolvedParams = await params;
   const { error } = await authenticatePublicApi(request, "tasks:read");
   if (error) return error;
 
   const comments = await prisma.comment.findMany({
-    where: { taskId: params.id, deletedAt: null },
+    where: { taskId: resolvedParams.id, deletedAt: null },
     orderBy: { createdAt: "asc" },
     include: {
       author: { select: { id: true, displayName: true } },
@@ -25,13 +26,14 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
+  const resolvedParams = await params;
   const { userId, error } = await authenticatePublicApi(request, "comments:write");
   if (error) return error;
 
   const task = await prisma.task.findUnique({
-    where: { id: params.id },
+    where: { id: resolvedParams.id },
     select: { projectId: true },
   });
   if (!task) {
@@ -56,7 +58,7 @@ export async function POST(
 
   const comment = await prisma.comment.create({
     data: {
-      taskId: params.id,
+      taskId: resolvedParams.id,
       authorId: userId,
       bodyMarkdown: sanitized,
     },
