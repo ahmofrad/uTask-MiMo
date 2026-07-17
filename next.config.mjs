@@ -11,7 +11,7 @@ const withSerwistInit = withSerwist({
 const nextConfig = {
   output: process.env.NODE_ENV === "production" ? "standalone" : undefined,
   experimental: {
-    instrumentationHook: true,
+    allowedDevOrigins: ["*"],
   },
 };
 
