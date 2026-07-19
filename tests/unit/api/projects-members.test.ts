@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
-vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn() }));
+const mockCan = vi.fn();
+const mockCanProject = vi.fn();
+vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject }));
+vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     projectMember: {
@@ -24,12 +27,10 @@ function makeRequest(method: string, body?: unknown): Request {
 }
 
 const { auth } = await import("@/lib/auth/config");
-const { can } = await import("@/lib/rbac");
 const { logAudit } = await import("@/lib/audit/log");
 const { prisma } = await import("@/lib/db");
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
-const mockCan = can as ReturnType<typeof vi.fn>;
 const mockLogAudit = logAudit as ReturnType<typeof vi.fn>;
 const mockPrisma = prisma as {
   projectMember: {
@@ -131,8 +132,6 @@ describe("DELETE /api/v1/projects/[projectId]/members/[userId]", () => {
 
   it("returns 403 when can and canProject both deny", async () => {
     mockCan.mockResolvedValue(false);
-    const { canProject } = await import("@/lib/rbac");
-    const mockCanProject = canProject as ReturnType<typeof vi.fn>;
     mockCanProject.mockResolvedValue(false);
 
     const { DELETE } = await import("@/app/api/v1/projects/[projectId]/members/[userId]/route");

@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
-vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn() }));
+const mockCan = vi.fn();
+const mockCanProject = vi.fn();
+vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject }));
+vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
@@ -32,13 +35,11 @@ function makeRequest(method: string, body?: unknown): Request {
 }
 
 const { auth } = await import("@/lib/auth/config");
-const { can } = await import("@/lib/rbac");
 const { listProjects, createProject, getProjectById, archiveProject } = await import("@/lib/projects");
 const { logAudit } = await import("@/lib/audit/log");
 const { emitTaskEvent } = await import("@/lib/webhook/emit");
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
-const mockCan = can as ReturnType<typeof vi.fn>;
 const mockListProjects = listProjects as ReturnType<typeof vi.fn>;
 const mockCreateProject = createProject as ReturnType<typeof vi.fn>;
 const mockGetProjectById = getProjectById as ReturnType<typeof vi.fn>;

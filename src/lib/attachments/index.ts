@@ -66,6 +66,48 @@ export async function createAttachment(
   return attachment;
 }
 
+export async function updateAttachment(
+  attachmentId: string,
+  taskId: string,
+  actorId: string,
+  data: { name: string },
+) {
+  const attachment = await prisma.attachment.findUnique({
+    where: { id: attachmentId },
+    select: { id: true, taskId: true, filename: true },
+  });
+
+  if (!attachment || attachment.taskId !== taskId) {
+    throw new Error("Attachment not found");
+  }
+
+  const before = { taskId, filename: attachment.filename } as never;
+
+  const updated = await prisma.attachment.update({
+    where: { id: attachmentId },
+    data: { filename: data.name },
+  });
+
+  await logAudit({
+    actorUserId: actorId,
+    action: "updated" as AuditAction,
+    entityType: "attachment",
+    entityId: attachment.id,
+    before,
+    after: { taskId, filename: updated.filename } as never,
+  });
+
+  await emitTaskEvent("attachment.updated", taskId, {
+    id: updated.id,
+    taskId,
+    filename: updated.filename,
+    mimeType: updated.mimeType,
+    sizeBytes: updated.sizeBytes,
+  }, actorId);
+
+  return updated;
+}
+
 export async function deleteAttachment(attachmentId: string, taskId: string, actorId: string) {
   const attachment = await prisma.attachment.findUnique({
     where: { id: attachmentId },

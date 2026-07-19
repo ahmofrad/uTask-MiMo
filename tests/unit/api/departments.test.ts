@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
-vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn() }));
+const mockCan = vi.fn();
+const mockCanProject = vi.fn();
+vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject }));
+vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject }));
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn() }));
 vi.mock("@/lib/departments", () => ({
@@ -22,13 +25,11 @@ function makeRequest(method: string, body?: unknown): Request {
 }
 
 const { auth } = await import("@/lib/auth/config");
-const { can } = await import("@/lib/rbac");
 const { listDepartments, createDepartment, getDepartmentById, updateDepartment, deleteDepartment } =
   await import("@/lib/departments");
 const { logAudit } = await import("@/lib/audit/log");
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
-const mockCan = can as ReturnType<typeof vi.fn>;
 const mockListDepartments = listDepartments as ReturnType<typeof vi.fn>;
 const mockCreateDepartment = createDepartment as ReturnType<typeof vi.fn>;
 const mockGetDepartmentById = getDepartmentById as ReturnType<typeof vi.fn>;

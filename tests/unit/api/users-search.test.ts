@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
 const mockCan = vi.fn();
 vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: vi.fn() }));
+vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findMany: vi.fn() },

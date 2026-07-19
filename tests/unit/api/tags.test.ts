@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
-vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn() }));
+const mockCan = vi.fn();
+const mockCanProject = vi.fn();
+vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject }));
+vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
@@ -25,12 +28,10 @@ function makeRequest(method: string, body?: unknown): Request {
 }
 
 const { auth } = await import("@/lib/auth/config");
-const { can } = await import("@/lib/rbac");
 const { prisma } = await import("@/lib/db");
 const { logAudit } = await import("@/lib/audit/log");
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
-const mockCan = can as ReturnType<typeof vi.fn>;
 const mockTagFindMany = (prisma.tag.findMany as ReturnType<typeof vi.fn>);
 const mockTagFindFirst = (prisma.tag.findFirst as ReturnType<typeof vi.fn>);
 const mockTagCreate = (prisma.tag.create as ReturnType<typeof vi.fn>);

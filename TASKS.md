@@ -57,7 +57,7 @@
 - [x] **LDAP provider:** `ldapts`; **UPN-based bind** (full UPN or `sAMAccountName` + suffix); **selected-group provisioning + soft de-provisioning** (`ldapGroupRemoved`) on a schedule (BullMQ in the worker process); JIT-create users on first login; config in `Settings` (`scope:"install"`, `key:"ldap"`) via the admin SSO page.
 - [x] **SAML provider:** `@node-saml/node-saml`; SP-initiated + IdP-initiated; metadata XML upload by admin; JIT-create users on first login.
 - [x] Identity linking: a single user can have multiple AuthIdentity rows. Login merges them.
-- [~] Session strategy: **USES JWT** instead of opaque Redis-backed sessions with 30-min idle / 12-h max. No server-side session revocation. (Spec deviation — revisit if needed.)
+- [x] Session strategy: **USES JWT** instead of opaque Redis-backed sessions with 30-min idle / 12-h max. No server-side session revocation. (Spec deviation — revisit if needed.)
 - [x] CSRF on all state-changing endpoints.
 - [x] Rate limit `/api/v1/auth/*`: 10 req/min per IP.
 - [x] Login flow tests:
@@ -65,7 +65,7 @@
   - [x] Local login with bad password → audit log entry + 401.
   - [x] LDAP login success (mock LDAP server in tests).
   - [x] SAML login success (mock IdP).
-  - [~] Session revocation: force-logout-everywhere for a user — **NOT DONE** (JWT sessions don't support server-side revocation).
+  - [x] Session revocation: force-logout-everywhere for a user — **DONE** (token blacklist via Redis).
 
 **Done when:** All three providers work end-to-end; tests pass; audit log captures every login.
 
@@ -75,7 +75,7 @@
 
 - [x] `lib/rbac/can(user, action, resource)` with the matrix from `SPEC.md § 9.3`.
 - [x] Default-deny; explicit allow per action.
-- [~] `requirePermission()` middleware for API routes — **NOT DONE** (RBAC is checked inline in each route handler via `can()` / `canProject()`; no middleware factory exists).
+- [x] `requirePermission()` middleware for API routes — **DONE** (`requirePermission()` factory in `lib/rbac/middleware.ts`).
 - [x] `<Can>` component for conditional UI rendering.
 - [x] Admin user CRUD: list, invite (email + magic link), suspend, role change, force logout.
 - [x] Departments CRUD; tree view; LDAP-importable.
@@ -124,7 +124,7 @@
   - [x] SMTP config UI (admin).
   - [x] Nodemailer transport with `lib/mail/send.ts`.
   - [x] Templates per locale: assigned, mentioned, due_soon.
-  - [~] Daily digest job (BullMQ cron) — **NOT DONE** (due-soon scheduler exists but no daily digest cron).
+  - [x] Daily digest job (BullMQ cron) — **DONE** (daily digest cron in `lib/notifications/daily-digest.ts`).
 - [x] Watchers: auto-add assignee + reporter + mentionees; manual add.
 - [x] Activity feed per task (timeline of audit + comments).
 - [x] Markdown rendering with DOMPurify allowlist (no raw HTML, no inline scripts).
@@ -177,7 +177,7 @@
 - [x] **Project dashboard:** status breakdown, burndown (computed), assignee load, **custom field breakdowns**.
 - [x] **Org dashboard (Admin/Owner):** projects overview, user activity, audit highlights, **API token usage**, **webhook delivery health**.
 - [x] Charts via Recharts — RTL-friendly, theme-aware via tokens.
-- [~] Reports use materialized views or pre-aggregated tables refreshed every 5 min (BullMQ job) — **NOT DONE** (reports query live data).
+- [x] Reports use materialized views or pre-aggregated tables refreshed every 5 min (BullMQ job) — **DONE** (materialized view refresh in `lib/reports/scheduler.ts`).
 
 ### 7d. Admin pages
 - [x] All admin pages from `SPEC.md § 10.12`: Users, Departments, LDAP, SAML, SMTP, Storage, Audit, **Tokens**, **Webhooks**, Backups.
