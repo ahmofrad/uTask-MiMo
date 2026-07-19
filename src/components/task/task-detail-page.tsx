@@ -442,6 +442,7 @@ export function TaskDetailPage({
               setTask((prev) => ({ ...prev, dueDate: val }));
               updateTask({ dueDate: val });
             }}
+            placeholder={t("task.selectDate")}
             className="w-40"
           />
           <span className="text-xs text-fg-muted bg-bg-secondary px-2.5 py-1 rounded-lg">
@@ -629,6 +630,7 @@ export function TaskDetailPage({
                 <JalaliDatePicker
                   value={task.startDate?.split("T")[0] ?? null}
                   onChange={handleStartDateChange}
+                  placeholder={t("task.selectDate")}
                   className="w-full"
                 />
               </div>
@@ -637,6 +639,7 @@ export function TaskDetailPage({
                 <JalaliDatePicker
                   value={task.endDate?.split("T")[0] ?? null}
                   onChange={handleEndDateChange}
+                  placeholder={t("task.selectDate")}
                   className="w-full"
                 />
               </div>

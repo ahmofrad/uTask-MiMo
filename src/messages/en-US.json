@@ -313,6 +313,7 @@
     "duration": "Duration",
     "days": "Days",
     "hours": "Hours",
+    "selectDate": "Select date",
     "updateFailed": "Update failed",
     "commentFailed": "Comment failed",
     "taskDeletedToast": "Task deleted",

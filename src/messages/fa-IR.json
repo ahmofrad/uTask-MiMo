@@ -314,6 +314,7 @@
     "duration": "مدت",
     "days": "روز",
     "hours": "ساعت",
+    "selectDate": "انتخاب تاریخ",
     "commentFailed": "ارسال نظر ناموفق بود",
     "taskDeletedToast": "وظیفه حذف شد",
     "bulkUpdated": "{succeeded} از {total} وظیفه بروزرسانی شد",
