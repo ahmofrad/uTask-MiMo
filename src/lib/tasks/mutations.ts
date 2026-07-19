@@ -134,6 +134,7 @@ export type UpdateTaskData = {
   priority?: string;
   assigneeIds?: string[] | null;
   startDate?: string | null;
+  endDate?: string | null;
   dueDate?: string | null;
   estimatedHours?: number | null;
   spentHours?: number | null;
@@ -152,6 +153,7 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
   if (data.status !== undefined) updateData.status = data.status;
   if (data.priority !== undefined) updateData.priority = data.priority;
   if (data.startDate !== undefined) updateData.startDate = data.startDate ? new Date(data.startDate) : null;
+  if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
   if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
   if (data.estimatedHours !== undefined) updateData.estimatedHours = data.estimatedHours ?? null;
   if (data.spentHours !== undefined) updateData.spentHours = data.spentHours ?? null;

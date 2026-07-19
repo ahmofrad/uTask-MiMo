@@ -112,6 +112,8 @@ export default async function TaskDetailRoute(props: {
         description: task.description,
         status: task.status as "open" | "in_progress" | "done" | "cancelled",
         priority: task.priority as "low" | "med" | "high" | "urgent",
+        startDate: task.startDate?.toISOString() ?? null,
+        endDate: task.endDate?.toISOString() ?? null,
         dueDate: task.dueDate?.toISOString() ?? null,
         estimatedHours: task.estimatedHours?.toNumber() ?? null,
         spentHours: task.spentHours?.toNumber() ?? null,

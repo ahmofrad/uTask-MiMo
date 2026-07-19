@@ -25,6 +25,8 @@ type TaskData = {
   description?: string | null;
   status: "open" | "in_progress" | "done" | "cancelled";
   priority: "low" | "med" | "high" | "urgent";
+  startDate: string | null;
+  endDate: string | null;
   dueDate: string | null;
   estimatedHours?: number | null;
   spentHours?: number | null;
@@ -117,6 +119,17 @@ export function TaskDetailPage({
   const [editingDescription, setEditingDescription] = useState(false);
   const [descDraft, setDescDraft] = useState(task.description ?? "");
   const [deleted, setDeleted] = useState(false);
+
+  function computeInitialDuration() {
+    if (!initialTask.startDate || !initialTask.endDate) return { days: 0, hours: 0 };
+    const ms = new Date(initialTask.endDate).getTime() - new Date(initialTask.startDate).getTime();
+    if (ms <= 0) return { days: 0, hours: 0 };
+    const totalHours = Math.floor(ms / (1000 * 60 * 60));
+    return { days: Math.floor(totalHours / 24), hours: totalHours % 24 };
+  }
+  const initDur = computeInitialDuration();
+  const [durationDays, setDurationDays] = useState(initDur.days);
+  const [durationHours, setDurationHours] = useState(initDur.hours);
 
   const isWatching = watchers.some((w) => w.id === currentUserId);
 
@@ -284,6 +297,56 @@ export function TaskDetailPage({
     });
     if (res.ok) {
       setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
+    }
+  };
+
+  const computeDuration = (start: string, end: string) => {
+    const ms = new Date(end).getTime() - new Date(start).getTime();
+    if (ms <= 0) return { days: 0, hours: 0 };
+    const totalHours = Math.floor(ms / (1000 * 60 * 60));
+    return { days: Math.floor(totalHours / 24), hours: totalHours % 24 };
+  };
+
+  const addDurationToDate = (start: string, days: number, hours: number) => {
+    const d = new Date(start);
+    d.setDate(d.getDate() + days);
+    d.setHours(d.getHours() + hours);
+    return d.toISOString();
+  };
+
+  const handleStartDateChange = (val: string | null) => {
+    setTask((prev) => ({ ...prev, startDate: val }));
+    if (val && task.endDate) {
+      const dur = computeDuration(val, task.endDate);
+      setDurationDays(dur.days);
+      setDurationHours(dur.hours);
+      updateTask({ startDate: val, endDate: task.endDate });
+    } else if (val && (durationDays > 0 || durationHours > 0)) {
+      const end = addDurationToDate(val, durationDays, durationHours);
+      setTask((prev) => ({ ...prev, endDate: end }));
+      updateTask({ startDate: val, endDate: end });
+    } else {
+      updateTask({ startDate: val });
+    }
+  };
+
+  const handleEndDateChange = (val: string | null) => {
+    setTask((prev) => ({ ...prev, endDate: val }));
+    if (val && task.startDate) {
+      const dur = computeDuration(task.startDate, val);
+      setDurationDays(dur.days);
+      setDurationHours(dur.hours);
+    }
+    updateTask({ endDate: val });
+  };
+
+  const handleDurationChange = (days: number, hours: number) => {
+    setDurationDays(days);
+    setDurationHours(hours);
+    if (task.startDate && (days > 0 || hours > 0)) {
+      const end = addDurationToDate(task.startDate, days, hours);
+      setTask((prev) => ({ ...prev, endDate: end }));
+      updateTask({ endDate: end });
     }
   };
 
@@ -554,6 +617,63 @@ export function TaskDetailPage({
             <div className="border-t border-border-secondary pt-3 text-xs text-fg-muted space-y-1">
               <p>{t("task.createdAt")}: {formatDateTime(new Date(task.createdAt), locale)}</p>
               <p>{t("task.updatedAt")}: {formatDateTime(new Date(task.updatedAt), locale)}</p>
+            </div>
+          </div>
+
+          {/* Date & Duration card */}
+          <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-3">
+            <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.dateAndDuration")}</h4>
+            <div className="space-y-2">
+              <div>
+                <label className="text-xs text-fg-muted block mb-1">{t("task.startDate")}</label>
+                <JalaliDatePicker
+                  value={task.startDate?.split("T")[0] ?? null}
+                  onChange={handleStartDateChange}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-fg-muted block mb-1">{t("task.endDate")}</label>
+                <JalaliDatePicker
+                  value={task.endDate?.split("T")[0] ?? null}
+                  onChange={handleEndDateChange}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="border-t border-border-secondary pt-2">
+              <label className="text-xs text-fg-muted block mb-1">{t("task.duration")}</label>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    min={0}
+                    value={durationDays}
+                    onChange={(e) => {
+                      const days = Math.max(0, Number(e.target.value) || 0);
+                      handleDurationChange(days, durationHours);
+                    }}
+                    className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
+                    placeholder="0"
+                  />
+                  <span className="text-[10px] text-fg-subtle block mt-0.5">{t("task.days")}</span>
+                </div>
+                <div className="flex-1">
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    value={durationHours}
+                    onChange={(e) => {
+                      const hours = Math.max(0, Math.min(23, Number(e.target.value) || 0));
+                      handleDurationChange(durationDays, hours);
+                    }}
+                    className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
+                    placeholder="0"
+                  />
+                  <span className="text-[10px] text-fg-subtle block mt-0.5">{t("task.hours")}</span>
+                </div>
+              </div>
             </div>
           </div>
 

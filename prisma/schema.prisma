@@ -353,8 +353,9 @@ model Task {
   description    String?      @db.Text
   status         TaskStatus   @default(open)
   priority       TaskPriority @default(med)
-  dueDate        DateTime?    @db.Timestamptz
   startDate      DateTime?    @db.Timestamptz
+  endDate        DateTime?    @db.Timestamptz
+  dueDate        DateTime?    @db.Timestamptz
   recurrenceRule String?      @db.VarChar(500)
   reporterId     String?      @db.Uuid
   createdById    String       @db.Uuid

@@ -65,7 +65,7 @@ export async function PATCH(
   const body = await request.json();
   const {
     title, description, status: taskStatus, priority: taskPriority,
-    startDate, dueDate, assigneeId, assigneeIds, estimatedHours, spentHours, progress,
+    startDate, endDate, dueDate, assigneeId, assigneeIds, estimatedHours, spentHours, progress,
     deletedAt,
     customFields, tagIds,
   } = body as Record<string, unknown>;
@@ -76,6 +76,7 @@ export async function PATCH(
   if (taskStatus !== undefined) data.status = String(taskStatus);
   if (taskPriority !== undefined) data.priority = String(taskPriority);
   if (startDate !== undefined) data.startDate = startDate === null ? null : String(startDate);
+  if (endDate !== undefined) data.endDate = endDate === null ? null : String(endDate);
   if (dueDate !== undefined) data.dueDate = dueDate === null ? null : String(dueDate);
   if (assigneeIds !== undefined) {
     data.assigneeIds = Array.isArray(assigneeIds) ? (assigneeIds as string[]) : [];
