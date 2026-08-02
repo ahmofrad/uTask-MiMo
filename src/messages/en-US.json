@@ -149,6 +149,8 @@
     "activeUsers": "Active Users",
     "tasks": "Tasks",
     "projects": "Projects",
+    "completed": "Completed",
+    "taskCompletionRate": "Task Completion Rate",
     "deliveries24h": "Deliveries (24h)",
     "successRate": "Success rate",
     "avgDuration": "Avg duration",

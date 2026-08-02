@@ -1,45 +1,42 @@
-import { prisma } from "@/lib/db";
+import { getTranslations } from "next-intl/server";
+import { getOrgReport } from "@/lib/reports";
 
 export async function OrgDashboard() {
-  const [userCount, taskCount, projectCount, completedTasks] = await Promise.all([
-    prisma.user.count({ where: { status: "active" } }),
-    prisma.task.count({ where: { deletedAt: null } }),
-    prisma.project.count(),
-    prisma.task.count({ where: { deletedAt: null, status: "done" } }),
-  ]);
+  const t = await getTranslations("admin");
+  const report = await getOrgReport();
+
+  const cards = [
+    { label: t("activeUsers"), value: report.totalUsers, tone: "bg-info-bg text-info" },
+    { label: t("tasks"), value: report.totalTasks, tone: "bg-success-bg text-success" },
+    { label: t("projects"), value: report.totalProjects, tone: "bg-accent-bg text-accent" },
+    { label: t("completed"), value: report.completedTasks, tone: "bg-warning-bg text-warning" },
+  ];
+
+  const completionRate =
+    report.totalTasks > 0 ? Math.round((report.completedTasks / report.totalTasks) * 100) : 0;
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="rounded-xl border border-border-primary p-5 bg-info-bg text-info">
-          <div className="text-3xl font-bold">{userCount}</div>
-          <div className="text-sm opacity-80 mt-1">Active Users</div>
-        </div>
-        <div className="rounded-xl border border-border-primary p-5 bg-success-bg text-success">
-          <div className="text-3xl font-bold">{taskCount}</div>
-          <div className="text-sm opacity-80 mt-1">Total Tasks</div>
-        </div>
-        <div className="rounded-xl border border-border-primary p-5 bg-accent-bg text-accent">
-          <div className="text-3xl font-bold">{projectCount}</div>
-          <div className="text-sm opacity-80 mt-1">Projects</div>
-        </div>
-        <div className="rounded-xl border border-border-primary p-5 bg-warning-bg text-warning">
-          <div className="text-3xl font-bold">{completedTasks}</div>
-          <div className="text-sm opacity-80 mt-1">Completed</div>
-        </div>
+        {cards.map((c) => (
+          <div key={c.label} className={`rounded-xl border border-border-primary p-5 ${c.tone}`}>
+            <div className="text-3xl font-bold">{c.value}</div>
+            <div className="text-sm opacity-80 mt-1">{c.label}</div>
+          </div>
+        ))}
       </div>
 
       <div className="bg-bg-surface border border-border-primary rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-fg-primary mb-4">Task Completion Rate</h2>
+        <h2 className="text-lg font-semibold text-fg-primary mb-4">{t("taskCompletionRate")}</h2>
         <div className="flex items-center gap-4">
           <div className="flex-1 h-4 bg-bg-surface-2 rounded-full overflow-hidden">
             <div
               className="h-full bg-success rounded-full"
-              style={{ width: `${taskCount > 0 ? (completedTasks / taskCount) * 100 : 0}%` }}
+              style={{ width: `${completionRate}%` }}
             />
           </div>
           <span className="text-sm font-medium text-fg-primary">
-            {taskCount > 0 ? Math.round((completedTasks / taskCount) * 100) : 0}%
+            {completionRate}%
           </span>
         </div>
       </div>

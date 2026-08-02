@@ -149,6 +149,8 @@
     "activeUsers": "کاربران فعال",
     "tasks": "وظایف",
     "projects": "پروژه‌ها",
+    "completed": "انجام‌شده",
+    "taskCompletionRate": "نرخ تکمیل وظایف",
     "deliveries24h": "ارسال‌ها (۲۴ ساعت)",
     "successRate": "نرخ موفقیت",
     "avgDuration": "مدت متوسط",
