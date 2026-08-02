@@ -57,7 +57,7 @@ A multi-user, multi-project task management platform designed for companies that
 
 | Layer | Choice |
 |-------|--------|
-| Framework | Next.js 14 (App Router) + TypeScript strict |
+| Framework | Next.js 15 (App Router) + React 19 + TypeScript strict |
 | Runtime | Node.js 20 LTS |
 | Database | PostgreSQL 16 + PgBouncer |
 | Cache / queue / sessions | Redis 7 |

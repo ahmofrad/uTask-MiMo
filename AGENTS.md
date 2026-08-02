@@ -9,7 +9,7 @@ You are an AI coding agent helping build a **self-hosted, enterprise task manage
 ## 1. Project Snapshot
 
 - **Name:** placeholder — flag to the user.
-- **Stack:** Next.js 14 (App Router) · TypeScript strict · Node 20 · Fastify (extracted if scaling demands) · PostgreSQL 16 + PgBouncer · Redis 7 · BullMQ · Socket.IO · Auth.js v5 · `ldapts` · `@node-saml/node-saml` · `next-intl` · `date-fns-jalali` · Tailwind + shadcn/ui · Docker / Helm.
+- **Stack:** Next.js 15 (App Router) + React 19 · TypeScript strict · Node 20 · Fastify (extracted if scaling demands) · PostgreSQL 16 + PgBouncer · Redis 7 · BullMQ · Socket.IO · Auth.js v5 · `ldapts` · `@node-saml/node-saml` · `next-intl` · `date-fns-jalali` · Tailwind + shadcn/ui · Docker / Helm.
 - **Scale target:** 1k–10k concurrent users per organization, p95 < 300 ms.
 - **Deployment:** on-prem, customer's infrastructure, no outbound traffic.
 - **Repo state at handoff:** empty. You scaffold.

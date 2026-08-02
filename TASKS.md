@@ -10,7 +10,7 @@
 
 ## Phase 0 — Repo + Dev Environment
 
-- [x] Initialize repo: Next.js 14 + TypeScript strict + Tailwind + App Router.
+- [x] Initialize repo: Next.js 15 + React 19 + TypeScript strict + Tailwind + App Router.
 - [x] Configure `tsconfig.json`: `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `@/` alias.
 - [x] ESLint + Prettier + `eslint-plugin-jsx-a11y` + `eslint-plugin-i18next`.
 - [x] shadcn/ui CLI init with neutral base palette.

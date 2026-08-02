@@ -119,7 +119,7 @@ A self-hosted, multi-user task management platform for companies. Runs on the cu
 
 | Layer | Choice | Reason |
 |-------|--------|--------|
-| **App framework** | Next.js 14 (App Router) + TypeScript strict | Unified frontend + BFF; SSR for fast first paint; mature ecosystem |
+| **App framework** | Next.js 15 (App Router) + TypeScript strict | Unified frontend + BFF; SSR for fast first paint; mature ecosystem |
 | **API runtime** | Node.js 20 LTS, Fastify (extracted if scaling demands) | Fastify is ~3x faster than Express; first-class TS |
 | **Database** | PostgreSQL 16 + PgBouncer | Required for FTS, JSONB, partitioning; pooling mandatory at scale |
 | **Cache / pub-sub / sessions** | Redis 7 | Session store, BullMQ queue backend, Socket.IO adapter, rate limiting, idempotency keys |
