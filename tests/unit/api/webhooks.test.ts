@@ -26,6 +26,7 @@ vi.mock("@/lib/crypto/encrypt", () => ({
 }));
 vi.mock("@/lib/webhook", () => ({
   validateWebhookUrl: vi.fn(),
+  validateWebhookUrlResolved: vi.fn(),
 }));
 
 function makeRequest(method: string, body?: unknown): Request {
@@ -39,12 +40,13 @@ function makeRequest(method: string, body?: unknown): Request {
 
 const { auth } = await import("@/lib/auth/config");
 const { prisma } = await import("@/lib/db");
-const { validateWebhookUrl } = await import("@/lib/webhook");
+const { validateWebhookUrl, validateWebhookUrlResolved } = await import("@/lib/webhook");
 const { logAudit } = await import("@/lib/audit/log");
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
 const mockWebhookCreate = (prisma.webhook.create as ReturnType<typeof vi.fn>);
 const mockValidateUrl = validateWebhookUrl as ReturnType<typeof vi.fn>;
+const mockValidateUrlResolved = validateWebhookUrlResolved as ReturnType<typeof vi.fn>;
 const mockLogAudit = logAudit as ReturnType<typeof vi.fn>;
 
 function authenticatedSession() {
@@ -85,6 +87,7 @@ describe("POST /api/v1/webhooks", () => {
   it("rejects invalid webhook URL", async () => {
     mockCan.mockResolvedValue(true);
     mockValidateUrl.mockReturnValue(false);
+    mockValidateUrlResolved.mockResolvedValue(false);
 
     const { POST } = await import("@/app/api/v1/webhooks/route");
     const res = await POST(makeRequest("POST", { name: "wh", url: "http://10.0.0.1/hook", events: ["task.created"] }));
@@ -97,6 +100,7 @@ describe("POST /api/v1/webhooks", () => {
   it("creates webhook with encrypted secret", async () => {
     mockCan.mockResolvedValue(true);
     mockValidateUrl.mockReturnValue(true);
+    mockValidateUrlResolved.mockResolvedValue(true);
     mockWebhookCreate.mockResolvedValue({ id: "wh1", name: "wh", url: "https://example.com", events: ["task.created"] });
 
     const { POST } = await import("@/app/api/v1/webhooks/route");

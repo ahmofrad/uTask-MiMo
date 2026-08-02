@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
-import { validateWebhookUrl } from "@/lib/webhook";
+import { validateWebhookUrlResolved } from "@/lib/webhook";
 
 export async function PATCH(
   request: Request,
@@ -23,7 +23,7 @@ export async function PATCH(
   const updateData: Record<string, unknown> = {};
   if (name !== undefined) updateData.name = name;
   if (url !== undefined) {
-    if (!validateWebhookUrl(String(url))) {
+    if (!await validateWebhookUrlResolved(String(url))) {
       return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Invalid webhook URL: must be HTTPS and must not point to a private/internal network" } }, { status: 400 });
     }
     updateData.url = url;

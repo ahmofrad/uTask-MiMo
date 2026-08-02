@@ -14,8 +14,27 @@ vi.mock("@/lib/crypto/encrypt", () => ({
 vi.mock("@/lib/db", () => ({ prisma: {} }));
 vi.mock("@/lib/logging", () => ({ logger: { error: vi.fn() } }));
 
+vi.mock("node:dns/promises", () => ({
+  lookup: vi.fn(async (host: string) => {
+    if (host === "evil.example.com") {
+      return [{ address: "10.0.0.5", family: 4 }];
+    }
+    if (host === "multi.example.com") {
+      return [
+        { address: "93.184.216.34", family: 4 },
+        { address: "192.168.1.5", family: 4 },
+      ];
+    }
+    if (host === "dns-fail.example.com") {
+      throw new Error("ENOTFOUND");
+    }
+    return [{ address: "93.184.216.34", family: 4 }];
+  }),
+}));
+
 import {
   validateWebhookUrl,
+  validateWebhookUrlResolved,
   signPayload,
   verifySignature,
   decryptSecret,
@@ -51,6 +70,28 @@ describe("validateWebhookUrl", () => {
   it("rejects invalid URLs", () => {
     expect(validateWebhookUrl("not-a-url")).toBe(false);
     expect(validateWebhookUrl("")).toBe(false);
+  });
+});
+
+describe("validateWebhookUrlResolved", () => {
+  it("rejects hostnames resolving to private IPs (DNS rebinding)", async () => {
+    expect(await validateWebhookUrlResolved("https://evil.example.com")).toBe(false);
+  });
+
+  it("rejects hostnames with any private resolved address", async () => {
+    expect(await validateWebhookUrlResolved("https://multi.example.com")).toBe(false);
+  });
+
+  it("accepts hostnames resolving only to public IPs", async () => {
+    expect(await validateWebhookUrlResolved("https://example.com")).toBe(true);
+  });
+
+  it("rejects when DNS resolution fails", async () => {
+    expect(await validateWebhookUrlResolved("https://dns-fail.example.com")).toBe(false);
+  });
+
+  it("passes through literal private IPs (already blocked by validateWebhookUrl)", async () => {
+    expect(await validateWebhookUrlResolved("https://10.0.0.1")).toBe(false);
   });
 });
 

@@ -2,6 +2,7 @@ import { hmacSign, hmacVerify } from "@/lib/crypto";
 import { decrypt } from "@/lib/crypto/encrypt";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logging";
+import { lookup } from "node:dns/promises";
 
 const BLOCKED_CIDR = [
   "10.0.0.0/8",
@@ -122,6 +123,33 @@ export function validateWebhookUrl(url: string): boolean {
   }
 }
 
+/**
+ * Resolves the webhook hostname and verifies no resolved address points at a
+ * private/internal network. This closes the DNS-rebinding-style gap where a
+ * hostname passes the literal string check but resolves to a private IP.
+ */
+export async function validateWebhookUrlResolved(url: string): Promise<boolean> {
+  if (!validateWebhookUrl(url)) return false;
+
+  let host: string;
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+
+  // Literal IPs are already covered by validateWebhookUrl; nothing to resolve.
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host.includes(":")) return true;
+
+  try {
+    const addresses = await lookup(host, { all: true });
+    return addresses.every((addr) => !isPrivateIp(addr.address));
+  } catch {
+    // DNS failure — reject rather than deliver into an unknown network.
+    return false;
+  }
+}
+
 export function signPayload(payload: string, secret: string): string {
   return hmacSign(payload, secret);
 }
@@ -157,6 +185,13 @@ export async function dispatchWebhook(
   const body = JSON.stringify(payload);
   const secret = decryptSecret(webhook.secret);
   const signature = signPayload(body, secret);
+
+  // Re-verify DNS resolution at dispatch time to block DNS-rebinding attacks.
+  const urlSafe = await validateWebhookUrlResolved(webhook.url);
+  if (!urlSafe) {
+    logger.error({ webhookId, eventType }, "Webhook dispatch blocked: URL failed resolution check");
+    return;
+  }
 
   const delivery = await prisma.webhookDelivery.create({
     data: {

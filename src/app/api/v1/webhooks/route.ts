@@ -3,7 +3,7 @@ import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { randomHex } from "@/lib/crypto";
 import { encrypt } from "@/lib/crypto/encrypt";
-import { validateWebhookUrl } from "@/lib/webhook";
+import { validateWebhookUrlResolved } from "@/lib/webhook";
 import { logAudit } from "@/lib/audit/log";
 
 export async function GET(request: Request) {
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!validateWebhookUrl(url)) {
+  if (!await validateWebhookUrlResolved(url)) {
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Invalid webhook URL: must be HTTPS and must not point to a private/internal network" } }, { status: 400 });
   }
 
