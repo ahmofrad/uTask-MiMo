@@ -3,20 +3,15 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTranslations, useLocale } from "next-intl";
-import { cn } from "@/lib/cn";
-import { formatDateTime } from "@/lib/date/format";
-import { TagPicker } from "@/components/tags/tag-picker";
+import { useTranslations } from "next-intl";
 import { SubtaskList } from "@/components/task/subtask-list";
 import { AttachmentList } from "@/components/task/attachment-list";
 import { TaskDependencies } from "@/components/task/task-dependencies";
-import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
-import { CustomFieldInput } from "@/components/custom-field/custom-field-input";
 import { CommentThread } from "@/components/comment/comment-thread";
 import { ActivityTimeline } from "@/components/task/activity-timeline";
-import { AssigneeSelect } from "@/components/task/assignee-select";
+import { TaskDetailHeaderCard } from "@/components/task/task-detail-header-card";
+import { TaskDetailSidebar } from "@/components/task/task-detail-sidebar";
 import type { ActivityEvent } from "@/lib/activity/types";
-import { Avatar } from "@/components/ui/avatar";
 import { apiFetch } from "@/lib/api-fetch";
 
 type TaskData = {
@@ -101,7 +96,6 @@ export function TaskDetailPage({
   currentUserId,
 }: Props) {
   const t = useTranslations();
-  const locale = useLocale() as "fa-IR" | "en-US";
   const router = useRouter();
   const [task, setTask] = useState(initialTask);
   const [taskTagIds, setTaskTagIds] = useState<string[]>(initialTask.tags.map((tg) => tg.id));
@@ -114,10 +108,6 @@ export function TaskDetailPage({
   const [auditHasMore, setAuditHasMore] = useState(initialAuditHasMore ?? false);
   const [auditCursor, setAuditCursor] = useState<string | null | undefined>(initialAuditCursor);
   const [auditLimit, setAuditLimit] = useState(10);
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(task.title);
-  const [editingDescription, setEditingDescription] = useState(false);
-  const [descDraft, setDescDraft] = useState(task.description ?? "");
   const [deleted, setDeleted] = useState(false);
 
   function computeInitialDuration() {
@@ -167,17 +157,29 @@ export function TaskDetailPage({
     }
   }, [task.id, auditCursor, auditHasMore]);
 
-  const saveTitle = async () => {
-    setEditingTitle(false);
-    if (!titleDraft.trim() || titleDraft === task.title) return;
-    await updateTask({ title: titleDraft.trim() });
+  const handleSaveTitle = (title: string) => {
+    if (!title.trim() || title === task.title) return;
+    void updateTask({ title: title.trim() });
   };
 
-  const saveDescription = async () => {
-    const val = descDraft.trim() || null;
-    if (val === task.description) { setEditingDescription(false); return; }
-    await updateTask({ description: val });
-    setEditingDescription(false);
+  const handleSaveDescription = (val: string | null) => {
+    if (val === task.description) return;
+    void updateTask({ description: val });
+  };
+
+  const handleStatusChange = (status: string) => {
+    setTask((prev) => ({ ...prev, status: status as TaskData["status"] }));
+    void updateTask({ status });
+  };
+
+  const handlePriorityChange = (priority: string) => {
+    setTask((prev) => ({ ...prev, priority: priority as TaskData["priority"] }));
+    void updateTask({ priority });
+  };
+
+  const handleDueDateChange = (val: string | null) => {
+    setTask((prev) => ({ ...prev, dueDate: val }));
+    void updateTask({ dueDate: val });
   };
 
   const addComment = async (body: string) => {
@@ -265,17 +267,17 @@ export function TaskDetailPage({
     });
   };
 
+  const handleSubtaskDelete = async (id: string) => {
+    setSubtasks((prev) => prev.filter((st) => st.id !== id));
+    await apiFetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, { method: "DELETE" });
+  };
+
   const handleTagsChange = async (ids: string[]) => {
     setTaskTagIds(ids);
     await apiFetch(`/api/v1/tasks/${task.id}`, {
       method: "PATCH",
       body: JSON.stringify({ tagIds: ids }),
     });
-  };
-
-  const handleSubtaskDelete = async (id: string) => {
-    setSubtasks((prev) => prev.filter((st) => st.id !== id));
-    await apiFetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, { method: "DELETE" });
   };
 
   const handleAttachmentUpload = async (file: File) => {
@@ -300,6 +302,62 @@ export function TaskDetailPage({
     }
   };
 
+  const handleAssigneeChange = (ids: string[]) => {
+    const next = projectMembers.filter((m) => ids.includes(m.id));
+    setTask((prev) => ({ ...prev, assignees: next }));
+    void updateTask({ assigneeIds: ids });
+  };
+
+  const handleEstimatedChange = (val: number | null) => {
+    setTask((prev) => ({ ...prev, estimatedHours: val }));
+    void updateTask({ estimatedHours: val });
+  };
+
+  const handleSpentChange = (val: number | null) => {
+    setTask((prev) => ({ ...prev, spentHours: val }));
+    void updateTask({ spentHours: val });
+  };
+
+  const handleCustomFieldChange = async (key: string, value: unknown) => {
+    const prev = { ...cfValues };
+    const next = { ...cfValues, [key]: value };
+    setCfValues(next);
+    try {
+      const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ customFields: { [key]: value } }),
+      });
+      if (res.ok) {
+        const body = await res.json();
+        if (body.data?.customFields) {
+          setCfValues(body.data.customFields);
+        }
+      } else {
+        setCfValues(prev);
+      }
+    } catch {
+      setCfValues(prev);
+    }
+  };
+
+  const handleAddWatcher = async (userId: string) => {
+    const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}/add?userId=${userId}`, { method: "POST" });
+    if (res.ok) {
+      const member = projectMembers.find((m) => m.id === userId);
+      setWatchers((prev) => [
+        ...prev,
+        { id: userId, displayName: member?.displayName ?? "", avatarUrl: member?.avatarUrl ?? null, addedAt: new Date().toISOString() },
+      ]);
+    }
+  };
+
+  const handleRemoveWatcher = async (userId: string) => {
+    const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}/remove?userId=${userId}`, { method: "DELETE" });
+    if (res.ok) {
+      setWatchers((prev) => prev.filter((x) => x.id !== userId));
+    }
+  };
+
   const computeDuration = (start: string, end: string) => {
     const ms = new Date(end).getTime() - new Date(start).getTime();
     if (ms <= 0) return { days: 0, hours: 0 };
@@ -320,13 +378,13 @@ export function TaskDetailPage({
       const dur = computeDuration(val, task.endDate);
       setDurationDays(dur.days);
       setDurationHours(dur.hours);
-      updateTask({ startDate: val, endDate: task.endDate });
+      void updateTask({ startDate: val, endDate: task.endDate });
     } else if (val && (durationDays > 0 || durationHours > 0)) {
       const end = addDurationToDate(val, durationDays, durationHours);
       setTask((prev) => ({ ...prev, endDate: end }));
-      updateTask({ startDate: val, endDate: end });
+      void updateTask({ startDate: val, endDate: end });
     } else {
-      updateTask({ startDate: val });
+      void updateTask({ startDate: val });
     }
   };
 
@@ -337,7 +395,7 @@ export function TaskDetailPage({
       setDurationDays(dur.days);
       setDurationHours(dur.hours);
     }
-    updateTask({ endDate: val });
+    void updateTask({ endDate: val });
   };
 
   const handleDurationChange = (days: number, hours: number) => {
@@ -346,7 +404,7 @@ export function TaskDetailPage({
     if (task.startDate && (days > 0 || hours > 0)) {
       const end = addDurationToDate(task.startDate, days, hours);
       setTask((prev) => ({ ...prev, endDate: end }));
-      updateTask({ endDate: end });
+      void updateTask({ endDate: end });
     }
   };
 
@@ -380,107 +438,19 @@ export function TaskDetailPage({
         </button>
       </div>
 
-      {/* Header card */}
-      <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-4">
-        {/* Title */}
-        <div>
-          {editingTitle ? (
-            <input
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
-              className="w-full text-2xl font-bold bg-transparent border-b-2 border-accent text-fg outline-none"
-              autoFocus
-              onBlur={saveTitle}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveTitle();
-                if (e.key === "Escape") { setEditingTitle(false); setTitleDraft(task.title); }
-              }}
-            />
-          ) : (
-            <h1
-              className="text-2xl font-bold text-fg cursor-pointer hover:text-accent transition-colors rounded-lg p-1 -m-1 hover:bg-bg-surface-2"
-              onClick={() => setEditingTitle(true)}
-            >
-              {task.title}
-            </h1>
-          )}
-        </div>
-
-        {/* Controls row */}
-        <div className="flex flex-wrap items-center gap-3">
-          <select
-            value={task.status}
-            onChange={(e) => {
-              const newStatus = e.target.value;
-              setTask((prev) => ({ ...prev, status: newStatus as TaskData["status"] }));
-              updateTask({ status: newStatus });
-            }}
-            className="text-sm bg-bg-primary border border-border rounded-lg px-3 py-1.5 text-fg"
-          >
-            <option value="open">{t("task.status.open")}</option>
-            <option value="in_progress">{t("task.status.in_progress")}</option>
-            <option value="done">{t("task.status.done")}</option>
-            <option value="cancelled">{t("task.status.cancelled")}</option>
-          </select>
-          <select
-            value={task.priority}
-            onChange={(e) => {
-              const newPriority = e.target.value;
-              setTask((prev) => ({ ...prev, priority: newPriority as TaskData["priority"] }));
-              updateTask({ priority: newPriority });
-            }}
-            className="text-sm bg-bg-primary border border-border rounded-lg px-3 py-1.5 text-fg"
-          >
-            <option value="low">{t("task.priority.low")}</option>
-            <option value="med">{t("task.priority.med")}</option>
-            <option value="high">{t("task.priority.high")}</option>
-            <option value="urgent">{t("task.priority.urgent")}</option>
-          </select>
-          <JalaliDatePicker
-            value={task.dueDate?.split("T")[0] ?? null}
-            onChange={(val) => {
-              setTask((prev) => ({ ...prev, dueDate: val }));
-              updateTask({ dueDate: val });
-            }}
-            placeholder={t("task.selectDate")}
-            className="w-40"
-          />
-          <span className="text-xs text-fg-muted bg-bg-secondary px-2.5 py-1 rounded-lg">
-            {task.projectName}
-          </span>
-        </div>
-
-        {/* Description */}
-        <div className="pt-2 border-t border-border-secondary">
-          <h3 className="text-xs font-medium text-fg-muted mb-2 uppercase tracking-wide">{t("task.fields.description")}</h3>
-          {editingDescription ? (
-            <textarea
-              value={descDraft}
-              onChange={(e) => setDescDraft(e.target.value)}
-              onBlur={saveDescription}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); saveDescription(); }
-                if (e.key === "Escape") { setEditingDescription(false); setDescDraft(task.description ?? ""); }
-              }}
-              rows={4}
-              className="w-full text-sm bg-transparent border border-accent rounded-lg p-2 text-fg outline-none resize-none"
-              autoFocus
-              placeholder={t("task.fields.description")}
-            />
-          ) : (
-            <div
-              className="text-sm text-fg-secondary cursor-pointer hover:text-accent transition-colors min-h-[2rem] rounded-lg p-1 -m-1 hover:bg-bg-surface-2"
-              onClick={() => { setEditingDescription(true); setDescDraft(task.description ?? ""); }}
-            >
-              {task.description ? (
-                <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: task.description }} />
-              ) : (
-                <span className="text-fg-subtle italic">{t("task.fields.description")}</span>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
+      <TaskDetailHeaderCard
+        title={task.title}
+        description={task.description ?? null}
+        status={task.status}
+        priority={task.priority}
+        dueDate={task.dueDate}
+        projectName={task.projectName}
+        onSaveTitle={handleSaveTitle}
+        onSaveDescription={handleSaveDescription}
+        onStatusChange={handleStatusChange}
+        onPriorityChange={handlePriorityChange}
+        onDueDateChange={handleDueDateChange}
+      />
 
       {/* Two-column layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -543,7 +513,7 @@ export function TaskDetailPage({
                 onChange={(e) => {
                   const val = Number(e.target.value);
                   setAuditLimit(val);
-                  refreshAudit(val);
+                  void refreshAudit(val);
                 }}
                 className="text-xs bg-bg-primary border border-border rounded px-2 py-1 text-fg-muted"
               >
@@ -558,243 +528,29 @@ export function TaskDetailPage({
         </div>
 
         {/* Sidebar */}
-        <div className="space-y-4">
-          {/* Details card */}
-          <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-4">
-            <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.fields.assignees")}</h4>
-            <AssigneeSelect
-              members={projectMembers}
-              value={task.assignees.map((a) => a.id)}
-              onChange={(ids) => {
-                const next = projectMembers.filter((m) => ids.includes(m.id));
-                setTask((prev) => ({ ...prev, assignees: next }));
-                updateTask({ assigneeIds: ids });
-              }}
-              placeholder={t("task.searchMembers")}
-            />
-
-            {task.reporter && (
-              <>
-                <div className="border-t border-border-secondary pt-3">
-                  <h4 className="text-xs font-medium text-fg-muted mb-1">{t("task.reporter")}</h4>
-                  <p className="text-sm text-fg">{task.reporter.displayName}</p>
-                </div>
-              </>
-            )}
-
-            <div className="border-t border-border-secondary pt-3 grid grid-cols-2 gap-3">
-              {task.estimatedHours != null && (
-                <div>
-                  <h4 className="text-xs text-fg-muted font-medium mb-1">{t("task.estimated")}</h4>
-                  <input
-                    type="number"
-                    value={task.estimatedHours ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value ? Number(e.target.value) : null;
-                      setTask((prev) => ({ ...prev, estimatedHours: val }));
-                      updateTask({ estimatedHours: val });
-                    }}
-                    className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1 text-fg"
-                  />
-                </div>
-              )}
-              {task.spentHours != null && (
-                <div>
-                  <h4 className="text-xs text-fg-muted font-medium mb-1">{t("task.spent")}</h4>
-                  <input
-                    type="number"
-                    value={task.spentHours ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value ? Number(e.target.value) : null;
-                      setTask((prev) => ({ ...prev, spentHours: val }));
-                      updateTask({ spentHours: val });
-                    }}
-                    className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1 text-fg"
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="border-t border-border-secondary pt-3 text-xs text-fg-muted space-y-1">
-              <p>{t("task.createdAt")}: {formatDateTime(new Date(task.createdAt), locale)}</p>
-              <p>{t("task.updatedAt")}: {formatDateTime(new Date(task.updatedAt), locale)}</p>
-            </div>
-          </div>
-
-          {/* Date & Duration card */}
-          <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-3">
-            <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.dateAndDuration")}</h4>
-            <div className="space-y-2">
-              <div>
-                <label className="text-xs text-fg-muted block mb-1">{t("task.startDate")}</label>
-                <JalaliDatePicker
-                  value={task.startDate?.split("T")[0] ?? null}
-                  onChange={handleStartDateChange}
-                  placeholder={t("task.selectDate")}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-fg-muted block mb-1">{t("task.endDate")}</label>
-                <JalaliDatePicker
-                  value={task.endDate?.split("T")[0] ?? null}
-                  onChange={handleEndDateChange}
-                  placeholder={t("task.selectDate")}
-                  className="w-full"
-                />
-              </div>
-            </div>
-            <div className="border-t border-border-secondary pt-2">
-              <label className="text-xs text-fg-muted block mb-1">{t("task.duration")}</label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    min={0}
-                    value={durationDays}
-                    onChange={(e) => {
-                      const days = Math.max(0, Number(e.target.value) || 0);
-                      handleDurationChange(days, durationHours);
-                    }}
-                    className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
-                    placeholder="0"
-                  />
-                  <span className="text-[10px] text-fg-subtle block mt-0.5">{t("task.days")}</span>
-                </div>
-                <div className="flex-1">
-                  <input
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={durationHours}
-                    onChange={(e) => {
-                      const hours = Math.max(0, Math.min(23, Number(e.target.value) || 0));
-                      handleDurationChange(durationDays, hours);
-                    }}
-                    className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
-                    placeholder="0"
-                  />
-                  <span className="text-[10px] text-fg-subtle block mt-0.5">{t("task.hours")}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Tags card */}
-          <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
-            <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">{t("task.tags")}</h4>
-            <TagPicker
-              projectId={task.projectId}
-              value={taskTagIds}
-              onChange={handleTagsChange}
-            />
-          </div>
-
-          {/* Custom Fields card */}
-          {customFieldSchema.length > 0 && (
-            <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
-              <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-3">{t("task.customFields")}</h4>
-              <div className="space-y-3">
-                {customFieldSchema.map((field) => (
-                  <CustomFieldInput
-                    key={field.id}
-                    field={field}
-                    value={cfValues[field.key] ?? null}
-                    onChange={async (value) => {
-                      const prev = { ...cfValues };
-                      const next = { ...cfValues, [field.key]: value };
-                      setCfValues(next);
-                      try {
-                        const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
-                          method: "PATCH",
-                          body: JSON.stringify({ customFields: { [field.key]: value } }),
-                        });
-                        if (res.ok) {
-                          const body = await res.json();
-                          if (body.data?.customFields) {
-                            setCfValues(body.data.customFields);
-                          }
-                        } else {
-                          setCfValues(prev);
-                        }
-                      } catch {
-                        setCfValues(prev);
-                      }
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Watchers card */}
-          <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.watchers")}</h4>
-              <div className="flex items-center gap-2">
-                <select
-                  onChange={async (e) => {
-                    const userId = e.target.value;
-                    e.target.value = "";
-                    if (!userId) return;
-                    const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}/add?userId=${userId}`, { method: "POST" });
-                    if (res.ok) {
-                      const member = projectMembers.find((m) => m.id === userId);
-                      setWatchers((prev) => [
-                        ...prev,
-                        { id: userId, displayName: member?.displayName ?? "", avatarUrl: member?.avatarUrl ?? null, addedAt: new Date().toISOString() },
-                      ]);
-                    }
-                  }}
-                  className="text-xs bg-transparent border border-border-primary rounded px-1.5 py-0.5 text-fg-muted"
-                >
-                  <option value="">+ {t("task.addWatcher")}</option>
-                  {projectMembers
-                    .filter((m) => !watchers.some((w) => w.id === m.id))
-                    .map((m) => (
-                      <option key={m.id} value={m.id}>{m.displayName}</option>
-                    ))}
-                </select>
-                <button
-                  onClick={toggleWatch}
-                  className={cn(
-                    "text-xs px-2 py-0.5 rounded-md border transition-colors",
-                    isWatching
-                      ? "border-accent/30 text-accent hover:bg-accent/10"
-                      : "border-border text-fg-muted hover:text-fg hover:border-fg-muted",
-                  )}
-                >
-                  {isWatching ? t("task.watching") : t("task.watch")}
-                </button>
-              </div>
-            </div>
-            {watchers.length > 0 ? (
-              <div className="space-y-1.5">
-                {watchers.map((w) => (
-                  <div key={w.id} className="flex items-center gap-2 text-sm text-fg-muted group">
-                    <Avatar initials={w.displayName.slice(0, 2).toUpperCase()} size="sm" />
-                    <span className="truncate flex-1">{w.displayName || t("common.you")}</span>
-                    {w.id !== currentUserId && (
-                      <button
-                        onClick={async () => {
-                          const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}/remove?userId=${w.id}`, { method: "DELETE" });
-                          if (res.ok) {
-                            setWatchers((prev) => prev.filter((x) => x.id !== w.id));
-                          }
-                        }}
-                        className="text-xs text-fg-muted opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-fg-subtle">{t("task.noWatchers")}</p>
-            )}
-          </div>
-        </div>
+        <TaskDetailSidebar
+          task={task}
+          projectMembers={projectMembers}
+          currentUserId={currentUserId}
+          customFieldSchema={customFieldSchema}
+          cfValues={cfValues}
+          taskTagIds={taskTagIds}
+          watchers={watchers}
+          isWatching={isWatching}
+          durationDays={durationDays}
+          durationHours={durationHours}
+          onAssigneeChange={handleAssigneeChange}
+          onEstimatedChange={handleEstimatedChange}
+          onSpentChange={handleSpentChange}
+          onStartDateChange={handleStartDateChange}
+          onEndDateChange={handleEndDateChange}
+          onDurationChange={handleDurationChange}
+          onTagsChange={handleTagsChange}
+          onCustomFieldChange={handleCustomFieldChange}
+          onToggleWatch={toggleWatch}
+          onAddWatcher={handleAddWatcher}
+          onRemoveWatcher={handleRemoveWatcher}
+        />
       </div>
     </div>
   );
