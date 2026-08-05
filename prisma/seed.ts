@@ -11,12 +11,12 @@ async function main() {
   console.log("🌱 Creating default admin user...");
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@taskapp.dev" },
+    where: { email: "admin@utask.local" },
     update: {},
     create: {
-      email: "admin@taskapp.dev",
+      email: "admin@utask.local",
       displayName: "Admin",
-      passwordHash: hashPassword("password"),
+      passwordHash: hashPassword("password123"),
       locale: "fa_IR",
       status: "active",
     },
@@ -38,8 +38,8 @@ async function main() {
   }
 
   console.log("✅ Admin user created");
-  console.log("   Email:    admin@taskapp.dev");
-  console.log("   Password: password");
+  console.log("   Email:    admin@utask.local");
+  console.log("   Password: password123");
   console.log("");
   console.log("   Run 'pnpm db:sample' to add sample data (users, projects, tasks).");
 }

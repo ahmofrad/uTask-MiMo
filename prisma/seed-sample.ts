@@ -12,90 +12,102 @@ async function main() {
 
   // ── Users ──
   const owner = await prisma.user.upsert({
-    where: { email: "owner@taskapp.dev" },
+    where: { email: "owner@utask.local" },
     update: {},
     create: {
-      email: "owner@taskapp.dev",
+      email: "owner@utask.local",
       displayName: "مدیر سیستم",
-      passwordHash: hashPassword("password"),
+      passwordHash: hashPassword("password123"),
       locale: "fa_IR",
       status: "active",
     },
   });
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@taskapp.dev" },
+    where: { email: "admin@utask.local" },
     update: {},
     create: {
-      email: "admin@taskapp.dev",
+      email: "admin@utask.local",
       displayName: "مدیر ارشد",
-      passwordHash: hashPassword("password"),
+      passwordHash: hashPassword("password123"),
       locale: "fa_IR",
       status: "active",
     },
   });
 
   const manager = await prisma.user.upsert({
-    where: { email: "manager@taskapp.dev" },
+    where: { email: "manager@utask.local" },
     update: {},
     create: {
-      email: "manager@taskapp.dev",
+      email: "manager@utask.local",
       displayName: "سرپرست تیم",
-      passwordHash: hashPassword("password"),
+      passwordHash: hashPassword("password123"),
       locale: "fa_IR",
       status: "active",
     },
   });
 
   const member1 = await prisma.user.upsert({
-    where: { email: "sara@taskapp.dev" },
+    where: { email: "sara@utask.local" },
     update: {},
     create: {
-      email: "sara@taskapp.dev",
+      email: "sara@utask.local",
       displayName: "سارا محمدی",
-      passwordHash: hashPassword("password"),
+      passwordHash: hashPassword("password123"),
       locale: "fa_IR",
       status: "active",
     },
   });
 
   const member2 = await prisma.user.upsert({
-    where: { email: "ali@taskapp.dev" },
+    where: { email: "ali@utask.local" },
     update: {},
     create: {
-      email: "ali@taskapp.dev",
+      email: "ali@utask.local",
       displayName: "علی رضایی",
-      passwordHash: hashPassword("password"),
+      passwordHash: hashPassword("password123"),
+      locale: "fa_IR",
+      status: "active",
+    },
+  });
+
+  const member = await prisma.user.upsert({
+    where: { email: "member@utask.local" },
+    update: {},
+    create: {
+      email: "member@utask.local",
+      displayName: "عضو تیم",
+      passwordHash: hashPassword("password123"),
       locale: "fa_IR",
       status: "active",
     },
   });
 
   const guest = await prisma.user.upsert({
-    where: { email: "guest@taskapp.dev" },
+    where: { email: "guest@utask.local" },
     update: {},
     create: {
-      email: "guest@taskapp.dev",
+      email: "guest@utask.local",
       displayName: "مهمان",
-      passwordHash: hashPassword("password"),
+      passwordHash: hashPassword("password123"),
       locale: "fa_IR",
       status: "active",
     },
   });
 
   const englishUser = await prisma.user.upsert({
-    where: { email: "john@taskapp.dev" },
+    where: { email: "john@utask.local" },
     update: {},
     create: {
-      email: "john@taskapp.dev",
+      email: "john@utask.local",
       displayName: "John Smith",
-      passwordHash: hashPassword("password"),
+      passwordHash: hashPassword("password123"),
       locale: "en_US",
       status: "active",
     },
   });
 
-  const users = { owner, admin, manager, member1, member2, guest, englishUser };
+  const users = { owner, admin, manager, member1, member2, member, guest, englishUser };
 
   // ── Roles ──
   const roleData = [
@@ -104,6 +116,7 @@ async function main() {
     { userId: manager.id, type: "manager" as const, scopeType: "global" as const },
     { userId: member1.id, type: "member" as const, scopeType: "global" as const },
     { userId: member2.id, type: "member" as const, scopeType: "global" as const },
+    { userId: member.id, type: "member" as const, scopeType: "global" as const },
     { userId: guest.id, type: "guest" as const, scopeType: "global" as const },
     { userId: englishUser.id, type: "member" as const, scopeType: "global" as const },
   ];
@@ -315,7 +328,7 @@ async function main() {
       status: "in_progress" as const,
       priority: "high" as const,
       dueDate: day(2),
-      assigneeId: member1.id,
+      assigneeIds: [member1.id],
       reporterId: owner.id,
       createdById: owner.id,
       estimatedHours: 4,
@@ -329,7 +342,7 @@ async function main() {
       status: "open" as const,
       priority: "med" as const,
       dueDate: day(5),
-      assigneeId: member2.id,
+      assigneeIds: [member2.id],
       reporterId: owner.id,
       createdById: manager.id,
       estimatedHours: 8,
@@ -343,7 +356,7 @@ async function main() {
       status: "done" as const,
       priority: "low" as const,
       dueDate: day(-1),
-      assigneeId: member1.id,
+      assigneeIds: [member1.id],
       reporterId: manager.id,
       createdById: manager.id,
       estimatedHours: 3,
@@ -358,7 +371,7 @@ async function main() {
       status: "open" as const,
       priority: "urgent" as const,
       dueDate: day(1),
-      assigneeId: manager.id,
+      assigneeIds: [manager.id],
       reporterId: owner.id,
       createdById: owner.id,
       estimatedHours: 6,
@@ -371,7 +384,6 @@ async function main() {
       description: "Provision a staging server that mirrors production for pre-release testing.",
       status: "cancelled" as const,
       priority: "med" as const,
-      assigneeId: null,
       reporterId: manager.id,
       createdById: manager.id,
       estimatedHours: 12,
@@ -385,7 +397,7 @@ async function main() {
       status: "open" as const,
       priority: "med" as const,
       dueDate: day(7),
-      assigneeId: member2.id,
+      assigneeIds: [member2.id],
       reporterId: member1.id,
       createdById: member1.id,
       estimatedHours: 5,
@@ -399,7 +411,7 @@ async function main() {
       status: "open" as const,
       priority: "high" as const,
       dueDate: day(10),
-      assigneeId: member1.id,
+      assigneeIds: [member1.id],
       reporterId: manager.id,
       createdById: manager.id,
       estimatedHours: 8,
@@ -413,7 +425,7 @@ async function main() {
       status: "in_progress" as const,
       priority: "med" as const,
       dueDate: day(3),
-      assigneeId: member1.id,
+      assigneeIds: [member1.id],
       reporterId: member2.id,
       createdById: member2.id,
       estimatedHours: 2,
@@ -427,7 +439,7 @@ async function main() {
       status: "open" as const,
       priority: "low" as const,
       dueDate: day(14),
-      assigneeId: member2.id,
+      assigneeIds: [member2.id],
       reporterId: owner.id,
       createdById: owner.id,
       estimatedHours: 3,
@@ -441,7 +453,7 @@ async function main() {
       status: "open" as const,
       priority: "low" as const,
       dueDate: day(7),
-      assigneeId: owner.id,
+      assigneeIds: [owner.id],
       reporterId: owner.id,
       createdById: owner.id,
       orderIndex: 1,
@@ -454,7 +466,7 @@ async function main() {
       status: "in_progress" as const,
       priority: "high" as const,
       dueDate: day(3),
-      assigneeId: admin.id,
+      assigneeIds: [admin.id],
       reporterId: admin.id,
       createdById: admin.id,
       estimatedHours: 4,
@@ -468,7 +480,7 @@ async function main() {
       status: "open" as const,
       priority: "high" as const,
       dueDate: day(7),
-      assigneeId: member1.id,
+      assigneeIds: [member1.id],
       reporterId: admin.id,
       createdById: admin.id,
       estimatedHours: 16,
@@ -482,7 +494,7 @@ async function main() {
       status: "done" as const,
       priority: "med" as const,
       dueDate: day(-2),
-      assigneeId: manager.id,
+      assigneeIds: [manager.id],
       reporterId: admin.id,
       createdById: admin.id,
       estimatedHours: 2,
@@ -497,7 +509,7 @@ async function main() {
       status: "open" as const,
       priority: "urgent" as const,
       dueDate: day(1),
-      assigneeId: manager.id,
+      assigneeIds: [manager.id],
       reporterId: admin.id,
       createdById: admin.id,
       estimatedHours: 1,
@@ -511,7 +523,7 @@ async function main() {
       status: "open" as const,
       priority: "med" as const,
       dueDate: day(5),
-      assigneeId: member2.id,
+      assigneeIds: [member2.id],
       reporterId: admin.id,
       createdById: admin.id,
       estimatedHours: 6,
@@ -525,7 +537,7 @@ async function main() {
       status: "done" as const,
       priority: "urgent" as const,
       dueDate: day(-1),
-      assigneeId: member1.id,
+      assigneeIds: [member1.id],
       reporterId: admin.id,
       createdById: admin.id,
       estimatedHours: 3,
@@ -536,10 +548,16 @@ async function main() {
 
   const createdTasks = [];
   for (const data of taskData) {
+    const { assigneeIds, ...createData } = data;
     const task = await prisma.task.upsert({
       where: { id: data.id },
       update: {},
-      create: data,
+      create: {
+        ...createData,
+        assignees: {
+          create: (assigneeIds ?? []).map((userId) => ({ userId })),
+        },
+      },
     });
     createdTasks.push(task);
   }
@@ -651,7 +669,7 @@ async function main() {
       title: "Check certificate expiry date",
       status: "done" as const,
       priority: "high" as const,
-      assigneeId: member1.id,
+      assigneeIds: [member1.id],
       reporterId: owner.id,
       createdById: member1.id,
       orderIndex: 1.0,
@@ -663,7 +681,7 @@ async function main() {
       title: "Deploy new certificate to production",
       status: "in_progress" as const,
       priority: "high" as const,
-      assigneeId: member1.id,
+      assigneeIds: [member1.id],
       reporterId: owner.id,
       createdById: member1.id,
       orderIndex: 2.0,
@@ -671,10 +689,16 @@ async function main() {
   ];
 
   for (const st of subtaskData) {
+    const { assigneeIds, ...createData } = st;
     await prisma.task.upsert({
       where: { id: st.id },
       update: {},
-      create: st,
+      create: {
+        ...createData,
+        assignees: {
+          create: (assigneeIds ?? []).map((userId) => ({ userId })),
+        },
+      },
     });
   }
 
