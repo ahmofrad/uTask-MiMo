@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/cn";
 import { useTranslations } from "next-intl";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 
 type TaskQuickAddProps = {
   open: boolean;
@@ -16,6 +17,8 @@ export function TaskQuickAdd({ open, onClose, projectId, onCreated }: TaskQuickA
   const [title, setTitle] = useState("");
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef, open);
 
   useEffect(() => {
     if (open) {
@@ -56,6 +59,10 @@ export function TaskQuickAdd({ open, onClose, projectId, onCreated }: TaskQuickA
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[20vh]" onClick={onClose}>
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("task.form.title")}
         className="bg-bg-surface border border-border rounded-xl shadow-lg w-full max-w-lg mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 const LOCALES = [
   { value: "fa-IR", label: "فارسی" },
@@ -15,6 +15,7 @@ function setCookie(name: string, value: string, days: number) {
 
 export function LocaleSwitcher() {
   const locale = useLocale();
+  const t = useTranslations("settings");
 
   function switchLocale(newLocale: string) {
     setCookie("NEXT_LOCALE", newLocale, 365);
@@ -29,7 +30,7 @@ export function LocaleSwitcher() {
       value={locale}
       onChange={(e) => switchLocale(e.target.value)}
       className="text-sm bg-bg-surface border border-border-primary rounded-md px-2 py-1 text-fg-secondary focus:outline-none focus:ring-1 focus:ring-accent"
-      aria-label="Switch language"
+      aria-label={t("language")}
     >
       {LOCALES.map((l) => (
         <option key={l.value} value={l.value}>

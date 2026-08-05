@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/avatar";
+import { Dialog } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-fetch";
 
 type Member = {
@@ -106,17 +107,9 @@ export function MembersModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-bg-primary border border-border-primary rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border-primary">
-          <h2 className="text-lg font-semibold text-fg-primary">{t("title")}</h2>
-          <button onClick={onClose} className="text-fg-muted hover:text-fg text-lg" aria-label="Close">✕</button>
-        </div>
-
-        {/* Search + role selector */}
-        <div className="px-6 py-4 border-b border-border-secondary space-y-3">
+    <Dialog open={open} onClose={onClose} title={t("title")} className="max-w-lg flex flex-col max-h-[80vh] p-0">
+      {/* Search + role selector */}
+      <div className="px-6 py-4 border-b border-border-secondary space-y-3">
           <div className="flex gap-2">
             <input
               value={query}
@@ -202,8 +195,7 @@ export function MembersModal({
               </div>
             ))
           )}
-        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

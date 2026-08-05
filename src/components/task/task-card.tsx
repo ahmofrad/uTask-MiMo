@@ -55,7 +55,7 @@ export function TaskCard({ task, variant, showProject }: TaskCardProps) {
 
         {/* Description snippet */}
         {task.description && (
-          <p className="text-[11px] text-fg-muted line-clamp-2 mb-1.5 leading-relaxed">
+          <p className="text-xs text-fg-muted line-clamp-2 mb-1.5 leading-relaxed">
             {task.description.replace(/<[^>]+>/g, "").slice(0, 120)}
           </p>
         )}
@@ -64,12 +64,12 @@ export function TaskCard({ task, variant, showProject }: TaskCardProps) {
         {task.tags && task.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-1.5">
             {task.tags.slice(0, 3).map((tag) => (
-              <span key={tag.id} className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent">
+              <span key={tag.id} className="text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent">
                 {tag.name}
               </span>
             ))}
             {task.tags.length > 3 && (
-              <span className="text-[10px] text-fg-muted">+{task.tags.length - 3}</span>
+              <span className="text-xs text-fg-muted">+{task.tags.length - 3}</span>
             )}
           </div>
         )}
@@ -83,14 +83,14 @@ export function TaskCard({ task, variant, showProject }: TaskCardProps) {
                 style={{ width: `${((task.subtaskDone ?? 0) / task.subtaskCount) * 100}%` }}
               />
             </div>
-            <span className="text-[10px] text-fg-muted">{task.subtaskDone ?? 0}/{task.subtaskCount}</span>
+            <span className="text-xs text-fg-muted">{task.subtaskDone ?? 0}/{task.subtaskCount}</span>
           </div>
         )}
 
         {/* Footer: project + assignees */}
         <div className="flex items-center justify-between mt-1 gap-2">
           {showProject && task.projectName && (
-            <span className="text-[10px] text-fg-muted truncate max-w-[60%]">{task.projectName}</span>
+            <span className="text-xs text-fg-muted truncate max-w-[60%]">{task.projectName}</span>
           )}
           <AssigneeStack assignees={task.assignees ?? []} size="sm" />
         </div>
@@ -116,14 +116,14 @@ export function TaskCard({ task, variant, showProject }: TaskCardProps) {
           {task.tags && task.tags.length > 0 && (
             <div className="flex gap-1">
               {task.tags.slice(0, 3).map((tag) => (
-                <span key={tag.id} className="text-[10px] px-1.5 py-0.5 rounded bg-accent/10 text-accent">
+                <span key={tag.id} className="text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent">
                   {tag.name}
                 </span>
               ))}
             </div>
           )}
           {task.description && (
-            <span className="text-[11px] text-fg-muted truncate hidden sm:inline">
+            <span className="text-xs text-fg-muted truncate hidden sm:inline">
               {task.description.replace(/<[^>]+>/g, "").slice(0, 80)}
             </span>
           )}
@@ -136,10 +136,10 @@ export function TaskCard({ task, variant, showProject }: TaskCardProps) {
           <span className="text-xs text-fg-muted">{shortDate(task.dueDate)}</span>
         )}
         {task.subtaskCount != null && task.subtaskCount > 0 && (
-          <span className="text-[10px] text-fg-muted">{task.subtaskDone ?? 0}/{task.subtaskCount}</span>
+          <span className="text-xs text-fg-muted">{task.subtaskDone ?? 0}/{task.subtaskCount}</span>
         )}
         {showProject && task.projectName && (
-          <span className="text-[10px] text-fg-muted bg-bg-secondary px-1.5 py-0.5 rounded hidden sm:inline">{task.projectName}</span>
+          <span className="text-xs text-fg-muted bg-bg-secondary px-1.5 py-0.5 rounded hidden sm:inline">{task.projectName}</span>
         )}
         <AssigneeStack assignees={task.assignees ?? []} size="sm" />
       </div>

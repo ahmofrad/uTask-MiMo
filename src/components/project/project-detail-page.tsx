@@ -16,6 +16,7 @@ import { CustomFieldsManager } from "@/components/custom-field/custom-fields-man
 import { MembersModal } from "@/components/project/members-modal";
 import { ProjectDetailHeader } from "@/components/project/project-detail-header";
 import { ProjectSettingsModal } from "@/components/project/project-settings-modal";
+import { Dialog } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-fetch";
 
 type ProjectInfo = {
@@ -317,35 +318,18 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
       )}
 
       {/* Task Create Modal */}
-      {showCreateForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreateForm(false)} />
-          <div className="relative bg-bg-primary border border-border-primary rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6">
-            <h2 className="text-lg font-semibold text-fg-primary mb-4">{taskT("createTask")}</h2>
-            <TaskForm projectId={project.id} onSubmit={handleCreateTask} onCancel={() => setShowCreateForm(false)} />
-          </div>
-        </div>
-      )}
+      <Dialog open={showCreateForm} onClose={() => setShowCreateForm(false)} title={taskT("createTask")} className="max-w-lg">
+        <TaskForm projectId={project.id} onSubmit={handleCreateTask} onCancel={() => setShowCreateForm(false)} />
+      </Dialog>
 
       {/* Custom Fields Modal */}
-      {showCFModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowCFModal(false)} />
-          <div className="relative bg-bg-primary border border-border-primary rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-fg-primary">{t("customFields")}</h2>
-              <button onClick={() => setShowCFModal(false)} className="text-fg-muted hover:text-fg-primary">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            {cfLoading ? (
-              <p className="text-sm text-fg-muted text-center py-8">{t("loading")}</p>
-            ) : (
-              <CustomFieldsManager projectId={project.id} initialFields={cfFields} />
-            )}
-          </div>
-        </div>
-      )}
+      <Dialog open={showCFModal} onClose={() => setShowCFModal(false)} title={t("customFields")} className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        {cfLoading ? (
+          <p className="text-sm text-fg-muted text-center py-8">{t("loading")}</p>
+        ) : (
+          <CustomFieldsManager projectId={project.id} initialFields={cfFields} />
+        )}
+      </Dialog>
 
       <MembersModal
         open={showMembersModal}

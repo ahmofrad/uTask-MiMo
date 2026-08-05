@@ -18,13 +18,13 @@ export function MobileNav({ isAdmin }: MobileNavProps) {
       <button
         onClick={() => setOpen(true)}
         className="md:hidden p-2 text-fg-secondary hover:text-fg-primary"
-        aria-label="Open menu"
+        aria-label={t("openMenu")}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>
-      <Sheet open={open} onClose={() => setOpen(false)} title="uTask" side="right">
+      <Sheet open={open} onClose={() => setOpen(false)} title="uTask" side="end">
         <nav className="space-y-1">
           <Link href="/" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("home")}</Link>
           <Link href="/projects" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("projects")}</Link>

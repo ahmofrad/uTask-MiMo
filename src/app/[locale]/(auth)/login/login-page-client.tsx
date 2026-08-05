@@ -15,7 +15,7 @@ export function LoginPageClient({ ldapConfigured, ssoConfigured, ldapDomain }: L
   const t = useTranslations("auth.login");
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-bg-app to-bg-surface px-4 relative">
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-b from-bg-app to-bg-surface px-4 relative">
       <div className="absolute top-4 start-4">
         <LocaleSwitcher />
       </div>
@@ -27,7 +27,7 @@ export function LoginPageClient({ ldapConfigured, ssoConfigured, ldapDomain }: L
 
         <div className="bg-bg-surface rounded-2xl shadow-lg border border-border p-8">
           <div className="text-center mb-6">
-            <h2 className="text-xl font-semibold text-fg">{t("title")}</h2>
+            <h1 className="text-xl font-semibold text-fg">{t("title")}</h1>
             <p className="text-sm text-fg-muted mt-1">{t("welcomeBack")}</p>
           </div>
           <LoginForm ldapConfigured={ldapConfigured} ssoConfigured={ssoConfigured} ldapDomain={ldapDomain} />
@@ -35,6 +35,6 @@ export function LoginPageClient({ ldapConfigured, ssoConfigured, ldapDomain }: L
 
         <p className="text-center text-xs text-fg-muted mt-6">{t("footer")}</p>
       </div>
-    </div>
+    </main>
   );
 }

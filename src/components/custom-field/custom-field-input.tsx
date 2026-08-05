@@ -123,7 +123,7 @@ export function CustomFieldInput({ field, value, onChange, error, className }: C
             type="url"
             value={String(value ?? "")}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="https://"
+            placeholder={t("urlPlaceholder")}
           />
         );
       default:

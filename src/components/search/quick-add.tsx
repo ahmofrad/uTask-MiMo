@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 
 type Result = {
   id: string;
@@ -16,6 +17,8 @@ export function QuickAddPalette() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Result[]>([]);
   const [selectedIdx, setSelectedIdx] = useState(0);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef, open);
   const router = useRouter();
 
   useEffect(() => {
@@ -82,7 +85,13 @@ export function QuickAddPalette() {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
       <div className="fixed inset-0 bg-black/40" onClick={() => setOpen(false)} />
-      <div className="relative w-full max-w-lg bg-bg-primary border border-border-primary rounded-xl shadow-2xl overflow-hidden">
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("searchInput")}
+        className="relative w-full max-w-lg bg-bg-primary border border-border-primary rounded-xl shadow-2xl overflow-hidden"
+      >
         <input
           autoFocus
           value={query}

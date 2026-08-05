@@ -136,7 +136,7 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
         >
           <svg className="w-5 h-5 text-fg-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
         </button>
-        <h3 className="text-lg font-semibold text-fg-primary">{monthName} {year}</h3>
+        <h2 className="text-lg font-semibold text-fg-primary">{monthName} {year}</h2>
         <button
           onClick={() => setMonthOffset(monthOffset + 1)}
           className="p-2 hover:bg-bg-surface rounded-lg transition-colors"
@@ -193,7 +193,7 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                         : undefined
                     }
                     className={cn(
-                      "block text-[10px] text-fg-primary truncate px-1 py-0.5 rounded border-s-2 hover:shadow-sm hover:bg-accent/20 cursor-grab active:cursor-grabbing",
+                      "block text-xs text-fg-primary truncate px-1 py-0.5 rounded border-s-2 hover:shadow-sm hover:bg-accent/20 cursor-grab active:cursor-grabbing",
                       STATUS_CHIP[task.status] ?? "border-s-fg-muted",
                     )}
                     title={draggable ? t("dragToReschedule") : undefined}
@@ -214,7 +214,7 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                 );
               })}
               {dayTasks.length > 3 && (
-                <div className="text-[10px] text-fg-subtle text-center">+{dayTasks.length - 3}</div>
+                <div className="text-xs text-fg-subtle text-center">+{dayTasks.length - 3}</div>
               )}
             </div>
           );

@@ -51,7 +51,7 @@ export function WebhookForm({ initialData, onSubmit, className }: WebhookFormPro
         <Input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com/webhook"
+          placeholder={t("payloadUrlPlaceholder")}
           required
         />
       </div>

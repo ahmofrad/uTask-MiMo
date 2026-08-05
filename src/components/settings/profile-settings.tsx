@@ -38,8 +38,9 @@ export function ProfileSettings({ userId, name, email }: ProfileProps) {
   return (
     <div className="space-y-4 max-w-lg">
       <div>
-        <label className="block text-sm font-medium text-fg-secondary mb-1">{tc("displayName")}</label>
+        <label htmlFor="displayName" className="block text-sm font-medium text-fg-secondary mb-1">{tc("displayName")}</label>
         <input
+          id="displayName"
           type="text"
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
@@ -47,8 +48,9 @@ export function ProfileSettings({ userId, name, email }: ProfileProps) {
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-fg-secondary mb-1">{tc("emailLabel")}</label>
+        <label htmlFor="email" className="block text-sm font-medium text-fg-secondary mb-1">{tc("emailLabel")}</label>
         <input
+          id="email"
           type="email"
           value={email ?? ""}
           readOnly

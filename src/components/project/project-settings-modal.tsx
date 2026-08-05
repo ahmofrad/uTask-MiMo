@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Dialog } from "@/components/ui/dialog";
 
 type ProjectSettingsValues = {
   status: "active" | "archived";
@@ -42,25 +43,8 @@ export function ProjectSettingsModal({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={() => !saving && onClose()}
-      />
-      <div className="relative bg-bg-primary border border-border-primary rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-fg-primary">{t("settings.title")}</h2>
-          <button
-            onClick={onClose}
-            className="text-fg-muted hover:text-fg-primary"
-            aria-label={t("cancel")}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-        <div className="space-y-4">
+    <Dialog open={open} onClose={onClose} title={t("settings.title")}>
+      <div className="space-y-4">
           <div>
             <label className="block text-xs text-fg-muted mb-1">{t("fields.status")}</label>
             <select
@@ -108,8 +92,7 @@ export function ProjectSettingsModal({
               {saving ? t("saving") : t("save")}
             </button>
           </div>
-        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

@@ -73,10 +73,10 @@ export default async function SettingsPage() {
                 <tr key={event.key} className="border-b border-border-primary last:border-0">
                   <td className="p-3 text-fg-primary">{event.label}</td>
                   <td className="p-3 text-center">
-                    <input type="checkbox" defaultChecked className="accent-accent" />
+                    <input type="checkbox" defaultChecked className="accent-accent" aria-label={`${event.label} ${t("inApp")}`} />
                   </td>
                   <td className="p-3 text-center">
-                    <input type="checkbox" defaultChecked className="accent-accent" />
+                    <input type="checkbox" defaultChecked className="accent-accent" aria-label={`${event.label} ${t("email")}`} />
                   </td>
                 </tr>
               ))}

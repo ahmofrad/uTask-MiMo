@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 
 type CommandItem = {
   id: string;
@@ -17,6 +18,8 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const paletteRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(paletteRef, open);
   const t = useTranslations("search");
   const router = useRouter();
 
@@ -66,9 +69,17 @@ export function CommandPalette() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
+    <div
+      ref={paletteRef}
+      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
+    >
       <div className="fixed inset-0 bg-black/40" onClick={() => setOpen(false)} />
-      <div className="relative w-full max-w-lg bg-bg-primary border border-border-primary rounded-xl shadow-2xl overflow-hidden">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("placeholder")}
+        className="relative w-full max-w-lg bg-bg-primary border border-border-primary rounded-xl shadow-2xl overflow-hidden"
+      >
         <input
           ref={inputRef}
           autoFocus

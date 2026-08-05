@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { Dialog } from "@/components/ui/dialog";
 
 export function ProjectCreateButton() {
   const t = useTranslations("project");
@@ -58,13 +59,8 @@ function ProjectCreateDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg-overlay" onClick={onClose}>
-      <div
-        className="bg-bg-surface rounded-xl border border-border shadow-lg w-full max-w-md p-6 mx-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-lg font-semibold text-fg-primary mb-4">{t("create")}</h2>
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <Dialog open onClose={onClose} title={t("create")} className="max-w-md">
+      <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-fg mb-1">{t("fields.name")}</label>
             <input
@@ -114,7 +110,6 @@ function ProjectCreateDialog({ onClose }: { onClose: () => void }) {
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </Dialog>
   );
 }

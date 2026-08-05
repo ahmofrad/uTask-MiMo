@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
+import { useFocusTrap } from "@/hooks/use-focus-trap";
 
 type DialogProps = {
   open: boolean;
@@ -12,7 +14,9 @@ type DialogProps = {
 };
 
 export function Dialog({ open, onClose, title, children, className }: DialogProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const t = useTranslations("common");
+  const panelRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(panelRef, open);
 
   useEffect(() => {
     if (!open) return;
@@ -31,19 +35,33 @@ export function Dialog({ open, onClose, title, children, className }: DialogProp
 
   return (
     <div
-      ref={overlayRef}
-      className="fixed inset-0 z-40 flex items-center justify-center bg-bg-overlay"
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={title}
+      className="fixed inset-0 z-40 flex items-center justify-center bg-bg-overlay overscroll-contain"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
     >
-      <div className={cn(
-        "bg-bg-surface border border-border rounded-xl shadow-lg w-full max-w-lg mx-4 p-6",
-        className,
-      )}>
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className={cn(
+          "bg-bg-surface border border-border rounded-xl shadow-lg w-full max-w-lg mx-4 p-6 focus:outline-none",
+          className,
+        )}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
         {title && (
-          <h2 className="text-lg font-semibold text-fg mb-4">{title}</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-fg">{title}</h2>
+            <button
+              onClick={onClose}
+              className="text-fg-muted hover:text-fg"
+              aria-label={t("close")}
+            >
+              ✕
+            </button>
+          </div>
         )}
         {children}
       </div>

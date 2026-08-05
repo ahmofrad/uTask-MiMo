@@ -83,8 +83,8 @@ function WbsRow(props: RowProps) {
         }}
         onDragEnd={onDragEnd}
         className="cursor-grab text-fg-subtle hover:text-fg-primary shrink-0"
-        title="drag"
-        aria-label="drag"
+        title={t("dragLabel")}
+        aria-label={t("dragLabel")}
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01" />
@@ -96,7 +96,7 @@ function WbsRow(props: RowProps) {
         className={`w-4 h-4 flex items-center justify-center shrink-0 text-fg-muted hover:text-fg-primary transition-colors ${
           node.isSummary ? "cursor-pointer" : "invisible"
         }`}
-        aria-label={expanded ? "collapse" : "expand"}
+        aria-label={expanded ? t("collapse") : t("expand")}
       >
         {node.isSummary && (
           <svg
@@ -110,7 +110,7 @@ function WbsRow(props: RowProps) {
         )}
       </button>
 
-      <span data-testid="wbs-code" className="text-[10px] font-mono text-fg-subtle w-10 shrink-0">{node.wbsCode}</span>
+      <span data-testid="wbs-code" className="text-xs font-mono text-fg-subtle w-10 shrink-0">{node.wbsCode}</span>
 
       <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${STATUS_COLOR[node.status] || "bg-info"}`} />
 
@@ -122,7 +122,7 @@ function WbsRow(props: RowProps) {
       </Link>
 
       {node.isSummary && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-secondary text-fg-muted shrink-0">
+        <span className="text-xs px-1.5 py-0.5 rounded bg-bg-secondary text-fg-muted shrink-0">
           {node.childCount}
         </span>
       )}
@@ -149,7 +149,7 @@ function WbsRow(props: RowProps) {
             aria-label={t("wbsProgress")}
           />
         ) : (
-          <span className="text-[10px] text-fg-muted w-8 text-end">{pct}%</span>
+          <span className="text-xs text-fg-muted w-8 text-end">{pct}%</span>
         )}
       </div>
 

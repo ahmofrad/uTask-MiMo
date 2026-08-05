@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/avatar";
+import { EmptyState } from "@/components/ui/empty-state";
 import { apiFetch } from "@/lib/api-fetch";
 
 type Member = {
@@ -29,6 +31,7 @@ export function MembersClient({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const t = useTranslations("project.members");
   const [showSearch, setShowSearch] = useState(false);
 
   async function searchUsers(q: string) {
@@ -73,24 +76,24 @@ export function MembersClient({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">Project Members</h1>
+        <h1 className="text-2xl font-bold text-fg-primary">{t("title")}</h1>
         <button
           onClick={() => setShowSearch(!showSearch)}
           className="px-4 py-2 text-sm font-medium rounded-lg bg-accent text-fg-inverse hover:opacity-90 transition-opacity"
         >
-          + Add member
+          + {t("addMember")}
         </button>
       </div>
 
       {/* Add member search */}
       {showSearch && (
         <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-3">
-          <h2 className="text-xs font-medium text-fg-muted uppercase tracking-wide">Add member</h2>
+          <h2 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("addMember")}</h2>
           <div className="relative">
             <input
               value={query}
               onChange={(e) => searchUsers(e.target.value)}
-              placeholder="Search by name or email..."
+              placeholder={t("searchPlaceholder")}
               className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
               autoFocus
             />
@@ -117,7 +120,7 @@ export function MembersClient({
             )}
             {searching && (
               <div className="absolute top-full start-0 end-0 mt-1 bg-bg-primary border border-border-primary rounded-lg shadow-lg z-50 p-3 text-center text-xs text-fg-muted">
-                Searching...
+                {t("searching")}
               </div>
             )}
           </div>
@@ -127,7 +130,7 @@ export function MembersClient({
       {/* Members list */}
       <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-3">
         {members.length === 0 ? (
-          <p className="text-sm text-fg-muted text-center py-8">No members yet. Add someone to get started.</p>
+          <EmptyState icon="Users" title={t("noMembers")} description={t("noMembersDescription")} />
         ) : (
           members.map((member) => (
             <div
@@ -150,7 +153,7 @@ export function MembersClient({
                 onClick={() => removeMember(member.userId)}
                 className="text-xs text-fg-muted hover:text-destructive transition-colors shrink-0"
               >
-                Remove
+                {t("remove")}
               </button>
             </div>
           ))

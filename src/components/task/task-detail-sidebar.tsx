@@ -184,7 +184,7 @@ export function TaskDetailSidebar({
                 className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
                 placeholder="0"
               />
-              <span className="text-[10px] text-fg-subtle block mt-0.5">{t("task.days")}</span>
+              <span className="text-xs text-fg-subtle block mt-0.5">{t("task.days")}</span>
             </div>
             <div className="flex-1">
               <input
@@ -199,7 +199,7 @@ export function TaskDetailSidebar({
                 className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
                 placeholder="0"
               />
-              <span className="text-[10px] text-fg-subtle block mt-0.5">{t("task.hours")}</span>
+              <span className="text-xs text-fg-subtle block mt-0.5">{t("task.hours")}</span>
             </div>
           </div>
         </div>

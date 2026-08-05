@@ -132,11 +132,11 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
               <li key={e.id} className="flex items-center justify-between gap-2 text-sm">
                 <span className="flex items-center gap-2 min-w-0">
                   <span className="truncate">{e.predecessor?.title ?? e.dependsOnId}</span>
-                  <span className="text-[10px] text-fg-muted shrink-0">{typeLabel(e.type)}{e.lag ? ` +${e.lag}d` : ""}</span>
+                  <span className="text-xs text-fg-muted shrink-0">{typeLabel(e.type)}{e.lag ? ` +${e.lag}d` : ""}</span>
                 </span>
                 <button
                   onClick={() => removeDep(e.dependsOnId, e.type)}
-                  className="text-[11px] text-fg-muted hover:text-destructive shrink-0"
+                  className="text-xs text-fg-muted hover:text-destructive shrink-0"
                   title={t("dependencies.remove")}
                 >
                   {t("dependencies.remove")}
@@ -157,7 +157,7 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
             {incoming.map((e) => (
               <li key={e.id} className="flex items-center gap-2 text-sm">
                 <span className="truncate">{e.dependent?.title ?? e.taskId}</span>
-                <span className="text-[10px] text-fg-muted shrink-0">{typeLabel(e.type)}</span>
+                <span className="text-xs text-fg-muted shrink-0">{typeLabel(e.type)}</span>
               </li>
             ))}
           </ul>
@@ -167,7 +167,7 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
       {/* Add */}
       <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-border-secondary">
         <div className="flex-1 min-w-[160px]">
-          <label className="block text-[10px] text-fg-muted mb-1">{t("dependencies.dependsOn")}</label>
+          <label className="block text-xs text-fg-muted mb-1">{t("dependencies.dependsOn")}</label>
           <select
             value={selected}
             onChange={(ev) => setSelected(ev.target.value)}
@@ -181,7 +181,7 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
           </select>
         </div>
         <div>
-          <label className="block text-[10px] text-fg-muted mb-1">{t("dependencies.typeFS")}</label>
+          <label className="block text-xs text-fg-muted mb-1">{t("dependencies.typeFS")}</label>
           <select
             value={type}
             onChange={(ev) => setType(ev.target.value as (typeof DEP_TYPES)[number])}
@@ -195,7 +195,7 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
           </select>
         </div>
         <div>
-          <label className="block text-[10px] text-fg-muted mb-1">{t("dependencies.lag")}</label>
+          <label className="block text-xs text-fg-muted mb-1">{t("dependencies.lag")}</label>
           <input
             type="number"
             value={lag}

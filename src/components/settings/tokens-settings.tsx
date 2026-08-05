@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
+import { Dialog } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-fetch";
 
 export function TokensSettings() {
@@ -59,50 +60,50 @@ export function TokensSettings() {
 
       {/* Create modal */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setShowCreate(false); setNewTokenRaw(null); }} />
-          <div className="relative bg-bg-primary border border-border-primary rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 space-y-4">
-            {newTokenRaw ? (
-              <>
-                <h2 className="text-lg font-semibold text-fg-primary">{t("tokenCreated")}</h2>
-                <p className="text-sm text-fg-muted">{t("tokenCopyWarning")}</p>
-                <div className="p-3 bg-bg-secondary rounded-lg font-mono text-xs text-fg-primary break-all">{newTokenRaw}</div>
+        <Dialog
+          open
+          onClose={() => { setShowCreate(false); setNewTokenRaw(null); }}
+          title={newTokenRaw ? t("tokenCreated") : tc("create")}
+          className="max-w-md"
+        >
+          {newTokenRaw ? (
+            <div className="space-y-4">
+              <p className="text-sm text-fg-muted">{t("tokenCopyWarning")}</p>
+              <div className="p-3 bg-bg-secondary rounded-lg font-mono text-xs text-fg-primary break-all">{newTokenRaw}</div>
+              <button
+                onClick={() => { setShowCreate(false); setNewTokenRaw(null); }}
+                className="w-full px-4 py-2 text-sm font-medium rounded-lg bg-accent text-fg-inverse hover:opacity-90 transition-opacity"
+              >
+                {tc("close")}
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <input
+                value={newTokenName}
+                onChange={(e) => setNewTokenName(e.target.value)}
+                placeholder={t("tokenName")}
+                className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+                autoFocus
+              />
+              <div className="flex gap-2">
                 <button
-                  onClick={() => { setShowCreate(false); setNewTokenRaw(null); }}
-                  className="w-full px-4 py-2 text-sm font-medium rounded-lg bg-accent text-fg-inverse hover:opacity-90 transition-opacity"
+                  onClick={() => { setShowCreate(false); setNewTokenName(""); }}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border border-border-primary text-fg-secondary hover:bg-bg-surface transition-colors"
                 >
-                  {tc("close")}
+                  {tc("cancel")}
                 </button>
-              </>
-            ) : (
-              <>
-                <h2 className="text-lg font-semibold text-fg-primary">{tc("create")}</h2>
-                <input
-                  value={newTokenName}
-                  onChange={(e) => setNewTokenName(e.target.value)}
-                  placeholder={t("tokenName")}
-                  className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
-                  autoFocus
-                />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => { setShowCreate(false); setNewTokenName(""); }}
-                    className="flex-1 px-4 py-2 text-sm font-medium rounded-lg border border-border-primary text-fg-secondary hover:bg-bg-surface transition-colors"
-                  >
-                    {tc("cancel")}
-                  </button>
-                  <button
-                    onClick={createToken}
-                    disabled={creating || !newTokenName.trim()}
-                    className="flex-1 px-4 py-2 text-sm font-medium rounded-lg bg-accent text-fg-inverse hover:opacity-90 transition-opacity disabled:opacity-50"
-                  >
-                    {creating ? t("creating") : tc("create")}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
+                <button
+                  onClick={createToken}
+                  disabled={creating || !newTokenName.trim()}
+                  className="flex-1 px-4 py-2 text-sm font-medium rounded-lg bg-accent text-fg-inverse hover:opacity-90 transition-opacity disabled:opacity-50"
+                >
+                  {creating ? t("creating") : tc("create")}
+                </button>
+              </div>
+            </div>
+          )}
+        </Dialog>
       )}
 
       <div className="border border-border-secondary rounded-xl bg-bg-surface p-5 space-y-3">

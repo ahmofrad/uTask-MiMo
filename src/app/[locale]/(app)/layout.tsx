@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { can } from "@/lib/rbac/can";
 import { QuickAddPalette } from "@/components/search/quick-add";
 import { SearchDialog } from "@/components/search/dialog";
@@ -17,17 +18,24 @@ export default async function AppLayout({
     redirect("/login");
   }
 
+  const t = await getTranslations("common");
   const isAdmin = await can(session.user.id!, "user:manage");
 
   return (
     <div className="min-h-screen bg-bg-primary flex w-full max-w-full">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:start-2 focus:z-[60] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-accent focus:text-fg-inverse focus:text-sm focus:font-medium"
+      >
+        {t("skipToContent")}
+      </a>
       <QuickAddPalette />
       <SearchDialog />
       <CommandPalette />
       <Sidebar isAdmin={isAdmin} />
       <div className="flex-1 flex flex-col min-w-0">
         <Header email={session.user?.email ?? ""} name={session.user?.name ?? ""} isAdmin={isAdmin} />
-        <main className="flex-1 p-6 overflow-y-auto overflow-x-hidden">{children}</main>
+        <main id="main-content" className="flex-1 p-6 overflow-y-auto overflow-x-hidden">{children}</main>
       </div>
     </div>
   );

@@ -27,7 +27,7 @@ export function ProjectCard({ id, name, description, taskCount, memberCount, col
         {color && (
           <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: color }} />
         )}
-        <h3 className="text-sm font-semibold text-fg truncate">{name}</h3>
+        <h2 className="text-sm font-semibold text-fg truncate">{name}</h2>
       </div>
       {description && (
         <p className="text-xs text-fg-muted line-clamp-2 mb-3">{description}</p>

@@ -53,7 +53,7 @@ export function LoginForm({ ldapConfigured, ssoConfigured, ldapDomain }: LoginFo
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {error && (
-        <div className="flex items-center gap-2 p-3 text-sm text-destructive bg-danger-bg border border-danger/20 rounded-lg">
+        <div role="alert" className="flex items-center gap-2 p-3 text-sm text-destructive bg-danger-bg border border-danger/20 rounded-lg">
           <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -92,8 +92,8 @@ export function LoginForm({ ldapConfigured, ssoConfigured, ldapDomain }: LoginFo
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
+            aria-label={showPassword ? t("hidePassword") : t("showPassword")}
             className="absolute end-3 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg-secondary transition-colors"
-            tabIndex={-1}
           >
             {showPassword ? (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -64,7 +64,7 @@ function TreeNode({
           )}
         </button>
 
-        <span className="text-[10px] font-mono text-fg-subtle w-10 shrink-0">{code}</span>
+        <span className="text-xs font-mono text-fg-subtle w-10 shrink-0">{code}</span>
 
         <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${STATUS_COLORS[task.status] || "bg-info"}`} />
 
@@ -75,12 +75,12 @@ function TreeNode({
           {task.title}
         </Link>
 
-        <span className="text-[10px] px-1.5 py-0.5 rounded bg-bg-secondary text-fg-muted capitalize shrink-0">
+        <span className="text-xs px-1.5 py-0.5 rounded bg-bg-secondary text-fg-muted capitalize shrink-0">
           {task.priority}
         </span>
 
         {task.assigneeNames.length > 0 && (
-          <span className="text-[10px] text-fg-muted shrink-0 hidden sm:inline truncate max-w-[160px]">
+          <span className="text-xs text-fg-muted shrink-0 hidden sm:inline truncate max-w-[160px]">
             {task.assigneeNames.join(", ")}
           </span>
         )}

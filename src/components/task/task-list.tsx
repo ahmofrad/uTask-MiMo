@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useOptimisticTasks, type Task } from "@/hooks/use-optimistic-task";
 import { BulkActionsBar } from "@/components/task/bulk-actions";
 import { TaskForm } from "@/components/task/task-form";
+import { Dialog } from "@/components/ui/dialog";
 import { AssigneeStack } from "@/components/task/assignee-stack";
 import { StatusBadge } from "@/components/task/status-badge";
 import { PriorityBadge } from "@/components/task/priority-badge";
 import { DueDateChip } from "@/components/task/due-date-chip";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { useTranslations } from "next-intl";
 
@@ -53,7 +55,14 @@ export function TaskList({ initialTasks }: { initialTasks: Task[] }) {
   }
 
   if (tasks.length === 0) {
-    return <p className="text-fg-tertiary text-sm py-8 text-center">{t("task.noTasks")}</p>;
+    return (
+      <EmptyState
+        icon="List"
+        title={t("task.noTasks")}
+        description={t("task.noTasksDescription")}
+        className="py-10"
+      />
+    );
   }
 
   return (
@@ -138,49 +147,27 @@ export function TaskList({ initialTasks }: { initialTasks: Task[] }) {
 
       {/* Edit Modal */}
       {editingTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center animate-in fade-in duration-200">
-          <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setEditingTask(null)}
-          />
-          <div className="relative bg-bg-primary border border-border-primary rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border-primary bg-bg-surface">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-accent-bg flex items-center justify-center">
-                  <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold text-fg-primary">{t("common.edit")}</h2>
-                  <p className="text-xs text-fg-muted truncate max-w-[200px]">{editingTask.title}</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setEditingTask(null)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-fg-muted hover:text-fg-primary hover:bg-bg-surface-2 transition-colors"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              <TaskForm
-                projectId={editingTask.projectId}
-                initialData={{
-                  title: editingTask.title,
-                  status: editingTask.status,
-                  priority: editingTask.priority,
-                  dueDate: editingTask.dueDate,
-                  assigneeIds: editingTask.assignees.map((a) => a.id),
-                }}
-                onSubmit={handleUpdate}
-                onCancel={() => setEditingTask(null)}
-              />
-            </div>
+        <Dialog
+          open
+          onClose={() => setEditingTask(null)}
+          title={`${t("common.edit")}: ${editingTask.title}`}
+          className="max-w-lg max-h-[90vh]"
+        >
+          <div className="overflow-y-auto">
+            <TaskForm
+              projectId={editingTask.projectId}
+              initialData={{
+                title: editingTask.title,
+                status: editingTask.status,
+                priority: editingTask.priority,
+                dueDate: editingTask.dueDate,
+                assigneeIds: editingTask.assignees.map((a) => a.id),
+              }}
+              onSubmit={handleUpdate}
+              onCancel={() => setEditingTask(null)}
+            />
           </div>
-        </div>
+        </Dialog>
       )}
     </div>
   );

@@ -53,7 +53,7 @@ const STAT_COLORS = {
 type Tab = "board" | "timeline" | "calendar" | "gantt" | "wbs" | "tasks";
 
 export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, projects: _projects, userId }: DashboardPageProps) {
-  useTranslations("reports");
+  const reportsT = useTranslations("reports");
   const taskT = useTranslations("task");
   const [activeTab, setActiveTab] = useState<Tab>("board");
   const [taskFilter, setTaskFilter] = useState<"all" | "mine">("all");
@@ -88,12 +88,14 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
 
   return (
     <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-fg-primary">{reportsT("myDashboard")}</h1>
+
       {/* Stats Cards (always visible) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => (
           <div key={s.label} className={`rounded-xl border border-border-primary p-5 ${STAT_COLORS[s.color]}`}>
             <div className="text-3xl font-bold">{s.value}</div>
-            <div className="text-sm opacity-80 mt-1">{s.label}</div>
+            <div className="text-sm text-fg-muted mt-1">{s.label}</div>
           </div>
         ))}
       </div>
@@ -119,6 +121,7 @@ export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, proj
         <select
           value={taskFilter}
           onChange={(e) => handleFilterChange(e.target.value as "all" | "mine")}
+          aria-label={taskT("filterTasks")}
           className="px-3 py-1.5 text-sm border border-border-primary rounded-md bg-bg-primary text-fg-primary focus:outline-none focus:ring-1 focus:ring-accent"
         >
           <option value="all">{taskT("allTasks")}</option>

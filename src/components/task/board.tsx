@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { TaskCard, type TaskCardData } from "@/components/task/task-card";
+import { Menu } from "@/components/ui/menu";
+import { Icon } from "@/components/icons/icon";
 
 export type BoardTask = TaskCardData;
 
@@ -107,10 +109,27 @@ export function Board({ initialTasks, projectId: _projectId, showProject }: Boar
                   draggable
                   onDragStart={(e) => handleDragStart(e, task.id)}
                   onDragEnd={handleDragEnd}
-                  className={`p-3 bg-bg-primary border border-border-primary rounded-lg cursor-grab active:cursor-grabbing transition-all group ${
+                  className={`relative p-3 bg-bg-primary border border-border-primary rounded-lg cursor-grab active:cursor-grabbing transition-all group ${
                     draggedId === task.id ? "opacity-50 rotate-2 shadow-lg" : "hover:border-border-strong hover:shadow-sm"
                   }`}
                 >
+                  <div
+                    className="absolute top-1.5 end-1.5 z-10"
+                    onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  >
+                    <Menu
+                      label={t("move")}
+                      items={COLUMNS.filter((col) => col.key !== task.status).map((col) => ({
+                        id: col.key,
+                        label: t(`status.${col.key}`),
+                        onSelect: () => moveTask(task.id, col.key),
+                      }))}
+                      triggerClassName="p-1 rounded-md opacity-0 group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-1 focus-visible:ring-accent"
+                    >
+                      <Icon name="GripVertical" size={14} aria-hidden />
+                      <span className="sr-only">{t("move")}</span>
+                    </Menu>
+                  </div>
                   <TaskCard
                     task={task}
                     variant="compact"
