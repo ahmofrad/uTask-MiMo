@@ -49,3 +49,12 @@ next-env.d.ts
 
 # MiMoCode skills (installed, not project code)
 .mimocode/skills/
+
+# playwright artifacts
+test-results/
+playwright-report/
+
+# local agent skills & tooling
+.agents/
+.opencode/
+skills-lock.json
