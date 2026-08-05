@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useTheme } from "@/components/theme/provider";
+import { useTheme, ACCENT_COLORS } from "@/components/theme/provider";
 
 export function AppearanceSettings() {
   const t = useTranslations("settings");
@@ -9,14 +9,14 @@ export function AppearanceSettings() {
   const { theme, setTheme, accent, setAccent } = useTheme();
 
   const accentColors = [
-    { name: "Blue", value: "blue" as const, color: "#2563eb" },
-    { name: "Green", value: "green" as const, color: "#16a34a" },
-    { name: "Purple", value: "purple" as const, color: "#9333ea" },
-    { name: "Orange", value: "orange" as const, color: "#ea580c" },
-    { name: "Red", value: "red" as const, color: "#dc2626" },
-    { name: "Teal", value: "teal" as const, color: "#0d9488" },
-    { name: "Pink", value: "pink" as const, color: "#db2777" },
-    { name: "Indigo", value: "indigo" as const, color: "#4f46e5" },
+    { name: tc("accentDefault"), value: "blue" as const },
+    { name: tc("accentGreen"), value: "green" as const },
+    { name: tc("accentPurple"), value: "purple" as const },
+    { name: tc("accentOrange"), value: "orange" as const },
+    { name: tc("accentRed"), value: "red" as const },
+    { name: tc("accentTeal"), value: "teal" as const },
+    { name: tc("accentPink"), value: "pink" as const },
+    { name: tc("accentIndigo"), value: "indigo" as const },
   ];
 
   return (
@@ -50,7 +50,7 @@ export function AppearanceSettings() {
               className={`w-8 h-8 rounded-full border-2 transition-all ${
                 accent === c.value ? "border-fg-primary scale-110" : "border-transparent"
               }`}
-              style={{ backgroundColor: c.color }}
+              style={{ backgroundColor: ACCENT_COLORS[c.value] }}
               title={c.name}
             />
           ))}
