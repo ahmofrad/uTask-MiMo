@@ -1,4 +1,5 @@
 import NextAuth from "next-auth";
+import { cache } from "react";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/db";
@@ -94,7 +95,7 @@ async function getGlobalRole(userId: string): Promise<string | null> {
   return role?.type ?? null;
 }
 
-export async function auth(): Promise<Session | null> {
+export const auth = cache(async (): Promise<Session | null> => {
   const nextAuthSession = await nextAuth();
   if (!nextAuthSession?.user?.id) return null;
 
@@ -105,7 +106,7 @@ export async function auth(): Promise<Session | null> {
   if (!sessionData) return null;
 
   return nextAuthSession;
-}
+});
 
 export async function revokeCurrentSession(): Promise<void> {
   const nextAuthSession = await nextAuth();

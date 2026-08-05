@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 import type { RoleType, Permission, ProjectMemberRole } from "@/lib/rbac/roles";
 import { hasPermission, hasProjectPermission } from "@/lib/rbac/roles";
@@ -7,7 +8,7 @@ export type UserRoleInfo = {
   globalRole: RoleType | null;
 };
 
-export async function getUserRole(userId: string): Promise<UserRoleInfo> {
+export const getUserRole = cache(async (userId: string): Promise<UserRoleInfo> => {
   const globalRole = await prisma.role.findFirst({
     where: { userId, scopeType: "global", scopeId: null },
     select: { type: true },
@@ -16,19 +17,21 @@ export async function getUserRole(userId: string): Promise<UserRoleInfo> {
     userId,
     globalRole: (globalRole?.type as RoleType) ?? null,
   };
-}
+});
 
-export async function can(
-  userId: string,
-  permission: Permission,
-): Promise<boolean> {
-  const role = await prisma.role.findFirst({
-    where: { userId, scopeType: "global", scopeId: null },
-    select: { type: true },
-  });
-  if (!role) return false;
-  return hasPermission(role.type as RoleType, permission);
-}
+export const can = cache(
+  async (
+    userId: string,
+    permission: Permission,
+  ): Promise<boolean> => {
+    const role = await prisma.role.findFirst({
+      where: { userId, scopeType: "global", scopeId: null },
+      select: { type: true },
+    });
+    if (!role) return false;
+    return hasPermission(role.type as RoleType, permission);
+  },
+);
 
 export async function canProject(
   userId: string,
