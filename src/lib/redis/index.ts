@@ -4,32 +4,43 @@ import type IORedis from "ioredis";
 const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
 
 let client: IORedis | null = null;
+let connecting: Promise<IORedis> | null = null;
 
-export async function getRedis(): Promise<IORedis> {
-  if (client) return client;
+export function getRedis(): Promise<IORedis> {
+  if (client) return Promise.resolve(client);
+  if (connecting) return connecting;
 
-  const { default: Redis } = await import(/* webpackIgnore: true */ "ioredis");
-  client = new Redis(redisUrl, {
-    maxRetriesPerRequest: 3,
-    enableOfflineQueue: false,
-    retryStrategy(times: number) {
-      if (times > 3) {
-        logger.error("Redis connection failed after 3 retries");
-        return null;
-      }
-      return Math.min(times * 200, 2000);
-    },
-    lazyConnect: true,
-  });
+  connecting = (async () => {
+    const { default: Redis } = await import(/* webpackIgnore: true */ "ioredis");
+    const instance = new Redis(redisUrl, {
+      maxRetriesPerRequest: 3,
+      retryStrategy(times: number) {
+        if (times > 3) {
+          logger.error("Redis connection failed after 3 retries");
+          return null;
+        }
+        return Math.min(times * 200, 2000);
+      },
+      lazyConnect: true,
+    });
 
-  client.on("error", (err: Error) => {
-    logger.error({ err }, "Redis connection error");
-  });
+    instance.on("error", (err: Error) => {
+      logger.error({ err }, "Redis connection error");
+    });
 
-  await client.connect().catch((err: Error) => {
-    logger.error({ err }, "Failed to connect to Redis");
-    client = null;
-  });
+    try {
+      await instance.connect();
+    } catch (err) {
+      logger.error({ err }, "Failed to connect to Redis");
+      client = null;
+      connecting = null;
+      throw err;
+    }
 
-  return client!;
+    client = instance;
+    connecting = null;
+    return instance;
+  })();
+
+  return connecting;
 }
