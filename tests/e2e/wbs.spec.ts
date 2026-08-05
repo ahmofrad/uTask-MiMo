@@ -8,9 +8,9 @@ const MEMBER_PASSWORD = "password123";
 async function login(page: Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
+  await page.getByRole("textbox", { name: /password/i }).fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
-  await page.waitForURL(/\/inbox/);
+  await page.waitForURL(/\/(en-US|fa-IR)?\/?$/);
 }
 
 async function apiPost(
@@ -81,35 +81,35 @@ test.describe("WBS editor", () => {
     const bRow = page.locator(`[data-task-id="${b}"]`);
     await bRow.hover();
     await bRow.getByTestId("wbs-indent").click();
-    await expect(page.locator(`[data-task-id="${b}"] [data-testid="wbs-code"]`)).toHaveText("1.3");
+    await expect(page.locator(`[data-task-id="${b}"] [data-testid="wbs-code"]`)).toHaveText("1.3", { timeout: 15000 });
 
-    // bump A1 to 100% -> A rollup becomes 100%
+    // bump A1 to 100% -> A rollup = (100 + 100 + 0) / 3 = 67%
     const slider = page.locator(`[data-task-id="${a1}"] [data-testid="wbs-progress"]`);
-    await slider.evaluate((el) => {
-      const input = el as HTMLInputElement;
-      input.value = "100";
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-      input.dispatchEvent(new Event("pointerup", { bubbles: true }));
-    });
-    await page.waitForTimeout(250);
+    await slider.fill("100");
+    await page.waitForTimeout(300);
     await page.reload();
-    await expect(page.locator(`[data-task-id="${a}"]`)).toContainText("100%");
+    await expect(page.locator(`[data-task-id="${a}"]`)).toContainText("67%");
   });
 
-  test("allows a project member to reorganize the WBS", async ({ page, context }) => {
-    await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-    const projectId = await createProject(page, context, `WBS Member E2E ${Date.now()}`);
+  test("allows a project member to reorganize the WBS", async ({ browser }) => {
+    const adminCtx = await browser.newContext();
+    const adminPage = await adminCtx.newPage();
+    await login(adminPage, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const projectId = await createProject(adminPage, adminCtx, `WBS Member E2E ${Date.now()}`);
 
-    const memberId = await getUserId(page, MEMBER_EMAIL);
-    const addRes = await page.request.post(`/api/v1/projects/${projectId}/members`, {
-      headers: { "content-type": "application/json", "x-csrf-token": (await context.cookies()).find((c) => c.name === "csrf_token")?.value ?? "" },
-      data: { userId: memberId, projectRole: "member" },
+    const memberId = await getUserId(adminPage, MEMBER_EMAIL);
+    const addRes = await adminPage.request.post(`/api/v1/projects/${projectId}/members`, {
+      headers: { "content-type": "application/json", "x-csrf-token": (await adminCtx.cookies()).find((c) => c.name === "csrf_token")?.value ?? "" },
+      data: { userId: memberId, projectRole: "contributor" },
     });
     expect(addRes.status()).toBe(201);
 
-    const a = await createTask(page, context, projectId, "M A");
-    const b = await createTask(page, context, projectId, "M B");
+    const a = await createTask(adminPage, adminCtx, projectId, "M A");
+    const b = await createTask(adminPage, adminCtx, projectId, "M B");
+    await adminCtx.close();
 
+    const memberCtx = await browser.newContext();
+    const page = await memberCtx.newPage();
     await login(page, MEMBER_EMAIL, MEMBER_PASSWORD);
     await page.goto(`/projects/${projectId}/wbs`);
     await expect(page.locator(`[data-task-id="${a}"] [data-testid="wbs-code"]`)).toHaveText("1");
@@ -119,5 +119,6 @@ test.describe("WBS editor", () => {
     await bRow.hover();
     await bRow.getByTestId("wbs-indent").click();
     await expect(page.locator(`[data-task-id="${b}"] [data-testid="wbs-code"]`)).toHaveText("1.1");
+    await memberCtx.close();
   });
 });

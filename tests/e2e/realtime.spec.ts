@@ -11,14 +11,14 @@ const MEMBER_PASSWORD = "password123";
 async function login(page: Page, email: string, password: string) {
   await page.goto("/login");
   await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
+  await page.getByRole("textbox", { name: /password/i }).fill(password);
   await page.getByRole("button", { name: /sign in/i }).click();
-  await page.waitForURL(/\/inbox/);
+  await page.waitForURL(/\/(en-US|fa-IR)?\/?$/);
 }
 
 async function getJwtToken(page: Page): Promise<string> {
   const cookies = await page.context().cookies();
-  const token = cookies.find((c) => c.name === "next-auth.session-token")?.value;
+  const token = cookies.find((c) => c.name === "authjs.session-token")?.value;
   if (!token) throw new Error("No session token found");
   return token;
 }
@@ -52,13 +52,17 @@ test.describe("Realtime cross-user events", () => {
     // Admin: login and create project
     await adminPage.goto("/login");
     await adminPage.getByLabel(/email/i).fill(ADMIN_EMAIL);
-    await adminPage.getByLabel(/password/i).fill(ADMIN_PASSWORD);
+    await adminPage.getByRole("textbox", { name: /password/i }).fill(ADMIN_PASSWORD);
     await adminPage.getByRole("button", { name: /sign in/i }).click();
-    await adminPage.waitForURL(/\/inbox/);
+    await adminPage.waitForURL(/\/(en-US|fa-IR)?\/?$/);
 
     const adminToken = await getJwtToken(adminPage);
 
+    const adminCookies = await adminPage.context().cookies();
+    const adminCsrf = adminCookies.find((c) => c.name === "csrf_token")?.value ?? "";
+
     const projectRes = await adminPage.request.post("/api/v1/projects", {
+      headers: { "content-type": "application/json", "x-csrf-token": adminCsrf },
       data: { name: `Realtime E2E ${Date.now()}` },
     });
     expect(projectRes.status()).toBe(201);
@@ -72,21 +76,18 @@ test.describe("Realtime cross-user events", () => {
     const memberUser = usersList.find((u) => u.email === MEMBER_EMAIL);
     expect(memberUser).toBeTruthy();
 
-    const adminCookies = await adminPage.context().cookies();
-    const csrf = adminCookies.find((c) => c.name === "csrf_token")?.value ?? "";
     const addMemberRes = await adminPage.request.post(`/api/v1/projects/${projectId}/members`, {
-      headers: { "content-type": "application/json", "x-csrf-token": csrf },
-      data: { userId: memberUser!.id, projectRole: "member" },
+      headers: { "content-type": "application/json", "x-csrf-token": adminCsrf },
+      data: { userId: memberUser!.id, projectRole: "contributor" },
     });
     expect(addMemberRes.status()).toBe(201);
 
     // Member: login
-    const memberPage = await memberCtx.newPage();
     await memberPage.goto("/login");
     await memberPage.getByLabel(/email/i).fill(MEMBER_EMAIL);
-    await memberPage.getByLabel(/password/i).fill(MEMBER_PASSWORD);
+    await memberPage.getByRole("textbox", { name: /password/i }).fill(MEMBER_PASSWORD);
     await memberPage.getByRole("button", { name: /sign in/i }).click();
-    await memberPage.waitForURL(/\/inbox/);
+    await memberPage.waitForURL(/\/(en-US|fa-IR)?\/?$/);
 
     const memberToken = await getJwtToken(memberPage);
 
@@ -104,6 +105,7 @@ test.describe("Realtime cross-user events", () => {
 
     // Admin creates a task
     const taskRes = await adminPage.request.post("/api/v1/tasks", {
+      headers: { "content-type": "application/json", "x-csrf-token": adminCsrf },
       data: { projectId, title: "Realtime Cross-User Task" },
     });
     expect(taskRes.status()).toBe(201);
