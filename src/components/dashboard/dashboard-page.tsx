@@ -16,30 +16,9 @@ type DashboardStat = {
   color: "accent" | "danger" | "success" | "info";
 };
 
-type RecentTask = {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  dueDate: string | null;
-  projectName: string;
-  updatedAt: string;
-};
-
-type ProjectSummary = {
-  id: string;
-  name: string;
-  description: string | null;
-  color: string | null;
-  taskCount: number;
-  memberCount: number;
-};
-
 type DashboardPageProps = {
   stats: DashboardStat[];
-  recentTasks: RecentTask[];
   allTasks: { id: string; title: string; description: string | null; status: string; priority: string; dueDate: string | null; assignees?: { id: string; displayName: string; avatarUrl?: string | null }[]; startDate: string | null; parentTaskId: string | null; projectId: string; projectName: string; tags: { id: string; name: string }[]; subtaskCount: number; subtaskDone: number; progress?: number | null }[];
-  projects: ProjectSummary[];
   userId: string;
 };
 
@@ -52,7 +31,7 @@ const STAT_COLORS = {
 
 type Tab = "board" | "timeline" | "calendar" | "gantt" | "wbs" | "tasks";
 
-export function DashboardPage({ stats, recentTasks: _recentTasks, allTasks, projects: _projects, userId }: DashboardPageProps) {
+export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
   const reportsT = useTranslations("reports");
   const taskT = useTranslations("task");
   const [activeTab, setActiveTab] = useState<Tab>("board");

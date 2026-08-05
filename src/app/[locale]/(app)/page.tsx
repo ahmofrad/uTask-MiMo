@@ -9,7 +9,7 @@ export default async function AppHomePage() {
   const userId = session?.user?.id;
   if (!userId) redirect("/login");
 
-  const [assignedTasks, overdueTasks, completedThisWeek, unreadNotifications, recentTasks, allTasks, projects] =
+  const [assignedTasks, overdueTasks, completedThisWeek, unreadNotifications, allTasks] =
     await Promise.all([
       prisma.task.count({
         where: { assignees: { some: { userId } }, deletedAt: null, parentTaskId: null, status: { not: "done" } },
@@ -32,23 +32,10 @@ export default async function AppHomePage() {
       prisma.notification.count({
         where: { userId, readAt: null },
       }),
-       prisma.task.findMany({
-        where: { deletedAt: null, parentTaskId: null, assignees: { some: { userId } } },
-        orderBy: { updatedAt: "desc" },
-        take: 5,
-        select: {
-          id: true,
-          title: true,
-          status: true,
-          priority: true,
-          dueDate: true,
-          updatedAt: true,
-          project: { select: { id: true, name: true } },
-        },
-      }),
       prisma.task.findMany({
         where: { deletedAt: null, parentTaskId: null },
         orderBy: { dueDate: "asc" },
+        take: 100,
         select: {
           id: true,
           title: true,
@@ -69,21 +56,6 @@ export default async function AppHomePage() {
           _count: { select: { subtasks: { where: { deletedAt: null } } } },
         },
       }),
-      prisma.project.findMany({
-        where: {
-          members: { some: { userId } },
-          archivedAt: null,
-        },
-        orderBy: { updatedAt: "desc" },
-        take: 10,
-        select: {
-          id: true,
-          name: true,
-          description: true,
-          color: true,
-          _count: { select: { tasks: { where: { deletedAt: null, parentTaskId: null } }, members: true } },
-        },
-      }),
     ]);
 
   const t = await getTranslations("reports");
@@ -98,15 +70,6 @@ export default async function AppHomePage() {
           { label: String(t("completedThisWeek")), value: Number(completedThisWeek), color: "success" as const },
           { label: String(t("unreadNotifications")), value: Number(unreadNotifications), color: "info" as const },
         ]}
-        recentTasks={recentTasks.map((r) => ({
-          id: r.id,
-          title: r.title,
-          status: r.status,
-          priority: r.priority,
-          dueDate: r.dueDate?.toISOString() ?? null,
-          projectName: r.project.name,
-          updatedAt: r.updatedAt.toISOString(),
-        }))}
         allTasks={allTasks.map((t) => ({
           id: t.id,
           title: t.title,
@@ -127,14 +90,6 @@ export default async function AppHomePage() {
           tags: t.tags.map((tt) => ({ id: tt.tag.id, name: tt.tag.name })),
           subtaskCount: t._count.subtasks,
           subtaskDone: t.subtasks.filter((st) => st.status === "done").length,
-        }))}
-        projects={projects.map((p) => ({
-          id: p.id,
-          name: p.name,
-          description: p.description,
-          color: p.color,
-          taskCount: p._count.tasks,
-          memberCount: p._count.members,
         }))}
       />
     </div>
