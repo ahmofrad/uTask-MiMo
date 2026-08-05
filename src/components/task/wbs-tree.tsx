@@ -44,7 +44,7 @@ function TreeNode({
     <div>
       <div
         className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-bg-secondary transition-colors group"
-        style={{ paddingLeft: `${depth * 20 + 8}px` }}
+        style={{ paddingInlineStart: `${depth * 20 + 8}px` }}
       >
         <button
           onClick={() => setExpanded(!expanded)}
