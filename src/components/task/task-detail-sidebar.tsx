@@ -274,7 +274,7 @@ export function TaskDetailSidebar({
                 {w.id !== currentUserId && (
                   <button
                     onClick={() => onRemoveWatcher(w.id)}
-                    className="text-xs text-fg-muted opacity-0 group-hover:opacity-100 hover:text-destructive transition-all"
+                    className="text-xs text-fg-muted opacity-0 group-hover:opacity-100 hover:text-destructive transition-[opacity,color]"
                   >
                     ✕
                   </button>

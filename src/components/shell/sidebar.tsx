@@ -36,7 +36,7 @@ export function Sidebar({ isAdmin }: SidebarProps) {
 
   return (
     <nav
-      className={`hidden md:flex flex-col shrink-0 border-e border-border bg-bg-secondary transition-all duration-200 ${
+      className={`hidden md:flex flex-col shrink-0 border-e border-border bg-bg-secondary transition-[width] duration-200 ${
         collapsed ? "w-16 items-center py-4 px-2" : "w-48 py-4 px-3"
       }`}
     >

@@ -16,7 +16,7 @@ export function StatusBreakdownChart({ data }: StatusBreakdownProps) {
             <span className="text-sm text-fg-secondary w-24">{item.label}</span>
             <div className="flex-1 h-2 bg-bg-surface-2 rounded-full overflow-hidden">
               <div
-                className={`h-full ${item.color} rounded-full transition-all`}
+                className={`h-full ${item.color} rounded-full transition-[width]`}
                 style={{ width: `${total > 0 ? (item.count / total) * 100 : 0}%` }}
               />
             </div>

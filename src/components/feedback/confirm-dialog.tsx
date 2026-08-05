@@ -37,7 +37,7 @@ export function ConfirmDialog({
   return (
     <dialog
       ref={dialogRef}
-      className="backdrop:bg-black/50 rounded-xl border border-border bg-bg-primary p-0 w-full max-w-md"
+      className="backdrop:bg-bg-overlay rounded-xl border border-border bg-bg-primary p-0 w-full max-w-md"
       onClose={onCancel}
     >
       <div className="p-6">

@@ -98,7 +98,7 @@ export function Board({ initialTasks, projectId: _projectId, showProject }: Boar
           >
             <div className={`flex items-center justify-between px-3 py-2 rounded-t-xl ${col.color}`}>
               <span className="text-sm font-semibold text-fg-primary">{t(`status.${col.key}`)}</span>
-              <span className="text-xs font-medium text-fg-muted bg-white/20 px-2 py-0.5 rounded-full">
+              <span className="text-xs font-medium text-fg-muted bg-fg-inverse/20 px-2 py-0.5 rounded-full">
                 {colTasks.length}
               </span>
             </div>
@@ -109,7 +109,7 @@ export function Board({ initialTasks, projectId: _projectId, showProject }: Boar
                   draggable
                   onDragStart={(e) => handleDragStart(e, task.id)}
                   onDragEnd={handleDragEnd}
-                  className={`relative p-3 bg-bg-primary border border-border-primary rounded-lg cursor-grab active:cursor-grabbing transition-all group ${
+                  className={`relative p-3 bg-bg-primary border border-border-primary rounded-lg cursor-grab active:cursor-grabbing transition-[opacity,transform,box-shadow] group ${
                     draggedId === task.id ? "opacity-50 rotate-2 shadow-lg" : "hover:border-border-strong hover:shadow-sm"
                   }`}
                 >

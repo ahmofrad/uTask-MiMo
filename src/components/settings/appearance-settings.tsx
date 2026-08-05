@@ -47,7 +47,7 @@ export function AppearanceSettings() {
             <button
               key={c.value}
               onClick={() => setAccent(c.value)}
-              className={`w-8 h-8 rounded-full border-2 transition-all ${
+              className={`w-8 h-8 rounded-full border-2 transition-[transform,border-color] ${
                 accent === c.value ? "border-fg-primary scale-110" : "border-transparent"
               }`}
               style={{ backgroundColor: ACCENT_COLORS[c.value] }}

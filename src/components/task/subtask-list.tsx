@@ -91,7 +91,7 @@ export function SubtaskList({ subtasks, onToggle, onAdd, onRename, onDelete }: S
             {onDelete && editingId !== st.id && (
               <button
                 onClick={() => onDelete(st.id)}
-                className="opacity-0 group-hover:opacity-100 text-fg-subtle hover:text-destructive transition-all p-0.5"
+                className="opacity-0 group-hover:opacity-100 text-fg-subtle hover:text-destructive transition-[opacity,color] p-0.5"
                 aria-label={t("deleteSubtask")}
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

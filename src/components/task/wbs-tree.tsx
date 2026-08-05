@@ -130,7 +130,7 @@ export function WBSTree({ tasks }: WBSTreeProps) {
           <div className="flex items-center gap-2">
             <div className="w-32 h-1.5 bg-bg-secondary rounded-full overflow-hidden">
               <div
-                className="h-full bg-success rounded-full transition-all"
+                className="h-full bg-success rounded-full transition-[width]"
                 style={{ width: `${(doneTasks / totalTasks) * 100}%` }}
               />
             </div>

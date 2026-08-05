@@ -84,7 +84,7 @@ export function QuickAddPalette() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
-      <div className="fixed inset-0 bg-black/40" onClick={() => setOpen(false)} />
+      <div className="fixed inset-0 bg-bg-overlay" onClick={() => setOpen(false)} />
       <div
         ref={panelRef}
         role="dialog"

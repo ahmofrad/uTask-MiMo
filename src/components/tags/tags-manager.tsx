@@ -114,7 +114,7 @@ export function TagsManager({ projectId, initialTags, onChange }: Props) {
                   key={c}
                   type="button"
                   onClick={() => setNewColor(c)}
-                  className={`w-7 h-7 rounded-full border-2 transition-all ${
+                  className={`w-7 h-7 rounded-full border-2 transition-[transform,border-color] ${
                     newColor === c ? "border-fg scale-110" : "border-transparent"
                   }`}
                   style={{ backgroundColor: c }}
