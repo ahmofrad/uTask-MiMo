@@ -24,10 +24,10 @@ export function CommandPalette() {
   const router = useRouter();
 
   const commands: CommandItem[] = [
-    { id: "dashboard", label: "Go to Dashboard", category: "Navigation", action: () => router.push("/") },
-    { id: "projects", label: "Go to Projects", category: "Navigation", action: () => router.push("/projects") },
-    { id: "settings", label: "Open Settings", category: "Navigation", action: () => router.push("/settings") },
-    { id: "admin", label: "Admin Panel", category: "Navigation", action: () => router.push("/admin/users") },
+    { id: "dashboard", label: t("goToDashboard"), category: t("navigation"), action: () => router.push("/") },
+    { id: "projects", label: t("goToProjects"), category: t("navigation"), action: () => router.push("/projects") },
+    { id: "settings", label: t("openSettings"), category: t("navigation"), action: () => router.push("/settings") },
+    { id: "admin", label: t("adminPanel"), category: t("navigation"), action: () => router.push("/admin/users") },
   ];
 
   const filtered = commands.filter((c) =>

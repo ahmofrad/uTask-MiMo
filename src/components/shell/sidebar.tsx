@@ -45,7 +45,7 @@ export function Sidebar({ isAdmin }: SidebarProps) {
         <button
           onClick={toggle}
           className="p-1.5 rounded-md text-fg-muted hover:bg-bg-tertiary hover:text-fg transition-colors"
-          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? t("expandSidebar") : t("collapseSidebar")}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             {collapsed ? (
