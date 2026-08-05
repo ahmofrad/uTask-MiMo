@@ -2,14 +2,24 @@ import { Server as HTTPServer } from "http";
 import { Server } from "socket.io";
 import { createAdapter } from "@socket.io/redis-adapter";
 import Redis from "ioredis";
-import { jwtVerify } from "jose";
+import { decode } from "next-auth/jwt";
 import { logger } from "@/lib/logging";
+
+const GLOBAL_KEY = "__taskapp_socketio__";
+
+function getGlobalIO(): Server | null {
+  return (globalThis as Record<string, unknown>)[GLOBAL_KEY] as Server | null;
+}
+
+function setGlobalIO(io: Server) {
+  (globalThis as Record<string, unknown>)[GLOBAL_KEY] = io;
+}
 
 let io: Server | null = null;
 const userIds = new WeakMap<import("socket.io").Socket, string>();
 
 export function getIO(): Server | null {
-  return io;
+  return getGlobalIO() ?? io;
 }
 
 export function getUserId(socket: import("socket.io").Socket): string | undefined {
@@ -20,7 +30,11 @@ async function verifyJwt(token: string): Promise<{ sub?: string } | null> {
   try {
     const secret = process.env.AUTH_SECRET;
     if (!secret) return null;
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+    const payload = await decode({
+      token,
+      secret,
+      salt: "authjs.session-token",
+    });
     return payload;
   } catch {
     return null;
@@ -38,6 +52,7 @@ export async function initSocketIO(httpServer: HTTPServer) {
   };
 
   io = new Server(httpServer, opts as never);
+  setGlobalIO(io);
 
   const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
   try {
@@ -112,13 +127,13 @@ export async function initSocketIO(httpServer: HTTPServer) {
 }
 
 export function emitToUser(userId: string, event: string, data: unknown) {
-  io?.to(`user:${userId}`).emit(event, data);
+  getIO()?.to(`user:${userId}`).emit(event, data);
 }
 
 export function emitToProject(projectId: string, event: string, data: unknown) {
-  io?.to(`project:${projectId}`).emit(event, data);
+  getIO()?.to(`project:${projectId}`).emit(event, data);
 }
 
 export function emitToTask(taskId: string, event: string, data: unknown) {
-  io?.to(`task:${taskId}`).emit(event, data);
+  getIO()?.to(`task:${taskId}`).emit(event, data);
 }
