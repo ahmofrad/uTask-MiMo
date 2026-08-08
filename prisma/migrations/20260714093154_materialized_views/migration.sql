@@ -6,14 +6,14 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS mv_project_task_stats AS
 SELECT
   p.id AS project_id,
   p.name AS project_name,
-  COUNT(t.id) FILTER (WHERE t.deletedAt IS NULL) AS total_tasks,
-  COUNT(t.id) FILTER (WHERE t.deletedAt IS NULL AND t.status = 'open') AS open_tasks,
-  COUNT(t.id) FILTER (WHERE t.deletedAt IS NULL AND t.status = 'in_progress') AS in_progress_tasks,
-  COUNT(t.id) FILTER (WHERE t.deletedAt IS NULL AND t.status = 'done') AS done_tasks,
-  COUNT(t.id) FILTER (WHERE t.deletedAt IS NULL AND t.status = 'cancelled') AS cancelled_tasks,
-  COUNT(t.id) FILTER (WHERE t.deletedAt IS NULL AND t.dueDate < NOW() AND t.status != 'done') AS overdue_tasks,
-  COUNT(t.id) FILTER (WHERE t.deletedAt IS NULL AND t.status = 'done' AND t.updatedAt >= DATE_TRUNC('month', NOW())) AS completed_this_month,
-  COUNT(t.id) FILTER (WHERE t.deletedAt IS NULL AND t.status = 'done' AND t.updatedAt >= NOW() - INTERVAL '7 days') AS completed_this_week
+  COUNT(t.id) FILTER (WHERE t."deletedAt" IS NULL) AS total_tasks,
+  COUNT(t.id) FILTER (WHERE t."deletedAt" IS NULL AND t."status" = 'open') AS open_tasks,
+  COUNT(t.id) FILTER (WHERE t."deletedAt" IS NULL AND t."status" = 'in_progress') AS in_progress_tasks,
+  COUNT(t.id) FILTER (WHERE t."deletedAt" IS NULL AND t."status" = 'done') AS done_tasks,
+  COUNT(t.id) FILTER (WHERE t."deletedAt" IS NULL AND t."status" = 'cancelled') AS cancelled_tasks,
+  COUNT(t.id) FILTER (WHERE t."deletedAt" IS NULL AND t."dueDate" < NOW() AND t."status" != 'done') AS overdue_tasks,
+  COUNT(t.id) FILTER (WHERE t."deletedAt" IS NULL AND t."status" = 'done' AND t."updatedAt" >= DATE_TRUNC('month', NOW())) AS completed_this_month,
+  COUNT(t.id) FILTER (WHERE t."deletedAt" IS NULL AND t."status" = 'done' AND t."updatedAt" >= NOW() - INTERVAL '7 days') AS completed_this_week
 FROM "Project" p
 LEFT JOIN "Task" t ON t."projectId" = p.id
 WHERE p."archivedAt" IS NULL
@@ -25,10 +25,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_mv_project_task_stats_project_id ON mv_pro
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_user_task_stats AS
 SELECT
   u.id AS user_id,
-  COUNT(ta.id) FILTER (WHERE t."deletedAt" IS NULL AND t.status != 'done') AS assigned_active,
-  COUNT(ta.id) FILTER (WHERE t."deletedAt" IS NULL AND t."dueDate" < NOW() AND t.status != 'done') AS assigned_overdue,
-  COUNT(ta.id) FILTER (WHERE t."deletedAt" IS NULL AND t.status = 'done' AND t."updatedAt" >= NOW() - INTERVAL '7 days') AS completed_this_week,
-  COUNT(ta.id) FILTER (WHERE t."deletedAt" IS NULL AND t.status = 'done' AND t."updatedAt" >= DATE_TRUNC('month', NOW())) AS completed_this_month
+  COUNT(ta.id) FILTER (WHERE t."deletedAt" IS NULL AND t."status" != 'done') AS assigned_active,
+  COUNT(ta.id) FILTER (WHERE t."deletedAt" IS NULL AND t."dueDate" < NOW() AND t."status" != 'done') AS assigned_overdue,
+  COUNT(ta.id) FILTER (WHERE t."deletedAt" IS NULL AND t."status" = 'done' AND t."updatedAt" >= NOW() - INTERVAL '7 days') AS completed_this_week,
+  COUNT(ta.id) FILTER (WHERE t."deletedAt" IS NULL AND t."status" = 'done' AND t."updatedAt" >= DATE_TRUNC('month', NOW())) AS completed_this_month
 FROM "User" u
 LEFT JOIN "TaskAssignee" ta ON ta."userId" = u.id
 LEFT JOIN "Task" t ON t.id = ta."taskId"

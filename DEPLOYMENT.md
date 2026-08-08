@@ -34,9 +34,8 @@
 
 | Component | Sizing |
 |-----------|--------|
-| App pods | 3 replicas × 2 vCPU / 4 GB RAM |
+| App pods | 3 replicas × 2 vCPU / 4 GB RAM (serve HTTP + Socket.IO) |
 | Worker pods | 2 replicas × 1 vCPU / 2 GB RAM |
-| Socket.IO gateway | 2 replicas × 2 vCPU / 4 GB RAM |
 | Postgres primary | 4 vCPU / 16 GB RAM / 200 GB SSD |
 | Postgres replica | 4 vCPU / 16 GB RAM / 200 GB SSD |
 | Redis (3-node Sentinel) | 3 × 2 vCPU / 4 GB RAM |
@@ -74,19 +73,17 @@ Same topology as medium, but:
 │  │  Docker Compose network                │      │
 │  │  ┌──────────────┐  ┌──────────────┐    │      │
 │  │  │ app          │  │ app          │    │      │
-│  │  │ (Next.js x2) │  │ (replica)    │    │      │
+│  │  │ (Next.js     │  │ (replica)    │    │      │
+│  │  │ + Socket.IO) │  │              │    │      │
 │  │  └──────┬───────┘  └──────┬───────┘    │      │
 │  │         │                 │            │      │
 │  │  ┌──────┴─────────────────┴──────┐     │      │
-│  │  │ socket.io gateway             │     │      │
+│  │  │ Redis 7 (rooms bridge via     │     │      │
+│  │  │ @socket.io/redis-adapter)     │     │      │
 │  │  └────────────┬──────────────────┘     │      │
 │  │               │                        │      │
 │  │  ┌────────────┴──────────────────┐     │      │
 │  │  │ PgBouncer → Postgres 16       │     │      │
-│  │  └────────────┬──────────────────┘     │      │
-│  │               │                        │      │
-│  │  ┌────────────┴──────────────────┐     │      │
-│  │  │ Redis 7                       │     │      │
 │  │  └────────────┬──────────────────┘     │      │
 │  │               │                        │      │
 │  │  ┌────────────┴──────────────────┐     │      │
@@ -116,10 +113,11 @@ Same topology as medium, but:
                            │
         ┌──────────────────┼──────────────────┐
         │                  │                  │
-        ▼                  ▼                  ▼
-   app Deployment     socket.io Deployment   worker Deployment
-   (6 replicas)       (3 replicas)           (3 replicas)
-        │                  │                  │
+        app Deployment          worker Deployment
+   (6 replicas,            (3 replicas)
+   HTTP + Socket.IO,
+   rooms via Redis)
+        │                  │
         └──────────────────┼──────────────────┘
                            │
         ┌──────────────────┼──────────────────┐
@@ -180,20 +178,14 @@ services:
       # ... etc
     depends_on: [pgbouncer, redis, minio]
 
-  socket:
-    image: taskapp/app:${APP_VERSION}
-    command: ["node", "socket.js"]
-    environment: [same as app]
-    depends_on: [app, redis]
-
   worker:
     image: taskapp/app:${APP_VERSION}
-    command: ["node", "worker.js"]
+    command: ["node", "dist/worker.js"]
     environment: [same as app]
     depends_on: [pgbouncer, redis]
 
   pgbouncer:
-    image: bitnami/pgbouncer:1.22
+    image: bitnamilegacy/pgbouncer:1.24.1-debian-12-r10
     environment:
       POSTGRESQL_HOST: postgres
       POSTGRESQL_PORT: 5432
@@ -294,33 +286,40 @@ BACKUP_RETENTION_DAYS=30
 
 ### 5.1 Chart structure
 
+The bundled Helm chart provisions a production application/worker deployment
+with single-instance PostgreSQL, Redis, and MinIO by default. It does not
+provision Redis Sentinel, a Redis cluster, Patroni/PostgreSQL replication, or
+distributed MinIO drives. Treat the HA topology in this document as a
+reference architecture and provide those services externally until a chart
+implementation for them is added.
+
 ```
 ops/helm/taskapp/
 ├── Chart.yaml
 ├── values.yaml
-├── values-small.yaml
-├── values-medium.yaml
-├── values-large.yaml
 ├── templates/
 │   ├── _helpers.tpl
 │   ├── app-deployment.yaml
 │   ├── app-service.yaml
 │   ├── app-ingress.yaml
-│   ├── socket-deployment.yaml
-│   ├── socket-service.yaml
 │   ├── worker-deployment.yaml
 │   ├── postgres-statefulset.yaml
 │   ├── postgres-service.yaml
 │   ├── pgbouncer-deployment.yaml
+│   ├── pgbouncer-service.yaml
 │   ├── redis-statefulset.yaml
+│   ├── redis-service.yaml
 │   ├── minio-statefulset.yaml
+│   ├── minio-service.yaml
 │   ├── configmap.yaml
 │   ├── secret.yaml
-│   ├── serviceaccount.yaml
+│   ├── migrate-job.yaml
+│   ├── partman-cronjob.yaml
+│   ├── backup-cronjob.yaml
 │   ├── hpa.yaml
-│   ├── pdb.yaml
-│   └── backup-cronjob.yaml
-└── README.md
+│   ├── app-service.yaml
+│   ├── app-ingress.yaml
+│   └── worker-deployment.yaml
 ```
 
 ### 5.2 Key values
@@ -354,14 +353,14 @@ postgres:
 
 redis:
   enabled: true
-  mode: sentinel
-  sentinelCount: 3
+  mode: standalone
+  sentinelCount: 1
   storageSize: 20Gi
 
 minio:
   enabled: true
-  mode: distributed
-  drives: 4
+  mode: standalone
+  drives: 1
   storageSize: 500Gi
 
 ingress:
@@ -384,7 +383,7 @@ backup:
 
 ### 5.3 Pre-flight checks
 
-Helm pre-install hook runs:
+Before installing the chart, verify:
 
 - [ ] All required values present.
 - [ ] Storage classes exist.
@@ -441,27 +440,27 @@ Runs nightly via cron / CronJob:
 
 ### 7.1 Docker Compose
 
-1. Pull new image: `docker compose pull app`.
+1. Pull new image: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml pull app`.
 2. Maintenance window (optional; many upgrades are zero-downtime):
-   - If DB migration: `./scripts/migrate.sh` (runs `prisma migrate deploy`).
+   - If DB migration: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml run --rm migrate` (runs `prisma migrate deploy` through the image entrypoint).
    - If breaking: set `app.MAINTENANCE_MODE=true`, take brief downtime.
-3. `docker compose up -d app`.
+3. `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d app`.
 4. Run `scripts/smoke.sh`.
-5. If broken: `docker compose rollback app` (revert to previous image).
+5. If broken: restore the previous image tag and run the same Compose command again; Docker Compose has no `rollback` subcommand.
 
 ### 7.2 Kubernetes
 
 1. Push new image tag.
-2. `helm upgrade taskapp ops/helm/taskapp/ --set app.tag=$NEW_VERSION`.
+2. `helm upgrade taskapp ops/helm/taskapp/ --set app.tag=$NEW_VERSION --wait --wait-for-jobs`.
 3. Helm performs rolling update (default `maxUnavailable=0`, `maxSurge=1`).
-4. Pre-upgrade hook runs `prisma migrate deploy`.
+4. Helm creates a revisioned migration Job; app and worker init containers wait for `prisma migrate status` to report an up-to-date schema before starting.
 5. Smoke test.
 6. If broken: `helm rollback taskapp`.
 
 ### 7.3 DB migrations
 
-- Applied with `prisma migrate deploy` (kicked off by the pre-upgrade hook in k8s, or `./scripts/migrate.sh` in Compose).
-- **Migrations must be committed/available in the deployed artifact.** In this repository `prisma/migrations/` is currently gitignored, so a fresh clone has no migration history — fix the `.gitignore` (or vendor the migrations) before relying on `prisma migrate deploy` for installs/upgrades.
+- Applied with `prisma migrate deploy` (the revisioned migration Job in Kubernetes, or the `migrate` service in Compose).
+- **Migrations must be committed and available in the deployed artifact.** The repository tracks `prisma/migrations/`; verify the migration directory is included in image builds before relying on `prisma migrate deploy` for installs/upgrades.
 - Backward-compatible migrations only (add column nullable → backfill → add constraint).
 - Multi-step migrations for breaking changes (deprecate old column in V1.1, drop in V1.2).
 - Never run a destructive migration without an explicit `--confirm-destructive` flag and a tested backup.
@@ -525,7 +524,7 @@ For k8s, use sealed-secrets, external-secrets-operator, or the cloud provider's 
 - [ ] Kill Postgres primary → replica promoted in < 30 s.
 - [ ] Kill Redis primary → Sentinel promotes replica in < 10 s.
 - [ ] Kill app pod → LB routes to other pods; users don't notice.
-- [ ] Kill socket.io pod → users reconnect to other pod; live state resumes.
+- [ ] Kill an app pod → LB routes to other pods (HTTP + Socket.IO); live state resumes via Redis adapter.
 - [ ] Kill one MinIO drive → no data loss (erasure coding).
 - [ ] Network partition between app and DB → app returns 503 with friendly error, not crash.
 

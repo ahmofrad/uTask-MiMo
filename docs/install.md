@@ -114,34 +114,44 @@ chmod 600 .env.prod
 docker build -t taskapp/app:1.0.0 .
 
 # Start all services
-docker compose -f ops/docker/docker-compose.prod.yml up -d
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d
 
 # Check logs
-docker compose -f ops/docker/docker-compose.prod.yml logs -f
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml logs -f
 ```
 
-### 2.6 Run database migrations
+### 2.6 Verify database migrations
 
 ```bash
-docker compose -f ops/docker/docker-compose.prod.yml exec app npx prisma migrate deploy
+# The dedicated `migrate` service runs `prisma migrate deploy` before app/worker start.
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml ps
 ```
 
 ### 2.7 Seed the admin user
 
 ```bash
-docker compose -f ops/docker/docker-compose.prod.yml exec app npx tsx prisma/seed.ts
+export SEED_ADMIN_EMAIL='admin@example.com'
+export SEED_ADMIN_PASSWORD='replace-with-a-strong-password-at-least-16-chars'
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec \
+  -e ALLOW_PRODUCTION_SEED=true \
+  -e SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" \
+  -e SEED_ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" \
+  app npx tsx prisma/seed.ts
 ```
+
+Production seeding refuses to run without the explicit flag and operator-supplied
+credentials. No default production account is created.
 
 ### 2.8 Run the smoke test
 
 ```bash
-BASE_URL=https://localhost ADMIN_EMAIL=admin@taskapp.dev ADMIN_PASSWORD=password ./scripts/smoke.sh
+BASE_URL=https://localhost ADMIN_EMAIL="$SEED_ADMIN_EMAIL" ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" ./scripts/smoke.sh
 ```
 
 ### 2.9 First-time setup
 
 1. Open `https://<your-server>` in a browser.
-2. Log in with the seeded admin credentials (default: `admin@taskapp.dev` / `password`).
+2. Log in with the operator-supplied seeded admin credentials.
 3. Go to **Admin → Settings** to configure:
    - Site name, default locale, default accent color
    - SMTP (email notifications)
@@ -210,8 +220,10 @@ kubectl get ingress -l app.kubernetes.io/instance=taskapp
 # Port-forward the app service
 kubectl port-forward svc/taskapp-app 3000:3000 &
 
+# Seed first with operator-supplied credentials, following the production
+# seeding procedure above.
 # Run smoke test
-BASE_URL=http://localhost:3000 ADMIN_EMAIL=admin@taskapp.dev ADMIN_PASSWORD=password ./scripts/smoke.sh
+BASE_URL=http://localhost:3000 ADMIN_EMAIL="$SEED_ADMIN_EMAIL" ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" ./scripts/smoke.sh
 ```
 
 ### 3.7 First-time setup
@@ -220,16 +232,15 @@ Same as single-VM: log in with the seeded admin, configure site settings, SMTP, 
 
 ---
 
-## 4. High-Availability Install
+## 4. High-Availability Reference Topology
 
-For deployments requiring HA (≥ 2k users or production-critical), see [`DEPLOYMENT.md`](./DEPLOYMENT.md) §8 for the full HA topology.
+For deployments requiring HA (≥ 2k users or production-critical), see [`DEPLOYMENT.md`](../DEPLOYMENT.md) §8 for the reference topology. The bundled Helm chart currently deploys single-instance PostgreSQL, Redis, and MinIO; it does not create the Sentinel, Patroni, or distributed-MinIO components listed below. Do not use the default chart as an HA installation without supplying equivalent externally managed services and wiring their endpoints into the deployment.
 
 Key differences from single-VM:
 - **Postgres:** Primary + synchronous replica managed by Patroni + etcd
 - **Redis:** 3-node Sentinel cluster (quorum = 2)
 - **MinIO:** Distributed mode (4 drives minimum)
-- **App:** ≥ 2 replicas behind load balancer
-- **Socket.IO:** ≥ 2 replicas with Redis adapter for cross-instance events
+- **App:** ≥ 2 replicas behind load balancer; each serves HTTP + Socket.IO (`/ws`), bridged by the Redis adapter for cross-instance events
 
 ---
 
@@ -239,19 +250,19 @@ Key differences from single-VM:
 
 ```bash
 # 1. Pull the new image
-docker compose -f ops/docker/docker-compose.prod.yml pull app
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml pull app
 
 # 2. Run database migrations (if applicable)
-docker compose -f ops/docker/docker-compose.prod.yml exec app npx prisma migrate deploy
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec app npx prisma migrate deploy
 
 # 3. Restart services
-docker compose -f ops/docker/docker-compose.prod.yml up -d
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d
 
 # 4. Run smoke test
-BASE_URL=https://localhost ADMIN_EMAIL=admin@taskapp.dev ADMIN_PASSWORD=password ./scripts/smoke.sh
+BASE_URL=https://localhost ADMIN_EMAIL="$SEED_ADMIN_EMAIL" ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" ./scripts/smoke.sh
 
 # 5. If something goes wrong, rollback
-# docker compose -f ops/docker/docker-compose.prod.yml rollback app
+# docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml rollback app
 ```
 
 ### 5.2 Kubernetes (Helm)
@@ -262,7 +273,9 @@ BASE_URL=https://localhost ADMIN_EMAIL=admin@taskapp.dev ADMIN_PASSWORD=password
 # 2. Upgrade
 helm upgrade taskapp ops/helm/taskapp/ \
   --set app.tag=$NEW_VERSION \
-  --reuse-values
+  --reuse-values \
+  --wait \
+  --wait-for-jobs
 
 # 3. Monitor rollout
 kubectl rollout status deployment/taskapp-app
@@ -276,7 +289,7 @@ BASE_URL=https://taskapp.corp.example.com ./scripts/smoke.sh
 
 ### 5.3 Database Migrations
 
-Migrations are applied automatically during upgrade via `prisma migrate deploy`. The migration files are tracked in `prisma/migrations/` and are included in the Docker image.
+Migrations are applied automatically during upgrade via a revisioned Kubernetes Job running `prisma migrate deploy`. App and worker init containers wait for `prisma migrate status` before starting. Use `--wait --wait-for-jobs` so Helm reports migration failures. The migration files are tracked in `prisma/migrations/` and are included in the Docker image.
 
 **Important:** All migrations must be backward-compatible (add column nullable → backfill → add constraint). Never run destructive migrations without a confirmed backup.
 
@@ -351,7 +364,7 @@ The restore script will:
 Enable the optional monitoring stack for observability:
 
 ```bash
-docker compose -f ops/docker/docker-compose.prod.yml \
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml \
   -f ops/docker/docker-compose.monitoring.yml up -d
 ```
 
@@ -373,7 +386,7 @@ Pre-built Grafana dashboards:
 
 ```bash
 # Check logs
-docker compose -f ops/docker/docker-compose.prod.yml logs app
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml logs app
 
 # Common issues:
 # - DATABASE_URL wrong or DB not reachable
@@ -385,10 +398,10 @@ docker compose -f ops/docker/docker-compose.prod.yml logs app
 
 ```bash
 # Check if Postgres is running
-docker compose -f ops/docker/docker-compose.prod.yml exec postgres pg_isready -U taskapp
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec postgres pg_isready -U taskapp
 
 # Check PgBouncer
-docker compose -f ops/docker/docker-compose.prod.yml logs pgbouncer
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml logs pgbouncer
 
 # Verify DATABASE_URL in .env.prod
 ```
@@ -401,7 +414,7 @@ docker compose -f ops/docker/docker-compose.prod.yml logs pgbouncer
 
 ### 8.4 Attachment upload fails
 
-- Check MinIO is running: `docker compose exec minio curl -f http://localhost:9000/minio/health/live`
+- Check MinIO is running: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec minio curl -f http://localhost:9000/minio/health/live`
 - Verify `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` in `.env.prod`
 - Check MinIO console at `http://<host>:9001` for bucket existence
 
@@ -420,7 +433,7 @@ docker compose -f ops/docker/docker-compose.prod.yml logs pgbouncer
 
 ```bash
 # Stop and remove containers, networks, volumes
-docker compose -f ops/docker/docker-compose.prod.yml down -v
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml down -v
 
 # Remove data directory
 sudo rm -rf /var/lib/taskapp

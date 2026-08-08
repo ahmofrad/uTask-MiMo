@@ -8,8 +8,6 @@ const withSerwistInit = withSerwist({
 });
 
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: process.env.NODE_ENV === "production" ? "standalone" : undefined,
-};
+const nextConfig = {};
 
 export default withSerwistInit(withNextIntl(nextConfig));

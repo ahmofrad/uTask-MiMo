@@ -3,18 +3,19 @@
 # Multi-stage build for minimal final image
 # ──────────────────────────────────────────────
 
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install pnpm — pinned to a Node 20-compatible release with lockfile v9 support.
+RUN corepack enable && corepack prepare pnpm@10.15.1 --activate
 
 # Install os-level build deps
-RUN apk add --no-cache python3 make g++
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 # Install prod + dev deps (devDeps needed for build)
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 # Generate Prisma client
@@ -25,40 +26,51 @@ RUN npx prisma generate
 COPY tsconfig.json next.config.mjs ./
 COPY public/ ./public/
 COPY src/ ./src/
+COPY server.ts ./
+COPY scripts/ ./scripts/
 RUN pnpm build
+
+# Bundle server + worker entrypoints (Next + Socket.IO in server, BullMQ in worker)
+RUN pnpm build:server
 
 # ──────────────────────────────────────────────
 # Stage 2: Runner
 # ──────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
+
+# openssl needed by the Prisma schema engine (migrate deploy) at runtime
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Without this, next({ dev }) picks dev-mode and needs the source tree in the image.
+# Compose/Helm .env must not rely on the host defaulting NODE_ENV.
+ENV NODE_ENV=production
 
-# Create unprivileged user (UID 1000)
-RUN addgroup -g 1000 node && \
-    adduser -u 1000 -G node -s /bin/sh -D node
+# next({ dev: false }) custom servers sanity-check for a pages/app dir; the
+# compiled bundles render from .next, so an empty marker suffices in the image.
+RUN mkdir -p /app/src/app
 
-# Copy built assets — only what's needed at runtime
-COPY --from=builder --chown=node:node /app/.next/standalone ./
-COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+# node:20-bookworm-slim ships user `node` (uid/gid 1000) — run unprivileged
+USER node
+COPY --from=builder --chown=node:node /app/.next ./.next
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/prisma ./prisma
 COPY --from=builder --chown=node:node /app/package.json ./
 COPY --from=builder --chown=node:node /app/next.config.mjs ./
-
-USER node:node
+COPY --from=builder --chown=node:node /app/dist ./dist
+COPY --from=builder --chown=node:node /app/scripts/entrypoint.sh ./entrypoint.sh
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/v1/health || exit 1
+  CMD node -e "fetch('http://localhost:3000/api/v1/health?ready=1').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 
 LABEL org.opencontainers.image.title=TaskApp \
       org.opencontainers.image.description="Enterprise task management" \
       org.opencontainers.image.version=1.0.0
 
-ENTRYPOINT ["sh", "-c", "npx prisma migrate deploy && node server.js"]
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["node", "dist/server.js"]

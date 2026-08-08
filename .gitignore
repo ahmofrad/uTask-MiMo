@@ -53,8 +53,16 @@ next-env.d.ts
 # playwright artifacts
 test-results/
 playwright-report/
+.auth/
 
 # local agent skills & tooling
 .agents/
 .opencode/
 skills-lock.json
+
+# local prod-compose verification artifacts
+.env.prod
+ops/docker/certs/
+compose.override.local.yml
+ops/docker/compose.verify.yml
+dist/

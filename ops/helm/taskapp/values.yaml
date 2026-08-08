@@ -15,18 +15,6 @@ app:
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
 
-socket:
-  image: taskapp/app
-  tag: "1.0.0"
-  replicas: 2
-  resources:
-    requests:
-      cpu: "500m"
-      memory: "1Gi"
-    limits:
-      cpu: "2"
-      memory: "4Gi"
-
 worker:
   image: taskapp/app
   tag: "1.0.0"
@@ -38,6 +26,10 @@ worker:
     limits:
       cpu: "2"
       memory: "4Gi"
+
+serviceAccount:
+  create: false
+  name: ""
 
 postgres:
   enabled: true
@@ -55,19 +47,24 @@ pgbouncer:
 
 redis:
   enabled: true
-  mode: sentinel
-  sentinelCount: 3
+  # The bundled chart deploys one Redis instance. Use an external Sentinel/
+  # cluster endpoint for HA; this chart does not create Sentinel topology.
+  mode: standalone
+  sentinelCount: 1
   storageSize: 20Gi
 
 minio:
   enabled: true
-  mode: distributed
-  drives: 4
+  # The bundled chart deploys one MinIO instance. Use external distributed
+  # MinIO/S3 for HA; this chart does not create distributed drive topology.
+  mode: standalone
+  drives: 1
   storageSize: 500Gi
 
 ingress:
   enabled: true
   className: nginx
+  host: ""
   tls:
     secretName: taskapp-tls
   annotations:
@@ -86,3 +83,18 @@ config:
   siteName: TaskApp
   defaultLocale: fa-IR
   defaultAccent: "#2563eb"
+  authUrl: ""
+  s3Bucket: taskapp
+
+secret:
+  # Supply these through an external values file or a secret manager in production.
+  dbPassword: ""
+  authSecret: ""
+  webhookSecretEncryptionKey: ""
+  s3AccessKey: ""
+  s3SecretKey: ""
+  smtpHost: ""
+  smtpPort: "587"
+  smtpUser: ""
+  smtpPassword: ""
+  smtpFrom: ""

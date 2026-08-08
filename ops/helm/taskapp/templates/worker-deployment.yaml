@@ -18,14 +18,40 @@ spec:
         app.kubernetes.io/component: worker
     spec:
       serviceAccountName: {{ include "taskapp.serviceAccountName" . }}
-      containers:
-        - name: worker
+      initContainers:
+        - name: wait-for-migrations
           image: "{{ .Values.worker.image }}:{{ .Values.worker.tag }}"
           imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - >-
+              until npx --no-install prisma migrate status >/dev/null 2>&1; do
+                sleep 5;
+              done
           envFrom:
             - configMapRef:
                 name: {{ include "taskapp.fullname" . }}
             - secretRef:
                 name: {{ include "taskapp.fullname" . }}
+      containers:
+        - name: worker
+          image: "{{ .Values.worker.image }}:{{ .Values.worker.tag }}"
+          imagePullPolicy: IfNotPresent
+          args: ["node", "dist/worker.js"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "taskapp.fullname" . }}
+            - secretRef:
+                name: {{ include "taskapp.fullname" . }}
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "kill -0 1"]
+            initialDelaySeconds: 20
+            periodSeconds: 15
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "test -f /tmp/taskapp-worker-ready"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}
