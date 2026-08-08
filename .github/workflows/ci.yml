@@ -53,6 +53,7 @@ jobs:
       - run: pnpm prisma generate
       - run: pnpm prisma migrate deploy
       - run: pnpm db:seed
+      - run: pnpm db:sample
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test

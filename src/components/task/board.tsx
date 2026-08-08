@@ -79,7 +79,7 @@ export function Board({ initialTasks, projectId: _projectId, showProject }: Boar
   }
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
+    <div className="flex gap-4 overflow-x-auto pb-4" tabIndex={0}>
       {COLUMNS.map((col) => {
         const colTasks = tasks.filter((task) => task.status === col.key);
         return (
