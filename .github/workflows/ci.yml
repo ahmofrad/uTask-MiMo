@@ -18,14 +18,6 @@ jobs:
       AUTH_SECRET: ci-only-auth-secret
       WEBHOOK_SECRET_ENCRYPTION_KEY: ci-only-webhook-key
     services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: taskapp
-          POSTGRES_USER: taskapp
-          POSTGRES_PASSWORD: taskapp
-        ports:
-          - 5432:5432
       redis:
         image: redis:7-alpine
         ports:
@@ -38,6 +30,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Build PostgreSQL image with pg_partman
+        run: docker build --tag taskapp-postgres:ci ops/docker/postgres
+      - name: Start PostgreSQL
+        run: |
+          docker run --detach --name taskapp-postgres-ci \
+            --publish 5432:5432 \
+            --tmpfs /var/lib/postgresql/data \
+            --env POSTGRES_DB=taskapp \
+            --env POSTGRES_USER=taskapp \
+            --env POSTGRES_PASSWORD=taskapp \
+            taskapp-postgres:ci >/dev/null
+          for attempt in $(seq 1 30); do
+            if docker exec taskapp-postgres-ci pg_isready -U taskapp -d taskapp >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs taskapp-postgres-ci
+          exit 1
       - run: pnpm install --frozen-lockfile
       - run: pnpm prisma generate
       - run: pnpm prisma migrate deploy
