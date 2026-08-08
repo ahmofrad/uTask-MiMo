@@ -30,8 +30,8 @@ export type ListProjectsParams = CursorPaginationParams & {
 
 /**
  * Returns the project IDs a user is allowed to read, or `null` to mean "all
- * projects" (global owner/admin). Project membership is the basis for read
- * access; the token holder's role is always the RBAC subject.
+ * projects" (owners and admins). Managers are restricted to projects in their
+ * managed departments plus explicit project memberships.
  */
 export async function getUserReadableProjectIds(userId: string): Promise<string[] | null> {
   const { globalRole } = await getUserRole(userId);
@@ -40,7 +40,17 @@ export async function getUserReadableProjectIds(userId: string): Promise<string[
     where: { userId, project: { archivedAt: null } },
     select: { projectId: true },
   });
-  return memberships.map((m) => m.projectId);
+  if (globalRole !== "manager") return memberships.map((m) => m.projectId);
+
+  const managedProjects = await prisma.project.findMany({
+    where: {
+      archivedAt: null,
+      department: { managerUserId: userId, deletedAt: null },
+    },
+    select: { id: true },
+  });
+
+  return [...new Set([...memberships.map((m) => m.projectId), ...managedProjects.map((p) => p.id)])];
 }
 
 export async function listProjects(
@@ -51,7 +61,7 @@ export async function listProjects(
   const where: Record<string, unknown> = { archivedAt: null };
   if (params.departmentId) where.departmentId = params.departmentId;
   if (params.status) where.status = params.status;
-  if (params.projectIds && params.projectIds.length > 0) where.id = { in: params.projectIds };
+  if (params.projectIds) where.id = { in: params.projectIds };
 
   const projects = await prisma.project.findMany({
     where,

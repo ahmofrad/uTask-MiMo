@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { canReadProject } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 
 export async function GET(
@@ -7,8 +8,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
-  const { error } = await authenticatePublicApi(request, "projects:read");
+  const { userId, error } = await authenticatePublicApi(request, "projects:read");
   if (error) return error;
+
+  if (!(await canReadProject(userId, resolvedParams.id))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
 
   const project = await prisma.project.findUnique({
     where: { id: resolvedParams.id },

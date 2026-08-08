@@ -4,6 +4,11 @@ import { createAdapter } from "@socket.io/redis-adapter";
 import Redis from "ioredis";
 import { decode } from "next-auth/jwt";
 import { logger } from "@/lib/logging";
+import { getSession } from "@/lib/auth/session-store";
+import { prisma } from "@/lib/db";
+import { canReadProject, canReadTask } from "@/lib/rbac";
+import { randomUUID } from "@/lib/crypto";
+import { waitForRedisReady } from "@/lib/queue/connection";
 
 const GLOBAL_KEY = "__taskapp_socketio__";
 
@@ -17,6 +22,7 @@ function setGlobalIO(io: Server) {
 
 let io: Server | null = null;
 const userIds = new WeakMap<import("socket.io").Socket, string>();
+type RoomJoinAck = (_joined: boolean) => void;
 
 export function getIO(): Server | null {
   return getGlobalIO() ?? io;
@@ -26,25 +32,43 @@ export function getUserId(socket: import("socket.io").Socket): string | undefine
   return userIds.get(socket);
 }
 
-async function verifyJwt(token: string): Promise<{ sub?: string } | null> {
+async function verifyJwt(token: string): Promise<{ sub?: string; sessionId?: string } | null> {
   try {
     const secret = process.env.AUTH_SECRET;
     if (!secret) return null;
-    const payload = await decode({
-      token,
-      secret,
-      salt: "authjs.session-token",
-    });
-    return payload;
+    // Cookie name determines the derive-key salt: under HTTPS/AUTH_URL the cookie
+    // is `__Secure-authjs.session-token`, otherwise `authjs.session-token`.
+    const salts = ["authjs.session-token", "__Secure-authjs.session-token"] as const;
+    for (const salt of salts) {
+      try {
+        const payload = await decode({ token, secret, salt });
+        if (payload) return payload as { sub?: string; sessionId?: string };
+      } catch {
+        // Wrong-salt decryption throws — try the other cookie name.
+      }
+    }
+    return null;
   } catch {
     return null;
   }
 }
 
+function getCookieValue(cookieHeader: string | undefined, names: readonly string[]): string | undefined {
+  if (!cookieHeader) return undefined;
+  for (const part of cookieHeader.split(";")) {
+    const [name, ...valueParts] = part.trim().split("=");
+    if (name && names.includes(name)) return valueParts.join("=");
+  }
+  return undefined;
+}
+
 export async function initSocketIO(httpServer: HTTPServer) {
   if (io) return io;
 
-  const origin = process.env.AUTH_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
+  const origin = process.env.AUTH_URL || process.env.NEXTAUTH_URL;
+  if (!origin && process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_URL or NEXTAUTH_URL is required for Socket.IO CORS in production");
+  }
 
   const opts: Record<string, unknown> = {
     path: "/ws",
@@ -57,22 +81,39 @@ export async function initSocketIO(httpServer: HTTPServer) {
   const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
   try {
     const pubClient = new Redis(redisUrl);
+    await waitForRedisReady(pubClient as never);
     const subClient = pubClient.duplicate();
+    await waitForRedisReady(subClient as never);
     io.adapter(createAdapter(pubClient, subClient));
     logger.info("Socket.IO Redis adapter connected");
-  } catch {
+  } catch (err) {
+    if (process.env.NODE_ENV === "production") throw err;
     logger.warn("Redis unavailable — Socket.IO running without adapter (no multi-instance)");
   }
 
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth?.token || socket.handshake.query?.token;
+      const token =
+        typeof socket.handshake.auth?.token === "string"
+          ? socket.handshake.auth.token
+          : getCookieValue(socket.handshake.headers.cookie, [
+              "authjs.session-token",
+              "__Secure-authjs.session-token",
+            ]);
       if (!token || typeof token !== "string") {
         return next(new Error("Authentication required"));
       }
       const payload = await verifyJwt(token);
-      if (!payload?.sub) {
+      if (!payload?.sub || !payload.sessionId) {
         return next(new Error("Invalid or expired token"));
+      }
+      const session = await getSession(payload.sessionId);
+      if (!session || session.userId !== payload.sub) {
+        return next(new Error("Session revoked"));
+      }
+      const user = await prisma.user.findUnique({ where: { id: payload.sub }, select: { status: true } });
+      if (!user || user.status !== "active") {
+        return next(new Error("User is inactive"));
       }
       userIds.set(socket, payload.sub);
       next();
@@ -92,16 +133,26 @@ export async function initSocketIO(httpServer: HTTPServer) {
 
     socket.join(`user:${userId}`);
 
-    socket.on("join:project", (projectId: string) => {
+    socket.on("join:project", async (projectId: string, ack?: RoomJoinAck) => {
+      if (typeof projectId !== "string" || !(await canReadProject(userId, projectId))) {
+        ack?.(false);
+        return;
+      }
       socket.join(`project:${projectId}`);
+      ack?.(true);
     });
 
     socket.on("leave:project", (projectId: string) => {
       socket.leave(`project:${projectId}`);
     });
 
-    socket.on("join:task", (taskId: string) => {
+    socket.on("join:task", async (taskId: string, ack?: RoomJoinAck) => {
+      if (typeof taskId !== "string" || !(await canReadTask(userId, taskId))) {
+        ack?.(false);
+        return;
+      }
       socket.join(`task:${taskId}`);
+      ack?.(true);
     });
 
     socket.on("leave:task", (taskId: string) => {
@@ -109,10 +160,14 @@ export async function initSocketIO(httpServer: HTTPServer) {
     });
 
     socket.on("presence:task", (taskId: string) => {
-      socket.to(`task:${taskId}`).emit("presence:update", {
-        userId,
-        taskId,
-        online: true,
+      void canReadTask(userId, taskId).then((allowed) => {
+        if (!allowed) return;
+        socket.to(`task:${taskId}`).emit("presence:update", {
+          userId,
+          taskId,
+          online: true,
+          requestId: randomUUID(),
+        });
       });
     });
 
@@ -127,13 +182,21 @@ export async function initSocketIO(httpServer: HTTPServer) {
 }
 
 export function emitToUser(userId: string, event: string, data: unknown) {
-  getIO()?.to(`user:${userId}`).emit(event, data);
+  getIO()?.to(`user:${userId}`).emit(event, withRequestId(data));
 }
 
 export function emitToProject(projectId: string, event: string, data: unknown) {
-  getIO()?.to(`project:${projectId}`).emit(event, data);
+  getIO()?.to(`project:${projectId}`).emit(event, withRequestId(data));
 }
 
 export function emitToTask(taskId: string, event: string, data: unknown) {
-  getIO()?.to(`task:${taskId}`).emit(event, data);
+  getIO()?.to(`task:${taskId}`).emit(event, withRequestId(data));
+}
+
+function withRequestId(data: unknown): Record<string, unknown> {
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const record = data as Record<string, unknown>;
+    return { ...record, requestId: typeof record.requestId === "string" ? record.requestId : randomUUID() };
+  }
+  return { data, requestId: randomUUID() };
 }

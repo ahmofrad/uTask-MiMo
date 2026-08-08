@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
-vi.mock("@/lib/rbac/can", () => ({ can: vi.fn() }));
-vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn() }));
+const mockCan = vi.fn();
+const mockCanReadTask = vi.fn();
+const mockCanProject = vi.fn();
+vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject, canReadTask: mockCanReadTask }));
+vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject, canReadTask: mockCanReadTask }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
@@ -21,12 +24,12 @@ function makeRequest(method: string, body?: unknown): Request {
 }
 
 const { auth } = await import("@/lib/auth/config");
-const { can } = await import("@/lib/rbac/can");
+
 const { logAudit } = await import("@/lib/audit/log");
 const { prisma } = await import("@/lib/db");
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
-const mockCan = can as ReturnType<typeof vi.fn>;
+
 const mockLogAudit = logAudit as ReturnType<typeof vi.fn>;
 const mockPrisma = prisma as {
   task: {
@@ -47,6 +50,9 @@ function unauthenticatedSession() {
 beforeEach(() => {
   vi.clearAllMocks();
   authenticatedSession();
+  mockCanReadTask.mockResolvedValue(true);
+  mockCan.mockResolvedValue(true);
+  mockCanProject.mockResolvedValue(true);
 });
 
 describe("GET /api/v1/tasks/[id]/subtasks", () => {
@@ -82,6 +88,8 @@ describe("POST /api/v1/tasks/[id]/subtasks", () => {
 
   it("returns 403 when can denies", async () => {
     mockCan.mockResolvedValue(false);
+    mockCanProject.mockResolvedValue(false);
+    mockPrisma.task.findUnique.mockResolvedValue({ id: "t1", projectId: "p1" });
     const { POST } = await import("@/app/api/v1/tasks/[id]/subtasks/route");
     const res = await POST(makeRequest("POST", { title: "Subtask" }), { params: { id: "t1" } });
     expect(res.status).toBe(403);

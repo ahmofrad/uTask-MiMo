@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
 vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn() }));
+vi.mock("@/lib/projects/queries", () => ({ getUserReadableProjectIds: vi.fn().mockResolvedValue(null) }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
@@ -14,6 +15,8 @@ vi.mock("@/lib/webhook/emit", () => ({ emitTaskEvent: vi.fn() }));
 vi.mock("@/lib/idempotency", () => ({
   checkIdempotency: vi.fn(() => ({ hit: false })),
   setIdempotencyResult: vi.fn(),
+  acquirePending: vi.fn().mockResolvedValue("acquired"),
+  releasePending: vi.fn(),
 }));
 vi.mock("@/lib/tasks", () => ({
   listTasks: vi.fn(),
@@ -23,7 +26,7 @@ vi.mock("@/lib/tasks", () => ({
 function makeRequest(method: string, body?: unknown): Request {
   const init: RequestInit = {
     method,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "idempotency-key": "test-key" },
   };
   if (body !== undefined) init.body = JSON.stringify(body);
   return new Request("http://localhost/api/v1/tasks", init);
@@ -59,7 +62,7 @@ describe("POST /api/v1/tasks", () => {
   it("returns 401 when unauthenticated", async () => {
     unauthenticatedSession();
     const { POST } = await import("@/app/api/v1/tasks/route");
-    const res = await POST(makeRequest("POST", { projectId: "p1", title: "Task" }));
+    const res = await POST(makeRequest("POST", { projectId: "11111111-1111-4111-8111-111111111111", title: "Task" }));
     expect(res.status).toBe(401);
   });
 
@@ -73,23 +76,23 @@ describe("POST /api/v1/tasks", () => {
 
   it("returns 400 when title is missing", async () => {
     const { POST } = await import("@/app/api/v1/tasks/route");
-    const res = await POST(makeRequest("POST", { projectId: "p1" }));
+    const res = await POST(makeRequest("POST", { projectId: "11111111-1111-4111-8111-111111111111" }));
     expect(res.status).toBe(400);
   });
 
   it("returns 403 when canProject denies", async () => {
     mockCanProject.mockResolvedValue(false);
     const { POST } = await import("@/app/api/v1/tasks/route");
-    const res = await POST(makeRequest("POST", { projectId: "p1", title: "Task" }));
+    const res = await POST(makeRequest("POST", { projectId: "11111111-1111-4111-8111-111111111111", title: "Task" }));
     expect(res.status).toBe(403);
   });
 
   it("creates task, logs audit, and emits event", async () => {
     mockCanProject.mockResolvedValue(true);
-    mockCreateTask.mockResolvedValue({ id: "t1", title: "Task", projectId: "p1" });
+    mockCreateTask.mockResolvedValue({ id: "t1", title: "Task", projectId: "11111111-1111-4111-8111-111111111111" });
 
     const { POST } = await import("@/app/api/v1/tasks/route");
-    const res = await POST(makeRequest("POST", { projectId: "p1", title: "Task" }));
+    const res = await POST(makeRequest("POST", { projectId: "11111111-1111-4111-8111-111111111111", title: "Task" }));
 
     expect(res.status).toBe(201);
     expect(mockCreateTask).toHaveBeenCalled();

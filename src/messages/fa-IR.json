@@ -189,6 +189,8 @@
     "searchBase": "پایه جستجو",
     "searchFilter": "فیلتر جستجو",
     "enableSaml": "فعال‌سازی احراز هویت SAML",
+    "entityId": "شناسه موجودیت سرویس‌دهنده",
+    "acsUrl": "آدرس سرویس مصرف‌کننده assertion",
     "idpEntityId": "شناسه IdP",
     "ssoUrl": "آدرس SSO",
     "certificate": "گواهی X.509",

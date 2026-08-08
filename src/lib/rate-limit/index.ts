@@ -1,17 +1,24 @@
 import { logger } from "@/lib/logging";
+import { randomUUID } from "node:crypto";
+import { waitForRedisReady, type RedisReadyClient } from "@/lib/queue/connection";
 
 const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
+const rateLimitBackend = process.env.RATE_LIMIT_BACKEND ?? "redis";
+const failClosed = process.env.NODE_ENV === "production" || process.env.RATE_LIMIT_FAIL_CLOSED === "true";
 
-type RedisClient = {
+type RedisClient = RedisReadyClient & {
   incr(_key: string): Promise<number>;
   pexpire(_key: string, _ms: number): Promise<unknown>;
   pttl(_key: string): Promise<number>;
   pipeline(): RedisPipeline;
   quit(): Promise<unknown>;
+  disconnect(): void;
 };
 
 type RedisPipeline = {
-  incr(_key: string): RedisPipeline;
+  zremrangebyscore(_key: string, _min: number, _max: number): RedisPipeline;
+  zadd(_key: string, _score: number, _member: string): RedisPipeline;
+  zcard(_key: string): RedisPipeline;
   pexpire(_key: string, _ms: number): RedisPipeline;
   exec(): Promise<(readonly [null, number][])>;
 };
@@ -22,27 +29,47 @@ type RedisModule = {
 
 let sharedRedis: RedisClient | null = null;
 let redisAvailable = true;
+let redisRetryAt = 0;
+let lastRedisWarningAt = 0;
+
+function markRedisUnavailable(err?: unknown) {
+  const now = Date.now();
+  redisAvailable = false;
+  redisRetryAt = now + 10_000;
+  if (now - lastRedisWarningAt >= 10_000) {
+    lastRedisWarningAt = now;
+    logger.warn({ err }, "Redis unavailable for rate limiting, falling back to in-memory");
+  }
+}
 
 async function getRedis(): Promise<RedisClient | null> {
-  if (!redisAvailable) return null;
+  if (rateLimitBackend === "memory") return null;
+  if (!redisAvailable) {
+    if (Date.now() < redisRetryAt) return null;
+    redisAvailable = true;
+  }
   if (sharedRedis) return sharedRedis;
+  let redis: RedisClient | null = null;
   try {
     const mod = (await import(/* webpackIgnore: true */ "ioredis")) as RedisModule;
-    sharedRedis = new mod.default(redisUrl, {
+    redis = new mod.default(redisUrl, {
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
       retryStrategy(times: number) {
         if (times > 1) {
-          redisAvailable = false;
-          logger.warn("Redis unavailable for rate limiting, falling back to in-memory");
+          markRedisUnavailable();
           return null;
         }
         return 200;
       },
     });
+    await waitForRedisReady(redis);
+    sharedRedis = redis;
     return sharedRedis;
-  } catch {
-    redisAvailable = false;
+  } catch (err) {
+    redis?.disconnect();
+    sharedRedis = null;
+    markRedisUnavailable(err);
     return null;
   }
 }
@@ -110,7 +137,11 @@ function checkInMemory(key: string, tier: RateLimitTier): RateLimitResult {
   const remaining = Math.max(0, tier.maxRequests - window.count);
   const allowed = window.count <= tier.maxRequests;
 
-  return { allowed, remaining, resetAt: window.resetAt };
+  return { allowed, remaining, resetAt: window.resetAt, limit: tier.maxRequests };
+}
+
+function redisUnavailableResult(tier: RateLimitTier): RateLimitResult {
+  return { allowed: false, remaining: 0, resetAt: Date.now() + 10_000, limit: tier.maxRequests };
 }
 
 // --- Redis sliding window ---
@@ -119,29 +150,28 @@ type RateLimitResult = {
   allowed: boolean;
   remaining: number;
   resetAt: number;
+  limit: number;
 };
 
 async function checkRedis(key: string, tier: RateLimitTier): Promise<RateLimitResult> {
   const redis = await getRedis();
-  if (!redis) return checkInMemory(key, tier);
+  if (!redis) return failClosed ? redisUnavailableResult(tier) : checkInMemory(key, tier);
 
   try {
     const now = Date.now();
     const fullKey = `${tier.prefix}${key}`;
 
-    // Sliding window: use sorted set with timestamp scores
-    // Remove expired entries, add new one, count, set expiry
+    // Sliding window: use a sorted set with timestamp scores.
     const pipe = redis.pipeline();
-    pipe.incr(fullKey);
+    pipe.zremrangebyscore(fullKey, 0, now - tier.windowMs);
+    pipe.zadd(fullKey, now, `${now}:${randomUUID()}`);
+    pipe.zcard(fullKey);
     pipe.pexpire(fullKey, tier.windowMs);
     const results = await pipe.exec();
 
-    const count = results[1]?.[1] ?? 1;
+    const count = results[2]?.[1] ?? 1;
     const remaining = Math.max(0, tier.maxRequests - count);
 
-    // Calculate when the window resets (from the oldest entry in the window)
-    // Since we're using INCR + EXPIRE, the window is fixed from first request
-    // resetAt is when the key expires
     const ttlMs = await redis.pttl(fullKey);
     const resetAt = ttlMs > 0 ? now + ttlMs : now + tier.windowMs;
 
@@ -149,10 +179,11 @@ async function checkRedis(key: string, tier: RateLimitTier): Promise<RateLimitRe
       allowed: count <= tier.maxRequests,
       remaining,
       resetAt,
+      limit: tier.maxRequests,
     };
   } catch (err) {
-    logger.warn({ err }, "Redis rate limit check failed, falling back to in-memory");
-    return checkInMemory(key, tier);
+    markRedisUnavailable(err);
+    return failClosed ? redisUnavailableResult(tier) : checkInMemory(key, tier);
   }
 }
 
@@ -184,6 +215,7 @@ export async function checkRateLimitToken(tokenId: string): Promise<RateLimitRes
 export function formatHeaders(result: RateLimitResult): Record<string, string> {
   const resetSeconds = Math.ceil((result.resetAt - Date.now()) / 1000);
   return {
+    "X-RateLimit-Limit": String(result.limit),
     "X-RateLimit-Remaining": String(result.remaining),
     "X-RateLimit-Reset": String(resetSeconds > 0 ? resetSeconds : 1),
   };

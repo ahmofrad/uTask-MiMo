@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { requireAuth } from "@/lib/rbac/middleware";
+import { canProject, canReadTask } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { mapAssignees } from "@/lib/tasks/serialize";
+import { readJsonBody, subtaskCreateSchema, validationError } from "@/lib/validation/api";
 
 export async function GET(
   _request: Request,
@@ -12,6 +14,9 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
+  if (!(await canReadTask(authResult.userId, resolvedParams.id))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
 
   const subtasks = await prisma.task.findMany({
     where: { parentTaskId: resolvedParams.id, deletedAt: null },
@@ -39,23 +44,19 @@ export async function POST(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(request, { params: resolvedParams });
-  if (guardResult) return guardResult;
-
-  const body = await request.json();
-  const { title } = body as { title?: string };
-
-  if (!title?.trim()) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "title is required" } },
-      { status: 400 },
-    );
+  const parsed = subtaskCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const { title } = parsed.data;
 
   const parent = await prisma.task.findUnique({ where: { id: resolvedParams.id } });
-  if (!parent) {
+  if (!parent || parent.deletedAt || !(await canReadTask(userId, resolvedParams.id))) {
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
+
+  if (!(await canProject(userId, "task:edit_any", parent.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
   const subtask = await prisma.task.create({

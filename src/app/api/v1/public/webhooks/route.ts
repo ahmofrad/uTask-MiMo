@@ -1,14 +1,17 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { randomHex } from "@/lib/crypto";
 import { encrypt } from "@/lib/crypto/encrypt";
 import { validateWebhookUrlResolved } from "@/lib/webhook";
 import { logAudit } from "@/lib/audit/log";
+import { publicWebhookCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
-  const { error } = await authenticatePublicApi(request, "webhooks:manage");
+  const { userId, error } = await authenticatePublicApi(request, "webhooks:manage");
   if (error) return error;
+  if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
@@ -44,16 +47,11 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { userId, error } = await authenticatePublicApi(request, "webhooks:manage");
   if (error) return error;
+  if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
-  const body = await request.json();
-  const { name, url, events } = body as { name?: string; url?: string; events?: string[] };
-
-  if (!name || !url || !events || !Array.isArray(events)) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "name, url, and events required" } },
-      { status: 400 },
-    );
-  }
+  const parsed = publicWebhookCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
+  const { name, url, events } = parsed.data;
 
   if (!await validateWebhookUrlResolved(url)) {
     return NextResponse.json(

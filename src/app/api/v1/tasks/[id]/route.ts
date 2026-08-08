@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac/middleware";
-import { can, canProject } from "@/lib/rbac";
+import { canReadTask, canEditTask } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { emitToProject, emitToTask } from "@/lib/realtime/server";
@@ -8,6 +8,7 @@ import { getTaskById, updateTask, deleteTask, DependencyBlockedError } from "@/l
 import { mapAssignees } from "@/lib/tasks/serialize";
 import { getCustomFieldValuesForTask as getFieldValues } from "@/lib/custom-fields/values";
 import type { UpdateTaskData } from "@/lib/tasks";
+import { readJsonBody, taskUpdateSchema, validationError } from "@/lib/validation/api";
 
 export async function GET(
   _request: Request,
@@ -24,11 +25,7 @@ export async function GET(
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, { status: 404 });
   }
 
-  const hasAccess =
-    await can(userId, "task:edit_any") ||
-    await canProject(userId, "task:edit_any", task.projectId) ||
-    await canProject(userId, "task:edit_own", task.projectId) ||
-    await canProject(userId, "comment:create", task.projectId);
+  const hasAccess = await canReadTask(userId, resolvedParams.id);
 
   if (!hasAccess) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
@@ -44,9 +41,7 @@ export async function GET(
 }
 
 async function checkTaskPermission(userId: string, taskId: string): Promise<boolean> {
-  if (await can(userId, "task:edit_any")) return true;
-  const task = await getTaskById(taskId);
-  return task ? canProject(userId, "task:edit_any", task.projectId) : false;
+  return canEditTask(userId, taskId);
 }
 
 export async function PATCH(
@@ -62,13 +57,15 @@ export async function PATCH(
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const body = await request.json();
+  const parsed = taskUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
+  const body = parsed.data;
   const {
     title, description, status: taskStatus, priority: taskPriority,
     startDate, endDate, dueDate, assigneeId, assigneeIds, estimatedHours, spentHours, progress,
     deletedAt,
     customFields, tagIds,
-  } = body as Record<string, unknown>;
+  } = body;
 
   const data: UpdateTaskData = {};
   if (title !== undefined) data.title = String(title);

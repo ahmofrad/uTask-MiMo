@@ -16,7 +16,7 @@ vi.mock("@/lib/idempotency", () => ({
   setIdempotencyResult: vi.fn(async (key: string, status: number, body: unknown) => {
     mockStore.set(key, { status, body });
   }),
-  acquirePending: vi.fn(async () => true),
+  acquirePending: vi.fn(async () => "acquired"),
   releasePending: vi.fn(async () => {}),
 }));
 

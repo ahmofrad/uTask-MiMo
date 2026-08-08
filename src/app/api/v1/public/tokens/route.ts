@@ -3,6 +3,7 @@ import { authenticatePublicApi } from "@/lib/public-api/middleware";
 import { prisma } from "@/lib/db";
 import { createApiToken, invalidScopes, normalizeScopes, userCanGrantScope, PUBLIC_SCOPES } from "@/lib/api-token";
 import { logAudit } from "@/lib/audit/log";
+import { publicTokenCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
   const { userId, error } = await authenticatePublicApi(request);
@@ -24,15 +25,9 @@ export async function POST(request: Request) {
   const { userId, error } = await authenticatePublicApi(request);
   if (error) return error;
 
-  const body = await request.json();
-  const { name, scopes, expiresAt } = body as { name?: string; scopes?: unknown; expiresAt?: string | null };
-
-  if (!name || typeof name !== "string") {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "name is required" } },
-      { status: 400 },
-    );
-  }
+  const parsed = publicTokenCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
+  const { name, scopes, expiresAt } = parsed.data;
 
   const normalized = normalizeScopes(scopes);
   if (!normalized || normalized.length === 0) {
@@ -40,6 +35,10 @@ export async function POST(request: Request) {
       { error: { code: "VALIDATION_ERROR", message: "a non-empty scopes array is required" } },
       { status: 400 },
     );
+  }
+
+  if (expiresAt && new Date(expiresAt) <= new Date()) {
+    return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "expiresAt must be in the future" } }, { status: 400 });
   }
 
   const bad = invalidScopes(normalized);

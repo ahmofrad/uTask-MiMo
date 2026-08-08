@@ -3,14 +3,24 @@ import { decrypt } from "@/lib/crypto/encrypt";
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logging";
 import { lookup } from "node:dns/promises";
+import { request as httpsRequest } from "node:https";
 
 const BLOCKED_CIDR = [
+  "0.0.0.0/8",
   "10.0.0.0/8",
+  "100.64.0.0/10",
   "172.16.0.0/12",
   "192.168.0.0/16",
+  "192.0.0.0/24",
   "127.0.0.0/8",
   "169.254.0.0/16",
+  "198.18.0.0/15",
+  "198.51.100.0/24",
+  "203.0.113.0/24",
+  "224.0.0.0/4",
+  "240.0.0.0/4",
   "::1/128",
+  "::/128",
   "fc00::/7",
   "fe80::/10",
   "::ffff:0:0/96",
@@ -81,20 +91,35 @@ function ipInCidr(ip: string, cidr: string): boolean {
 }
 
 function isPrivateIp(host: string): boolean {
+  const normalizedHost = host.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.$/, "");
+  const mappedIpv4 = normalizedHost.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mappedIpv4) return isPrivateIp(mappedIpv4[1]!);
+  const mappedHex = normalizedHost.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (mappedHex) {
+    const first = parseInt(mappedHex[1]!, 16);
+    const second = parseInt(mappedHex[2]!, 16);
+    return isPrivateIp(`${first >> 8}.${first & 0xff}.${second >> 8}.${second & 0xff}`);
+  }
+
   // IPv4 check
-  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(host)) {
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(normalizedHost)) {
+    const ipBytes = normalizedHost.split(".").map(Number);
+    if (ipBytes.some((byte) => byte > 255)) return true;
     for (const cidr of BLOCKED_CIDR) {
       if (cidr.includes(":")) continue;
-      if (ipInCidr(host, cidr)) return true;
+      if (ipInCidr(normalizedHost, cidr)) return true;
     }
     return false;
   }
 
   // IPv6 check (including IPv4-mapped ::ffff:x.x.x.x)
-  if (host.includes(":")) {
+  if (normalizedHost.includes(":")) {
+    if (normalizedHost === "::" || normalizedHost === "::1") return true;
+    const firstHextet = parseInt(normalizedHost.split(":")[0] || "0", 16);
+    if ((firstHextet >= 0xfe80 && firstHextet <= 0xfebf) || firstHextet >= 0xfc00) return true;
     for (const cidr of BLOCKED_CIDR) {
       if (!cidr.includes(":")) continue;
-      if (ipInCidr(host, cidr)) return true;
+      if (ipInCidr(normalizedHost, cidr)) return true;
     }
     return false;
   }
@@ -107,7 +132,7 @@ export function validateWebhookUrl(url: string): boolean {
     const parsed = new URL(url);
     if (parsed.protocol !== "https:") return false;
 
-    const host = parsed.hostname;
+    const host = parsed.hostname.toLowerCase().replace(/\.$/, "");
 
     // Check against blocked private hostnames
     for (const suffix of BLOCKED_HOSTNAMES) {
@@ -128,26 +153,90 @@ export function validateWebhookUrl(url: string): boolean {
  * private/internal network. This closes the DNS-rebinding-style gap where a
  * hostname passes the literal string check but resolves to a private IP.
  */
-export async function validateWebhookUrlResolved(url: string): Promise<boolean> {
-  if (!validateWebhookUrl(url)) return false;
+type ResolvedWebhookAddress = {
+  address: string;
+  family: 4 | 6;
+};
+
+async function resolveSafeWebhookAddress(url: string): Promise<ResolvedWebhookAddress | null> {
+  if (!validateWebhookUrl(url)) return null;
 
   let host: string;
   try {
-    host = new URL(url).hostname;
+    host = new URL(url).hostname.replace(/^\[|\]$/g, "");
   } catch {
-    return false;
+    return null;
   }
 
-  // Literal IPs are already covered by validateWebhookUrl; nothing to resolve.
-  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host.includes(":")) return true;
+  // Literal IPs are already covered by validateWebhookUrl. Returning the literal
+  // address lets the request connect without doing a second DNS lookup.
+  if (/^(\d{1,3}\.){3}\d{1,3}$/.test(host) || host.includes(":")) {
+    return isPrivateIp(host) ? null : { address: host, family: host.includes(":") ? 6 : 4 };
+  }
 
   try {
-    const addresses = await lookup(host, { all: true });
-    return addresses.every((addr) => !isPrivateIp(addr.address));
+    const addresses = await lookup(host, { all: true, verbatim: true });
+    if (addresses.length === 0 || addresses.some((addr) => isPrivateIp(addr.address))) return null;
+    const publicAddress = addresses[0]!;
+    return { address: publicAddress.address, family: publicAddress.family === 6 ? 6 : 4 };
   } catch {
     // DNS failure — reject rather than deliver into an unknown network.
-    return false;
+    return null;
   }
+}
+
+export async function validateWebhookUrlResolved(url: string): Promise<boolean> {
+  return (await resolveSafeWebhookAddress(url)) !== null;
+}
+
+function postWebhookRequest(
+  url: string,
+  body: string,
+  headers: Record<string, string>,
+  resolvedAddress: ResolvedWebhookAddress,
+): Promise<{ status: number; body: string }> {
+  const parsed = new URL(url);
+  const hostname = parsed.hostname.replace(/^\[|\]$/g, "");
+  const requestOptions = {
+    hostname: resolvedAddress.address,
+    port: parsed.port ? Number(parsed.port) : 443,
+    path: `${parsed.pathname}${parsed.search}`,
+    method: "POST" as const,
+    headers: {
+      ...headers,
+      Host: parsed.host,
+      "Content-Length": String(Buffer.byteLength(body)),
+    },
+    timeout: 10_000,
+  };
+
+  return new Promise((resolve, reject) => {
+    const request = httpsRequest(
+      { ...requestOptions, servername: hostname },
+      (response) => {
+        const chunks: Buffer[] = [];
+        let size = 0;
+        response.on("data", (chunk: Buffer | string) => {
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+          if (size < 10_000) {
+            const remaining = 10_000 - size;
+            chunks.push(buffer.subarray(0, remaining));
+            size += Math.min(buffer.length, remaining);
+          }
+        });
+        response.on("end", () => {
+          resolve({
+            status: response.statusCode ?? 502,
+            body: Buffer.concat(chunks).toString("utf8"),
+          });
+        });
+        response.on("error", reject);
+      },
+    );
+    request.on("timeout", () => request.destroy(new Error("Webhook request timed out")));
+    request.on("error", reject);
+    request.end(body);
+  });
 }
 
 export function signPayload(payload: string, secret: string): string {
@@ -176,6 +265,8 @@ export async function dispatchWebhook(
   eventType: string,
   eventId: string,
   payload: Record<string, unknown>,
+  deliveryId?: string,
+  attemptNumber = 1,
 ) {
   const webhook = await prisma.webhook.findUnique({
     where: { id: webhookId, deletedAt: null },
@@ -186,28 +277,45 @@ export async function dispatchWebhook(
   const secret = decryptSecret(webhook.secret);
   const signature = signPayload(body, secret);
 
-  // Re-verify DNS resolution at dispatch time to block DNS-rebinding attacks.
-  const urlSafe = await validateWebhookUrlResolved(webhook.url);
-  if (!urlSafe) {
+  // Resolve and pin a public address at dispatch time. Connecting by IP avoids
+  // a second DNS lookup between validation and the outbound request.
+  const resolvedAddress = await resolveSafeWebhookAddress(webhook.url);
+  if (!resolvedAddress) {
     logger.error({ webhookId, eventType }, "Webhook dispatch blocked: URL failed resolution check");
+    if (deliveryId) {
+      await prisma.webhookDelivery.update({
+        where: { id: deliveryId },
+        data: { error: "Webhook URL failed SSRF validation", nextRetryAt: null },
+      });
+    }
     return;
   }
 
-  const delivery = await prisma.webhookDelivery.create({
-    data: {
-      webhookId: webhook.id,
-      eventType,
-      eventId,
-      attemptNumber: 1,
-      requestPayload: payload as never,
-      scheduledAt: new Date(),
-    },
-  });
+  const delivery = deliveryId
+    ? { id: deliveryId }
+    : await prisma.webhookDelivery.create({
+        data: {
+          webhookId: webhook.id,
+          eventType,
+          eventId,
+          attemptNumber,
+          requestPayload: payload as never,
+          scheduledAt: new Date(),
+        },
+      });
+  if (deliveryId) {
+    await prisma.webhookDelivery.update({
+      where: { id: deliveryId },
+      data: { attemptNumber, scheduledAt: new Date(), nextRetryAt: null, error: null },
+    });
+  }
 
+  const startedAt = Date.now();
   try {
-    const response = await fetch(webhook.url, {
-      method: "POST",
-      headers: {
+    const response = await postWebhookRequest(
+      webhook.url,
+      body,
+      {
         "Content-Type": "application/json",
         "User-Agent": "TaskApp-Webhooks/1.0",
         "X-TaskApp-Event-Id": eventId,
@@ -216,12 +324,26 @@ export async function dispatchWebhook(
         "X-TaskApp-Signature": `sha256=${signature}`,
         "X-TaskApp-Timestamp": String(Math.floor(Date.now() / 1000)),
       },
-      body,
-      redirect: "manual",
-      signal: AbortSignal.timeout(10000),
-    });
+      resolvedAddress,
+    );
 
-    const responseBody = await response.text();
+    const responseBody = response.body;
+    const durationMs = Date.now() - startedAt;
+
+    if (response.status < 200 || response.status >= 300) {
+      const errorMsg = `Webhook returned HTTP ${response.status}`;
+      await prisma.webhookDelivery.update({
+        where: { id: delivery.id },
+        data: {
+          responseStatus: response.status,
+          responseBody: responseBody.slice(0, 10000),
+          error: errorMsg,
+          durationMs,
+          nextRetryAt: new Date(Date.now() + Math.min(300_000, 5_000 * 2 ** Math.max(0, attemptNumber - 1))),
+        },
+      });
+      throw new Error(errorMsg);
+    }
 
     await prisma.webhookDelivery.update({
       where: { id: delivery.id },
@@ -229,15 +351,24 @@ export async function dispatchWebhook(
         responseStatus: response.status,
         responseBody: responseBody.slice(0, 10000),
         deliveredAt: new Date(),
-        durationMs: 0, // approximate
+        error: null,
+        durationMs,
+        nextRetryAt: null,
       },
     });
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
-    await prisma.webhookDelivery.update({
-      where: { id: delivery.id },
-      data: { error: errorMsg },
-    });
+    if (!errorMsg.startsWith("Webhook returned HTTP ")) {
+      await prisma.webhookDelivery.update({
+        where: { id: delivery.id },
+        data: {
+          error: errorMsg,
+          durationMs: Date.now() - startedAt,
+          nextRetryAt: new Date(Date.now() + Math.min(300_000, 5_000 * 2 ** Math.max(0, attemptNumber - 1))),
+        },
+      });
+    }
     logger.error({ webhookId, eventType, error: errorMsg }, "Webhook dispatch failed");
+    throw err instanceof Error ? err : new Error(errorMsg);
   }
 }

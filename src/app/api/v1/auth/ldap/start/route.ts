@@ -4,6 +4,7 @@ import { signIn } from "@/lib/auth/config";
 import { createSsoToken } from "@/lib/auth/sso-token";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit/log";
+import { ldapLoginSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function POST(request: Request) {
   const ip =
@@ -27,23 +28,11 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = await request.json();
-  const { username, password } = body as {
-    username?: string;
-    password?: string;
-  };
-
-  if (!username || !password) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "VALIDATION_ERROR",
-          message: "username and password are required",
-        },
-      },
-      { status: 400 },
-    );
+  const parsed = ldapLoginSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const { username, password } = parsed.data;
 
   const result = await ldapAuth(username, password);
 

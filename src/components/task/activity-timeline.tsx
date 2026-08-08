@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { cn } from "@/lib/cn";
+import { sanitizeHtml } from "@/lib/markdown/render";
 import type { ActivityEvent } from "@/lib/activity/types";
 
 type ActivityTimelineProps = {
@@ -149,7 +150,7 @@ export function ActivityTimeline({ events, onLoadMore, hasMore, members }: Activ
             {event.type === "comment" && (
               <p
                 className="text-sm text-fg-muted mt-1 line-clamp-2"
-                dangerouslySetInnerHTML={{ __html: event.body }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(event.body) }}
               />
             )}
 

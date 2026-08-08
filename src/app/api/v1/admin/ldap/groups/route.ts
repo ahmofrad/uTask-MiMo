@@ -3,6 +3,7 @@ import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { getLdapConfig, searchLdapGroups } from "@/lib/auth/providers/ldap";
 import { logAudit } from "@/lib/audit/log";
+import { ldapGroupSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
@@ -38,14 +39,11 @@ export async function POST(request: Request) {
   const guardResult = await guard(request, { params: {} });
   if (guardResult) return guardResult;
 
-  const body = await request.json().catch(() => ({}));
-  const { dn, name } = body as { dn?: string; name?: string };
-  if (!dn || !name) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "dn and name are required" } },
-      { status: 400 },
-    );
+  const parsed = ldapGroupSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const { dn, name } = parsed.data;
 
   const group = await prisma.ldapSyncGroup.upsert({
     where: { dn },

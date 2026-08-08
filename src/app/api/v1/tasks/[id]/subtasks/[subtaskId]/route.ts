@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { requireAuth } from "@/lib/rbac/middleware";
+import { canProject, canReadTask } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
+import { readJsonBody, subtaskUpdateSchema, validationError } from "@/lib/validation/api";
 
 export async function PATCH(
   request: Request,
@@ -13,21 +15,27 @@ export async function PATCH(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(request, { params: resolvedParams });
-  if (guardResult) return guardResult;
-
-  const body = await request.json();
-  const { status, title } = body as { status?: string; title?: string };
-
-  if (!status && !title) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "status or title is required" } },
-      { status: 400 },
-    );
+  const parent = await prisma.task.findUnique({
+    where: { id: resolvedParams.id },
+    select: { projectId: true, deletedAt: true },
+  });
+  if (!parent || parent.deletedAt || !(await canReadTask(userId, resolvedParams.id))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
+  if (!(await canProject(userId, "task:edit_any", parent.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
+  const parsed = subtaskUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
+  const { status, title } = parsed.data;
+
   const before = await prisma.task.findUnique({ where: { id: resolvedParams.subtaskId } });
+  if (!before || before.deletedAt || before.parentTaskId !== resolvedParams.id) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
 
   const updateData: Record<string, unknown> = {};
   if (status) updateData.status = status;
@@ -62,11 +70,21 @@ export async function DELETE(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(_request, { params: resolvedParams });
-  if (guardResult) return guardResult;
+  const parent = await prisma.task.findUnique({
+    where: { id: resolvedParams.id },
+    select: { projectId: true, deletedAt: true },
+  });
+  if (!parent || parent.deletedAt || !(await canReadTask(userId, resolvedParams.id))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
+  if (!(await canProject(userId, "task:edit_any", parent.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
 
   const before = await prisma.task.findUnique({ where: { id: resolvedParams.subtaskId } });
+  if (!before || before.deletedAt || before.parentTaskId !== resolvedParams.id) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
 
   await prisma.task.update({
     where: { id: resolvedParams.subtaskId, parentTaskId: resolvedParams.id },

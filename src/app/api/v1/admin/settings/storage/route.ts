@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { getInstanceSetting, setInstanceSetting } from "@/lib/settings/instance";
 import { logAudit } from "@/lib/audit/log";
+import { readJsonBody, storageSettingsSchema, validationError } from "@/lib/validation/api";
 
 type StorageConfig = {
   endpoint: string;
@@ -56,23 +57,12 @@ export async function PUT(request: Request) {
   const guardResult = await guard(request, { params: {} });
   if (guardResult) return guardResult;
 
-  const body = (await request.json()) as Partial<StorageConfig>;
-
-  const allowedKeys: (keyof StorageConfig)[] = [
-    "endpoint",
-    "accessKey",
-    "secretKey",
-    "bucket",
-    "region",
-    "useSSL",
-  ];
-
-  const storage: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(body)) {
-    if ((allowedKeys as string[]).includes(key)) {
-      storage[key] = value;
-    }
+  const parsed = storageSettingsSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const body = parsed.data;
+  const storage: Record<string, unknown> = body;
 
   if (Object.keys(storage).length > 0) {
     await setInstanceSetting("storage", storage, userId);
@@ -83,7 +73,7 @@ export async function PUT(request: Request) {
     action: "updated",
     entityType: "settings",
     entityId: "storage",
-    after: body,
+    after: { ...body, ...(body.secretKey !== undefined ? { secretKey: "[REDACTED]" } : {}) },
   });
 
   return NextResponse.json({ data: { success: true } });

@@ -48,7 +48,7 @@ export async function updateComment(
   userId: string,
   data: { bodyMarkdown: string },
 ) {
-  const comment = await prisma.comment.findUnique({ where: { id } });
+  const comment = await prisma.comment.findFirst({ where: { id, deletedAt: null } });
   if (!comment) return null;
   if (comment.authorId !== userId) return { forbidden: true as const };
 
@@ -63,7 +63,7 @@ export async function updateComment(
 }
 
 export async function deleteComment(id: string, userId: string) {
-  const comment = await prisma.comment.findUnique({ where: { id } });
+  const comment = await prisma.comment.findFirst({ where: { id, deletedAt: null } });
   if (!comment) return null;
   if (comment.authorId !== userId) return { forbidden: true as const };
 

@@ -97,10 +97,13 @@ export async function createUser(data: {
 }
 
 export async function suspendUser(id: string) {
-  return prisma.user.update({
+  const user = await prisma.user.update({
     where: { id },
     data: { status: "suspended" },
   });
+  const { revokeUserSessions } = await import("@/lib/auth/config");
+  await revokeUserSessions(id);
+  return user;
 }
 
 export async function restoreUser(id: string) {

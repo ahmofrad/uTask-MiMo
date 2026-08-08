@@ -1,34 +1,25 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac/middleware";
-import { can, canProject } from "@/lib/rbac";
+import { canProject, canReadTask } from "@/lib/rbac";
 import { getTaskById } from "@/lib/tasks";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { getTaskComments, createComment } from "@/lib/comments";
-import { parseMentions, type MentionMatch } from "@/lib/mentions";
+import { parseMentions, resolveMentionTarget } from "@/lib/mentions";
+import { sha256 } from "@/lib/crypto";
 import { notify } from "@/lib/notifications";
-import { prisma } from "@/lib/db";
+
 import { ensureWatcher } from "@/lib/watchers";
-import { checkIdempotency, setIdempotencyResult } from "@/lib/idempotency";
+import { checkIdempotency, setIdempotencyResult, acquirePending, releasePending, type IdempotencyScope } from "@/lib/idempotency";
 import { logger } from "@/lib/logging";
+import { commentCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 async function checkCommentAccess(userId: string, taskId: string): Promise<{ allowed: boolean; projectId: string | undefined }> {
-  if (await can(userId, "task:edit_any")) {
-    const task = await getTaskById(taskId);
-    return { allowed: true, projectId: task?.projectId };
-  }
+  if (!(await canReadTask(userId, taskId))) return { allowed: false, projectId: undefined };
   const task = await getTaskById(taskId);
   if (!task) return { allowed: false, projectId: undefined };
   const allowed = await canProject(userId, "comment:create", task.projectId);
   return { allowed, projectId: task.projectId };
-}
-
-async function resolveMentionTarget(m: MentionMatch): Promise<string | null> {
-  if (!m.userId) return null;
-  const user = m.userId.includes("@")
-    ? await prisma.user.findUnique({ where: { email: m.userId } })
-    : await prisma.user.findUnique({ where: { id: m.userId } });
-  return user?.id ?? null;
 }
 
 export async function GET(
@@ -55,32 +46,54 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
+  let idempotencyKey: string | null = null;
+  let idempotencyScope: IdempotencyScope | null = null;
   try {
     const authResult = await requireAuth(request, { params: resolvedParams });
     if (authResult instanceof NextResponse) return authResult;
     const { userId } = authResult;
+
+    idempotencyKey = request.headers.get("idempotency-key");
+    idempotencyScope = { userId, route: `comments:create:${resolvedParams.id}` };
 
     const access = await checkCommentAccess(userId, resolvedParams.id);
     if (!access.allowed) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
     }
 
-    // Idempotency check
-    const idempotencyKey = request.headers.get("idempotency-key");
-    if (idempotencyKey) {
-      const cached = await checkIdempotency(idempotencyKey);
-      if (cached.hit) {
-        return NextResponse.json(cached.response.body, { status: cached.response.status });
-      }
+    const parsed = commentCreateSchema.safeParse(await readJsonBody(request));
+    if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
+    const { bodyMarkdown, parentCommentId } = parsed.data;
+    idempotencyScope = {
+      userId,
+      route: `comments:create:${resolvedParams.id}`,
+      bodyHash: sha256(JSON.stringify(parsed.data)),
+    };
+
+    if (!idempotencyKey) {
+      return NextResponse.json({ error: { code: "IDEMPOTENCY_KEY_REQUIRED" } }, { status: 400 });
     }
-
-    const body = await request.json();
-    const { bodyMarkdown, parentCommentId } = body as { bodyMarkdown?: string; parentCommentId?: string };
-
-    if (!bodyMarkdown) {
+    const cached = await checkIdempotency(idempotencyKey, idempotencyScope);
+    if (cached.unavailable) {
+      return NextResponse.json({ error: { code: "IDEMPOTENCY_UNAVAILABLE", message: "Idempotency storage is unavailable" } }, { status: 503 });
+    }
+    if (cached.conflict) {
       return NextResponse.json(
-        { error: { code: "VALIDATION_ERROR", message: "bodyMarkdown is required" } },
-        { status: 400 },
+        { error: { code: "IDEMPOTENCY_KEY_REUSE", message: "Idempotency-Key was already used with a different request body" } },
+        { status: 409 },
+      );
+    }
+    if (cached.hit) {
+      return NextResponse.json(cached.response.body, { status: cached.response.status });
+    }
+    const pending = await acquirePending(idempotencyKey, idempotencyScope);
+    if (pending === "unavailable") {
+      return NextResponse.json({ error: { code: "IDEMPOTENCY_UNAVAILABLE", message: "Idempotency storage is unavailable" } }, { status: 503 });
+    }
+    if (pending !== "acquired") {
+      return NextResponse.json(
+        { error: { code: "CONFLICT", message: "Request already in progress" } },
+        { status: 409 },
       );
     }
 
@@ -128,7 +141,7 @@ export async function POST(
     const responseBody = { data: comment };
 
     if (idempotencyKey) {
-      await setIdempotencyResult(idempotencyKey, 201, responseBody);
+      await setIdempotencyResult(idempotencyKey, 201, responseBody, idempotencyScope);
     }
 
     return NextResponse.json(responseBody, { status: 201 });
@@ -138,5 +151,7 @@ export async function POST(
       { error: { code: "INTERNAL_ERROR", message: "Failed to create comment" } },
       { status: 500 },
     );
+  } finally {
+    if (idempotencyKey && idempotencyScope) await releasePending(idempotencyKey, idempotencyScope);
   }
 }

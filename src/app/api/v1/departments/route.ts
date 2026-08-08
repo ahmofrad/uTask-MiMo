@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { listDepartments, createDepartment } from "@/lib/departments";
+import { departmentCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET() {
   const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
@@ -25,19 +26,11 @@ export async function POST(request: Request) {
   const guardResult = await guard(request, { params: {} });
   if (guardResult) return guardResult;
 
-  const body = await request.json();
-  const { name, parentId, managerUserId } = body as {
-    name?: string;
-    parentId?: string | null;
-    managerUserId?: string | null;
-  };
-
-  if (!name) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "Name is required" } },
-      { status: 400 },
-    );
+  const parsed = departmentCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const { name, parentId, managerUserId } = parsed.data;
 
   const department = await createDepartment({
     name,

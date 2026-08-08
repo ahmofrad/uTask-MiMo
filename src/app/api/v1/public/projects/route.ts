@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
-import { can } from "@/lib/rbac";
+import { canCreateProject } from "@/lib/rbac";
 import { getUserReadableProjectIds, listProjects } from "@/lib/projects/queries";
-import { prisma } from "@/lib/db";
+import { createProject } from "@/lib/projects/mutations";
 import { logAudit } from "@/lib/audit/log";
+import { emitTaskEvent } from "@/lib/webhook/emit";
+import { publicProjectCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
   const { userId, error } = await authenticatePublicApi(request, "projects:read");
@@ -27,26 +29,22 @@ export async function POST(request: Request) {
   const { userId, error } = await authenticatePublicApi(request, "projects:write");
   if (error) return error;
 
-  if (!(await can(userId, "project:create"))) {
+  if (!(await canCreateProject(userId))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "You are not allowed to create projects" } },
       { status: 403 },
     );
   }
 
-  const body = await request.json();
-  const { name, description, visibility } = body as Record<string, string>;
+  const parsed = publicProjectCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
 
-  if (!name) {
-    return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "name is required" } }, { status: 400 });
-  }
-
-  const project = await prisma.project.create({
-    data: { name, description: description ?? null, ownerId: userId, visibility: (visibility ?? "private") as never },
-  });
-
-  await prisma.projectMember.create({
-    data: { projectId: project.id, userId, projectRole: "lead", addedBy: userId },
+  const project = await createProject({
+    name: parsed.data.name,
+    ownerId: userId,
+    ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+    ...(parsed.data.color !== undefined ? { color: parsed.data.color } : {}),
+    ...(parsed.data.visibility !== undefined ? { visibility: parsed.data.visibility } : {}),
   });
 
   await logAudit({
@@ -56,6 +54,8 @@ export async function POST(request: Request) {
     entityId: project.id,
     after: project as never,
   });
+
+  await emitTaskEvent("project.created", project.id, { id: project.id, name: project.name }, userId);
 
   return NextResponse.json({ data: project }, { status: 201 });
 }

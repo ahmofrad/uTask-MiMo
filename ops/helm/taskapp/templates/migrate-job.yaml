@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "taskapp.fullname" . }}-migrate-{{ .Release.Revision }}
+  labels:
+    {{- include "taskapp.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migrate
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 6
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        {{- include "taskapp.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: "{{ .Values.app.image }}:{{ .Values.app.tag }}"
+          imagePullPolicy: IfNotPresent
+          command: ["true"]
+          env:
+            - name: RUN_MIGRATIONS
+              value: "true"
+          envFrom:
+            - configMapRef:
+                name: {{ include "taskapp.fullname" . }}
+            - secretRef:
+                name: {{ include "taskapp.fullname" . }}

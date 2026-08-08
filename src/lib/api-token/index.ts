@@ -106,7 +106,7 @@ export const SCOPE_PERMISSIONS: Record<PublicScope, Permission[]> = {
   "tasks:write": ["task:create", "task:edit_any", "task:edit_own"],
   "projects:read": [],
   "projects:write": ["project:create"],
-  "users:read": [],
+  "users:read": ["user:manage"],
   "users:write": ["user:manage"],
   "comments:write": ["comment:create"],
   "webhooks:manage": ["webhook:manage"],

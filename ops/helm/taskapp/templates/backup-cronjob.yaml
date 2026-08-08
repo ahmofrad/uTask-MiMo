@@ -26,7 +26,7 @@ spec:
                   valueFrom:
                     secretKeyRef:
                       name: {{ include "taskapp.fullname" . }}
-                      key: db-password
+                      key: DATABASE_URL
                 - name: BACKUP_DESTINATION
                   value: {{ .Values.backup.destination }}
                 - name: BACKUP_S3_BUCKET

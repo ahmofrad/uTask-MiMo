@@ -1,6 +1,7 @@
 import { Queue, Worker } from "bullmq";
 import { logger } from "@/lib/logging";
 import crypto from "node:crypto";
+import { waitForRedisReady, type RedisReadyClient } from "./connection";
 
 const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
 
@@ -12,14 +13,27 @@ async function ensureConnection(): Promise<unknown> {
   if (!connectionPromise) {
     connectionPromise = (async () => {
       const IORedis = await import(/* webpackIgnore: true */ "ioredis");
-      sharedConnection = new IORedis.default(redisUrl, {
+      const client = new IORedis.default(redisUrl, {
         maxRetriesPerRequest: null,
         enableOfflineQueue: false,
       });
-      return sharedConnection;
+      try {
+        await waitForRedisReady(client as RedisReadyClient);
+        sharedConnection = client;
+        return client;
+      } catch (err) {
+        client.disconnect();
+        throw err;
+      }
     })();
   }
-  return connectionPromise;
+  try {
+    return await connectionPromise;
+  } catch (err) {
+    connectionPromise = null;
+    sharedConnection = undefined;
+    throw err;
+  }
 }
 
 let _webhookQueue: Queue | null = null;
@@ -60,6 +74,7 @@ export type WebhookJobData = {
   eventType: string;
   eventId: string;
   payload: Record<string, unknown>;
+  deliveryId?: string;
 };
 
 export type EmailJobData = {
@@ -69,14 +84,18 @@ export type EmailJobData = {
   html?: string;
 };
 
+export function webhookJobId(webhookId: string, eventId: string): string {
+  return `webhook-${crypto.createHash("sha256").update(`${webhookId}\u0000${eventId}`).digest("hex")}`;
+}
+
 export async function enqueueWebhook(data: WebhookJobData): Promise<void> {
   const q = await getWebhookQueue();
-  await q.add(data.eventId, data, { jobId: data.eventId });
+  await q.add(data.eventId, data, { jobId: webhookJobId(data.webhookId, data.eventId) });
 }
 
 function emailJobId(to: string, subject: string, text: string): string {
-  const hash = crypto.createHash("sha256").update(`${to}${subject}${text}`).digest("hex");
-  return `email:${hash}`;
+  const hash = crypto.createHash("sha256").update(`${to}\u0000${subject}\u0000${text}`).digest("hex");
+  return `email-${hash}`;
 }
 
 export async function enqueueEmail(data: EmailJobData): Promise<void> {
@@ -91,45 +110,52 @@ export function getWorkers() {
   return { workers: _workers, queues: [_webhookQueue, _emailQueue].filter(Boolean) as Queue[] };
 }
 
-export function startWorkers() {
+export async function startWorkers(): Promise<void> {
   if (workersStarted) return;
   workersStarted = true;
 
-  ensureConnection()
-    .then((conn) => {
-      try {
-        const webhookWorker = new Worker<WebhookJobData>(
-          "webhook-delivery",
-          async (job) => {
-            const { dispatchWebhook } = await import("@/lib/webhook");
-            await dispatchWebhook(job.data.webhookId, job.data.eventType, job.data.eventId, job.data.payload);
-          },
-          { connection: conn as never },
-        );
-        webhookWorker.on("failed", (job, err) => {
-          logger.error({ jobId: job?.id, err }, "Webhook job failed");
-        });
-        _workers.push(webhookWorker);
+  try {
+    const conn = await ensureConnection() as { ping?: () => Promise<unknown> };
+    if (typeof conn.ping !== "function") throw new Error("Redis connection does not support ping");
+    await conn.ping();
 
-        const emailWorker = new Worker<EmailJobData>(
-          "email",
-          async (job) => {
-            const { sendMail } = await import("@/lib/mail/send");
-            await sendMail(job.data);
-          },
-          { connection: conn as never },
+    const webhookWorker = new Worker<WebhookJobData>(
+      "webhook-delivery",
+      async (job) => {
+        const { dispatchWebhook } = await import("@/lib/webhook");
+        await dispatchWebhook(
+          job.data.webhookId,
+          job.data.eventType,
+          job.data.eventId,
+          job.data.payload,
+          job.data.deliveryId,
+          job.attemptsMade + 1,
         );
-        emailWorker.on("failed", (job, err) => {
-          logger.error({ jobId: job?.id, err }, "Email job failed");
-        });
-        _workers.push(emailWorker);
-
-        logger.info("BullMQ workers started");
-      } catch (err) {
-        logger.error({ err }, "Failed to start BullMQ workers");
-      }
-    })
-    .catch((err) => {
-      logger.warn({ err }, "BullMQ workers not started (Redis unavailable)");
+      },
+      { connection: conn as never },
+    );
+    webhookWorker.on("failed", (job, err) => {
+      logger.error({ jobId: job?.id, err }, "Webhook job failed");
     });
+    _workers.push(webhookWorker);
+
+    const emailWorker = new Worker<EmailJobData>(
+      "email",
+      async (job) => {
+        const { sendMail } = await import("@/lib/mail/send");
+        await sendMail(job.data);
+      },
+      { connection: conn as never },
+    );
+    emailWorker.on("failed", (job, err) => {
+      logger.error({ jobId: job?.id, err }, "Email job failed");
+    });
+    _workers.push(emailWorker);
+
+    logger.info("BullMQ workers started");
+  } catch (err) {
+    workersStarted = false;
+    logger.error({ err }, "Failed to start BullMQ workers");
+    throw err;
+  }
 }

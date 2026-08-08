@@ -135,7 +135,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
       visibility: project.visibility ?? "private",
       color: project.color ?? "#2563eb",
     }),
-    [project.id, project.status, project.visibility, project.color],
+    [project.status, project.visibility, project.color],
   );
 
   async function saveSettings(values: { status: "active" | "archived"; visibility: string; color: string }) {

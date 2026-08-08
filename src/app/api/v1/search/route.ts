@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { requireAuth } from "@/lib/rbac/middleware";
 import { search as searchFn } from "@/lib/search";
 
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
 
-  const guard = requirePermission("task:create");
-  const guardResult = await guard(request, { params: {} });
-  if (guardResult) return guardResult;
 
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q");
@@ -22,7 +19,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const results = await searchFn({ query: q, type: type as "task" | "comment" | "project" | "custom_field" | "all", limit });
+  const results = await searchFn({ userId: authResult.userId, query: q, type: type as "task" | "comment" | "project" | "custom_field" | "all", limit });
 
   return NextResponse.json({ data: results });
 }

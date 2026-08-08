@@ -14,10 +14,11 @@ export async function applyRateLimit(
   // Skip rate limiting for public API (has its own token-based limits)
   if (pathname.startsWith("/api/v1/public/")) return null;
 
-  // Extract client IP
-  const forwardedFor = req.headers.get("x-forwarded-for");
-  const realIp = req.headers.get("x-real-ip");
-  const clientIp = forwardedFor?.split(",")[0]?.trim() ?? realIp ?? "unknown";
+  const trustedProxy = process.env.TRUST_PROXY === "true";
+  const realIp = req.headers.get("x-real-ip")?.trim();
+  // X-Forwarded-For is client-controlled unless a trusted proxy strips and
+  // rewrites it. NGINX overwrites X-Real-IP, so use that single hop only.
+  const clientIp = trustedProxy && realIp ? realIp : "untrusted";
 
   // Try token-based rate limit first (Bearer token from Authorization header)
   const authHeader = req.headers.get("authorization");

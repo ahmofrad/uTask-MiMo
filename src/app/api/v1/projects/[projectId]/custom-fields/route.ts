@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { CreateCustomFieldSchema } from "@/lib/custom-fields/schemas";
-import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { requireAuth } from "@/lib/rbac/middleware";
+import { canProject, canReadProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
+import { readJsonBody } from "@/lib/validation/api";
 
 export async function GET(
   _request: Request,
@@ -11,6 +13,9 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
+  if (!(await canReadProject(authResult.userId, resolvedParams.projectId))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, { status: 404 });
+  }
 
   const fields = await prisma.customField.findMany({
     where: { projectId: resolvedParams.projectId, archivedAt: null },
@@ -29,11 +34,11 @@ export async function POST(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("custom_field:define");
-  const guardResult = await guard(request, { params: resolvedParams });
-  if (guardResult) return guardResult;
+  if (!(await canProject(userId, "custom_field:define", resolvedParams.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
 
-  const body = await request.json();
+  const body = await readJsonBody(request);
   const parsed = CreateCustomFieldSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(

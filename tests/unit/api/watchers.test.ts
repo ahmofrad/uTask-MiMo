@@ -3,8 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
 const mockCan = vi.fn();
 const mockCanProject = vi.fn();
-vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject }));
+const mockCanReadTask = vi.fn();
+vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject, canReadTask: mockCanReadTask }));
 vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject }));
+vi.mock("@/lib/tasks", () => ({ getTaskById: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     webhook: { findMany: vi.fn().mockResolvedValue([]) },
@@ -24,12 +26,14 @@ function makeRequest(method: string): Request {
 const { auth } = await import("@/lib/auth/config");
 const { logAudit } = await import("@/lib/audit/log");
 const { getWatchers, addWatcher, removeWatcher } = await import("@/lib/watchers");
+const { getTaskById } = await import("@/lib/tasks");
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
 const mockLogAudit = logAudit as ReturnType<typeof vi.fn>;
 const mockGetWatchers = getWatchers as ReturnType<typeof vi.fn>;
 const mockAddWatcher = addWatcher as ReturnType<typeof vi.fn>;
 const mockRemoveWatcher = removeWatcher as ReturnType<typeof vi.fn>;
+const mockGetTaskById = getTaskById as ReturnType<typeof vi.fn>;
 
 function authenticatedSession() {
   mockAuth.mockResolvedValue({ user: { id: "user-1" } });
@@ -42,6 +46,10 @@ function unauthenticatedSession() {
 beforeEach(() => {
   vi.clearAllMocks();
   authenticatedSession();
+  mockCanReadTask.mockResolvedValue(true);
+  mockCan.mockResolvedValue(true);
+  mockCanProject.mockResolvedValue(true);
+  mockGetTaskById.mockResolvedValue({ id: "t1", projectId: "p1" });
 });
 
 describe("GET /api/v1/watchers/tasks/[taskId]", () => {
@@ -74,7 +82,7 @@ describe("POST /api/v1/watchers/tasks/[taskId]", () => {
   });
 
   it("returns 403 when can denies", async () => {
-    mockCan.mockResolvedValue(false);
+    mockCanProject.mockResolvedValue(false);
     const { POST } = await import("@/app/api/v1/watchers/tasks/[taskId]/route");
     const res = await POST(makeRequest("POST"), { params: { taskId: "t1" } });
     expect(res.status).toBe(403);
@@ -104,7 +112,7 @@ describe("DELETE /api/v1/watchers/tasks/[taskId]", () => {
   });
 
   it("returns 403 when can denies", async () => {
-    mockCan.mockResolvedValue(false);
+    mockCanProject.mockResolvedValue(false);
     const { DELETE } = await import("@/app/api/v1/watchers/tasks/[taskId]/route");
     const res = await DELETE(makeRequest("DELETE"), { params: { taskId: "t1" } });
     expect(res.status).toBe(403);

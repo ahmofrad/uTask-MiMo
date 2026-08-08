@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Visual regression @visual", () => {
+test.describe("Unauthenticated visual regression @visual", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test("login page renders correctly", async ({ page }) => {
     await page.goto("/login");
     await page.waitForLoadState("networkidle");
@@ -30,6 +32,9 @@ test.describe("Visual regression @visual", () => {
     });
   });
 
+});
+
+test.describe("Authenticated visual regression @visual", () => {
   test("admin page renders correctly", async ({ page, context }) => {
     // Must be logged in as admin — stub session cookie
     await context.addCookies([
@@ -43,7 +48,7 @@ test.describe("Visual regression @visual", () => {
   });
 
   test("tasks page rendered", async ({ page }) => {
-    await page.goto("/tasks");
+    await page.goto("/my-tasks");
     await page.waitForLoadState("networkidle");
     await expect(page).toHaveScreenshot("tasks-list.png", {
       maxDiffPixelRatio: 0.02,

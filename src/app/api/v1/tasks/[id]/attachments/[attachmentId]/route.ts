@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
-import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { requireAuth } from "@/lib/rbac/middleware";
+import { canProject, canReadTask } from "@/lib/rbac";
+import { prisma } from "@/lib/db";
 import { deleteAttachment, updateAttachment } from "@/lib/attachments";
+import { attachmentUpdateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function PATCH(
   request: Request,
@@ -11,19 +14,22 @@ export async function PATCH(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(request, { params: resolvedParams });
-  if (guardResult) return guardResult;
-
-  const body = await request.json();
-  const { name } = body as { name?: string };
-
-  if (!name || typeof name !== "string" || name.trim().length === 0) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "name is required" } },
-      { status: 400 },
-    );
+  const task = await prisma.task.findUnique({
+    where: { id: resolvedParams.id },
+    select: { projectId: true, deletedAt: true },
+  });
+  if (!task || task.deletedAt || !(await canReadTask(userId, resolvedParams.id))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
+  if (!(await canProject(userId, "task:edit_any", task.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
+
+  const parsed = attachmentUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
+  const { name } = parsed.data;
 
   try {
     const attachment = await updateAttachment(
@@ -51,9 +57,16 @@ export async function DELETE(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(_request, { params: resolvedParams });
-  if (guardResult) return guardResult;
+  const task = await prisma.task.findUnique({
+    where: { id: resolvedParams.id },
+    select: { projectId: true, deletedAt: true },
+  });
+  if (!task || task.deletedAt || !(await canReadTask(userId, resolvedParams.id))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
+  if (!(await canProject(userId, "task:edit_any", task.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
 
   try {
     await deleteAttachment(resolvedParams.attachmentId, resolvedParams.id, userId);

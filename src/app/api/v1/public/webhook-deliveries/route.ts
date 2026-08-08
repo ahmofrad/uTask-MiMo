@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(request: Request) {
-  const { error } = await authenticatePublicApi(request, "webhooks:manage");
+  const { userId, error } = await authenticatePublicApi(request, "webhooks:manage");
   if (error) return error;
+  if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
   const { searchParams } = new URL(request.url);
   const webhookId = searchParams.get("webhookId");

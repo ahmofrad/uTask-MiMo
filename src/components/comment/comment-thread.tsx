@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/ui/avatar";
 import { MentionInput } from "@/components/comment/mention-input";
 import { formatDate } from "@/lib/date/format";
+import { sanitizeHtml } from "@/lib/markdown/render";
 import type { Locale } from "@/lib/date/format";
 
 type Comment = {
@@ -147,7 +148,7 @@ export function CommentThread({ comments, onAdd, onUpdate, onDelete, currentUser
                     isOwn && "cursor-pointer hover:text-fg transition-colors rounded p-1 -m-1 hover:bg-bg-surface-2",
                   )}
                   onClick={() => isOwn && startEdit(c)}
-                  dangerouslySetInnerHTML={{ __html: c.body }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(c.body) }}
                 />
               )}
             </div>

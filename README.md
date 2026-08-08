@@ -96,7 +96,7 @@ cp .env.example .env.local
 
 # 4. Initialize the database
 pnpm prisma migrate dev
-pnpm db:seed        # Creates admin@taskapp.dev (password: password)
+pnpm db:seed        # Creates admin@utask.local (password: password123; local only)
 pnpm db:sample      # Optional: adds sample users, projects, tasks
 
 # 5. Run the dev server
@@ -107,17 +107,17 @@ pnpm dev
 # MinIO console: http://localhost:9001
 
 # 6. First login
-# After seeding, log in with any of these default accounts:
+# After the optional sample seed, log in with one of these local-only accounts:
 #
 #   Role     Email                  Password
 #   ──────   ─────────────────────  ──────────
-#   Owner    owner@taskapp.dev      password
-#   Admin    admin@taskapp.dev      password
-#   Manager  manager@taskapp.dev    password
-#   Member   sara@taskapp.dev       password
-#   Member   ali@taskapp.dev        password
-#   Guest    guest@taskapp.dev      password
-#   Member   john@taskapp.dev       password
+#   Owner    owner@utask.local      password123
+#   Admin    admin@utask.local      password123
+#   Manager  manager@utask.local    password123
+#   Member   sara@utask.local       password123
+#   Member   ali@utask.local        password123
+#   Guest    guest@utask.local      password123
+#   Member   john@utask.local       password123
 #
 # The Owner account has full permissions. Use it to set up
 # your first admin or invite team members.

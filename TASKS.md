@@ -257,16 +257,17 @@
 > See [`DEPLOYMENT.md`](./DEPLOYMENT.md).
 
 - [x] Production Dockerfile (multi-stage, distroless or alpine, non-root user).
-- [x] `docker-compose.prod.yml`: app x2, postgres + PgBouncer, redis + sentinel, minio (distributed), nginx reverse proxy with TLS termination, **webhook egress allowance documented**.
+- [ ] `docker-compose.prod.yml`: app x2, postgres + PgBouncer, Redis Sentinel, distributed MinIO, nginx reverse proxy with TLS termination, **webhook egress allowance documented**. The current Compose/Helm bundles provide single-instance Redis and MinIO; HA data services remain an explicit deployment gap.
 - [x] `.env.prod.example` with every variable documented, including webhook signing secret encryption key.
 - [x] `scripts/backup.sh`: nightly pg_dump + MinIO snapshot, retention.
 - [x] `scripts/restore.sh`: restore from a dump.
 - [x] Helm chart under `ops/helm/`:
   - [x] Values for replicas, resources, ingress, TLS.
   - [x] StatefulSets for Postgres, Redis, MinIO.
-  - [x] Deployments for app, worker, socket.io.
+  - [x] Deployments for app and worker (Socket.IO is served by the app process).
   - [x] PVCs with appropriate size.
-  - [x] HPA on app + worker.
+  - [x] HPA on app.
+  - [ ] HPA/PDB policy for worker and other workloads.
 - [x] `ops/grafana/` with pre-built dashboards including webhook delivery health.
 - [x] `ops/prometheus/` scrape config + `ops/alertmanager/` rules including webhook failure alert.
 - [x] Installation documentation ([`docs/install.md`](./docs/install.md)):

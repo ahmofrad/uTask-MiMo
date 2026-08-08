@@ -2,10 +2,32 @@ import { auth } from "@/lib/auth/config";
 import { NextResponse } from "next/server";
 import { can, canProject } from "@/lib/rbac/can";
 import type { Permission } from "@/lib/rbac/roles";
+import { checkRateLimitIp, checkRateLimitUser, formatHeaders } from "@/lib/rate-limit";
 
 type RouteContext = { params: Record<string, string | string[]> };
 type MiddlewareResult = NextResponse | null;
 type Middleware = (_request: Request, _context: RouteContext) => Promise<MiddlewareResult>;
+const rateLimitedRequests = new WeakSet<Request>();
+
+async function enforceRateLimit(request: Request, userId: string): Promise<NextResponse | null> {
+  if (rateLimitedRequests.has(request)) return null;
+
+  const realIp = request.headers.get("x-real-ip");
+  const clientIp = process.env.TRUST_PROXY === "true" && realIp?.trim() ? realIp.trim() : "untrusted-client";
+  const [ipResult, userResult] = await Promise.all([
+    checkRateLimitIp(clientIp),
+    checkRateLimitUser(userId),
+  ]);
+  const headers = formatHeaders(ipResult);
+  if (!ipResult.allowed || !userResult.allowed) {
+    return NextResponse.json(
+      { error: { code: "RATE_LIMITED", message: "Too many requests" } },
+      { status: 429, headers },
+    );
+  }
+  rateLimitedRequests.add(request);
+  return null;
+}
 
 export async function requireAuth(
   _request: Request,
@@ -18,6 +40,8 @@ export async function requireAuth(
       { status: 401 },
     );
   }
+  const rateLimitResponse = await enforceRateLimit(_request, session.user.id);
+  if (rateLimitResponse) return rateLimitResponse;
   return { userId: session.user.id };
 }
 
@@ -30,6 +54,8 @@ export function requirePermission(permission: Permission): Middleware {
         { status: 401 },
       );
     }
+    const rateLimitResponse = await enforceRateLimit(_request, session.user.id);
+    if (rateLimitResponse) return rateLimitResponse;
     const permitted = await can(session.user.id, permission);
     if (!permitted) {
       return NextResponse.json(
@@ -53,6 +79,8 @@ export function requireProjectPermission(
         { status: 401 },
       );
     }
+    const rateLimitResponse = await enforceRateLimit(_request, session.user.id);
+    if (rateLimitResponse) return rateLimitResponse;
     const projectId = await getProjectId(context);
     const permitted = await canProject(session.user.id, permission, projectId);
     if (!permitted) {
@@ -74,6 +102,8 @@ export function requireAnyPermission(permissions: Permission[]): Middleware {
         { status: 401 },
       );
     }
+    const rateLimitResponse = await enforceRateLimit(_request, session.user.id);
+    if (rateLimitResponse) return rateLimitResponse;
     for (const permission of permissions) {
       if (await can(session.user.id, permission)) return null;
     }

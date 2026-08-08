@@ -82,6 +82,9 @@ services:
     environment:
       POSTGRESQL_HOST: postgres
       POSTGRESQL_PORT: "5432"
+      # Alias key for [databases] — must match the DB in DATABASE_URL (…/taskapp).
+      # bitnami defaults the key to `postgres`, which the app never connects to through pgbouncer.
+      PGBOUNCER_DATABASE: taskapp
       POSTGRESQL_DATABASE: taskapp
       POSTGRESQL_USERNAME: taskapp
       POSTGRESQL_PASSWORD: "${DB_PASSWORD:?DB_PASSWORD must be set}"

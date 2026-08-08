@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { getDepartmentById, updateDepartment, deleteDepartment } from "@/lib/departments";
+import { departmentUpdateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(
   _request: Request,
@@ -40,15 +41,18 @@ export async function PATCH(
   const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const body = await request.json();
-  const { name, parentId, managerUserId } = body as Record<string, unknown>;
+  const parsed = departmentUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
+  const { name, parentId, managerUserId } = parsed.data;
 
   const before = await getDepartmentById(resolvedParams.id);
 
   const department = await updateDepartment(resolvedParams.id, {
-    ...(name !== undefined ? { name: name as string } : {}),
-    ...(parentId !== undefined ? { parentId: parentId as string | null } : {}),
-    ...(managerUserId !== undefined ? { managerUserId: managerUserId as string | null } : {}),
+    ...(name !== undefined ? { name } : {}),
+    ...(parentId !== undefined ? { parentId } : {}),
+    ...(managerUserId !== undefined ? { managerUserId } : {}),
   });
 
   await logAudit({ actorUserId: userId, action: "department_updated", entityType: "department", entityId: resolvedParams.id, before: before as never, after: department as never });

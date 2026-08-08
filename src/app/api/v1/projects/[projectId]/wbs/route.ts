@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac/middleware";
-import { can, canProject } from "@/lib/rbac";
+import { canReadProject } from "@/lib/rbac";
 import { getWbsForProject } from "@/lib/tasks/wbs";
 
 export async function GET(
@@ -12,11 +12,7 @@ export async function GET(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const hasAccess =
-    (await can(userId, "task:edit_any")) ||
-    (await canProject(userId, "task:edit_any", resolvedParams.projectId)) ||
-    (await canProject(userId, "task:edit_own", resolvedParams.projectId)) ||
-    (await canProject(userId, "comment:create", resolvedParams.projectId));
+  const hasAccess = await canReadProject(userId, resolvedParams.projectId);
 
   if (!hasAccess) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });

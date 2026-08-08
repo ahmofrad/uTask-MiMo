@@ -3,6 +3,7 @@ import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { validateWebhookUrlResolved } from "@/lib/webhook";
+import { publicWebhookUpdateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function PATCH(
   request: Request,
@@ -17,8 +18,11 @@ export async function PATCH(
   const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const body = await request.json();
-  const { name, url, events, active } = body as Record<string, unknown>;
+  const parsed = publicWebhookUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
+  const { name, url, events, active } = parsed.data;
 
   const updateData: Record<string, unknown> = {};
   if (name !== undefined) updateData.name = name;

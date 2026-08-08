@@ -9,6 +9,7 @@ export type WbsGuardCode =
   | "CYCLE"
   | "MAX_DEPTH"
   | "CROSS_PROJECT"
+  | "TASK_SCOPE"
   | "PARENT_DELETED"
   | "PARENT_NOT_FOUND";
 

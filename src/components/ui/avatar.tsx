@@ -1,5 +1,6 @@
 import { cn } from "@/lib/cn";
 import { cva } from "class-variance-authority";
+import Image from "next/image";
 
 const avatarVariants = cva(
   "inline-flex items-center justify-center rounded-full bg-accent-bg text-accent font-medium shrink-0",
@@ -25,12 +26,18 @@ type AvatarProps = {
   className?: string;
 };
 
+const AVATAR_SIZE_PX = { sm: 24, md: 32, lg: 40, xl: 48 } as const;
+
 export function Avatar({ initials, imageUrl, size = "md", className }: AvatarProps) {
   if (imageUrl) {
     return (
-      <img
+      <Image
+        loader={({ src }) => src}
+        unoptimized
         src={imageUrl}
         alt={initials}
+        width={AVATAR_SIZE_PX[size]}
+        height={AVATAR_SIZE_PX[size]}
         className={cn(avatarVariants({ size }), "object-cover", className)}
       />
     );

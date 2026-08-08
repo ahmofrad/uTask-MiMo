@@ -1,17 +1,7 @@
 import { test, expect, type Page, type BrowserContext } from "@playwright/test";
 
 const ADMIN_EMAIL = "admin@utask.local";
-const ADMIN_PASSWORD = "password123";
 const MEMBER_EMAIL = "member@utask.local";
-const MEMBER_PASSWORD = "password123";
-
-async function login(page: Page, email: string, password: string) {
-  await page.goto("/login");
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByRole("textbox", { name: /password/i }).fill(password);
-  await page.getByRole("button", { name: /sign in/i }).click();
-  await page.waitForURL(/\/(en-US|fa-IR)?\/?$/);
-}
 
 async function apiPost(
   page: Page,
@@ -22,7 +12,11 @@ async function apiPost(
   const cookies = await context.cookies();
   const csrf = cookies.find((c) => c.name === "csrf_token")?.value ?? "";
   const res = await page.request.post(url, {
-    headers: { "content-type": "application/json", "x-csrf-token": csrf },
+    headers: {
+      "content-type": "application/json",
+      "x-csrf-token": csrf,
+      "idempotency-key": `e2e-${Date.now()}-${Math.random()}`,
+    },
     data,
   });
   expect(res.status()).toBe(201);
@@ -55,7 +49,6 @@ async function getUserId(page: Page, email: string): Promise<string> {
 
 test.describe("WBS editor", () => {
   test("shows WBS codes, rollup, and supports indent + progress", async ({ page, context }) => {
-    await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     const projectId = await createProject(page, context, `WBS E2E ${Date.now()}`);
     const a = await createTask(page, context, projectId, "WBS A");
     const a1 = await createTask(page, context, projectId, "WBS A1", {
@@ -92,9 +85,8 @@ test.describe("WBS editor", () => {
   });
 
   test("allows a project member to reorganize the WBS", async ({ browser }) => {
-    const adminCtx = await browser.newContext();
+    const adminCtx = await browser.newContext({ storageState: ".auth/admin.json" });
     const adminPage = await adminCtx.newPage();
-    await login(adminPage, ADMIN_EMAIL, ADMIN_PASSWORD);
     const projectId = await createProject(adminPage, adminCtx, `WBS Member E2E ${Date.now()}`);
 
     const memberId = await getUserId(adminPage, MEMBER_EMAIL);
@@ -108,9 +100,8 @@ test.describe("WBS editor", () => {
     const b = await createTask(adminPage, adminCtx, projectId, "M B");
     await adminCtx.close();
 
-    const memberCtx = await browser.newContext();
+    const memberCtx = await browser.newContext({ storageState: ".auth/member.json" });
     const page = await memberCtx.newPage();
-    await login(page, MEMBER_EMAIL, MEMBER_PASSWORD);
     await page.goto(`/projects/${projectId}/wbs`);
     await expect(page.locator(`[data-task-id="${a}"] [data-testid="wbs-code"]`)).toHaveText("1");
     await expect(page.locator(`[data-task-id="${b}"] [data-testid="wbs-code"]`)).toHaveText("2");

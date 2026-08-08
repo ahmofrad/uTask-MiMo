@@ -2,7 +2,17 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac/middleware";
 import { canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
-import { addDependency, listDependencies, DependencyError, type DependencyTypeValue } from "@/lib/tasks";
+import { addDependency, listDependencies, DependencyError } from "@/lib/tasks";
+import { prisma } from "@/lib/db";
+import { dependencyCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
+
+async function taskBelongsToProject(projectId: string, taskId: string): Promise<boolean> {
+  const task = await prisma.task.findUnique({
+    where: { id: taskId },
+    select: { projectId: true, deletedAt: true },
+  });
+  return task !== null && task.deletedAt === null && task.projectId === projectId;
+}
 
 export async function GET(
   _request: Request,
@@ -12,6 +22,10 @@ export async function GET(
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
+
+  if (!(await taskBelongsToProject(resolvedParams.projectId, resolvedParams.taskId))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, { status: 404 });
+  }
 
   const permitted =
     (await canProject(userId, "task:edit_any", resolvedParams.projectId)) ||
@@ -34,21 +48,20 @@ export async function POST(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
+  if (!(await taskBelongsToProject(resolvedParams.projectId, resolvedParams.taskId))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND", message: "Task not found" } }, { status: 404 });
+  }
+
   const permitted = await canProject(userId, "task:edit_any", resolvedParams.projectId);
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const body = (await request.json()) as {
-    dependsOnId?: string;
-    type?: DependencyTypeValue;
-    lag?: number;
-    lagUnit?: "DAY" | "HOUR";
-  };
-
-  if (!body.dependsOnId) {
-    return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "dependsOnId is required" } }, { status: 400 });
+  const parsed = dependencyCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const body = parsed.data;
 
   try {
     const input: Parameters<typeof addDependency>[0] = {

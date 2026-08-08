@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { readJsonBody, userRoleUpdateSchema, validationError } from "@/lib/validation/api";
 
 export async function PATCH(
   request: Request,
@@ -16,16 +17,11 @@ export async function PATCH(
   const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const body = await request.json();
-  const { role } = body as { role?: string };
-
-  const validRoles = ["owner", "admin", "manager", "member", "guest"];
-  if (!role || !validRoles.includes(role)) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: `role must be one of: ${validRoles.join(", ")}` } },
-      { status: 400 },
-    );
+  const parsed = userRoleUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const { role } = parsed.data;
 
   // Find current global role
   const currentRole = await prisma.role.findFirst({
@@ -38,14 +34,14 @@ export async function PATCH(
     // Update existing role
     await prisma.role.update({
       where: { id: currentRole.id },
-      data: { type: role as never },
+      data: { type: role },
     });
   } else {
     // Create new role
     await prisma.role.create({
       data: {
         userId: resolvedParams.id,
-        type: role as never,
+        type: role,
         scopeType: "global",
         scopeId: null,
         grantedBy: userId,

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { lookupToken, tokenHasScope } from "@/lib/api-token";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { checkRateLimitIp, checkRateLimitToken, checkRateLimitUser } from "@/lib/rate-limit";
 
-const TOKEN_LIMIT = { windowMs: 60000, maxRequests: 60 };
 
 export async function authenticatePublicApi(
   request: Request,
@@ -32,16 +31,23 @@ export async function authenticatePublicApi(
     };
   }
 
-  // Rate limit per token
-  const rl = await checkRateLimit(`token:${token.id}`, TOKEN_LIMIT);
-  if (!rl.allowed) {
+  const forwardedFor = request.headers.get("x-forwarded-for");
+  const realIp = request.headers.get("x-real-ip");
+  const clientIp = forwardedFor?.split(",")[0]?.trim() ?? realIp ?? "unknown";
+  const [ipResult, userResult, tokenResult] = await Promise.all([
+    checkRateLimitIp(clientIp),
+    checkRateLimitUser(token.userId),
+    checkRateLimitToken(token.id),
+  ]);
+  const blocked = [ipResult, userResult, tokenResult].find((result) => !result.allowed);
+  if (blocked) {
     return {
       userId: "",
       error: NextResponse.json(
         { error: { code: "RATE_LIMITED", message: "Too many requests" } },
         {
           status: 429,
-          headers: rateLimitHeaders(TOKEN_LIMIT.maxRequests, rl.remaining, Math.ceil((rl.resetAt - Date.now()) / 1000)),
+          headers: rateLimitHeaders(blocked.limit, blocked.remaining, Math.ceil((blocked.resetAt - Date.now()) / 1000)),
         },
       ),
     };

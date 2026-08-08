@@ -120,7 +120,10 @@ describe("PATCH /api/v1/admin/projects/[id]/members/[userId]", () => {
       data: { projectRole: "lead" },
     });
     expect(mockLogAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ before: { projectRole: "viewer" }, after: { projectRole: "lead" } }),
+      expect.objectContaining({
+        before: { projectRole: "viewer" },
+        after: expect.objectContaining({ projectRole: "lead", memberUserId: "u1" }),
+      }),
     );
   });
 

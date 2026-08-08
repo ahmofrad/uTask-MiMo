@@ -33,7 +33,7 @@ spec:
             - --maxmemory
             - "2gb"
             - --maxmemory-policy
-            - allkeys-lru
+            - noeviction
           volumeMounts:
             - name: data
               mountPath: /data

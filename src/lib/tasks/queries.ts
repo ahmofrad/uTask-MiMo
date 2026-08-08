@@ -6,6 +6,7 @@ import {
 } from "@/lib/db/pagination";
 import { getCustomFieldValuesForTask } from "@/lib/custom-fields/values";
 import { buildTaskFilters, type TaskFilterParams } from "./filters";
+import { getUserReadableProjectIds } from "@/lib/projects/queries";
 
 const ASSIGNEES_INCLUDE = {
   assignees: {
@@ -105,16 +106,19 @@ export type GetInboxTasksResult = {
 
 export async function getInboxTasks(userId: string) {
   const notDoneFilter = { status: { not: "done" as const } };
+  const readableProjectIds = await getUserReadableProjectIds(userId);
+  const projectScope = readableProjectIds === null ? {} : { projectId: { in: readableProjectIds } };
 
   const [unassigned, watching] = await Promise.all([
     prisma.task.findMany({
-      where: { assignees: { none: {} }, deletedAt: null, parentTaskId: null, ...notDoneFilter },
+      where: { ...projectScope, assignees: { none: {} }, deletedAt: null, parentTaskId: null, ...notDoneFilter },
       orderBy: { createdAt: "desc" },
       take: 50,
       include: INBOX_TASK_INCLUDE,
     }),
     prisma.task.findMany({
       where: {
+        ...projectScope,
         watchers: { some: { userId } },
         deletedAt: null,
         parentTaskId: null,

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { validateWebhookUrlResolved } from "@/lib/webhook";
+import { publicWebhookUpdateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function PATCH(
   request: Request,
@@ -11,9 +13,11 @@ export async function PATCH(
   const resolvedParams = await params;
   const { userId, error } = await authenticatePublicApi(request, "webhooks:manage");
   if (error) return error;
+  if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
-  const body = await request.json();
-  const { name, url, events, active } = body as Record<string, unknown>;
+  const parsed = publicWebhookUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
+  const { name, url, events, active } = parsed.data;
 
   const updateData: Record<string, unknown> = {};
   if (name !== undefined) updateData.name = name;
@@ -34,7 +38,12 @@ export async function PATCH(
   if (events !== undefined) updateData.events = events;
   if (active !== undefined) updateData.active = active;
 
-  const before = await prisma.webhook.findUnique({ where: { id: resolvedParams.id } });
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "At least one field is required" } }, { status: 400 });
+  }
+
+  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, deletedAt: null } });
+  if (!before) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
 
   const webhook = await prisma.webhook.update({
     where: { id: resolvedParams.id },
@@ -60,8 +69,10 @@ export async function DELETE(
   const resolvedParams = await params;
   const { userId, error } = await authenticatePublicApi(_request, "webhooks:manage");
   if (error) return error;
+  if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
-  const before = await prisma.webhook.findUnique({ where: { id: resolvedParams.id } });
+  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, deletedAt: null } });
+  if (!before) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
 
   await prisma.webhook.update({
     where: { id: resolvedParams.id },

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+const { mockGetUserRole } = vi.hoisted(() => ({ mockGetUserRole: vi.fn() }));
+vi.mock("@/lib/rbac", () => ({ getUserRole: mockGetUserRole }));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     task: {
@@ -48,6 +51,7 @@ const mockTask = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetUserRole.mockResolvedValue({ globalRole: "owner" });
 });
 
 describe("getTaskById", () => {

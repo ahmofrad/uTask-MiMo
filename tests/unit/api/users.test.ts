@@ -16,6 +16,7 @@ vi.mock("@/lib/users", () => ({
   listUsers: vi.fn(),
   createUser: vi.fn(),
   getUserById: vi.fn(),
+  suspendUser: vi.fn(),
 }));
 
 function makeRequest(method: string, body?: unknown): Request {
@@ -28,7 +29,7 @@ function makeRequest(method: string, body?: unknown): Request {
 }
 
 const { auth } = await import("@/lib/auth/config");
-const { listUsers, createUser, getUserById } = await import("@/lib/users");
+const { listUsers, createUser, getUserById, suspendUser } = await import("@/lib/users");
 const { logAudit } = await import("@/lib/audit/log");
 const { prisma } = await import("@/lib/db");
 
@@ -36,6 +37,7 @@ const mockAuth = auth as ReturnType<typeof vi.fn>;
 const mockListUsers = listUsers as ReturnType<typeof vi.fn>;
 const mockCreateUser = createUser as ReturnType<typeof vi.fn>;
 const mockGetUserById = getUserById as ReturnType<typeof vi.fn>;
+const mockSuspendUser = suspendUser as ReturnType<typeof vi.fn>;
 const mockLogAudit = logAudit as ReturnType<typeof vi.fn>;
 const mockPrisma = prisma as { user: { findUnique: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> }; role: { create: ReturnType<typeof vi.fn> } };
 
@@ -209,16 +211,13 @@ describe("DELETE /api/v1/users/[id]", () => {
   it("soft-deletes user and logs audit", async () => {
     mockCan.mockResolvedValue(true);
     mockPrisma.user.findUnique.mockResolvedValue({ id: "u1", status: "active" });
-    mockPrisma.user.update.mockResolvedValue({ id: "u1", status: "suspended" });
+    mockSuspendUser.mockResolvedValue({ id: "u1", status: "suspended" });
 
     const { DELETE } = await import("@/app/api/v1/users/[id]/route");
     const res = await DELETE(makeRequest("DELETE"), { params: { id: "u1" } });
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.user.update).toHaveBeenCalledWith({
-      where: { id: "u1" },
-      data: { status: "suspended" },
-    });
+    expect(mockSuspendUser).toHaveBeenCalledWith("u1");
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: "user_suspended" }),
     );

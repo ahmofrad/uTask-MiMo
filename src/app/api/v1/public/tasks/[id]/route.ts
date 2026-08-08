@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
-import { can, canProject } from "@/lib/rbac";
+import { canEditTask, canReadTask } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { mapAssignees } from "@/lib/tasks/serialize";
+import { updateTask, deleteTask, DependencyBlockedError } from "@/lib/tasks";
+import { emitTaskEvent } from "@/lib/webhook/emit";
+import { emitToProject } from "@/lib/realtime/server";
+import { publicTaskUpdateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
-async function checkProjectAccess(userId: string, taskId: string): Promise<{ allowed: boolean; projectId: string | undefined }> {
-  if (await can(userId, "task:edit_any")) {
-    const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
-    return { allowed: true, projectId: task?.projectId };
-  }
-  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
+async function checkProjectAccess(userId: string, taskId: string, mode: "read" | "write" = "write"): Promise<{ allowed: boolean; projectId: string | undefined }> {
+  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true, deletedAt: true } });
   if (!task) return { allowed: false, projectId: undefined };
-  const allowed = await canProject(userId, "task:edit_any", task.projectId) ||
-    await canProject(userId, "task:edit_own", task.projectId);
+  if (task.deletedAt) return { allowed: false, projectId: task.projectId };
+  const allowed = mode === "read" ? await canReadTask(userId, taskId) : await canEditTask(userId, taskId);
   return { allowed, projectId: task.projectId };
 }
 
@@ -25,9 +25,9 @@ export async function GET(
   const { userId, error } = await authenticatePublicApi(request, "tasks:read");
   if (error) return error;
 
-  const access = await checkProjectAccess(userId, resolvedParams.id);
+  const access = await checkProjectAccess(userId, resolvedParams.id, "read");
   if (!access.allowed) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "No access to this task's project" } }, { status: 403 });
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
   const task = await prisma.task.findUnique({
@@ -55,49 +55,33 @@ export async function PATCH(
 
   const access = await checkProjectAccess(userId, resolvedParams.id);
   if (!access.allowed) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "No access to this task's project" } }, { status: 403 });
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
-  const body = await request.json();
-  const { title, description, status, priority, dueDate, assigneeId, assigneeIds } = body as Record<string, unknown>;
+  const parsed = publicTaskUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
+  const input = parsed.data;
+  const assigneeIds = input.assigneeIds ?? (input.assigneeId !== undefined ? (input.assigneeId ? [input.assigneeId] : []) : undefined);
 
-  const updateData: Record<string, unknown> = {};
-  if (title !== undefined) updateData.title = title;
-  if (description !== undefined) updateData.description = description;
-  if (status !== undefined) updateData.status = status;
-  if (priority !== undefined) updateData.priority = priority;
-  if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(String(dueDate)) : null;
-  if (assigneeIds !== undefined) {
-    const next = Array.isArray(assigneeIds) ? (assigneeIds as string[]) : [];
-    const current = (
-      await prisma.taskAssignee.findMany({ where: { taskId: resolvedParams.id }, select: { userId: true } })
-    ).map((a) => a.userId);
-    const added = next.filter((uid) => !current.includes(uid));
-    const removed = current.filter((uid) => !next.includes(uid));
-    updateData.assignees = {
-      deleteMany: { userId: { in: removed } },
-      create: added.map((uid) => ({ userId: uid })),
-    };
-  } else if (assigneeId !== undefined) {
-    const next = assigneeId ? [String(assigneeId)] : [];
-    const current = (
-      await prisma.taskAssignee.findMany({ where: { taskId: resolvedParams.id }, select: { userId: true } })
-    ).map((a) => a.userId);
-    const added = next.filter((uid) => !current.includes(uid));
-    const removed = current.filter((uid) => !next.includes(uid));
-    updateData.assignees = {
-      deleteMany: { userId: { in: removed } },
-      create: added.map((uid) => ({ userId: uid })),
-    };
+  let result: Awaited<ReturnType<typeof updateTask>>;
+  try {
+    result = await updateTask(resolvedParams.id, {
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.description !== undefined ? { description: input.description } : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.priority !== undefined ? { priority: input.priority } : {}),
+      ...(input.startDate !== undefined ? { startDate: input.startDate } : {}),
+      ...(input.dueDate !== undefined ? { dueDate: input.dueDate } : {}),
+      ...(assigneeIds !== undefined ? { assigneeIds } : {}),
+    }, userId);
+  } catch (err) {
+    if (err instanceof DependencyBlockedError) {
+      return NextResponse.json({ error: { code: "DEPENDENCY_BLOCKED", message: err.message } }, { status: 409 });
+    }
+    throw err;
   }
 
-  const before = await prisma.task.findUnique({ where: { id: resolvedParams.id } });
-
-  const task = await prisma.task.update({
-    where: { id: resolvedParams.id },
-    data: updateData,
-  });
-
+  const { before, task } = result;
   await logAudit({
     actorUserId: userId,
     action: "task_updated",
@@ -106,6 +90,8 @@ export async function PATCH(
     before: before as never,
     after: task as never,
   });
+  await emitTaskEvent("task.updated", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
+  emitToProject(task.projectId, "task.updated", { id: task.id, title: task.title, projectId: task.projectId });
 
   return NextResponse.json({ data: task });
 }
@@ -120,15 +106,12 @@ export async function DELETE(
 
   const access = await checkProjectAccess(userId, resolvedParams.id);
   if (!access.allowed) {
-    return NextResponse.json({ error: { code: "FORBIDDEN", message: "No access to this task's project" } }, { status: 403 });
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
-  const before = await prisma.task.findUnique({ where: { id: resolvedParams.id } });
-
-  await prisma.task.update({
-    where: { id: resolvedParams.id },
-    data: { deletedAt: new Date() },
-  });
+  const existing = await prisma.task.findUnique({ where: { id: resolvedParams.id }, select: { id: true, deletedAt: true, projectId: true } });
+  if (!existing || existing.deletedAt) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  const { before } = await deleteTask(resolvedParams.id);
 
   await logAudit({
     actorUserId: userId,
@@ -137,6 +120,8 @@ export async function DELETE(
     entityId: resolvedParams.id,
     before: before as never,
   });
+  await emitTaskEvent("task.deleted", resolvedParams.id, { id: resolvedParams.id, projectId: existing.projectId }, userId);
+  emitToProject(existing.projectId, "task.deleted", { id: resolvedParams.id, projectId: existing.projectId });
 
   return NextResponse.json({ data: { success: true } });
 }

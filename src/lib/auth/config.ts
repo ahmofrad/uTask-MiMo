@@ -105,6 +105,9 @@ export const auth = cache(async (): Promise<Session | null> => {
   const sessionData = await getSession(sessionId);
   if (!sessionData) return null;
 
+  const user = await prisma.user.findUnique({ where: { id: sessionData.userId }, select: { status: true } });
+  if (!user || user.status !== "active") return null;
+
   return nextAuthSession;
 });
 

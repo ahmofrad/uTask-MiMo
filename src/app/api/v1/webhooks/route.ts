@@ -5,6 +5,7 @@ import { randomHex } from "@/lib/crypto";
 import { encrypt } from "@/lib/crypto/encrypt";
 import { validateWebhookUrlResolved } from "@/lib/webhook";
 import { logAudit } from "@/lib/audit/log";
+import { publicWebhookCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
@@ -32,15 +33,11 @@ export async function POST(request: Request) {
   const guardResult = await guard(request, { params: {} });
   if (guardResult) return guardResult;
 
-  const body = await request.json();
-  const { name, url, events } = body as { name?: string; url?: string; events?: string[] };
-
-  if (!name || !url || !events || !Array.isArray(events)) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "name, url, and events required" } },
-      { status: 400 },
-    );
+  const parsed = publicWebhookCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const { name, url, events } = parsed.data;
 
   if (!await validateWebhookUrlResolved(url)) {
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Invalid webhook URL: must be HTTPS and must not point to a private/internal network" } }, { status: 400 });

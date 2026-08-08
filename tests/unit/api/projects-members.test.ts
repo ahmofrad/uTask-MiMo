@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
 const mockCan = vi.fn();
 const mockCanProject = vi.fn();
-vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject }));
+const mockCanReadProject = vi.fn();
+vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject, canReadProject: mockCanReadProject }));
 vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject }));
 vi.mock("@/lib/db", () => ({
   prisma: {
@@ -52,6 +53,8 @@ function unauthenticatedSession() {
 beforeEach(() => {
   vi.clearAllMocks();
   authenticatedSession();
+  mockCanReadProject.mockResolvedValue(true);
+  mockCanProject.mockResolvedValue(true);
 });
 
 describe("GET /api/v1/projects/[projectId]/members", () => {
@@ -64,7 +67,7 @@ describe("GET /api/v1/projects/[projectId]/members", () => {
 
   it("returns member list", async () => {
     mockPrisma.projectMember.findMany.mockResolvedValue([
-      { projectId: "p1", userId: "u1", user: { id: "u1", displayName: "A", email: "a@b.com", avatarUrl: null } },
+      { projectId: "p1", userId: "11111111-1111-4111-8111-111111111111", user: { id: "u1", displayName: "A", email: "a@b.com", avatarUrl: null } },
     ]);
 
     const { GET } = await import("@/app/api/v1/projects/[projectId]/members/route");
@@ -80,19 +83,19 @@ describe("POST /api/v1/projects/[projectId]/members", () => {
   it("returns 401 when unauthenticated", async () => {
     unauthenticatedSession();
     const { POST } = await import("@/app/api/v1/projects/[projectId]/members/route");
-    const res = await POST(makeRequest("POST", { userId: "u1" }), { params: { projectId: "p1" } });
+    const res = await POST(makeRequest("POST", { userId: "11111111-1111-4111-8111-111111111111" }), { params: { projectId: "p1" } });
     expect(res.status).toBe(401);
   });
 
   it("returns 403 when can denies", async () => {
-    mockCan.mockResolvedValue(false);
+    mockCanProject.mockResolvedValue(false);
     const { POST } = await import("@/app/api/v1/projects/[projectId]/members/route");
-    const res = await POST(makeRequest("POST", { userId: "u1" }), { params: { projectId: "p1" } });
+    const res = await POST(makeRequest("POST", { userId: "11111111-1111-4111-8111-111111111111" }), { params: { projectId: "p1" } });
     expect(res.status).toBe(403);
   });
 
   it("returns 400 when userId is missing", async () => {
-    mockCan.mockResolvedValue(true);
+    mockCanProject.mockResolvedValue(true);
     const { POST } = await import("@/app/api/v1/projects/[projectId]/members/route");
     const res = await POST(makeRequest("POST", {}), { params: { projectId: "p1" } });
     expect(res.status).toBe(400);
@@ -101,16 +104,16 @@ describe("POST /api/v1/projects/[projectId]/members", () => {
   });
 
   it("adds member and logs audit", async () => {
-    mockCan.mockResolvedValue(true);
+    mockCanProject.mockResolvedValue(true);
     mockPrisma.projectMember.create.mockResolvedValue({
       projectId: "p1",
-      userId: "u1",
+      userId: "11111111-1111-4111-8111-111111111111",
       projectRole: "contributor",
       addedBy: "user-1",
     });
 
     const { POST } = await import("@/app/api/v1/projects/[projectId]/members/route");
-    const res = await POST(makeRequest("POST", { userId: "u1", projectRole: "contributor" }), {
+    const res = await POST(makeRequest("POST", { userId: "11111111-1111-4111-8111-111111111111", projectRole: "contributor" }), {
       params: { projectId: "p1" },
     });
 
@@ -126,7 +129,7 @@ describe("DELETE /api/v1/projects/[projectId]/members/[userId]", () => {
   it("returns 401 when unauthenticated", async () => {
     unauthenticatedSession();
     const { DELETE } = await import("@/app/api/v1/projects/[projectId]/members/[userId]/route");
-    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1", userId: "u1" } });
+    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1", userId: "11111111-1111-4111-8111-111111111111" } });
     expect(res.status).toBe(401);
   });
 
@@ -135,7 +138,7 @@ describe("DELETE /api/v1/projects/[projectId]/members/[userId]", () => {
     mockCanProject.mockResolvedValue(false);
 
     const { DELETE } = await import("@/app/api/v1/projects/[projectId]/members/[userId]/route");
-    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1", userId: "u1" } });
+    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1", userId: "11111111-1111-4111-8111-111111111111" } });
     expect(res.status).toBe(403);
   });
 
@@ -144,7 +147,7 @@ describe("DELETE /api/v1/projects/[projectId]/members/[userId]", () => {
     mockPrisma.projectMember.findUnique.mockResolvedValue(null);
 
     const { DELETE } = await import("@/app/api/v1/projects/[projectId]/members/[userId]/route");
-    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1", userId: "u1" } });
+    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1", userId: "11111111-1111-4111-8111-111111111111" } });
     expect(res.status).toBe(404);
   });
 
@@ -152,13 +155,13 @@ describe("DELETE /api/v1/projects/[projectId]/members/[userId]", () => {
     mockCan.mockResolvedValue(true);
     mockPrisma.projectMember.findUnique.mockResolvedValue({
       projectId: "p1",
-      userId: "u1",
+      userId: "11111111-1111-4111-8111-111111111111",
       projectRole: "contributor",
     });
     mockPrisma.projectMember.delete.mockResolvedValue({});
 
     const { DELETE } = await import("@/app/api/v1/projects/[projectId]/members/[userId]/route");
-    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1", userId: "u1" } });
+    const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1", userId: "11111111-1111-4111-8111-111111111111" } });
 
     expect(res.status).toBe(200);
     expect(mockPrisma.projectMember.delete).toHaveBeenCalled();

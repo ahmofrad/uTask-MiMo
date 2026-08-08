@@ -6,20 +6,34 @@ import { apiFetch } from "@/lib/api-fetch";
 
 type LdapState = {
   enabled: boolean;
-  host: string;
-  port: number;
-  secure: boolean;
+  url: string;
   bindUpn: string;
   bindPassword: string;
   upnSuffix: string;
+  emailAttribute: string;
+  nameAttribute: string;
+  defaultRole: string;
   syncIntervalHours: number;
+  tlsCaCert: string;
 };
 
 type SamlState = {
   enabled: boolean;
   entityId: string;
-  ssoUrl: string;
-  certificate: string;
+  acsUrl: string;
+  sloUrl: string;
+  idpMetadataUrl: string;
+  idpEntityId: string;
+  idpSsoUrl: string;
+  idpCertificate: string;
+  nameIdFormat: string;
+  attributeMap: { email: string; displayName: string; role: string };
+  defaultRole: string;
+  adminRoleValue: string;
+  wantAssertionsSigned: boolean;
+  wantResponseSigned: boolean;
+  signatureAlgorithm: string;
+  digestAlgorithm: string;
 };
 
 type SyncGroup = { id: string; dn: string; name: string };
@@ -53,19 +67,33 @@ export default function SsoPage() {
 
   const [ldap, setLdap] = useState<LdapState>({
     enabled: false,
-    host: "",
-    port: 389,
-    secure: false,
+    url: "",
     bindUpn: "",
     bindPassword: "",
     upnSuffix: "",
+    emailAttribute: "mail",
+    nameAttribute: "cn",
+    defaultRole: "member",
     syncIntervalHours: 12,
+    tlsCaCert: "",
   });
   const [saml, setSaml] = useState<SamlState>({
     enabled: false,
     entityId: "",
-    ssoUrl: "",
-    certificate: "",
+    acsUrl: "",
+    sloUrl: "",
+    idpMetadataUrl: "",
+    idpEntityId: "",
+    idpSsoUrl: "",
+    idpCertificate: "",
+    nameIdFormat: "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+    attributeMap: { email: "", displayName: "", role: "" },
+    defaultRole: "member",
+    adminRoleValue: "TaskApp.Admin",
+    wantAssertionsSigned: true,
+    wantResponseSigned: true,
+    signatureAlgorithm: "sha256",
+    digestAlgorithm: "sha256",
   });
 
   const [testState, setTestState] = useState<"idle" | "testing" | "ok" | "error">("idle");
@@ -225,17 +253,9 @@ export default function SsoPage() {
           <Field label={t("ldapHost")}>
             <input
               className={inputClass}
-              value={ldap.host}
-              onChange={(e) => setLdap((p) => ({ ...p, host: e.target.value }))}
-              placeholder="ldap://dc.company.local"
-            />
-          </Field>
-          <Field label={t("ldapPort")}>
-            <input
-              type="number"
-              className={inputClass}
-              value={ldap.port}
-              onChange={(e) => setLdap((p) => ({ ...p, port: Number(e.target.value) }))}
+              value={ldap.url}
+              onChange={(e) => setLdap((p) => ({ ...p, url: e.target.value }))}
+              placeholder="ldaps://dc.company.local:636"
             />
           </Field>
           <Field label={t("ldapBindUpn")}>
@@ -272,15 +292,6 @@ export default function SsoPage() {
           </Field>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-fg-primary">
-          <input
-            type="checkbox"
-            checked={ldap.secure}
-            onChange={(e) => setLdap((p) => ({ ...p, secure: e.target.checked }))}
-            className="rounded"
-          />
-          {t("ldapSecure")}
-        </label>
 
         <div className="flex items-center gap-3">
           <button
@@ -324,7 +335,7 @@ export default function SsoPage() {
             )}
           </div>
 
-          {ldap.host && !suggestions.length && search && (
+          {ldap.url && !suggestions.length && search && (
             <p className="text-xs text-fg-muted">{t("ldapSaveFirst")}</p>
           )}
 
@@ -375,25 +386,39 @@ export default function SsoPage() {
           <span className="text-sm text-fg-primary">{t("enableSaml")}</span>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Field label={t("idpEntityId")}>
+          <Field label={t("entityId")}>
             <input
               className={inputClass}
               value={saml.entityId}
               onChange={(e) => setSaml((p) => ({ ...p, entityId: e.target.value }))}
             />
           </Field>
+          <Field label={t("acsUrl")}>
+            <input
+              className={inputClass}
+              value={saml.acsUrl}
+              onChange={(e) => setSaml((p) => ({ ...p, acsUrl: e.target.value }))}
+            />
+          </Field>
+          <Field label={t("idpEntityId")}>
+            <input
+              className={inputClass}
+              value={saml.idpEntityId}
+              onChange={(e) => setSaml((p) => ({ ...p, idpEntityId: e.target.value }))}
+            />
+          </Field>
           <Field label={t("ssoUrl")}>
             <input
               className={inputClass}
-              value={saml.ssoUrl}
-              onChange={(e) => setSaml((p) => ({ ...p, ssoUrl: e.target.value }))}
+              value={saml.idpSsoUrl}
+              onChange={(e) => setSaml((p) => ({ ...p, idpSsoUrl: e.target.value }))}
             />
           </Field>
         </div>
         <Field label={t("certificate")}>
           <textarea
-            value={saml.certificate}
-            onChange={(e) => setSaml((p) => ({ ...p, certificate: e.target.value }))}
+            value={saml.idpCertificate}
+            onChange={(e) => setSaml((p) => ({ ...p, idpCertificate: e.target.value }))}
             rows={4}
             className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm font-mono focus:outline-none focus:ring-1 focus:ring-accent resize-none"
           />

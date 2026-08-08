@@ -38,7 +38,7 @@ async function getSmtpConfig() {
       host,
       port: Number(process.env.SMTP_PORT) || 587,
       user: process.env.SMTP_USER || undefined,
-      pass: process.env.SMTP_PASS || undefined,
+      pass: process.env.SMTP_PASS || process.env.SMTP_PASSWORD || undefined,
       from: process.env.SMTP_FROM || undefined,
     };
     return smtpConfig;

@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { UpdateCustomFieldSchema } from "@/lib/custom-fields/schemas";
-import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { requireAuth } from "@/lib/rbac/middleware";
+import { canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
+import { readJsonBody } from "@/lib/validation/api";
 
 export async function PATCH(
   request: Request,
@@ -13,11 +15,11 @@ export async function PATCH(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("custom_field:define");
-  const guardResult = await guard(request, { params: resolvedParams });
-  if (guardResult) return guardResult;
+  if (!(await canProject(userId, "custom_field:define", resolvedParams.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
 
-  const body = await request.json();
+  const body = await readJsonBody(request);
   const parsed = UpdateCustomFieldSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
@@ -27,6 +29,9 @@ export async function PATCH(
   }
 
   const before = await prisma.customField.findUnique({ where: { id: resolvedParams.fieldId } });
+  if (!before || before.projectId !== resolvedParams.projectId || before.archivedAt) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
 
   const field = await prisma.customField.update({
     where: { id: resolvedParams.fieldId, projectId: resolvedParams.projectId },
@@ -47,11 +52,14 @@ export async function DELETE(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("custom_field:define");
-  const guardResult = await guard(_request, { params: resolvedParams });
-  if (guardResult) return guardResult;
+  if (!(await canProject(userId, "custom_field:define", resolvedParams.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
 
   const before = await prisma.customField.findUnique({ where: { id: resolvedParams.fieldId } });
+  if (!before || before.projectId !== resolvedParams.projectId || before.archivedAt) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
 
   await prisma.customField.update({
     where: { id: resolvedParams.fieldId, projectId: resolvedParams.projectId },

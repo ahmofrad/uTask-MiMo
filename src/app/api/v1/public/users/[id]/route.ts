@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 
 export async function GET(
@@ -7,8 +8,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
-  const { error } = await authenticatePublicApi(request, "users:read");
+  const { userId, error } = await authenticatePublicApi(request, "users:read");
   if (error) return error;
+  if (!(await can(userId, "user:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
   const user = await prisma.user.findUnique({
     where: { id: resolvedParams.id },

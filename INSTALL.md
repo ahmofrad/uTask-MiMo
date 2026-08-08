@@ -25,21 +25,24 @@ cp ops/docker/.env.prod.example .env.prod
 
 # 4. Build and start
 docker build -t taskapp/app:1.0.0 .
-docker compose -f ops/docker/docker-compose.prod.yml up -d
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d
 
-# 5. Run migrations and seed
-docker compose -f ops/docker/docker-compose.prod.yml exec app npx prisma migrate deploy
-docker compose -f ops/docker/docker-compose.prod.yml exec app npx tsx prisma/seed.ts
+# 5. Migrations run through the dedicated migration service. Provision the
+# initial production owner with operator-supplied credentials (no defaults).
+export SEED_ADMIN_EMAIL='admin@example.com'
+export SEED_ADMIN_PASSWORD='replace-with-a-strong-password-at-least-16-chars'
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec \
+  -e ALLOW_PRODUCTION_SEED=true \
+  -e SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" \
+  -e SEED_ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" \
+  app npx tsx prisma/seed.ts
 
 # 6. Run smoke test
-BASE_URL=https://localhost ADMIN_EMAIL=admin@taskapp.dev ADMIN_PASSWORD=password ./scripts/smoke.sh
+BASE_URL=https://localhost ADMIN_EMAIL="$SEED_ADMIN_EMAIL" ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" ./scripts/smoke.sh
 ```
 
-| Role  | Email               | Password  |
-|-------|--------------------|-----------|
-| Owner | admin@taskapp.dev  | password  |
-
-> **Important:** Change the default password after first login.
+> Production seeding refuses to run without `ALLOW_PRODUCTION_SEED=true` and
+> explicit credentials. Never commit those values.
 
 ---
 
@@ -53,7 +56,7 @@ helm install taskapp ops/helm/taskapp/ \
 
 # Run smoke test
 kubectl port-forward svc/taskapp-app 3000:3000 &
-BASE_URL=http://localhost:3000 ADMIN_EMAIL=admin@taskapp.dev ADMIN_PASSWORD=password ./scripts/smoke.sh
+BASE_URL=http://localhost:3000 ADMIN_EMAIL="$SEED_ADMIN_EMAIL" ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" ./scripts/smoke.sh
 ```
 
 ---

@@ -18,6 +18,21 @@ spec:
         app.kubernetes.io/component: app
     spec:
       serviceAccountName: {{ include "taskapp.serviceAccountName" . }}
+      initContainers:
+        - name: wait-for-migrations
+          image: "{{ .Values.app.image }}:{{ .Values.app.tag }}"
+          imagePullPolicy: IfNotPresent
+          command: ["sh", "-c"]
+          args:
+            - >-
+              until npx --no-install prisma migrate status >/dev/null 2>&1; do
+                sleep 5;
+              done
+          envFrom:
+            - configMapRef:
+                name: {{ include "taskapp.fullname" . }}
+            - secretRef:
+                name: {{ include "taskapp.fullname" . }}
       containers:
         - name: app
           image: "{{ .Values.app.image }}:{{ .Values.app.tag }}"
@@ -38,7 +53,7 @@ spec:
             periodSeconds: 15
           readinessProbe:
             httpGet:
-              path: /api/v1/health
+              path: /api/v1/health?ready=1
               port: 3000
             initialDelaySeconds: 5
             periodSeconds: 10

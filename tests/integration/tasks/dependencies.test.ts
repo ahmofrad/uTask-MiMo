@@ -30,7 +30,9 @@ async function mkTask(projectId: string, title: string, extra: Record<string, un
     ...rest,
   };
   if (parentTaskId !== undefined) data.parentTask = { connect: { id: String(parentTaskId) } };
-  if (assigneeId !== undefined) data.assignee = { connect: { id: String(assigneeId) } };
+  if (assigneeId !== undefined) {
+    data.assignees = { create: [{ user: { connect: { id: String(assigneeId) } } }] };
+  }
   const t = await prisma.task.create({ data: data as never });
   return t.id;
 }

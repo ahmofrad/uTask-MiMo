@@ -1,24 +1,29 @@
 import { NextResponse } from "next/server";
-import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { requireAuth } from "@/lib/rbac/middleware";
+import { canCreateProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
-import { listProjects, createProject } from "@/lib/projects";
+import { projectCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
+import { getUserReadableProjectIds, listProjects, createProject } from "@/lib/projects";
 
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
+  const { userId } = authResult;
 
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
   const departmentId = searchParams.get("departmentId");
   const status = searchParams.get("status");
+  const readableProjectIds = await getUserReadableProjectIds(userId);
 
   const result = await listProjects({
     limit,
     ...(cursor ? { cursor } : {}),
     ...(departmentId ? { departmentId } : {}),
     ...(status ? { status } : {}),
+    ...(readableProjectIds !== null ? { projectIds: readableProjectIds } : {}),
   });
 
   return NextResponse.json(result);
@@ -29,15 +34,14 @@ export async function POST(request: Request) {
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("project:create");
-  const guardResult = await guard(request, { params: {} });
-  if (guardResult) return guardResult;
+  const parsed = projectCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
+  const { name, description, color, departmentId, visibility } = parsed.data;
 
-  const body = await request.json();
-  const { name, description, color, departmentId, visibility } = body as Record<string, string>;
-
-  if (!name) {
-    return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Name is required" } }, { status: 400 });
+  if (!(await canCreateProject(userId, departmentId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "You are not allowed to create a project in this department" } }, { status: 403 });
   }
 
   const project = await createProject({

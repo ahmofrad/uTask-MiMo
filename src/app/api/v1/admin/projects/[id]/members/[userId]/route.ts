@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, requireAnyPermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { projectMemberUpdateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function PATCH(
   request: Request,
@@ -16,16 +17,11 @@ export async function PATCH(
   const guardResult = await guard(request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const body = await request.json();
-  const { projectRole } = body as { projectRole?: string };
-
-  const validRoles = ["lead", "contributor", "viewer"];
-  if (!projectRole || !validRoles.includes(projectRole)) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: `projectRole must be one of: ${validRoles.join(", ")}` } },
-      { status: 400 },
-    );
+  const parsed = projectMemberUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const { projectRole } = parsed.data;
 
   const membership = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId: resolvedParams.id, userId: resolvedParams.userId } },
@@ -39,16 +35,16 @@ export async function PATCH(
 
   await prisma.projectMember.update({
     where: { projectId_userId: { projectId: resolvedParams.id, userId: resolvedParams.userId } },
-    data: { projectRole: projectRole as never },
+    data: { projectRole },
   });
 
   await logAudit({
     actorUserId: userId,
     action: "updated",
     entityType: "project_member",
-    entityId: `${resolvedParams.id}:${resolvedParams.userId}`,
+    entityId: resolvedParams.id,
     before: { projectRole: oldRole },
-    after: { projectRole },
+    after: { memberUserId: resolvedParams.userId, projectRole },
   });
 
   return NextResponse.json({ data: { projectRole } });

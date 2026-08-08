@@ -1,16 +1,11 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
-import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
-import { can, canProject } from "@/lib/rbac";
+import { requireAuth } from "@/lib/rbac/middleware";
+import { canProject, canReadTask } from "@/lib/rbac";
 import { getAttachmentsByTask, getPresignedUrl, createAttachment } from "@/lib/attachments";
 
 async function hasProjectAccess(userId: string, taskId: string): Promise<boolean> {
-  if (await can(userId, "task:edit_any")) return true;
-  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
-  if (!task) return false;
-  return canProject(userId, "task:edit_any", task.projectId) ||
-    canProject(userId, "task:edit_own", task.projectId) ||
-    canProject(userId, "comment:create", task.projectId);
+  return canReadTask(userId, taskId);
 }
 
 export async function GET(
@@ -55,9 +50,13 @@ export async function POST(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(request, { params: resolvedParams });
-  if (guardResult) return guardResult;
+  const task = await prisma.task.findUnique({
+    where: { id: resolvedParams.id },
+    select: { projectId: true, deletedAt: true },
+  });
+  if (!task || task.deletedAt || !(await canProject(userId, "task:edit_any", task.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
 
   const formData = await request.formData();
   const file = formData.get("file") as File | null;

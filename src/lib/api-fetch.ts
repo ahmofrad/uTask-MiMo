@@ -20,6 +20,14 @@ export async function apiFetch(
     if (!headers.has("Content-Type") && options.body) {
       headers.set("Content-Type", "application/json");
     }
+
+    if (
+      method === "POST" &&
+      !headers.has("Idempotency-Key") &&
+      /\/api\/v1\/(?:public\/)?tasks(?:\/[^/]+\/comments)?$/.test(new URL(url, window.location.origin).pathname)
+    ) {
+      headers.set("Idempotency-Key", crypto.randomUUID());
+    }
   }
 
   return fetch(url, { ...options, headers });

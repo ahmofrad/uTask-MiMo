@@ -189,6 +189,8 @@
     "searchBase": "Search Base",
     "searchFilter": "Search Filter",
     "enableSaml": "Enable SAML authentication",
+    "entityId": "Service provider entity ID",
+    "acsUrl": "Assertion consumer service URL",
     "idpEntityId": "IdP Entity ID",
     "ssoUrl": "SSO URL",
     "certificate": "X.509 Certificate",

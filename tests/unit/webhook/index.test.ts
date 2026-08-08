@@ -60,11 +60,17 @@ describe("validateWebhookUrl", () => {
     expect(validateWebhookUrl("https://10.0.0.1")).toBe(false);
     expect(validateWebhookUrl("https://172.16.0.1")).toBe(false);
     expect(validateWebhookUrl("https://127.0.0.1")).toBe(false);
+    expect(validateWebhookUrl("https://0.0.0.0")).toBe(false);
+    expect(validateWebhookUrl("https://100.64.0.1")).toBe(false);
+    expect(validateWebhookUrl("https://[::]")).toBe(false);
+    expect(validateWebhookUrl("https://[::ffff:127.0.0.1]")).toBe(false);
+    expect(validateWebhookUrl("https://[fe80::1]")).toBe(false);
   });
 
   it("rejects .local and .internal hostnames", () => {
     expect(validateWebhookUrl("https://internal.company.local")).toBe(false);
     expect(validateWebhookUrl("https://svc.internal")).toBe(false);
+    expect(validateWebhookUrl("https://localhost.")).toBe(false);
   });
 
   it("rejects invalid URLs", () => {

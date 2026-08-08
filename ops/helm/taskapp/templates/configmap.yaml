@@ -6,9 +6,12 @@ metadata:
     {{- include "taskapp.labels" . | nindent 4 }}
 data:
   NODE_ENV: production
-  SITE_NAME: {{ .Values.config.siteName }}
-  DEFAULT_LOCALE: {{ .Values.config.defaultLocale }}
-  DEFAULT_ACCENT: {{ .Values.config.defaultAccent }}
-  DATABASE_URL: postgresql://taskapp:$(DB_PASSWORD)@{{ include "taskapp.fullname" . }}-pgbouncer:6432/taskapp
-  REDIS_URL: redis://{{ include "taskapp.fullname" . }}-redis:6379
-  S3_ENDPOINT: http://{{ include "taskapp.fullname" . }}-minio:9000
+  SITE_NAME: {{ .Values.config.siteName | quote }}
+  DEFAULT_LOCALE: {{ .Values.config.defaultLocale | quote }}
+  DEFAULT_ACCENT: {{ .Values.config.defaultAccent | quote }}
+  AUTH_URL: {{ required "config.authUrl is required" .Values.config.authUrl | quote }}
+  TRUST_PROXY: "true"
+  RATE_LIMIT_FAIL_CLOSED: "true"
+  REDIS_URL: {{ printf "redis://%s-redis:6379" (include "taskapp.fullname" .) | quote }}
+  S3_ENDPOINT: {{ printf "http://%s-minio:9000" (include "taskapp.fullname" .) | quote }}
+  S3_BUCKET: {{ .Values.config.s3Bucket | default "taskapp" | quote }}

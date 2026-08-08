@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderMarkdown } from "@/lib/markdown/render";
+import { renderMarkdown, sanitizeHtml } from "@/lib/markdown/render";
 
 describe("renderMarkdown", () => {
   it("converts markdown to HTML", () => {
@@ -17,6 +17,24 @@ describe("renderMarkdown", () => {
   it("strips onerror attributes", () => {
     const result = renderMarkdown('<img src="x" onerror="alert(1)">');
     expect(result).not.toContain("onerror");
+  });
+
+  it("strips unquoted event-handler attributes", () => {
+    const result = renderMarkdown("<img src=x onerror=alert(1)>");
+    expect(result).not.toContain("onerror");
+  });
+
+  it("rejects encoded javascript URLs", () => {
+    const result = renderMarkdown("[x](java&#x73;cript:alert(1))");
+    expect(result).not.toMatch(/javascript:/i);
+    expect(result).not.toContain("java&#x73;cript");
+  });
+
+  it("removes unsafe inline styles and SVG content", () => {
+    const result = sanitizeHtml(
+      '<div style="background:url(javascript:alert(1))"><svg><script>alert(1)</script></svg></div>',
+    );
+    expect(result).not.toMatch(/javascript:|<svg|<script|style=/i);
   });
 
   it("allows links", () => {

@@ -3,6 +3,7 @@ import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/db";
 import nodemailer from "nodemailer";
+import { readJsonBody, smtpSettingsTestSchema, validationError } from "@/lib/validation/api";
 
 export async function POST(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
@@ -30,12 +31,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = (await request.json()) as Record<string, unknown>;
-  const host = (body.smtp_host as string) || (smtp.host as string);
-  const port = Number((body.smtp_port as string) ?? (smtp.port as number) ?? 587);
-  const user_ = (body.smtp_user as string) || (smtp.user as string) || undefined;
-  const pass = (body.smtp_pass as string) || (smtp.pass as string) || undefined;
-  const from = (body.smtp_from as string) || (smtp.from as string) || undefined;
+  const parsed = smtpSettingsTestSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
+  const body = parsed.data;
+  const host = body.smtp_host || (smtp.host as string);
+  const port = Number(body.smtp_port ?? (smtp.port as number) ?? 587);
+  const user_ = body.smtp_user || (smtp.user as string) || undefined;
+  const pass = body.smtp_pass || (smtp.pass as string) || undefined;
+  const from = body.smtp_from || (smtp.from as string) || undefined;
 
   const transport = nodemailer.createTransport({
     host,

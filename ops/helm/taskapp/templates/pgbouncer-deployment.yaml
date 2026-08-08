@@ -20,17 +20,31 @@ spec:
     spec:
       containers:
         - name: pgbouncer
-          image: bitnami/pgbouncer:1.22
+          image: bitnamilegacy/pgbouncer:1.24.1-debian-12-r10
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 6432
               name: pgbouncer
+          livenessProbe:
+            tcpSocket:
+              port: pgbouncer
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          readinessProbe:
+            tcpSocket:
+              port: pgbouncer
+            initialDelaySeconds: 5
+            periodSeconds: 5
           env:
             - name: POSTGRESQL_HOST
               value: {{ include "taskapp.fullname" . }}-postgres
             - name: POSTGRESQL_PORT
               value: "5432"
             - name: POSTGRESQL_DATABASE
+              value: taskapp
+            # Alias key for [databases] — must match the DB name in DATABASE_URL;
+            # bitnami defaults the alias to `postgres` otherwise.
+            - name: PGBOUNCER_DATABASE
               value: taskapp
             - name: POSTGRESQL_USERNAME
               value: taskapp

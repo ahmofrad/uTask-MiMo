@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
-vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn() }));
+vi.mock("@/lib/rbac", () => ({ can: vi.fn(), canProject: vi.fn(), canReadTask: vi.fn() }));
+vi.mock("@/lib/tasks", () => ({ getTaskById: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
@@ -13,6 +14,8 @@ vi.mock("@/lib/webhook/emit", () => ({ emitTaskEvent: vi.fn() }));
 vi.mock("@/lib/idempotency", () => ({
   checkIdempotency: vi.fn(() => ({ hit: false })),
   setIdempotencyResult: vi.fn(),
+  acquirePending: vi.fn().mockResolvedValue("acquired"),
+  releasePending: vi.fn(),
 }));
 vi.mock("@/lib/comments", () => ({
   getTaskComments: vi.fn(),
@@ -21,18 +24,20 @@ vi.mock("@/lib/comments", () => ({
 vi.mock("@/lib/watchers", () => ({
   ensureWatcher: vi.fn(),
 }));
+vi.mock("@/lib/notifications", () => ({ notify: vi.fn() }));
 
 function makeRequest(method: string, body?: unknown): Request {
   const init: RequestInit = {
     method,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "idempotency-key": "test-key" },
   };
   if (body !== undefined) init.body = JSON.stringify(body);
   return new Request("http://localhost/api/v1/tasks/t1/comments", init);
 }
 
 const { auth } = await import("@/lib/auth/config");
-const { can } = await import("@/lib/rbac");
+const { can, canProject, canReadTask } = await import("@/lib/rbac");
+const { getTaskById } = await import("@/lib/tasks");
 const { getTaskComments, createComment } = await import("@/lib/comments");
 const { logAudit } = await import("@/lib/audit/log");
 const { emitTaskEvent } = await import("@/lib/webhook/emit");
@@ -40,6 +45,9 @@ const { ensureWatcher } = await import("@/lib/watchers");
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
 const mockCan = can as ReturnType<typeof vi.fn>;
+const mockCanProject = canProject as ReturnType<typeof vi.fn>;
+const mockCanReadTask = canReadTask as ReturnType<typeof vi.fn>;
+const mockGetTaskById = getTaskById as ReturnType<typeof vi.fn>;
 const mockGetTaskComments = getTaskComments as ReturnType<typeof vi.fn>;
 const mockCreateComment = createComment as ReturnType<typeof vi.fn>;
 const mockLogAudit = logAudit as ReturnType<typeof vi.fn>;
@@ -57,6 +65,9 @@ function unauthenticatedSession() {
 beforeEach(() => {
   vi.clearAllMocks();
   authenticatedSession();
+  mockCanReadTask.mockResolvedValue(true);
+  mockCanProject.mockResolvedValue(true);
+  mockGetTaskById.mockResolvedValue({ id: "t1", projectId: "p1", title: "Task", assignees: [] });
 });
 
 describe("POST /api/v1/tasks/[id]/comments", () => {
@@ -68,7 +79,7 @@ describe("POST /api/v1/tasks/[id]/comments", () => {
   });
 
   it("returns 403 when can denies", async () => {
-    mockCan.mockResolvedValue(false);
+    mockCanReadTask.mockResolvedValue(false);
     const { POST } = await import("@/app/api/v1/tasks/[id]/comments/route");
     const res = await POST(makeRequest("POST", { bodyMarkdown: "Hi" }), { params: { id: "t1" } });
     expect(res.status).toBe(403);

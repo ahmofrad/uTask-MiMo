@@ -250,6 +250,17 @@ export async function deleteTask(id: string) {
 }
 
 export async function reorderTasks(projectId: string, taskIds: string[]) {
+  if (new Set(taskIds).size !== taskIds.length) {
+    throw new WbsGuardError("TASK_SCOPE", "A task may only appear once in a reorder request");
+  }
+  const scopedTasks = await prisma.task.findMany({
+    where: { id: { in: taskIds }, projectId, deletedAt: null },
+    select: { id: true },
+  });
+  if (scopedTasks.length !== taskIds.length) {
+    throw new WbsGuardError("TASK_SCOPE", "All reordered tasks must belong to the active project");
+  }
+
   // Use the caller's intended order from the input array, not DB order
   const updates = taskIds.map((id, i) =>
     prisma.task.update({

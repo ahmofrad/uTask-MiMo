@@ -3,12 +3,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
 const mockCan = vi.fn();
 const mockCanProject = vi.fn();
-vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject }));
+const mockGetUserRole = vi.fn();
+vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject, getUserRole: mockGetUserRole }));
 vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     tag: { findMany: vi.fn(), create: vi.fn(), findFirst: vi.fn(), deleteMany: vi.fn(), delete: vi.fn() },
+    role: { findFirst: vi.fn() },
+    projectMember: { findMany: vi.fn() },
   },
 }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn() }));
@@ -48,6 +51,8 @@ function unauthenticatedSession() {
 beforeEach(() => {
   vi.clearAllMocks();
   authenticatedSession();
+  mockGetUserRole.mockResolvedValue({ globalRole: "member" });
+  (prisma.projectMember.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
 });
 
 describe("POST /api/v1/tags", () => {

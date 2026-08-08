@@ -7,6 +7,7 @@ import { moveTask } from "@/lib/tasks";
 import type { MoveTaskData } from "@/lib/tasks";
 import { WbsGuardError } from "@/lib/tasks/wbs";
 import { prisma } from "@/lib/db";
+import { moveTaskSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function POST(
   request: Request,
@@ -34,11 +35,14 @@ export async function POST(
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const body = (await request.json()) as { newParentId?: string | null; position?: number };
+  const parsed = moveTaskSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
 
   const moveData: MoveTaskData = {};
-  if (body.newParentId !== undefined) moveData.newParentId = body.newParentId;
-  if (body.position !== undefined) moveData.position = body.position;
+  if (parsed.data.newParentId !== undefined) moveData.newParentId = parsed.data.newParentId;
+  if (parsed.data.position !== undefined) moveData.position = parsed.data.position;
 
   try {
     const { before, task: updated } = await moveTask(taskId, moveData);

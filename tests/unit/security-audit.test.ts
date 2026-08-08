@@ -34,7 +34,7 @@ function readFile(p: string): string {
 const EXPORTED_FN_RE = /export\s+async\s+function\s+(GET|POST|PATCH|DELETE|PUT)\s*\(/g;
 const AUTH_RE = /await\s+(auth|requireAuth)\s*\(/;
 const STUB_501_RE = /status:\s*501/;
-const CAN_RE = /\b(can|requirePermission|requireAnyPermission)\s*\(/;
+const CAN_RE = /\b(can|canProject|canCreateProject|canReadProject|canReadTask|canEditTask|requirePermission|requireAnyPermission)\s*\(/;
 const LOG_AUDIT_RE = /\blogAudit\s*\(/;
 const PRISMA_MUTATE_RE = /prisma\.\w+\.(create|update|delete|upsert)\s*\(/;
 const PUBLIC_AUTH_RE = /authenticatePublicApi\s*\(/;

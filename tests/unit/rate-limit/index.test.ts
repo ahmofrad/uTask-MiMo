@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { randomUUID } from "node:crypto";
 import { checkRateLimit } from "@/lib/rate-limit";
+
+const uniqueKey = (prefix: string) => `${prefix}:${randomUUID()}`;
 
 describe("checkRateLimit", () => {
   beforeEach(() => {
@@ -11,13 +14,13 @@ describe("checkRateLimit", () => {
   });
 
   it("returns allowed: true under the limit", async () => {
-    const result = await checkRateLimit("test-under", { windowMs: 60000, maxRequests: 5 });
+    const result = await checkRateLimit(uniqueKey("test-under"), { windowMs: 60000, maxRequests: 5 });
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(4);
   });
 
   it("returns allowed: false over the limit", async () => {
-    const key = "test-over";
+    const key = uniqueKey("test-over");
     const config = { windowMs: 60000, maxRequests: 2 };
 
     await checkRateLimit(key, config);
@@ -30,22 +33,24 @@ describe("checkRateLimit", () => {
 
   it("different keys have separate counters", async () => {
     const config = { windowMs: 60000, maxRequests: 1 };
+    const keyA = uniqueKey("key-a");
+    const keyB = uniqueKey("key-b");
 
-    const a1 = await checkRateLimit("key-a", config);
-    const b1 = await checkRateLimit("key-b", config);
+    const a1 = await checkRateLimit(keyA, config);
+    const b1 = await checkRateLimit(keyB, config);
 
     expect(a1.allowed).toBe(true);
     expect(b1.allowed).toBe(true);
 
-    const a2 = await checkRateLimit("key-a", config);
+    const a2 = await checkRateLimit(keyA, config);
     expect(a2.allowed).toBe(false);
 
-    const b2 = await checkRateLimit("key-b", config);
+    const b2 = await checkRateLimit(keyB, config);
     expect(b2.allowed).toBe(false);
   });
 
   it("resets after window expires", async () => {
-    const key = "test-reset";
+    const key = uniqueKey("test-reset");
     const config = { windowMs: 1000, maxRequests: 1 };
 
     await checkRateLimit(key, config);
@@ -59,13 +64,13 @@ describe("checkRateLimit", () => {
   });
 
   it("uses default config when none provided", async () => {
-    const result = await checkRateLimit("test-default");
+    const result = await checkRateLimit(uniqueKey("test-default"));
     expect(result.allowed).toBe(true);
     expect(result.remaining).toBe(59);
   });
 
   it("tracks remaining correctly", async () => {
-    const key = "test-remaining";
+    const key = uniqueKey("test-remaining");
     const config = { windowMs: 60000, maxRequests: 3 };
 
     const r1 = await checkRateLimit(key, config);

@@ -123,19 +123,6 @@ export function TaskDetailPage({
 
   const isWatching = watchers.some((w) => w.id === currentUserId);
 
-  const updateTask = useCallback(async (updates: Record<string, unknown>) => {
-    const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
-      method: "PATCH",
-      body: JSON.stringify(updates),
-    });
-    if (!res.ok) throw new Error(t("task.updateFailed"));
-    const body = await res.json();
-    if (body.data) setTask((prev) => ({ ...prev, ...body.data }));
-    // Refresh audit events after mutation
-    refreshAudit();
-    return body.data;
-  }, [task.id, t]);
-
   const refreshAudit = useCallback(async (limit?: number) => {
     const res = await apiFetch(`/api/v1/activity/tasks/${task.id}?limit=${limit ?? auditLimit}`);
     if (res.ok) {
@@ -145,6 +132,19 @@ export function TaskDetailPage({
       setAuditCursor(data.nextCursor ?? null);
     }
   }, [task.id, auditLimit]);
+
+  const updateTask = useCallback(async (updates: Record<string, unknown>) => {
+    const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
+      method: "PATCH",
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error(t("task.updateFailed"));
+    const body = await res.json();
+    if (body.data) setTask((prev) => ({ ...prev, ...body.data }));
+    // Refresh audit events after mutation
+    void refreshAudit();
+    return body.data;
+  }, [refreshAudit, task.id, t]);
 
   const loadMoreAudit = useCallback(async () => {
     if (!auditCursor || !auditHasMore) return;

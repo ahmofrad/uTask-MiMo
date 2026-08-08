@@ -6,32 +6,42 @@ let socket: ReturnType<typeof io> | null = null;
 
 export function getSocket(token?: string) {
   if (!socket) {
-    socket = io(SOCKET_URL || (typeof window !== "undefined" ? window.location.origin : ""), {
+    const options = {
       path: "/ws",
-      auth: { token },
+      withCredentials: true,
       autoConnect: false,
       transports: ["websocket", "polling"],
-    });
+      ...(token ? { auth: { token } } : {}),
+    };
+    socket = io(SOCKET_URL || (typeof window !== "undefined" ? window.location.origin : ""), options);
+  } else if (token) {
+    socket.auth = { token };
   }
   return socket;
 }
 
+function connectedSocket() {
+  const client = getSocket();
+  if (!client.connected) client.connect();
+  return client;
+}
+
 export function joinProject(projectId: string) {
-  getSocket()?.emit("join:project", projectId);
+  connectedSocket().emit("join:project", projectId);
 }
 
 export function leaveProject(projectId: string) {
-  getSocket()?.emit("leave:project", projectId);
+  connectedSocket().emit("leave:project", projectId);
 }
 
 export function joinTask(taskId: string) {
-  getSocket()?.emit("join:task", taskId);
+  connectedSocket().emit("join:task", taskId);
 }
 
 export function leaveTask(taskId: string) {
-  getSocket()?.emit("leave:task", taskId);
+  connectedSocket().emit("leave:task", taskId);
 }
 
 export function sendPresence(taskId: string) {
-  getSocket()?.emit("presence:task", taskId);
+  connectedSocket().emit("presence:task", taskId);
 }

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { requireAuth } from "@/lib/rbac/middleware";
+import { canProject, canReadTask } from "@/lib/rbac";
+import { getTaskById } from "@/lib/tasks";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 
@@ -10,6 +12,9 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
+  if (!(await canReadTask(authResult.userId, resolvedParams.taskId))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
 
   const { getWatchers } = await import("@/lib/watchers");
   const watchers = await getWatchers(resolvedParams.taskId);
@@ -25,9 +30,13 @@ export async function POST(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(_request, { params: resolvedParams });
-  if (guardResult) return guardResult;
+  if (!(await canReadTask(userId, resolvedParams.taskId))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
+  const task = await getTaskById(resolvedParams.taskId);
+  if (!task || !(await canProject(userId, "task:edit_any", task.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
 
   const { addWatcher } = await import("@/lib/watchers");
   await addWatcher(resolvedParams.taskId, userId);
@@ -45,9 +54,13 @@ export async function DELETE(
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("task:edit_any");
-  const guardResult = await guard(_request, { params: resolvedParams });
-  if (guardResult) return guardResult;
+  if (!(await canReadTask(userId, resolvedParams.taskId))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+  }
+  const task = await getTaskById(resolvedParams.taskId);
+  if (!task || !(await canProject(userId, "task:edit_any", task.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  }
 
   const { removeWatcher } = await import("@/lib/watchers");
   await removeWatcher(resolvedParams.taskId, userId);

@@ -1,23 +1,47 @@
 import { marked } from "marked";
+import DOMPurify from "isomorphic-dompurify";
 
-const FULL_SCRIPT_REGEX = /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi;
-const BLOCKED_OPEN_TAGS = /<(?:iframe|object|embed|form|meta|link|style|base)\b[^>]*>/gi;
-const EVENT_HANDLER_REGEX = /\bon\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi;
-const JAVASCRIPT_URL_REGEX = /(?:(?:href|src|action)\s*=\s*(?:"javascript:|'javascript:|data:text\/html))/gi;
-const CSS_EXPRESSION_REGEX = /expression\s*\(/gi;
+const ALLOWED_URI_REGEXP = /^(?:(?:https?|mailto):|(?:\/|#|\.{0,2}\/)|[a-z0-9][^:]*$)/i;
 
-function sanitize(html: string): string {
-  return html
-    .replace(FULL_SCRIPT_REGEX, "")
-    .replace(BLOCKED_OPEN_TAGS, "")
-    .replace(EVENT_HANDLER_REGEX, "")
-    .replace(JAVASCRIPT_URL_REGEX, (match) => {
-      return match.replace(/javascript:|data:text\/html/gi, "");
-    })
-    .replace(CSS_EXPRESSION_REGEX, "(");
+const SANITIZE_CONFIG = {
+  ALLOWED_TAGS: [
+    "a",
+    "blockquote",
+    "br",
+    "code",
+    "del",
+    "em",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "hr",
+    "li",
+    "ol",
+    "p",
+    "pre",
+    "strong",
+    "table",
+    "tbody",
+    "td",
+    "tfoot",
+    "th",
+    "thead",
+    "tr",
+    "ul",
+  ],
+  ALLOWED_ATTR: ["class", "colspan", "href", "rel", "rowspan", "start", "target", "title"],
+  ALLOWED_URI_REGEXP,
+  ALLOW_DATA_ATTR: false,
+  FORBID_TAGS: ["base", "embed", "form", "iframe", "link", "meta", "object", "script", "style", "svg"],
+  FORBID_ATTR: ["style"],
+};
+
+export function sanitizeHtml(html: string): string {
+  return DOMPurify.sanitize(html, SANITIZE_CONFIG);
 }
 
 export function renderMarkdown(md: string): string {
   const raw = marked.parse(md) as string;
-  return sanitize(raw);
+  return sanitizeHtml(raw);
 }

@@ -28,5 +28,6 @@ export async function logAudit(params: LogAuditParams) {
     await prisma.auditLog.create({ data: data as never });
   } catch (err) {
     logger.error(err, "Failed to write audit log");
+    throw err instanceof Error ? err : new Error("Failed to write audit log");
   }
 }

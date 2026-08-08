@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/db";
+
 const MENTION_REGEX = /@\[([^\]]+)\]\(([^)]+)\)|@(\w[\w\s.-]+)/g;
 
 export type MentionMatch = {
@@ -26,6 +28,30 @@ export function extractMentionedEmails(input: string): string[] {
   return mentions
     .filter((m): m is MentionMatch & { email: string } => !!m.email)
     .map((m) => m.email!);
+}
+
+export async function resolveMentionTarget(mention: MentionMatch): Promise<string | null> {
+  if (mention.userId) {
+    const user = await prisma.user.findFirst({
+      where: { id: mention.userId, status: "active" },
+      select: { id: true },
+    });
+    return user?.id ?? null;
+  }
+
+  const text = mention.text.trim();
+  if (!text) return null;
+  const user = await prisma.user.findFirst({
+    where: {
+      status: "active",
+      OR: [
+        { displayName: { equals: text, mode: "insensitive" } },
+        { email: { equals: text, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true },
+  });
+  return user?.id ?? null;
 }
 
 export function replaceMentionsWithDisplay(

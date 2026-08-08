@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logging";
 import { prisma } from "@/lib/db";
 import { getLdapConfig, syncAllLdapGroups } from "@/lib/auth/providers/ldap";
+import { withDistributedLock } from "@/lib/queue/lock";
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let running = false;
@@ -9,14 +10,16 @@ async function tick() {
   if (running) return;
   running = true;
   try {
-    const config = await getLdapConfig();
-    if (config?.enabled) {
-      const groupCount = await prisma.ldapSyncGroup.count();
-      if (groupCount > 0) {
-        const result = await syncAllLdapGroups(config);
-        logger.info({ ...result }, "ldap scheduled sync completed");
+    await withDistributedLock("ldap-sync", 30 * 60_000, async () => {
+      const config = await getLdapConfig();
+      if (config?.enabled) {
+        const groupCount = await prisma.ldapSyncGroup.count();
+        if (groupCount > 0) {
+          const result = await syncAllLdapGroups(config);
+          logger.info({ ...result }, "ldap scheduled sync completed");
+        }
       }
-    }
+    });
   } catch (err) {
     logger.error({ err }, "ldap scheduled sync failed");
   } finally {
@@ -33,8 +36,8 @@ function scheduleNext() {
       if (config?.enabled && Number.isFinite(config.syncIntervalHours) && config.syncIntervalHours > 0) {
         hours = config.syncIntervalHours;
       }
-    } catch {
-      // keep the default interval
+    } catch (err) {
+      logger.error({ err }, "failed to read LDAP sync interval; using default");
     }
     const ms = Math.max(1, hours) * 3_600_000;
     timer = setTimeout(() => void tick(), ms);

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { can, canProject } from "@/lib/rbac";
+import { canReadTask } from "@/lib/rbac";
 import type { ActivityEvent } from "./types";
 
 const DEFAULT_LIMIT = 50;
@@ -14,12 +14,7 @@ function parseCursor(cursor: string): { type: "audit" | "comment"; id: string } 
 }
 
 async function hasReadAccess(userId: string, taskId: string): Promise<boolean> {
-  if (await can(userId, "task:edit_any")) return true;
-  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { projectId: true } });
-  if (!task) return false;
-  return canProject(userId, "task:edit_any", task.projectId) ||
-    canProject(userId, "task:edit_own", task.projectId) ||
-    canProject(userId, "comment:create", task.projectId);
+  return canReadTask(userId, taskId);
 }
 
 export async function getTaskActivity(

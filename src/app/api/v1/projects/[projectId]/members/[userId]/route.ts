@@ -35,7 +35,8 @@ export async function DELETE(
     actorUserId: userId,
     action: "project_member_removed",
     entityType: "projectMember",
-    entityId: `${resolvedParams.projectId}:${resolvedParams.userId}`,
+    entityId: resolvedParams.projectId,
+    after: { memberUserId: resolvedParams.userId },
     before: membership as never,
   });
 

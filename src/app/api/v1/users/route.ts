@@ -4,6 +4,7 @@ import { logAudit } from "@/lib/audit/log";
 import { listUsers, createUser } from "@/lib/users";
 import { prisma } from "@/lib/db";
 import type { AuditAction } from "@prisma/client";
+import { readJsonBody, userCreateSchema, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
@@ -35,20 +36,11 @@ export async function POST(request: Request) {
   const guardResult = await guard(request, { params: {} });
   if (guardResult) return guardResult;
 
-  const body = await request.json();
-  const { email, displayName, password, role } = body as {
-    email?: string;
-    displayName?: string;
-    password?: string;
-    role?: string;
-  };
-
-  if (!email || !displayName) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "Email and displayName are required" } },
-      { status: 400 },
-    );
+  const parsed = userCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const { email, displayName, password, role } = parsed.data;
 
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
@@ -68,7 +60,7 @@ export async function POST(request: Request) {
     await prisma.role.create({
       data: {
         userId: user.id,
-        type: role as never,
+        type: role,
         scopeType: "global",
         scopeId: null,
         grantedBy: "system",

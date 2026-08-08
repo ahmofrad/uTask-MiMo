@@ -58,7 +58,7 @@ describe("logAudit", () => {
     });
   });
 
-  it("does not throw on failure", async () => {
+  it("surfaces audit persistence failures", async () => {
     const { prisma } = await import("@/lib/db");
     (prisma.auditLog.create as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
       new Error("DB error"),
@@ -71,6 +71,6 @@ describe("logAudit", () => {
         entityType: "user",
         entityId: "user-1",
       }),
-    ).resolves.not.toThrow();
+    ).rejects.toThrow("DB error");
   });
 });

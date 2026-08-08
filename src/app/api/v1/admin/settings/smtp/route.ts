@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { getSettings, updateSettings } from "@/lib/settings";
 import { logAudit } from "@/lib/audit/log";
+import { readJsonBody, smtpSettingsSchema, validationError } from "@/lib/validation/api";
 
 export async function GET() {
   const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
@@ -34,7 +35,11 @@ export async function PUT(request: Request) {
   const guardResult = await guard(request, { params: {} });
   if (guardResult) return guardResult;
 
-  const body = (await request.json()) as Record<string, unknown>;
+  const parsed = smtpSettingsSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
+  const body = parsed.data;
 
   const allowedKeys = ["smtp_host", "smtp_port", "smtp_user", "smtp_pass", "smtp_from", "smtp_secure"];
   const smtpData: Record<string, unknown> = {};
@@ -55,7 +60,7 @@ export async function PUT(request: Request) {
     action: "updated",
     entityType: "settings",
     entityId: "smtp",
-    after: body,
+    after: { ...body, ...(body.smtp_pass !== undefined ? { smtp_pass: "[REDACTED]" } : {}) },
   });
 
   const { resetCache } = await import("@/lib/mail/send");

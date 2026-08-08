@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
+import { renderMarkdown } from "@/lib/markdown/render";
 
 type TaskStatus = "open" | "in_progress" | "done" | "cancelled";
 type TaskPriority = "low" | "med" | "high" | "urgent";
@@ -39,6 +40,10 @@ export function TaskDetailHeaderCard({
   const [titleDraft, setTitleDraft] = useState(title);
   const [editingDescription, setEditingDescription] = useState(false);
   const [descDraft, setDescDraft] = useState(description ?? "");
+  const renderedDescription = useMemo(
+    () => (description ? renderMarkdown(description) : ""),
+    [description],
+  );
 
   return (
     <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-4">
@@ -122,7 +127,7 @@ export function TaskDetailHeaderCard({
             onClick={() => { setEditingDescription(true); setDescDraft(description ?? ""); }}
           >
             {description ? (
-              <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: description }} />
+              <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: renderedDescription }} />
             ) : (
               <span className="text-fg-subtle italic">{t("task.fields.description")}</span>
             )}

@@ -1,15 +1,17 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac/middleware";
-import { can, canProject } from "@/lib/rbac";
-import { prisma } from "@/lib/db";
+import { canProject } from "@/lib/rbac";
+import { getUserReadableProjectIds } from "@/lib/projects/queries";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { emitToProject } from "@/lib/realtime/server";
 import { listTasks, createTask } from "@/lib/tasks";
 import { WbsGuardError } from "@/lib/tasks/wbs";
 import { mapAssignees } from "@/lib/tasks/serialize";
-import { checkIdempotency, setIdempotencyResult, acquirePending, releasePending } from "@/lib/idempotency";
+import { checkIdempotency, setIdempotencyResult, acquirePending, releasePending, type IdempotencyScope } from "@/lib/idempotency";
 import type { ListTasksParams, CreateTaskData } from "@/lib/tasks";
+import { readJsonBody, taskCreateSchema, validationError } from "@/lib/validation/api";
+import { sha256 } from "@/lib/crypto";
 
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
@@ -41,19 +43,14 @@ export async function GET(request: Request) {
   if (dueDateGte) params.dueDateGte = dueDateGte;
   if (dueDateLte) params.dueDateLte = dueDateLte;
 
-  // Scope to user's projects unless they have global task:edit_any
+  const readableProjectIds = await getUserReadableProjectIds(userId);
   if (projectId) {
-    params.projectId = projectId;
-  } else if (!(await can(userId, "task:edit_any"))) {
-    const memberships = await prisma.projectMember.findMany({
-      where: { userId },
-      select: { projectId: true },
-    });
-    const projectIds = memberships.map((m) => m.projectId);
-    if (projectIds.length === 0) {
-      return NextResponse.json({ data: [], meta: { nextCursor: null, hasMore: false } });
+    if (readableProjectIds !== null && !readableProjectIds.includes(projectId)) {
+      return NextResponse.json({ error: { code: "FORBIDDEN", message: "You are not a member of this project" } }, { status: 403 });
     }
-    params.projectIds = projectIds;
+    params.projectId = projectId;
+  } else if (readableProjectIds !== null) {
+    params.projectIds = readableProjectIds;
   }
 
   const result = await listTasks(params);
@@ -67,42 +64,55 @@ export async function POST(request: Request) {
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  // Idempotency check
+  const parsed = taskCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
+  const body = parsed.data;
+  const {
+    projectId, title, description, parentTaskId,
+    status: taskStatus, priority: taskPriority,
+    startDate, dueDate, assigneeId, assigneeIds, estimatedHours, progress,
+    customFields, tagIds,
+  } = body;
+
+  const projectPermitted = await canProject(userId, "task:create", String(projectId));
+  if (!projectPermitted) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient project permissions" } }, { status: 403 });
+  }
+
   const idempotencyKey = request.headers.get("idempotency-key");
-  if (idempotencyKey) {
-    const cached = await checkIdempotency(idempotencyKey);
-    if (cached.hit) {
-      return NextResponse.json(cached.response.body, { status: cached.response.status });
-    }
-    if (!(await acquirePending(idempotencyKey))) {
-      return NextResponse.json(
-        { error: { code: "CONFLICT", message: "Request already in progress" } },
-        { status: 409 },
-      );
-    }
+  if (!idempotencyKey) {
+    return NextResponse.json({ error: { code: "IDEMPOTENCY_KEY_REQUIRED" } }, { status: 400 });
+  }
+  const idempotencyScope: IdempotencyScope = {
+    userId,
+    route: "tasks:create",
+    bodyHash: sha256(JSON.stringify(body)),
+  };
+  const cached = await checkIdempotency(idempotencyKey, idempotencyScope);
+  if (cached.unavailable) {
+    return NextResponse.json({ error: { code: "IDEMPOTENCY_UNAVAILABLE", message: "Idempotency storage is unavailable" } }, { status: 503 });
+  }
+  if (cached.conflict) {
+    return NextResponse.json(
+      { error: { code: "IDEMPOTENCY_KEY_REUSE", message: "Idempotency-Key was already used with a different request body" } },
+      { status: 409 },
+    );
+  }
+  if (cached.hit) {
+    return NextResponse.json(cached.response.body, { status: cached.response.status });
+  }
+  const pending = await acquirePending(idempotencyKey, idempotencyScope);
+  if (pending === "unavailable") {
+    return NextResponse.json({ error: { code: "IDEMPOTENCY_UNAVAILABLE", message: "Idempotency storage is unavailable" } }, { status: 503 });
+  }
+  if (pending !== "acquired") {
+    return NextResponse.json(
+      { error: { code: "CONFLICT", message: "Request already in progress" } },
+      { status: 409 },
+    );
   }
 
   try {
-    const body = await request.json();
-    const {
-      projectId, title, description, parentTaskId,
-      status: taskStatus, priority: taskPriority,
-      startDate, dueDate, assigneeId, assigneeIds, estimatedHours, progress,
-      customFields, tagIds,
-    } = body as Record<string, unknown>;
-
-    if (!projectId || !title) {
-      return NextResponse.json(
-        { error: { code: "VALIDATION_ERROR", message: "projectId and title are required" } },
-        { status: 400 },
-      );
-    }
-
-    const projectPermitted = await canProject(userId, "task:create", String(projectId));
-    if (!projectPermitted) {
-      return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient project permissions" } }, { status: 403 });
-    }
-
     const data: CreateTaskData = {
       projectId: String(projectId),
       title: String(title),
@@ -147,11 +157,11 @@ export async function POST(request: Request) {
     const responseBody = { data: task };
 
     if (idempotencyKey) {
-      await setIdempotencyResult(idempotencyKey, 201, responseBody);
+      await setIdempotencyResult(idempotencyKey, 201, responseBody, idempotencyScope);
     }
 
     return NextResponse.json(responseBody, { status: 201 });
   } finally {
-    if (idempotencyKey) await releasePending(idempotencyKey);
+    if (idempotencyKey) await releasePending(idempotencyKey, idempotencyScope);
   }
 }

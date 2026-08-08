@@ -3,6 +3,7 @@ import { requireAuth } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { createApiToken } from "@/lib/api-token";
 import { logAudit } from "@/lib/audit/log";
+import { publicTokenCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET() {
   const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
@@ -26,15 +27,11 @@ export async function POST(request: Request) {
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const body = await request.json();
-  const { name, scopes, expiresAt } = body as { name?: string; scopes?: string[]; expiresAt?: string | null };
-
-  if (!name || !scopes || !Array.isArray(scopes)) {
-    return NextResponse.json(
-      { error: { code: "VALIDATION_ERROR", message: "name and scopes array required" } },
-      { status: 400 },
-    );
+  const parsed = publicTokenCreateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
+  const { name, scopes, expiresAt } = parsed.data;
 
   const { raw, prefix, id } = await createApiToken({
     userId,

@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+process.env.WEBHOOK_SECRET_ENCRYPTION_KEY = "test-only-encryption-key";
+
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
 const mockCan = vi.fn();
 const mockCanProject = vi.fn();
@@ -95,10 +97,10 @@ describe("PATCH /api/v1/admin/sso", () => {
     mockGetSettings.mockResolvedValue({});
 
     const { PATCH } = await import("@/app/api/v1/admin/sso/route");
-    const res = await PATCH(makeRequest("PATCH", { ldap: { url: "ldap://ldap.local", baseDN: "dc=ex,dc=com" } }));
+    const res = await PATCH(makeRequest("PATCH", { ldap: { url: "ldap://ldap.local", bindUpn: "svc@example.com", bindPassword: "secret" } }));
 
     expect(res.status).toBe(200);
-    expect(mockUpdateSettings).toHaveBeenCalledWith("install", null, { ldap: { url: "ldap://ldap.local", baseDN: "dc=ex,dc=com" } });
+    expect(mockUpdateSettings).toHaveBeenCalledWith("install", null, { ldap: { url: "ldap://ldap.local", bindUpn: "svc@example.com", bindPassword: expect.any(String) } });
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({ entityType: "settings", entityId: "sso" }),
     );
@@ -109,7 +111,7 @@ describe("PATCH /api/v1/admin/sso", () => {
     mockGetSettings.mockResolvedValue({});
 
     const { PATCH } = await import("@/app/api/v1/admin/sso/route");
-    await PATCH(makeRequest("PATCH", { ldap: { url: "ldap://ldap.local", password: "" } }));
+    await PATCH(makeRequest("PATCH", { ldap: { url: "ldap://ldap.local", bindPassword: "" } }));
 
     expect(mockUpdateSettings).toHaveBeenCalledWith("install", null, { ldap: { url: "ldap://ldap.local" } });
   });

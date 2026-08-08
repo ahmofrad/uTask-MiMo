@@ -1,8 +1,10 @@
 import { prisma } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { can } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
-import { getUserById } from "@/lib/users";
+import { getUserById, suspendUser } from "@/lib/users";
+import { readJsonBody, userUpdateSchema, validationError } from "@/lib/validation/api";
 
 export async function GET(
   _request: Request,
@@ -11,6 +13,11 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
+
+  const { userId } = authResult;
+  if (userId !== resolvedParams.id && !(await can(userId, "user:manage"))) {
+    return NextResponse.json({ error: { code: "NOT_FOUND", message: "User not found" } }, { status: 404 });
+  }
 
   const user = await getUserById(resolvedParams.id);
 
@@ -39,8 +46,11 @@ export async function PATCH(
     if (guardResult) return guardResult;
   }
 
-  const body = await request.json();
-  const { displayName, locale, accentColor, theme, density } = body as Record<string, string>;
+  const parsed = userUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
+  const { displayName, locale, accentColor, theme, density } = parsed.data;
 
   const updateData: Record<string, unknown> = {};
   if (displayName !== undefined) updateData.displayName = displayName;
@@ -77,10 +87,7 @@ export async function DELETE(
 
   const before = await prisma.user.findUnique({ where: { id: resolvedParams.id } });
 
-  await prisma.user.update({
-    where: { id: resolvedParams.id },
-    data: { status: "suspended" },
-  });
+  await suspendUser(resolvedParams.id);
 
   await logAudit({ actorUserId: userId, action: "user_suspended", entityType: "user", entityId: resolvedParams.id, before: before as never });
 

@@ -3,8 +3,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/auth/config", () => ({ auth: vi.fn() }));
 const mockCan = vi.fn();
 const mockCanProject = vi.fn();
-vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject }));
-vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject }));
+const mockCanCreateProject = vi.fn();
+const mockIsProjectOwner = vi.fn();
+vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject, canCreateProject: mockCanCreateProject, isProjectOwner: mockIsProjectOwner }));
+vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject, canCreateProject: mockCanCreateProject, isProjectOwner: mockIsProjectOwner }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
@@ -19,6 +21,7 @@ vi.mock("@/lib/idempotency", () => ({
 }));
 vi.mock("@/lib/projects", () => ({
   listProjects: vi.fn(),
+  getUserReadableProjectIds: vi.fn().mockResolvedValue(null),
   createProject: vi.fn(),
   getProjectById: vi.fn(),
   updateProject: vi.fn(),
@@ -58,6 +61,9 @@ function unauthenticatedSession() {
 beforeEach(() => {
   vi.clearAllMocks();
   authenticatedSession();
+  mockCanCreateProject.mockResolvedValue(true);
+  mockCanProject.mockResolvedValue(false);
+  mockIsProjectOwner.mockResolvedValue(false);
 });
 
 describe("POST /api/v1/projects", () => {
@@ -69,14 +75,14 @@ describe("POST /api/v1/projects", () => {
   });
 
   it("returns 403 when can denies", async () => {
-    mockCan.mockResolvedValue(false);
+    mockCanCreateProject.mockResolvedValue(false);
     const { POST } = await import("@/app/api/v1/projects/route");
     const res = await POST(makeRequest("POST", { name: "Proj" }));
     expect(res.status).toBe(403);
   });
 
   it("returns 400 when name is missing", async () => {
-    mockCan.mockResolvedValue(true);
+    mockCanCreateProject.mockResolvedValue(true);
     const { POST } = await import("@/app/api/v1/projects/route");
     const res = await POST(makeRequest("POST", {}));
     expect(res.status).toBe(400);
@@ -85,7 +91,7 @@ describe("POST /api/v1/projects", () => {
   });
 
   it("creates project, logs audit, emits event", async () => {
-    mockCan.mockResolvedValue(true);
+    mockCanCreateProject.mockResolvedValue(true);
     mockCreateProject.mockResolvedValue({ id: "p1", name: "Proj" });
 
     const { POST } = await import("@/app/api/v1/projects/route");
@@ -120,14 +126,15 @@ describe("DELETE /api/v1/projects/[projectId]", () => {
   });
 
   it("returns 403 when can denies", async () => {
-    mockCan.mockResolvedValue(false);
+    mockCanProject.mockResolvedValue(false);
+    mockIsProjectOwner.mockResolvedValue(false);
     const { DELETE } = await import("@/app/api/v1/projects/[projectId]/route");
     const res = await DELETE(makeRequest("DELETE"), { params: { projectId: "p1" } });
     expect(res.status).toBe(403);
   });
 
   it("archives project and logs audit", async () => {
-    mockCan.mockResolvedValue(true);
+    mockCanProject.mockResolvedValue(true);
     mockGetProjectById.mockResolvedValue({ projectId: "p1", name: "Proj" });
     mockArchiveProject.mockResolvedValue(undefined);
 

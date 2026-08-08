@@ -3,6 +3,21 @@ import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { updateSettings, getSettings } from "@/lib/settings";
 import { logAudit } from "@/lib/audit/log";
 import { encrypt } from "@/lib/crypto/encrypt";
+import { readJsonBody, ssoSettingsUpdateSchema, validationError } from "@/lib/validation/api";
+
+const SENSITIVE_SSO_KEYS = new Set(["bindPassword", "idpCertificate"]);
+
+function redactSsoSettings(value: Record<string, unknown>): Record<string, unknown> {
+  const safe: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (SENSITIVE_SSO_KEYS.has(key)) {
+      safe[`${key}Configured`] = typeof entry === "string" && entry.length > 0;
+    } else {
+      safe[key] = entry;
+    }
+  }
+  return safe;
+}
 
 export async function GET() {
   const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
@@ -13,8 +28,8 @@ export async function GET() {
   if (guardResult) return guardResult;
 
   const allSettings = await getSettings("install", null);
-  const ldap = (allSettings.ldap ?? {}) as Record<string, unknown>;
-  const saml = (allSettings.saml ?? {}) as Record<string, unknown>;
+  const ldap = redactSsoSettings((allSettings.ldap ?? {}) as Record<string, unknown>);
+  const saml = redactSsoSettings((allSettings.saml ?? {}) as Record<string, unknown>);
 
   return NextResponse.json({ data: { ldap, saml } });
 }
@@ -28,13 +43,16 @@ export async function PATCH(request: Request) {
   const guardResult = await guard(request, { params: {} });
   if (guardResult) return guardResult;
 
-  const body = await request.json();
-  const { ldap, saml } = body as { ldap?: Record<string, unknown>; saml?: Record<string, unknown> };
+  const parsed = ssoSettingsUpdateSchema.safeParse(await readJsonBody(request));
+  if (!parsed.success) {
+    return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
+  const { ldap, saml } = parsed.data;
 
   // Fetch current values for audit before/after
   const allBefore = await getSettings("install", null);
-  const beforeLdap = (allBefore.ldap ?? {}) as Record<string, unknown>;
-  const beforeSaml = (allBefore.saml ?? {}) as Record<string, unknown>;
+  const beforeLdap = redactSsoSettings((allBefore.ldap ?? {}) as Record<string, unknown>);
+  const beforeSaml = redactSsoSettings((allBefore.saml ?? {}) as Record<string, unknown>);
 
   const updates: Record<string, unknown> = {};
 
@@ -77,8 +95,8 @@ export async function PATCH(request: Request) {
   }
 
   const allAfter = await getSettings("install", null);
-  const afterLdap = (allAfter.ldap ?? {}) as Record<string, unknown>;
-  const afterSaml = (allAfter.saml ?? {}) as Record<string, unknown>;
+  const afterLdap = redactSsoSettings((allAfter.ldap ?? {}) as Record<string, unknown>);
+  const afterSaml = redactSsoSettings((allAfter.saml ?? {}) as Record<string, unknown>);
 
   await logAudit({
     actorUserId: userId,
