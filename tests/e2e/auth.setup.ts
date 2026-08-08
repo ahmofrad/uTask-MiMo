@@ -1,9 +1,9 @@
 import { test as setup } from "@playwright/test";
 
 const USERS = {
-  admin: { email: "admin@utask.local", password: "password123", file: ".auth/admin.json" },
-  member: { email: "member@utask.local", password: "password123", file: ".auth/member.json" },
-  guest: { email: "guest@utask.local", password: "password123", file: ".auth/guest.json" },
+  admin: { email: "admin@utask.local", password: "password", file: ".auth/admin.json" },
+  member: { email: "member@utask.local", password: "password", file: ".auth/member.json" },
+  guest: { email: "guest@utask.local", password: "password", file: ".auth/guest.json" },
 } as const;
 
 for (const [name, u] of Object.entries(USERS)) {

@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { LOCAL_SEED_EMAIL, LOCAL_SEED_PASSWORD } from "../src/lib/auth/seed-defaults";
 
 const prisma = new PrismaClient();
 
@@ -13,8 +14,8 @@ async function main() {
     throw new Error("Refusing to run the seed in production without ALLOW_PRODUCTION_SEED=true");
   }
 
-  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? (isProduction ? "" : "admin@utask.local");
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? (isProduction ? "" : "password123");
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? (isProduction ? "" : LOCAL_SEED_EMAIL);
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD ?? (isProduction ? "" : LOCAL_SEED_PASSWORD);
   if (!adminEmail || !adminPassword) {
     throw new Error("SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD are required for a production seed");
   }
@@ -61,11 +62,11 @@ async function main() {
     for (const testUser of testUsers) {
       const user = await prisma.user.upsert({
         where: { email: testUser.email },
-        update: { passwordHash: hashPassword("password123"), status: "active" },
+        update: { passwordHash: hashPassword(LOCAL_SEED_PASSWORD), status: "active" },
         create: {
           email: testUser.email,
           displayName: testUser.displayName,
-          passwordHash: hashPassword("password123"),
+          passwordHash: hashPassword(LOCAL_SEED_PASSWORD),
           locale: "en_US",
           status: "active",
         },
@@ -90,7 +91,7 @@ async function main() {
   console.log("✅ Initial owner account provisioned");
   if (!isProduction) {
     console.log("   Local E2E users: member@utask.local and guest@utask.local");
-    console.log("   Local development password: password123");
+    console.log(`   Local development password: ${LOCAL_SEED_PASSWORD}`);
     console.log("");
     console.log("   Run 'pnpm db:sample' to add sample data (users, projects, tasks).");
   }

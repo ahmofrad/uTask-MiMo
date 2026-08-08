@@ -13,7 +13,7 @@ test.describe("Authentication", () => {
   test("login with valid credentials redirects to home", async ({ page }) => {
     await page.goto("/login");
     await page.getByLabel(/email/i).fill("admin@utask.local");
-    await page.getByRole("textbox", { name: /password/i }).fill("password123");
+    await page.getByRole("textbox", { name: /password/i }).fill("password");
     await page.getByRole("button", { name: /sign in/i }).click();
     await page.waitForURL(/\/(en-US|fa-IR)?\/?$/);
     await expect(page).toHaveURL(/\/(en-US|fa-IR)?\/?$/);

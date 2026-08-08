@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { LOCAL_SEED_PASSWORD } from "../src/lib/auth/seed-defaults";
 
 const prisma = new PrismaClient();
 
@@ -17,7 +18,7 @@ async function main() {
     create: {
       email: "owner@utask.local",
       displayName: "مدیر سیستم",
-      passwordHash: hashPassword("password123"),
+      passwordHash: hashPassword(LOCAL_SEED_PASSWORD),
       locale: "fa_IR",
       status: "active",
     },
@@ -29,7 +30,7 @@ async function main() {
     create: {
       email: "admin@utask.local",
       displayName: "مدیر ارشد",
-      passwordHash: hashPassword("password123"),
+      passwordHash: hashPassword(LOCAL_SEED_PASSWORD),
       locale: "fa_IR",
       status: "active",
     },
@@ -41,7 +42,7 @@ async function main() {
     create: {
       email: "manager@utask.local",
       displayName: "سرپرست تیم",
-      passwordHash: hashPassword("password123"),
+      passwordHash: hashPassword(LOCAL_SEED_PASSWORD),
       locale: "fa_IR",
       status: "active",
     },
@@ -53,7 +54,7 @@ async function main() {
     create: {
       email: "sara@utask.local",
       displayName: "سارا محمدی",
-      passwordHash: hashPassword("password123"),
+      passwordHash: hashPassword(LOCAL_SEED_PASSWORD),
       locale: "fa_IR",
       status: "active",
     },
@@ -65,7 +66,7 @@ async function main() {
     create: {
       email: "ali@utask.local",
       displayName: "علی رضایی",
-      passwordHash: hashPassword("password123"),
+      passwordHash: hashPassword(LOCAL_SEED_PASSWORD),
       locale: "fa_IR",
       status: "active",
     },
@@ -77,7 +78,7 @@ async function main() {
     create: {
       email: "member@utask.local",
       displayName: "عضو تیم",
-      passwordHash: hashPassword("password123"),
+      passwordHash: hashPassword(LOCAL_SEED_PASSWORD),
       locale: "fa_IR",
       status: "active",
     },
@@ -89,7 +90,7 @@ async function main() {
     create: {
       email: "guest@utask.local",
       displayName: "مهمان",
-      passwordHash: hashPassword("password123"),
+      passwordHash: hashPassword(LOCAL_SEED_PASSWORD),
       locale: "fa_IR",
       status: "active",
     },
@@ -101,7 +102,7 @@ async function main() {
     create: {
       email: "john@utask.local",
       displayName: "John Smith",
-      passwordHash: hashPassword("password123"),
+      passwordHash: hashPassword(LOCAL_SEED_PASSWORD),
       locale: "en_US",
       status: "active",
     },

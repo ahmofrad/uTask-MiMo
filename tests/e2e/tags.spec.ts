@@ -9,7 +9,7 @@ test.describe("Tags", () => {
     const csrf = cookies.find((c) => c.name === "csrf_token")?.value ?? "";
 
     const loginRes = await request.post("/api/auth/callback/credentials", {
-      form: { csrfToken, email: "admin@utask.local", password: "password123" },
+      form: { csrfToken, email: "admin@utask.local", password: "password" },
     });
     expect(loginRes.status()).toBe(200);
     // Create tag

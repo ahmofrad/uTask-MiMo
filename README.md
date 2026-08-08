@@ -96,7 +96,7 @@ cp .env.example .env.local
 
 # 4. Initialize the database
 pnpm prisma migrate dev
-pnpm db:seed        # Creates admin@utask.local (password: password123; local only)
+pnpm db:seed        # Creates admin@utask.local (password: password; local only)
 pnpm db:sample      # Optional: adds sample users, projects, tasks
 
 # 5. Run the dev server
@@ -111,13 +111,13 @@ pnpm dev
 #
 #   Role     Email                  Password
 #   ──────   ─────────────────────  ──────────
-#   Owner    owner@utask.local      password123
-#   Admin    admin@utask.local      password123
-#   Manager  manager@utask.local    password123
-#   Member   sara@utask.local       password123
-#   Member   ali@utask.local        password123
-#   Guest    guest@utask.local      password123
-#   Member   john@utask.local       password123
+#   Owner    owner@utask.local      password
+#   Admin    admin@utask.local      password
+#   Manager  manager@utask.local    password
+#   Member   sara@utask.local       password
+#   Member   ali@utask.local        password
+#   Guest    guest@utask.local      password
+#   Member   john@utask.local       password
 #
 # The Owner account has full permissions. Use it to set up
 # your first admin or invite team members.

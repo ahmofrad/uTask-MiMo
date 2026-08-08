@@ -3,7 +3,7 @@ set -euo pipefail
 
 BASE_URL="${BASE_URL:-http://localhost:3000}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@utask.local}"
-ADMIN_PASSWORD="${ADMIN_PASSWORD:-password123}"
+ADMIN_PASSWORD="${ADMIN_PASSWORD:-password}"
 COOKIE_JAR=$(mktemp)
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
