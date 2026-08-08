@@ -26,7 +26,12 @@ export default defineConfig({
   webServer: {
     command: "npm run start",
     url: baseURL,
-    env: { PORT: port },
+    env: {
+      PORT: port,
+      AUTH_URL: baseURL,
+      NEXTAUTH_URL: baseURL,
+      AUTH_TRUST_HOST: "true",
+    },
     // Never silently reuse an unrelated/stale server. Opt in only when the
     // caller deliberately started the matching build and selected BASE_URL.
     reuseExistingServer: process.env.PLAYWRIGHT_REUSE_SERVER === "true",
