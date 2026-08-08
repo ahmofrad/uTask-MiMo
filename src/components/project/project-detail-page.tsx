@@ -16,6 +16,7 @@ import { CustomFieldsManager } from "@/components/custom-field/custom-fields-man
 import { MembersModal } from "@/components/project/members-modal";
 import { ProjectDetailHeader } from "@/components/project/project-detail-header";
 import { ProjectSettingsModal } from "@/components/project/project-settings-modal";
+import { ProjectDepartmentLinks } from "@/components/project/project-department-links";
 import { Dialog } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-fetch";
 
@@ -243,6 +244,8 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
         onOpenTags={() => setShowTagsModal(true)}
         onOpenMembers={() => setShowMembersModal(true)}
       />
+
+      <ProjectDepartmentLinks projectId={project.id} canManage={canManage} />
 
       {/* Tab Bar */}
       <div className="flex items-center gap-2 mb-6">

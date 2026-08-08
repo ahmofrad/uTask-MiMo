@@ -257,7 +257,7 @@
 > See [`DEPLOYMENT.md`](./DEPLOYMENT.md).
 
 - [x] Production Dockerfile (multi-stage, distroless or alpine, non-root user).
-- [ ] `docker-compose.prod.yml`: app x2, postgres + PgBouncer, Redis Sentinel, distributed MinIO, nginx reverse proxy with TLS termination, **webhook egress allowance documented**. The current Compose/Helm bundles provide single-instance Redis and MinIO; HA data services remain an explicit deployment gap.
+- [x] `docker-compose.prod.yml`: app x2, postgres + PgBouncer, Redis Sentinel, distributed MinIO, nginx reverse proxy with TLS termination, **webhook egress allowance documented**. The Compose bundle now provides the redundant Redis/MinIO topology; PostgreSQL automatic failover remains an explicit external HA requirement.
 - [x] `.env.prod.example` with every variable documented, including webhook signing secret encryption key.
 - [x] `scripts/backup.sh`: nightly pg_dump + MinIO snapshot, retention.
 - [x] `scripts/restore.sh`: restore from a dump.
@@ -267,7 +267,7 @@
   - [x] Deployments for app and worker (Socket.IO is served by the app process).
   - [x] PVCs with appropriate size.
   - [x] HPA on app.
-  - [ ] HPA/PDB policy for worker and other workloads.
+  - [x] HPA/PDB policy for worker and other workloads.
 - [x] `ops/grafana/` with pre-built dashboards including webhook delivery health.
 - [x] `ops/prometheus/` scrape config + `ops/alertmanager/` rules including webhook failure alert.
 - [x] Installation documentation ([`docs/install.md`](./docs/install.md)):

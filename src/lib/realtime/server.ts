@@ -9,6 +9,7 @@ import { prisma } from "@/lib/db";
 import { canReadProject, canReadTask } from "@/lib/rbac";
 import { randomUUID } from "@/lib/crypto";
 import { waitForRedisReady } from "@/lib/queue/connection";
+import { getRedisConnectionOptions } from "@/lib/redis/config";
 
 const GLOBAL_KEY = "__taskapp_socketio__";
 
@@ -78,9 +79,9 @@ export async function initSocketIO(httpServer: HTTPServer) {
   io = new Server(httpServer, opts as never);
   setGlobalIO(io);
 
-  const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
   try {
-    const pubClient = new Redis(redisUrl);
+    const connection = getRedisConnectionOptions();
+    const pubClient = typeof connection === "string" ? new Redis(connection) : new Redis(connection);
     await waitForRedisReady(pubClient as never);
     const subClient = pubClient.duplicate();
     await waitForRedisReady(subClient as never);

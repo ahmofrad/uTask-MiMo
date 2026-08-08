@@ -3,6 +3,7 @@ import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { getLdapConfig, searchLdapGroups } from "@/lib/auth/providers/ldap";
 import { logAudit } from "@/lib/audit/log";
+import { ensureLdapDepartment } from "@/lib/departments";
 import { ldapGroupSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
@@ -17,7 +18,10 @@ export async function GET(request: Request) {
 
   // No query → list the already-selected sync groups (always available, even if LDAP is off).
   if (!q.trim()) {
-    const groups = await prisma.ldapSyncGroup.findMany({ orderBy: { name: "asc" } });
+    const groups = await prisma.ldapSyncGroup.findMany({
+      where: { deletedAt: null },
+      orderBy: { name: "asc" },
+    });
     return NextResponse.json({ data: groups });
   }
 
@@ -48,16 +52,36 @@ export async function POST(request: Request) {
   const group = await prisma.ldapSyncGroup.upsert({
     where: { dn },
     create: { dn, name },
-    update: { name },
+    update: { name, deletedAt: null },
   });
+
+  const departmentResult = await ensureLdapDepartment({ id: group.id, name: group.name });
+
+  if (departmentResult.created) {
+    await logAudit({
+      actorUserId: userId,
+      action: "department_created",
+      entityType: "department",
+      entityId: departmentResult.department.id,
+      after: departmentResult.department as never,
+    });
+  } else if (departmentResult.renamed) {
+    await logAudit({
+      actorUserId: userId,
+      action: "department_updated",
+      entityType: "department",
+      entityId: departmentResult.department.id,
+      after: departmentResult.department as never,
+    });
+  }
 
   await logAudit({
     actorUserId: userId,
     action: "ldap_group_added",
     entityType: "ldapgroup",
     entityId: group.id,
-    after: { dn, name },
+    after: { dn, name, departmentId: departmentResult.department.id },
   });
 
-  return NextResponse.json({ data: group });
+  return NextResponse.json({ data: { ...group, department: departmentResult.department } });
 }

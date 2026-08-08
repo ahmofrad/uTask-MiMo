@@ -29,4 +29,10 @@ describe("notificationContent", () => {
     const c = notificationContent("some_event", null, t);
     expect(c.title).toBe("some event");
   });
+
+  it("renders department link requests", () => {
+    const c = notificationContent("department_link_request", { departmentName: "Engineering", projectName: "Roadmap" }, t);
+    expect(c.title).toContain("departmentLinkRequestTitle");
+    expect(c.body).toContain("departmentLinkRequestBody");
+  });
 });

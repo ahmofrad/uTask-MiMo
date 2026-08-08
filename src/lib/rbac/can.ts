@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { prisma } from "@/lib/db";
+import { getManagedDepartmentIds } from "@/lib/departments";
 import type { RoleType, Permission, ProjectMemberRole } from "@/lib/rbac/roles";
 import { hasPermission, hasProjectPermission } from "@/lib/rbac/roles";
 
@@ -50,18 +51,33 @@ export async function canProject(
   // Check project membership
   const member = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId } },
-    select: { projectRole: true, project: { select: { archivedAt: true } } },
+    select: { projectRole: true, disabledAt: true, project: { select: { archivedAt: true } } },
   });
   if (member) {
-    return member.project.archivedAt === null && hasProjectPermission(member.projectRole as ProjectMemberRole, permission);
+    const membershipActive = member.disabledAt === null || member.disabledAt === undefined;
+    return member.project.archivedAt === null && membershipActive && hasProjectPermission(member.projectRole as ProjectMemberRole, permission);
   }
 
-  if (globalRole?.type === "manager") {
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { archivedAt: true, department: { select: { managerUserId: true } } },
-    });
-    return project?.archivedAt === null && project.department?.managerUserId === userId && hasPermission("manager", permission);
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      archivedAt: true,
+      department: { select: { id: true, managerUserId: true } },
+      departmentLinks: { select: { departmentId: true } },
+    },
+  });
+  if (project?.archivedAt !== null) return false;
+  if (project?.department?.managerUserId === userId) {
+    return hasPermission("manager", permission);
+  }
+
+  const linkedDepartmentIds = Array.from(new Set([
+    ...(project?.department?.id ? [project.department.id] : []),
+    ...(project?.departmentLinks?.map((link) => link.departmentId) ?? []),
+  ]));
+  if (linkedDepartmentIds.length > 0) {
+    const managedDepartmentIds = await getManagedDepartmentIds(userId);
+    return linkedDepartmentIds.some((id) => managedDepartmentIds.includes(id)) && hasPermission("manager", permission);
   }
 
   return false;
@@ -70,13 +86,10 @@ export async function canProject(
 export async function canCreateProject(userId: string, departmentId?: string | null): Promise<boolean> {
   const { globalRole } = await getUserRole(userId);
   if (globalRole === "owner" || globalRole === "admin") return true;
-  if (globalRole !== "manager" || !departmentId) return false;
+  if (!departmentId) return false;
 
-  const department = await prisma.department.findUnique({
-    where: { id: departmentId },
-    select: { managerUserId: true, deletedAt: true },
-  });
-  return department?.deletedAt === null && department.managerUserId === userId;
+  const managedDepartmentIds = await getManagedDepartmentIds(userId);
+  return managedDepartmentIds.includes(departmentId);
 }
 
 /**
@@ -95,16 +108,28 @@ export const canReadProject = cache(async (userId: string, projectId: string): P
 
   const member = await prisma.projectMember.findUnique({
     where: { projectId_userId: { projectId, userId } },
-    select: { project: { select: { archivedAt: true } } },
+    select: { disabledAt: true, project: { select: { archivedAt: true } } },
   });
-  if (member?.project.archivedAt === null) return true;
+  if (member?.project.archivedAt === null && (member.disabledAt === null || member.disabledAt === undefined)) return true;
 
-  if (globalRole?.type === "manager") {
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-      select: { archivedAt: true, department: { select: { managerUserId: true } } },
-    });
-    return project?.archivedAt === null && project.department?.managerUserId === userId;
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: {
+      archivedAt: true,
+      department: { select: { id: true, managerUserId: true } },
+      departmentLinks: { select: { departmentId: true } },
+    },
+  });
+  if (project?.archivedAt !== null) return false;
+  if (project?.department?.managerUserId === userId) return true;
+
+  const linkedDepartmentIds = Array.from(new Set([
+    ...(project?.department?.id ? [project.department.id] : []),
+    ...(project?.departmentLinks?.map((link) => link.departmentId) ?? []),
+  ]));
+  if (linkedDepartmentIds.length > 0) {
+    const managedDepartmentIds = await getManagedDepartmentIds(userId);
+    return linkedDepartmentIds.some((id) => managedDepartmentIds.includes(id));
   }
 
   return false;

@@ -14,10 +14,11 @@ export async function apiFetch(
   // Attach CSRF token on state-changing requests
   if (["POST", "PATCH", "DELETE", "PUT"].includes(method)) {
     const token = getCsrfToken();
+    const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
     if (token && !headers.has("x-csrf-token")) {
       headers.set("x-csrf-token", token);
     }
-    if (!headers.has("Content-Type") && options.body) {
+    if (!headers.has("Content-Type") && options.body && !isFormData) {
       headers.set("Content-Type", "application/json");
     }
 

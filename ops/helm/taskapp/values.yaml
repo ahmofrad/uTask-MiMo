@@ -14,6 +14,9 @@ app:
     minReplicas: 3
     maxReplicas: 10
     targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 2
 
 worker:
   image: taskapp/app
@@ -26,6 +29,14 @@ worker:
     limits:
       cpu: "2"
       memory: "4Gi"
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
 
 serviceAccount:
   create: false

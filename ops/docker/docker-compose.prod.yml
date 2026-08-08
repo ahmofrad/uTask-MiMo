@@ -1,11 +1,100 @@
 # ──────────────────────────────────────────────
 # TaskApp — Production Docker Compose
-# Single-VM deployment (small, < 500 users)
+# HA application/cache/object-storage reference topology.
+#
+# This file intentionally keeps PostgreSQL as one primary behind PgBouncer.
+# Automatic PostgreSQL failover requires an external HA operator (for example
+# Patroni) and must not be implied by a second ordinary Postgres container.
 # ──────────────────────────────────────────────
+#
+# Run with the production environment explicitly:
+#   docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
+#
+# The app and worker containers require outbound TCP 443 (and, where needed,
+# TCP 80) to customer-approved webhook destinations. Enforce the allowlist at
+# the host firewall or an egress proxy; Docker bridge networking does not
+# provide destination-level egress policy by itself.
 
 x-app-env: &app-env
-  # The production env file is kept at the repository root and is ignored by git.
   env_file: ../../.env.prod
+  environment:
+    REDIS_SENTINEL_NAME: taskapp-primary
+    REDIS_SENTINELS: redis-sentinel-1:26379,redis-sentinel-2:26379,redis-sentinel-3:26379
+    REDIS_SENTINEL_PASSWORD: "${REDIS_SENTINEL_PASSWORD:?REDIS_SENTINEL_PASSWORD must be set}"
+
+x-app-common: &app-common
+  image: taskapp/app:${APP_VERSION:-1.0.0}
+  <<: *app-env
+  networks:
+    - taskapp-net
+  restart: unless-stopped
+
+x-redis-node: &redis-node
+  image: redis:7-alpine
+  env_file: ../../.env.prod
+  networks:
+    - taskapp-net
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+    interval: 10s
+    timeout: 5s
+    retries: 10
+    start_period: 10s
+
+x-sentinel-node: &sentinel-node
+  image: redis:7-alpine
+  env_file: ../../.env.prod
+  networks:
+    - taskapp-net
+  restart: unless-stopped
+  command:
+    - sh
+    - -ec
+    - |
+      cat >/tmp/sentinel.conf <<EOF
+      port 26379
+      protected-mode no
+      requirepass $${REDIS_PASSWORD}
+      sentinel monitor taskapp-primary redis-1 6379 2
+      sentinel auth-pass taskapp-primary $${REDIS_PASSWORD}
+      sentinel down-after-milliseconds taskapp-primary 5000
+      sentinel failover-timeout taskapp-primary 60000
+      sentinel parallel-syncs taskapp-primary 1
+      EOF
+      exec redis-server /tmp/sentinel.conf --sentinel
+  healthcheck:
+    test: ["CMD-SHELL", "redis-cli -p 26379 -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
+    interval: 10s
+    timeout: 5s
+    retries: 10
+    start_period: 10s
+
+x-minio-node: &minio-node
+  image: minio/minio:RELEASE.2024-08-29T01-40-52Z
+  env_file: ../../.env.prod
+  environment:
+    MINIO_ROOT_USER: "${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set}"
+    MINIO_ROOT_PASSWORD: "${S3_SECRET_KEY:?S3_SECRET_KEY must be set}"
+  command:
+    - server
+    - http://minio-1/data
+    - http://minio-2/data
+    - http://minio-3/data
+    - http://minio-4/data
+    - --console-address
+    - :9001
+  networks:
+    taskapp-net:
+      aliases:
+        - minio
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+    interval: 10s
+    timeout: 5s
+    retries: 10
+    start_period: 20s
 
 services:
   nginx:
@@ -16,33 +105,69 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./certs:/etc/nginx/certs:ro
     depends_on:
-      app:
-        condition: service_started
+      app-1:
+        condition: service_healthy
+      app-2:
+        condition: service_healthy
     networks:
       - taskapp-net
+    restart: unless-stopped
 
-  app:
-    image: taskapp/app:${APP_VERSION:-1.0.0}
-    <<: *app-env
+  app-1:
+    <<: *app-common
     depends_on:
       migrate:
         condition: service_completed_successfully
       pgbouncer:
         condition: service_healthy
-      redis:
-        condition: service_started
-      minio:
-        condition: service_started
-    networks:
-      - taskapp-net
-    restart: unless-stopped
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          memory: 4G
-        reservations:
-          memory: 1G
+      redis-sentinel-1:
+        condition: service_healthy
+      redis-sentinel-2:
+        condition: service_healthy
+      redis-sentinel-3:
+        condition: service_healthy
+      minio-1:
+        condition: service_healthy
+      minio-2:
+        condition: service_healthy
+      minio-3:
+        condition: service_healthy
+      minio-4:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/v1/health?ready=1').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  app-2:
+    <<: *app-common
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_healthy
+      redis-sentinel-1:
+        condition: service_healthy
+      redis-sentinel-2:
+        condition: service_healthy
+      redis-sentinel-3:
+        condition: service_healthy
+      minio-1:
+        condition: service_healthy
+      minio-2:
+        condition: service_healthy
+      minio-3:
+        condition: service_healthy
+      minio-4:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/v1/health?ready=1').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
 
   worker:
     image: taskapp/app:${APP_VERSION:-1.0.0}
@@ -53,8 +178,12 @@ services:
         condition: service_completed_successfully
       pgbouncer:
         condition: service_healthy
-      redis:
-        condition: service_started
+      redis-sentinel-1:
+        condition: service_healthy
+      redis-sentinel-2:
+        condition: service_healthy
+      redis-sentinel-3:
+        condition: service_healthy
     networks:
       - taskapp-net
     restart: unless-stopped
@@ -76,14 +205,13 @@ services:
         condition: service_healthy
     networks:
       - taskapp-net
+    restart: "no"
 
   pgbouncer:
     image: bitnamilegacy/pgbouncer:1.24.1-debian-12-r10
     environment:
       POSTGRESQL_HOST: postgres
       POSTGRESQL_PORT: "5432"
-      # Alias key for [databases] — must match the DB in DATABASE_URL (…/taskapp).
-      # bitnami defaults the key to `postgres`, which the app never connects to through pgbouncer.
       PGBOUNCER_DATABASE: taskapp
       POSTGRESQL_DATABASE: taskapp
       POSTGRESQL_USERNAME: taskapp
@@ -121,60 +249,108 @@ services:
       - -c
       - shared_buffers=2GB
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U taskapp"]
+      test: ["CMD-SHELL", "pg_isready -U taskapp -d taskapp"]
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
       start_period: 30s
     networks:
       - taskapp-net
     restart: unless-stopped
 
-  redis:
-    image: redis:7-alpine
-    command:
-      - redis-server
-      - --appendonly
-      - "yes"
-      - --maxmemory
-      - 2gb
-      - --maxmemory-policy
-      - noeviction
-    volumes:
-      - redisdata:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+  redis-1:
+    <<: *redis-node
     networks:
-      - taskapp-net
-    restart: unless-stopped
+      taskapp-net:
+        aliases:
+          - redis-1
+    volumes:
+      - redisdata1:/data
+    command: >-
+      sh -ec 'exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"
+      --masterauth "$${REDIS_PASSWORD}" --maxmemory 2gb --maxmemory-policy noeviction'
 
-  minio:
-    image: minio/minio:RELEASE.2024-08-29T01-40-52Z
-    command: server /data --console-address ":9001"
-    environment:
-      MINIO_ROOT_USER: "${S3_ACCESS_KEY:?S3_ACCESS_KEY must be set}"
-      MINIO_ROOT_PASSWORD: "${S3_SECRET_KEY:?S3_SECRET_KEY must be set}"
-    volumes:
-      - miniodata:/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
+  redis-2:
+    <<: *redis-node
     networks:
-      - taskapp-net
-    restart: unless-stopped
+      taskapp-net:
+        aliases:
+          - redis-2
+    volumes:
+      - redisdata2:/data
+    command: >-
+      sh -ec 'exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"
+      --masterauth "$${REDIS_PASSWORD}" --replicaof redis-1 6379
+      --maxmemory 2gb --maxmemory-policy noeviction'
+
+  redis-3:
+    <<: *redis-node
+    networks:
+      taskapp-net:
+        aliases:
+          - redis-3
+    volumes:
+      - redisdata3:/data
+    command: >-
+      sh -ec 'exec redis-server --appendonly yes --requirepass "$${REDIS_PASSWORD}"
+      --masterauth "$${REDIS_PASSWORD}" --replicaof redis-1 6379
+      --maxmemory 2gb --maxmemory-policy noeviction'
+
+  redis-sentinel-1:
+    <<: *sentinel-node
+    depends_on:
+      redis-1:
+        condition: service_healthy
+
+  redis-sentinel-2:
+    <<: *sentinel-node
+    depends_on:
+      redis-1:
+        condition: service_healthy
+
+  redis-sentinel-3:
+    <<: *sentinel-node
+    depends_on:
+      redis-1:
+        condition: service_healthy
+
+  minio-1:
+    <<: *minio-node
+    volumes:
+      - miniodata1:/data
+
+  minio-2:
+    <<: *minio-node
+    volumes:
+      - miniodata2:/data
+
+  minio-3:
+    <<: *minio-node
+    volumes:
+      - miniodata3:/data
+
+  minio-4:
+    <<: *minio-node
+    volumes:
+      - miniodata4:/data
 
 volumes:
   pgdata:
     name: taskapp_pgdata
-  redisdata:
-    name: taskapp_redisdata
-  miniodata:
-    name: taskapp_miniodata
+  redisdata1:
+    name: taskapp_redisdata1
+  redisdata2:
+    name: taskapp_redisdata2
+  redisdata3:
+    name: taskapp_redisdata3
+  miniodata1:
+    name: taskapp_miniodata1
+  miniodata2:
+    name: taskapp_miniodata2
+  miniodata3:
+    name: taskapp_miniodata3
+  miniodata4:
+    name: taskapp_miniodata4
   backups:
     name: taskapp_backups
 

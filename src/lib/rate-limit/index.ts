@@ -1,8 +1,9 @@
 import { logger } from "@/lib/logging";
 import { randomUUID } from "node:crypto";
 import { waitForRedisReady, type RedisReadyClient } from "@/lib/queue/connection";
+import type { RedisOptions } from "ioredis";
+import { getRedisConnectionOptions } from "@/lib/redis/config";
 
-const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
 const rateLimitBackend = process.env.RATE_LIMIT_BACKEND ?? "redis";
 const failClosed = process.env.NODE_ENV === "production" || process.env.RATE_LIMIT_FAIL_CLOSED === "true";
 
@@ -24,7 +25,7 @@ type RedisPipeline = {
 };
 
 type RedisModule = {
-  default: new (_url: string, _opts?: Record<string, unknown>) => RedisClient;
+  default: new (_options: string | RedisOptions, _opts?: Record<string, unknown>) => RedisClient;
 };
 
 let sharedRedis: RedisClient | null = null;
@@ -52,7 +53,7 @@ async function getRedis(): Promise<RedisClient | null> {
   let redis: RedisClient | null = null;
   try {
     const mod = (await import(/* webpackIgnore: true */ "ioredis")) as RedisModule;
-    redis = new mod.default(redisUrl, {
+    redis = new mod.default(getRedisConnectionOptions(), {
       maxRetriesPerRequest: 1,
       enableOfflineQueue: false,
       retryStrategy(times: number) {

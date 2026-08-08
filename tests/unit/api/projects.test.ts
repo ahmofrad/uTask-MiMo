@@ -27,6 +27,10 @@ vi.mock("@/lib/projects", () => ({
   updateProject: vi.fn(),
   archiveProject: vi.fn(),
 }));
+const mockCreateDepartmentLinkRequest = vi.fn();
+vi.mock("@/lib/projects/department-links", () => ({
+  createDepartmentLinkRequest: mockCreateDepartmentLinkRequest,
+}));
 
 function makeRequest(method: string, body?: unknown): Request {
   const init: RequestInit = {
@@ -62,6 +66,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   authenticatedSession();
   mockCanCreateProject.mockResolvedValue(true);
+  mockCan.mockResolvedValue(true);
   mockCanProject.mockResolvedValue(false);
   mockIsProjectOwner.mockResolvedValue(false);
 });
@@ -103,6 +108,49 @@ describe("POST /api/v1/projects", () => {
       expect.objectContaining({ action: "project_created" }),
     );
     expect(mockEmitTaskEvent).toHaveBeenCalledWith("project.created", "p1", expect.anything(), "user-1");
+  });
+
+  it("passes multiple department links to project creation", async () => {
+    mockCanCreateProject.mockResolvedValue(true);
+    mockCreateProject.mockResolvedValue({ id: "p2", name: "Shared" });
+
+    const { POST } = await import("@/app/api/v1/projects/route");
+    const res = await POST(makeRequest("POST", {
+      name: "Shared",
+      departmentIds: ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"],
+    }));
+
+    expect(res.status).toBe(201);
+    expect(mockCanCreateProject).toHaveBeenCalledWith("user-1", "00000000-0000-4000-8000-000000000001");
+    expect(mockCreateProject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        departmentId: "00000000-0000-4000-8000-000000000001",
+        departmentIds: ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"],
+      }),
+    );
+  });
+
+  it("turns additional manager-selected departments into pending requests", async () => {
+    mockCanCreateProject.mockResolvedValue(true);
+    mockCan.mockResolvedValue(false);
+    mockCreateProject.mockResolvedValue({ id: "p3", name: "Manager Project" });
+    mockCreateDepartmentLinkRequest.mockResolvedValue({ id: "request-1", status: "pending" });
+
+    const { POST } = await import("@/app/api/v1/projects/route");
+    const res = await POST(makeRequest("POST", {
+      name: "Manager Project",
+      departmentIds: ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"],
+    }));
+
+    expect(res.status).toBe(201);
+    expect(mockCreateProject).toHaveBeenCalledWith(expect.objectContaining({
+      departmentIds: ["00000000-0000-4000-8000-000000000001"],
+    }));
+    expect(mockCreateDepartmentLinkRequest).toHaveBeenCalledWith({
+      projectId: "p3",
+      departmentId: "00000000-0000-4000-8000-000000000002",
+      requestedById: "user-1",
+    });
   });
 });
 

@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider             = "postgresql"
-  url                  = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum UserStatus {
@@ -44,6 +44,19 @@ enum RoleScope {
   project
 }
 
+enum DepartmentSource {
+  manual
+  ldap
+}
+
+enum ProjectDepartmentLinkRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+  revoked
+}
+
 enum ProjectVisibility {
   private
   department
@@ -59,6 +72,10 @@ enum ProjectMemberRole {
   lead
   contributor
   viewer
+}
+
+enum ProjectMemberDisableReason {
+  ldap
 }
 
 enum CustomFieldType {
@@ -99,6 +116,7 @@ enum NotificationType {
   commented
   status_changed
   unblocked
+  department_link_request
 }
 
 enum DependencyType {
@@ -152,6 +170,10 @@ enum AuditAction {
   project_created
   project_updated
   project_archived
+  project_department_link_requested
+  project_department_link_approved
+  project_department_link_rejected
+  project_department_link_cancelled
   custom_field_created
   custom_field_updated
   custom_field_archived
@@ -194,23 +216,27 @@ model User {
   createdAt     DateTime   @default(now()) @db.Timestamptz
   updatedAt     DateTime   @updatedAt @db.Timestamptz
 
-  authIdentities     AuthIdentity[]
-  accounts           Account[]
-  sessions           Session[]
-  roles              Role[]
-  ownedProjects      Project[]       @relation("ProjectOwner")
-  projectMembers     ProjectMember[] @relation("ProjectMemberUser")
-  projectMemberAdded ProjectMember[] @relation("ProjectMemberAddedBy")
-  assignedTasks      TaskAssignee[]  @relation("UserAssignedTasks")
-  reportedTasks      Task[]          @relation("TaskReporter")
-  createdTasks       Task[]          @relation("TaskCreator")
-  attachments        Attachment[]
-  comments           Comment[]
-  watchers           Watcher[]
-  notifications      Notification[]
-  auditLogs          AuditLog[]
-  apiTokens          ApiToken[]
-  webhooks           Webhook[]
+  authIdentities                        AuthIdentity[]
+  accounts                              Account[]
+  sessions                              Session[]
+  roles                                 Role[]
+  ownedProjects                         Project[]                      @relation("ProjectOwner")
+  projectMembers                        ProjectMember[]                @relation("ProjectMemberUser")
+  projectMemberAdded                    ProjectMember[]                @relation("ProjectMemberAddedBy")
+  assignedTasks                         TaskAssignee[]                 @relation("UserAssignedTasks")
+  reportedTasks                         Task[]                         @relation("TaskReporter")
+  createdTasks                          Task[]                         @relation("TaskCreator")
+  attachments                           Attachment[]
+  comments                              Comment[]
+  watchers                              Watcher[]
+  notifications                         Notification[]
+  auditLogs                             AuditLog[]
+  apiTokens                             ApiToken[]
+  webhooks                              Webhook[]
+  ldapMemberships                       LdapGroupMembership[]
+  managedDepartments                    Department[]                   @relation("DepartmentManager")
+  projectDepartmentLinkRequestsMade     ProjectDepartmentLinkRequest[] @relation("ProjectDepartmentLinkRequestRequester")
+  projectDepartmentLinkRequestsReviewed ProjectDepartmentLinkRequest[] @relation("ProjectDepartmentLinkRequestReviewer")
 
   @@map("User")
 }
@@ -246,53 +272,96 @@ model Role {
 }
 
 model Department {
-  id            String    @id @default(uuid()) @db.Uuid
-  name          String    @db.VarChar(255)
-  parentId      String?   @db.Uuid
-  managerUserId String?   @db.Uuid
-  deletedAt     DateTime? @db.Timestamptz
-  createdAt     DateTime  @default(now()) @db.Timestamptz
-  updatedAt     DateTime  @updatedAt @db.Timestamptz
+  id              String           @id @default(uuid()) @db.Uuid
+  name            String           @db.VarChar(255)
+  parentId        String?          @db.Uuid
+  managerUserId   String?          @db.Uuid
+  source          DepartmentSource @default(manual)
+  ldapSyncGroupId String?          @unique @db.Uuid
+  deletedAt       DateTime?        @db.Timestamptz
+  createdAt       DateTime         @default(now()) @db.Timestamptz
+  updatedAt       DateTime         @updatedAt @db.Timestamptz
 
-  parent   Department?  @relation("DepartmentTree", fields: [parentId], references: [id])
-  children Department[] @relation("DepartmentTree")
-  projects Project[]
+  parent                 Department?                    @relation("DepartmentTree", fields: [parentId], references: [id])
+  children               Department[]                   @relation("DepartmentTree")
+  manager                User?                          @relation("DepartmentManager", fields: [managerUserId], references: [id], onDelete: SetNull)
+  ldapSyncGroup          LdapSyncGroup?                 @relation(fields: [ldapSyncGroupId], references: [id], onDelete: SetNull)
+  projects               Project[]
+  projectLinks           ProjectDepartment[]
+  departmentLinkRequests ProjectDepartmentLinkRequest[]
 
   @@map("Department")
 }
 
 model Project {
-  id           String            @id @default(uuid()) @db.Uuid
-  name         String            @db.VarChar(255)
-  description  String?           @db.Text
-  color        String            @default("#2563eb") @db.VarChar(7)
-  ownerId      String            @db.Uuid
-  departmentId String?           @db.Uuid
-  scheduleVersion Int            @default(0)
-  visibility   ProjectVisibility @default(private)
-  status       ProjectStatus     @default(active)
-  archivedAt   DateTime?         @db.Timestamptz
-  createdAt    DateTime          @default(now()) @db.Timestamptz
-  updatedAt    DateTime          @updatedAt @db.Timestamptz
+  id              String            @id @default(uuid()) @db.Uuid
+  name            String            @db.VarChar(255)
+  description     String?           @db.Text
+  color           String            @default("#2563eb") @db.VarChar(7)
+  ownerId         String            @db.Uuid
+  departmentId    String?           @db.Uuid
+  scheduleVersion Int               @default(0)
+  visibility      ProjectVisibility @default(private)
+  status          ProjectStatus     @default(active)
+  archivedAt      DateTime?         @db.Timestamptz
+  createdAt       DateTime          @default(now()) @db.Timestamptz
+  updatedAt       DateTime          @updatedAt @db.Timestamptz
 
-  owner        User            @relation("ProjectOwner", fields: [ownerId], references: [id])
-  department   Department?     @relation(fields: [departmentId], references: [id])
-  members      ProjectMember[]
-  customFields CustomField[]
-  tasks        Task[]
-  tags         Tag[]
+  owner                  User                           @relation("ProjectOwner", fields: [ownerId], references: [id])
+  department             Department?                    @relation(fields: [departmentId], references: [id])
+  departmentLinks        ProjectDepartment[]
+  departmentLinkRequests ProjectDepartmentLinkRequest[]
+  members                ProjectMember[]
+  customFields           CustomField[]
+  tasks                  Task[]
+  tags                   Tag[]
 
   @@index([ownerId])
   @@index([departmentId])
   @@map("Project")
 }
 
+model ProjectDepartment {
+  projectId    String   @db.Uuid
+  departmentId String   @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, departmentId])
+  @@index([departmentId, projectId])
+  @@map("ProjectDepartment")
+}
+
+model ProjectDepartmentLinkRequest {
+  id            String                             @id @default(uuid()) @db.Uuid
+  projectId     String                             @db.Uuid
+  departmentId  String                             @db.Uuid
+  requestedById String                             @db.Uuid
+  reviewedById  String?                            @db.Uuid
+  status        ProjectDepartmentLinkRequestStatus @default(pending)
+  createdAt     DateTime                           @default(now()) @db.Timestamptz
+  reviewedAt    DateTime?                          @db.Timestamptz
+
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  department  Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  requestedBy User       @relation("ProjectDepartmentLinkRequestRequester", fields: [requestedById], references: [id])
+  reviewedBy  User?      @relation("ProjectDepartmentLinkRequestReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId, departmentId, status])
+  @@index([departmentId, status])
+  @@map("ProjectDepartmentLinkRequest")
+}
+
 model ProjectMember {
-  projectId   String            @db.Uuid
-  userId      String            @db.Uuid
-  projectRole ProjectMemberRole @default(contributor)
-  addedAt     DateTime          @default(now()) @db.Timestamptz
-  addedBy     String            @db.Uuid
+  projectId      String                      @db.Uuid
+  userId         String                      @db.Uuid
+  projectRole    ProjectMemberRole           @default(contributor)
+  addedAt        DateTime                    @default(now()) @db.Timestamptz
+  addedBy        String                      @db.Uuid
+  disabledAt     DateTime?                   @db.Timestamptz
+  disabledReason ProjectMemberDisableReason?
 
   project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user        User    @relation("ProjectMemberUser", fields: [userId], references: [id], onDelete: Cascade)
@@ -370,12 +439,12 @@ model Task {
   createdAt      DateTime     @default(now()) @db.Timestamptz
   updatedAt      DateTime     @updatedAt @db.Timestamptz
 
-  project    Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  parentTask Task?   @relation("Subtask", fields: [parentTaskId], references: [id])
-  subtasks   Task[]  @relation("Subtask")
+  project    Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentTask Task?          @relation("Subtask", fields: [parentTaskId], references: [id])
+  subtasks   Task[]         @relation("Subtask")
   assignees  TaskAssignee[] @relation("TaskAssignees")
-  reporter   User?   @relation("TaskReporter", fields: [reporterId], references: [id])
-  createdBy  User    @relation("TaskCreator", fields: [createdById], references: [id])
+  reporter   User?          @relation("TaskReporter", fields: [reporterId], references: [id])
+  createdBy  User           @relation("TaskCreator", fields: [createdById], references: [id])
 
   customFieldValues CustomFieldValue[]
   comments          Comment[]
@@ -412,16 +481,16 @@ model TaskAssignee {
 }
 
 model TaskDependency {
-  id          String        @id @default(uuid()) @db.Uuid
-  taskId      String        @db.Uuid
-  dependsOnId String        @db.Uuid
+  id          String         @id @default(uuid()) @db.Uuid
+  taskId      String         @db.Uuid
+  dependsOnId String         @db.Uuid
   type        DependencyType @default(FINISH_TO_START)
-  lag         Int           @default(0)
-  lagUnit     LagUnit       @default(DAY)
+  lag         Int            @default(0)
+  lagUnit     LagUnit        @default(DAY)
   teamId      String?
-  createdBy   String        @db.Uuid
-  createdAt   DateTime      @default(now()) @db.Timestamptz
-  deletedAt   DateTime?     @db.Timestamptz
+  createdBy   String         @db.Uuid
+  createdAt   DateTime       @default(now()) @db.Timestamptz
+  deletedAt   DateTime?      @db.Timestamptz
 
   task      Task @relation("DependencyDependent", fields: [taskId], references: [id], onDelete: Cascade)
   dependsOn Task @relation("DependencyPredecessor", fields: [dependsOnId], references: [id], onDelete: Cascade)
@@ -434,7 +503,7 @@ model TaskDependency {
 }
 
 model InstanceSetting {
-  key       String @id
+  key       String   @id
   value     Json
   updatedAt DateTime @updatedAt @db.Timestamptz
   updatedBy String?  @db.Uuid
@@ -629,10 +698,30 @@ model LdapSyncGroup {
   id           String    @id @default(uuid()) @db.Uuid
   name         String    @db.VarChar(255)
   dn           String    @unique @db.VarChar(512)
+  objectGuid   String?   @unique @db.VarChar(128)
   lastSyncedAt DateTime? @db.Timestamptz
+  deletedAt    DateTime? @db.Timestamptz
   createdAt    DateTime  @default(now()) @db.Timestamptz
 
+  department  Department?
+  memberships LdapGroupMembership[]
+
   @@map("LdapSyncGroup")
+}
+
+model LdapGroupMembership {
+  userId          String    @db.Uuid
+  ldapSyncGroupId String    @db.Uuid
+  sourceMemberDn  String?   @db.VarChar(512)
+  lastSeenAt      DateTime? @db.Timestamptz
+  createdAt       DateTime  @default(now()) @db.Timestamptz
+
+  user  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  group LdapSyncGroup @relation(fields: [ldapSyncGroupId], references: [id], onDelete: Cascade)
+
+  @@id([userId, ldapSyncGroupId])
+  @@index([ldapSyncGroupId, lastSeenAt])
+  @@map("LdapGroupMembership")
 }
 
 model Account {

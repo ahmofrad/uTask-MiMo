@@ -9,6 +9,8 @@ export const ldapConfigSchema = z.object({
   // Optional UPN suffix (e.g. "@corp.local") appended when a user logs in with
   // only a samaccountname. End users may also log in with their full UPN.
   upnSuffix: z.string().optional(),
+  // Base DN used for directory searches. Falls back to the UPN-derived domain DN.
+  searchBase: z.string().min(1).optional(),
   emailAttribute: z.string().default("mail"),
   nameAttribute: z.string().default("cn"),
   defaultRole: z.string().default("member"),

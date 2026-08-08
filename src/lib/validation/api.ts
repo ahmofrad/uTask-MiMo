@@ -87,6 +87,7 @@ export const publicProjectCreateSchema = z.object({
 
 export const projectCreateSchema = publicProjectCreateSchema.extend({
   departmentId: uuid.nullable().optional(),
+  departmentIds: z.array(uuid).min(1).max(100).optional(),
 }).strict();
 
 export const projectUpdateSchema = z.object({
@@ -155,6 +156,14 @@ export const projectMemberUpdateSchema = z.object({
   projectRole: z.enum(["lead", "contributor", "viewer"]),
 }).strict();
 
+export const projectDepartmentLinkRequestSchema = z.object({
+  departmentId: uuid,
+}).strict();
+
+export const projectDepartmentLinkDecisionSchema = z.object({
+  decision: z.enum(["approved", "rejected", "cancelled"]),
+}).strict();
+
 const patchUrlSchema = z.union([z.literal(""), z.string().url()]);
 export const ldapSettingsUpdateSchema = z.object({
   enabled: z.boolean().optional(),
@@ -204,6 +213,19 @@ export const ldapLoginSchema = z.object({
   username: z.string().trim().min(1).max(320),
   password: z.string().min(1).max(512),
 }).strict();
+
+export const passwordResetRequestSchema = z.object({
+  email: z.string().trim().email().max(320),
+}).strict();
+
+export const passwordResetSchema = z.object({
+  token: z.string().trim().min(32).max(256),
+  password: z.string().min(12).max(128),
+  confirmPassword: z.string().min(12).max(128),
+}).strict().refine((value) => value.password === value.confirmPassword, {
+  message: "passwordMismatch",
+  path: ["confirmPassword"],
+});
 
 const smtpPortSchema = z.union([
   z.number().int().min(1).max(65_535),

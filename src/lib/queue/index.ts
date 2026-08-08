@@ -2,8 +2,8 @@ import { Queue, Worker } from "bullmq";
 import { logger } from "@/lib/logging";
 import crypto from "node:crypto";
 import { waitForRedisReady, type RedisReadyClient } from "./connection";
-
-const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
+import { getRedisConnectionOptions } from "@/lib/redis/config";
+import type { RedisOptions } from "ioredis";
 
 let sharedConnection: unknown;
 let connectionPromise: Promise<unknown> | null = null;
@@ -13,10 +13,15 @@ async function ensureConnection(): Promise<unknown> {
   if (!connectionPromise) {
     connectionPromise = (async () => {
       const IORedis = await import(/* webpackIgnore: true */ "ioredis");
-      const client = new IORedis.default(redisUrl, {
+      const options: RedisOptions = {
         maxRetriesPerRequest: null,
         enableOfflineQueue: false,
-      });
+      };
+      const connection = getRedisConnectionOptions();
+      const client =
+        typeof connection === "string"
+          ? new IORedis.default(connection, options)
+          : new IORedis.default({ ...connection, ...options });
       try {
         await waitForRedisReady(client as RedisReadyClient);
         sharedConnection = client;

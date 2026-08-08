@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth/config";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { can } from "@/lib/rbac";
+import { can, canProject, canReadProject } from "@/lib/rbac";
 import { ProjectDetailPage } from "@/components/project/project-detail-page";
 
 export default async function ProjectDetail(props: {
@@ -12,15 +12,16 @@ export default async function ProjectDetail(props: {
   const userId = session?.user?.id;
   if (!userId) redirect("/login");
 
-  // Check access: user must be a member or global admin/owner
+  // Read access includes explicit membership and an active manager's department scope.
   const isAdmin = await can(userId, "user:manage");
+  if (!(await canReadProject(userId, projectId))) notFound();
+
   let membership: { projectRole: string } | null = null;
   if (!isAdmin) {
     membership = await prisma.projectMember.findUnique({
       where: { projectId_userId: { projectId, userId } },
       select: { projectRole: true },
     });
-    if (!membership) notFound();
   }
 
   const project = await prisma.project.findUnique({
@@ -39,10 +40,9 @@ export default async function ProjectDetail(props: {
 
   if (!project) notFound();
 
-  const canManage =
-    (await can(userId, "project:update")) ||
-    project.owner.id === userId ||
-    membership?.projectRole === "lead";
+  const canManage = await canProject(userId, "project:update", projectId)
+    || project.owner.id === userId
+    || membership?.projectRole === "lead";
 
   const tasks = await prisma.task.findMany({
     where: { projectId, deletedAt: null },

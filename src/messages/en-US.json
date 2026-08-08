@@ -97,12 +97,16 @@
       "forgotTitle": "Reset password",
       "forgotDescription": "Enter your email and we'll send you a link to reset your password.",
       "forgotSubmit": "Send reset link",
+      "forgotSending": "Sending...",
       "forgotSuccess": "If the email exists, we sent a reset link.",
+      "forgotError": "We could not process the reset request. Please try again.",
       "resetTitle": "Set a new password",
       "resetNewPassword": "New password",
       "resetConfirmPassword": "Confirm new password",
       "resetSubmit": "Save password",
+      "resetSaving": "Saving...",
       "resetSuccess": "Password saved. Redirecting...",
+      "resetError": "This reset link is invalid or expired.",
       "inviteTitle": "You've been invited",
       "inviteDescription": "Complete your profile to join the team.",
       "inviteDisplayName": "Display name",
@@ -225,6 +229,14 @@
     "restore": "Restore",
     "suspend": "Suspend",
     "newDepartment": "New department name",
+    "parentDepartment": "Parent department",
+    "noParent": "No parent",
+    "assignManager": "Assign manager",
+    "noManager": "No manager",
+    "managerSaved": "Manager saved",
+    "ldapDepartment": "LDAP department",
+    "manualDepartment": "Manual department",
+    "archiveDepartment": "Archive",
     "add": "Add",
     "delete": "Delete",
     "noDepartments": "No departments yet.",
@@ -495,7 +507,29 @@
       "viewer": "Viewer"
     },
     "tags": "Tags",
-    "backToProjects": "Back to projects"
+    "departmentLinks": {
+      "title": "Department access",
+      "selectDepartment": "Select a department",
+      "noDepartments": "No additional departments available",
+      "request": "Request access",
+      "approve": "Approve",
+      "reject": "Reject",
+      "cancel": "Cancel",
+      "requestedBy": "Requested by {user}",
+      "saving": "Saving…",
+      "loading": "Loading…",
+      "loadError": "Could not load department access",
+      "requestError": "Could not request department access",
+      "decisionError": "Could not update the request",
+      "status": {
+        "pending": "Pending",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled",
+        "revoked": "Revoked"
+      }
+    },
+    "backToProjects": "Back to Projects"
   },
   "comment": {
     "title": "Comments",
@@ -522,7 +556,9 @@
     "statusChangedTitle": "Task status changed",
     "statusChangedBody": "The status of “{task}” changed",
     "dueSoonTitle": "Task due soon",
-    "dueSoonBody": "“{task}” is due soon"
+    "dueSoonBody": "“{task}” is due soon",
+    "departmentLinkRequestTitle": "Department access requested",
+    "departmentLinkRequestBody": "A department access request was submitted for project {project}."
   },
   "settings": {
     "title": "Settings",

@@ -9,19 +9,22 @@ export default function ForgotPasswordPage() {
   const t = useTranslations("auth.login");
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError(false);
     setLoading(true);
     try {
-      await apiFetch("/api/v1/auth/forgot-password", {
+      const response = await apiFetch("/api/v1/auth/forgot-password", {
         method: "POST",
         body: JSON.stringify({ email }),
       });
-      setSent(true);
+      if (response.ok) setSent(true);
+      else setError(true);
     } catch {
-      setSent(true);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -36,7 +39,7 @@ export default function ForgotPasswordPage() {
 
       {sent ? (
         <div className="text-center space-y-4">
-          <div className="p-3 text-sm text-success bg-success-bg border border-success/20 rounded-lg">
+          <div role="status" className="p-3 text-sm text-success bg-success-bg border border-success/20 rounded-lg">
             {t("forgotSuccess")}
           </div>
           <Link href="/login" className="text-sm text-accent hover:underline">
@@ -45,6 +48,7 @@ export default function ForgotPasswordPage() {
         </div>
       ) : (
         <form className="space-y-4" onSubmit={handleSubmit}>
+          {error && <div role="alert" className="p-3 text-sm text-destructive bg-danger-bg border border-danger/20 rounded-lg">{t("forgotError")}</div>}
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-fg-secondary mb-1">
               {t("emailLabel")}
@@ -64,7 +68,7 @@ export default function ForgotPasswordPage() {
             disabled={loading}
             className="w-full px-4 py-2 text-sm font-medium rounded-md bg-accent text-fg-inverse hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {loading ? t("loggingIn") : t("forgotSubmit")}
+            {loading ? t("forgotSending") : t("forgotSubmit")}
           </button>
         </form>
       )}

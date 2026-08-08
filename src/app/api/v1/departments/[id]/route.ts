@@ -49,11 +49,19 @@ export async function PATCH(
 
   const before = await getDepartmentById(resolvedParams.id);
 
-  const department = await updateDepartment(resolvedParams.id, {
-    ...(name !== undefined ? { name } : {}),
-    ...(parentId !== undefined ? { parentId } : {}),
-    ...(managerUserId !== undefined ? { managerUserId } : {}),
-  });
+  let department;
+  try {
+    department = await updateDepartment(resolvedParams.id, {
+      ...(name !== undefined ? { name } : {}),
+      ...(parentId !== undefined ? { parentId } : {}),
+      ...(managerUserId !== undefined ? { managerUserId } : {}),
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Department manager must be an active LDAP-synchronized member") {
+      return NextResponse.json({ error: { code: "INVALID_MANAGER", message: error.message } }, { status: 400 });
+    }
+    throw error;
+  }
 
   await logAudit({ actorUserId: userId, action: "department_updated", entityType: "department", entityId: resolvedParams.id, before: before as never, after: department as never });
 

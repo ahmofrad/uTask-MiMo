@@ -282,16 +282,69 @@ BACKUP_RETENTION_DAYS=30
 
 ---
 
+### 4.5 HA application stack with `docker-compose.prod.yml`
+
+`ops/docker/docker-compose.prod.yml` is the bundled reference topology for a
+single host that needs redundant application processes and HA cache/object
+storage:
+
+- `nginx` terminates TLS and load-balances `app-1` and `app-2`.
+- `migrate` is the only service allowed to run `prisma migrate deploy`.
+- `postgres` is one primary behind `pgbouncer`. This is not automatic database
+  failover; use an external Patroni/managed PostgreSQL service when database
+  failover is required.
+- `redis-1`/`redis-2`/`redis-3` plus three Sentinel processes provide Redis
+  failover. The app, worker, rate limiter, and Socket.IO adapter all consume
+  the same Sentinel configuration.
+- `minio-1` through `minio-4` run MinIO distributed mode. The shared Docker
+  network alias `minio` is the S3 endpoint used by the application.
+
+Validate the fully interpolated file before starting it. Use a temporary
+environment file containing safe non-production placeholders; never put real
+credentials in shell history or command output:
+
+```bash
+docker compose --env-file .env.prod \
+  -f ops/docker/docker-compose.prod.yml config --quiet
+docker compose --env-file .env.prod \
+  -f ops/docker/docker-compose.prod.yml up -d
+```
+
+Copy `ops/docker/.env.prod.example` to `.env.prod` and set both
+`REDIS_PASSWORD` and `REDIS_SENTINEL_PASSWORD` to the same generated value for
+the bundled Sentinel topology. The application selects Sentinel mode when
+`REDIS_SENTINELS` and `REDIS_SENTINEL_NAME` are present; otherwise it uses the
+direct `REDIS_URL` fallback.
+
+#### Webhook egress policy
+
+Webhook delivery is initiated by the `worker` process, while test/synthetic
+delivery can be initiated by an app process. The host firewall or an explicit
+egress proxy must therefore allow outbound TCP 443 (and TCP 80 only when a
+customer endpoint explicitly requires it) from `app-1`, `app-2`, and `worker`
+to the customer-approved webhook destinations. Keep inbound access limited to
+nginx on TCP 443. Docker bridge networking alone does not enforce a destination
+allowlist, so a production installation must document and implement that
+allowlist outside this Compose file.
+
+The application still performs its own webhook URL validation and private-range
+SSRF protection; the network policy is an additional egress boundary, not a
+replacement for application validation.
+
+---
+
 ## 5. Kubernetes / Helm
 
 ### 5.1 Chart structure
 
 The bundled Helm chart provisions a production application/worker deployment
-with single-instance PostgreSQL, Redis, and MinIO by default. It does not
-provision Redis Sentinel, a Redis cluster, Patroni/PostgreSQL replication, or
-distributed MinIO drives. Treat the HA topology in this document as a
-reference architecture and provide those services externally until a chart
-implementation for them is added.
+with single-instance PostgreSQL, Redis, and MinIO by default. It also creates
+CPU-based HPAs for the app and worker plus PDBs that keep two app pods and one
+worker pod available during voluntary disruptions. It does not provision Redis
+Sentinel, a Redis cluster, Patroni/PostgreSQL replication, or distributed MinIO
+drives. Treat the HA data-service topology in this document as a reference
+architecture and provide those services externally until a chart implementation
+for them is added.
 
 ```
 ops/helm/taskapp/
@@ -317,6 +370,9 @@ ops/helm/taskapp/
 │   ├── partman-cronjob.yaml
 │   ├── backup-cronjob.yaml
 │   ├── hpa.yaml
+│   ├── worker-hpa.tpl
+│   ├── app-pdb.tpl
+│   ├── worker-pdb.tpl
 │   ├── app-service.yaml
 │   ├── app-ingress.yaml
 │   └── worker-deployment.yaml

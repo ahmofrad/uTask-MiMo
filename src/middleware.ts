@@ -2,6 +2,7 @@ import createMiddleware from "next-intl/middleware";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { applySecurityHeaders } from "@/lib/security/headers";
+import { isPublicAuthPage } from "@/lib/auth/public-pages";
 
 const locales = ["fa-IR", "en-US"] as const;
 const defaultLocale = "fa-IR";
@@ -90,7 +91,7 @@ export default async function middleware(req: NextRequest) {
 
   const isLoginPage = pathname === "/login" || pathname === "/en-US/login" || pathname === "/fa-IR/login";
 
-  if (!isAuthenticated && !isLoginPage) {
+  if (!isAuthenticated && !isLoginPage && !isPublicAuthPage(pathname)) {
     const locale = pathname.startsWith("/en-US") ? "en-US" : "fa-IR";
     const loginUrl = new URL(locale === "en-US" ? "/en-US/login" : "/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);

@@ -17,6 +17,8 @@ export function notificationContent(
 ): { title: string; body: string } {
   const task = payload?.taskTitle ?? "";
   const by = payload?.by ?? "";
+  const departmentName = typeof payload?.departmentName === "string" ? payload.departmentName : "";
+  const projectName = typeof payload?.projectName === "string" ? payload.projectName : "";
 
   switch (type) {
     case "assigned": {
@@ -35,6 +37,11 @@ export function notificationContent(
       return { title: t("statusChangedTitle"), body: t("statusChangedBody", { task }) };
     case "due_soon":
       return { title: t("dueSoonTitle"), body: t("dueSoonBody", { task }) };
+    case "department_link_request":
+      return {
+        title: t("departmentLinkRequestTitle"),
+        body: t("departmentLinkRequestBody", { department: departmentName, project: projectName }),
+      };
     default:
       return { title: type.replace(/_/g, " "), body: "" };
   }

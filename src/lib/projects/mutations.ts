@@ -7,18 +7,22 @@ type CreateProjectData = {
   color?: string;
   ownerId: string;
   departmentId?: string | null;
+  departmentIds?: string[];
   visibility?: ProjectVisibility;
 };
 
 export async function createProject(data: CreateProjectData) {
   return prisma.$transaction(async (tx) => {
+    const departmentIds = Array.from(new Set(
+      data.departmentIds ?? (data.departmentId ? [data.departmentId] : []),
+    ));
     const project = await tx.project.create({
       data: {
         name: data.name,
         description: data.description ?? null,
         color: data.color ?? "#2563eb",
         ownerId: data.ownerId,
-        departmentId: data.departmentId ?? null,
+        departmentId: data.departmentId ?? departmentIds[0] ?? null,
         visibility: data.visibility ?? "private",
       },
     });
@@ -31,6 +35,16 @@ export async function createProject(data: CreateProjectData) {
         addedBy: data.ownerId,
       },
     });
+
+    if (departmentIds.length > 0) {
+      await tx.projectDepartment.createMany({
+        data: departmentIds.map((departmentId) => ({
+          projectId: project.id,
+          departmentId,
+        })),
+        skipDuplicates: true,
+      });
+    }
 
     return project;
   });

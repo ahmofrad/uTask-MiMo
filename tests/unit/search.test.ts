@@ -11,6 +11,7 @@ vi.mock("@/lib/db", () => ({
     project: { findMany: vi.fn().mockResolvedValue([]) },
     customFieldValue: { findMany: vi.fn().mockResolvedValue([]) },
     role: { findFirst: vi.fn() },
+    department: { findMany: vi.fn().mockResolvedValue([]) },
     projectMember: { findMany: vi.fn() },
   },
 }));

@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/avatar";
 import { Menu } from "@/components/ui/menu";
 import { ChangePasswordDialog } from "@/components/shell/change-password-dialog";
+import { getLogoutRedirectUrl } from "@/lib/auth/logout-redirect";
 
 type UserMenuProps = {
   name: string;
@@ -25,6 +26,11 @@ export function UserMenu({ name, email }: UserMenuProps) {
     .slice(0, 2)
     .map((p) => p[0]!.toUpperCase())
     .join("");
+
+  async function handleSignOut() {
+    await signOut({ redirect: false });
+    window.location.assign(getLogoutRedirectUrl(window.location.origin));
+  }
 
   return (
     <>
@@ -52,7 +58,7 @@ export function UserMenu({ name, email }: UserMenuProps) {
           {
             id: "sign-out",
             label: t("signOut"),
-            onSelect: () => signOut({ callbackUrl: "/login" }),
+            onSelect: handleSignOut,
           },
         ]}
       >

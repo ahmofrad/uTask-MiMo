@@ -1,4 +1,5 @@
 import { Client } from "ldapts";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { ldapConfigSchema, type LdapConfig } from "../ldap-schema";
@@ -24,6 +25,23 @@ function attr(entry: Record<string, unknown>, key: string): string | null {
   const v = entry[key];
   if (Array.isArray(v)) return typeof v[0] === "string" ? v[0] : null;
   return typeof v === "string" ? v : null;
+}
+
+function escapeLdapFilterValue(value: string): string {
+  return value.replace(/[\\*()\0]/g, (character) => {
+    switch (character) {
+      case "\\":
+        return "\\5c";
+      case "*":
+        return "\\2a";
+      case "(":
+        return "\\28";
+      case ")":
+        return "\\29";
+      default:
+        return "\\00";
+    }
+  });
 }
 
 function domainDn(upn: string): string {
@@ -123,66 +141,34 @@ export async function searchLdapGroups(
   }
 }
 
-export async function syncLdapGroup(config: LdapConfig, group: { dn: string; name: string }) {
+type LdapGroup = { id: string; dn: string; name: string };
+type LdapSearchEntry = Record<string, unknown> & { dn: string };
+type LdapDatabase = Pick<
+  Prisma.TransactionClient,
+  "user" | "authIdentity" | "projectMember" | "ldapGroupMembership" | "ldapSyncGroup"
+>;
+
+async function fetchLdapGroupEntries(
+  config: LdapConfig,
+  group: LdapGroup,
+): Promise<LdapSearchEntry[]> {
   const client = await bindAdmin(config);
   try {
-    const base = domainDn(config.upnSuffix ?? config.bindUpn);
-    const filter = `(&(objectClass=user)(memberOf=${group.dn}))`;
+    const base = config.searchBase ?? domainDn(config.upnSuffix ?? config.bindUpn);
+    const filter = `(&(objectClass=user)(memberOf:1.2.840.113556.1.4.1941:=${escapeLdapFilterValue(group.dn)}))`;
     const result = await client.search(base, {
       filter,
       scope: "sub",
-      attributes: ["mail", "cn", "userPrincipalName", "displayName", "sAMAccountName"],
+      attributes: ["mail", "cn", "userPrincipalName", "displayName", "sAMAccountName", "distinguishedName"],
     });
-
-    let count = 0;
-    for (const e of result.searchEntries) {
-      const upn = attr(e, "userPrincipalName") ?? attr(e, "mail");
-      const email = upn ?? attr(e, "mail") ?? attr(e, "sAMAccountName");
-      if (!email) continue;
-      const displayName =
-        attr(e, "displayName") ?? attr(e, "cn") ?? email.split("@")[0] ?? email;
-
-      let user = await prisma.user.findUnique({ where: { email } });
-      if (!user) {
-        user = await prisma.user.create({
-          data: {
-            email,
-            displayName,
-            passwordHash: null,
-            locale: "fa_IR",
-            status: "active",
-            ldapGroup: group.name,
-            ldapGroupId: group.dn,
-          },
-        });
-      } else {
-        const data: Record<string, unknown> = {
-          ldapGroup: group.name,
-          ldapGroupId: group.dn,
-        };
-        // Re-activate users whose group was previously removed.
-        if (user.status === "ldapGroupRemoved") data.status = "active";
-        user = await prisma.user.update({ where: { id: user.id }, data });
-      }
-
-      if (upn) {
-        const identity = await prisma.authIdentity.findFirst({
-          where: { provider: "ldap", providerSubject: upn },
-        });
-        if (!identity) {
-          await prisma.authIdentity.create({
-            data: { userId: user.id, provider: "ldap", providerSubject: upn },
-          });
-        }
-      }
-      count += 1;
+    const entries = result.searchEntries;
+    if (
+      !Array.isArray(entries)
+      || entries.some((entry) => typeof entry !== "object" || entry === null || typeof entry.dn !== "string")
+    ) {
+      throw new Error("LDAP group search returned an incomplete response");
     }
-
-    await prisma.ldapSyncGroup.update({
-      where: { dn: group.dn },
-      data: { lastSyncedAt: new Date() },
-    });
-    return count;
+    return entries as LdapSearchEntry[];
   } finally {
     try {
       await client.unbind();
@@ -192,13 +178,125 @@ export async function syncLdapGroup(config: LdapConfig, group: { dn: string; nam
   }
 }
 
-export async function syncAllLdapGroups(config: LdapConfig): Promise<{ groups: number; users: number }> {
-  const groups = await prisma.ldapSyncGroup.findMany();
-  let users = 0;
-  for (const g of groups) {
-    users += await syncLdapGroup(config, g);
+async function applyLdapGroupEntries(
+  db: LdapDatabase,
+  group: LdapGroup,
+  entries: LdapSearchEntry[],
+): Promise<number> {
+  const syncedAt = new Date();
+  let count = 0;
+  for (const e of entries) {
+    const upn = attr(e, "userPrincipalName") ?? attr(e, "mail");
+    const email = upn ?? attr(e, "mail") ?? attr(e, "sAMAccountName");
+    if (!email) continue;
+    const displayName =
+      attr(e, "displayName") ?? attr(e, "cn") ?? email.split("@")[0] ?? email;
+
+    let user = await db.user.findUnique({ where: { email } });
+    const wasRemovedFromLdap = user?.status === "ldapGroupRemoved";
+    if (!user) {
+      user = await db.user.create({
+        data: {
+          email,
+          displayName,
+          passwordHash: null,
+          locale: "fa_IR",
+          status: "active",
+          ldapGroup: group.name,
+          ldapGroupId: null,
+        },
+      });
+    } else {
+      const data: Record<string, unknown> = {
+        ldapGroup: group.name,
+        ldapGroupId: null,
+      };
+      // Re-activate users whose group was previously removed.
+      if (user.status === "ldapGroupRemoved") data.status = "active";
+      user = await db.user.update({ where: { id: user.id }, data });
+    }
+
+    if (wasRemovedFromLdap) {
+      await db.projectMember.updateMany({
+        where: { userId: user.id, disabledReason: "ldap" },
+        data: { disabledAt: null, disabledReason: null },
+      });
+    }
+
+    if (upn) {
+      const identity = await db.authIdentity.findFirst({
+        where: { provider: "ldap", providerSubject: upn },
+      });
+      if (!identity) {
+        await db.authIdentity.create({
+          data: { userId: user.id, provider: "ldap", providerSubject: upn },
+        });
+      }
+    }
+
+    await db.ldapGroupMembership.upsert({
+      where: {
+        userId_ldapSyncGroupId: {
+          userId: user.id,
+          ldapSyncGroupId: group.id,
+        },
+      },
+      create: {
+        userId: user.id,
+        ldapSyncGroupId: group.id,
+        sourceMemberDn: e.dn,
+        lastSeenAt: syncedAt,
+      },
+      update: {
+        sourceMemberDn: e.dn,
+        lastSeenAt: syncedAt,
+      },
+    });
+    count += 1;
   }
-  return { groups: groups.length, users };
+
+  await db.ldapGroupMembership.deleteMany({
+    where: {
+      ldapSyncGroupId: group.id,
+      lastSeenAt: { lt: syncedAt },
+    },
+  });
+
+  await db.ldapSyncGroup.update({
+    where: { dn: group.dn },
+    data: { lastSyncedAt: new Date() },
+  });
+  return count;
+}
+
+export async function syncLdapGroup(
+  config: LdapConfig,
+  group: LdapGroup,
+) {
+  const entries = await fetchLdapGroupEntries(config, group);
+  return prisma.$transaction((tx) => applyLdapGroupEntries(tx, group, entries));
+}
+
+export async function syncAllLdapGroups(config: LdapConfig): Promise<{ groups: number; users: number }> {
+  const groups = await prisma.ldapSyncGroup.findMany({ where: { deletedAt: null } });
+  const stagedGroups: Array<{ group: LdapGroup; entries: LdapSearchEntry[] }> = [];
+
+  // Read every group before changing users or memberships. A failed directory
+  // read therefore leaves the previous authorization snapshot untouched.
+  for (const group of groups) {
+    stagedGroups.push({
+      group,
+      entries: await fetchLdapGroupEntries(config, group),
+    });
+  }
+
+  return prisma.$transaction(async (tx) => {
+    let users = 0;
+    for (const staged of stagedGroups) {
+      users += await applyLdapGroupEntries(tx, staged.group, staged.entries);
+    }
+    return { groups: groups.length, users };
+  });
 }
 
 export async function ldapAuth(

@@ -8,6 +8,9 @@ const mockTx = {
   projectMember: {
     create: vi.fn(),
   },
+  projectDepartment: {
+    createMany: vi.fn(),
+  },
 };
 
 vi.mock("@/lib/db", () => ({
@@ -69,6 +72,35 @@ describe("createProject", () => {
         }),
       }),
     );
+  });
+
+  it("links a project to every requested department", async () => {
+    const mockProject = { id: "proj-2", name: "Shared Project" };
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: (tx: typeof mockTx) => Promise<unknown>) => {
+      mockTx.project.create.mockResolvedValue(mockProject);
+      mockTx.projectMember.create.mockResolvedValue({} as never);
+      mockTx.projectDepartment.createMany.mockResolvedValue({ count: 2 });
+      return fn(mockTx);
+    });
+
+    await createProject({
+      name: "Shared Project",
+      ownerId: "user-1",
+      departmentIds: ["department-1", "department-2"],
+    });
+
+    expect(mockTx.project.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ departmentId: "department-1" }),
+      }),
+    );
+    expect(mockTx.projectDepartment.createMany).toHaveBeenCalledWith({
+      data: [
+        { projectId: "proj-2", departmentId: "department-1" },
+        { projectId: "proj-2", departmentId: "department-2" },
+      ],
+      skipDuplicates: true,
+    });
   });
 });
 

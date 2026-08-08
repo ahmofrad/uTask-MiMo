@@ -11,6 +11,7 @@ vi.mock("@/lib/db", () => ({
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     tag: { findMany: vi.fn(), create: vi.fn(), findFirst: vi.fn(), deleteMany: vi.fn(), delete: vi.fn() },
     role: { findFirst: vi.fn() },
+    department: { findMany: vi.fn().mockResolvedValue([]) },
     projectMember: { findMany: vi.fn() },
   },
 }));

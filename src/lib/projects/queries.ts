@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getManagedDepartmentIds } from "@/lib/departments";
 import { getUserRole } from "@/lib/rbac";
 import {
   parsePaginationParams,
@@ -17,6 +18,9 @@ export async function getProjectById(id: string) {
       _count: { select: { tasks: true, members: true } },
       owner: { select: { id: true, displayName: true, email: true } },
       department: { select: { id: true, name: true } },
+      departmentLinks: {
+        include: { department: { select: { id: true, name: true } } },
+      },
     },
   });
 }
@@ -37,20 +41,24 @@ export async function getUserReadableProjectIds(userId: string): Promise<string[
   const { globalRole } = await getUserRole(userId);
   if (globalRole === "owner" || globalRole === "admin") return null;
   const memberships = await prisma.projectMember.findMany({
-    where: { userId, project: { archivedAt: null } },
+    where: { userId, disabledAt: null, project: { archivedAt: null } },
     select: { projectId: true },
   });
-  if (globalRole !== "manager") return memberships.map((m) => m.projectId);
+  const managedDepartmentIds = await getManagedDepartmentIds(userId);
+  if (managedDepartmentIds.length === 0) return memberships.map((m) => m.projectId);
 
   const managedProjects = await prisma.project.findMany({
     where: {
       archivedAt: null,
-      department: { managerUserId: userId, deletedAt: null },
+      OR: [
+        { departmentId: { in: managedDepartmentIds } },
+        { departmentLinks: { some: { departmentId: { in: managedDepartmentIds } } } },
+      ],
     },
     select: { id: true },
   });
 
-  return [...new Set([...memberships.map((m) => m.projectId), ...managedProjects.map((p) => p.id)])];
+  return Array.from(new Set([...memberships.map((m) => m.projectId), ...managedProjects.map((p) => p.id)]));
 }
 
 export async function listProjects(
@@ -59,7 +67,12 @@ export async function listProjects(
   const { take, skip, cursor, limit } = parsePaginationParams(params);
 
   const where: Record<string, unknown> = { archivedAt: null };
-  if (params.departmentId) where.departmentId = params.departmentId;
+  if (params.departmentId) {
+    where.OR = [
+      { departmentId: params.departmentId },
+      { departmentLinks: { some: { departmentId: params.departmentId } } },
+    ];
+  }
   if (params.status) where.status = params.status;
   if (params.projectIds) where.id = { in: params.projectIds };
 

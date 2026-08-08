@@ -181,6 +181,18 @@ describe("PATCH /api/v1/departments/[id]", () => {
       expect.objectContaining({ action: "department_updated", entityType: "department" }),
     );
   });
+  it("returns 400 when manager is not an active LDAP member", async () => {
+    mockCan.mockResolvedValue(true);
+    mockGetDepartmentById.mockResolvedValue({ id: "d1", name: "Engineering" });
+    mockUpdateDepartment.mockRejectedValue(new Error("Department manager must be an active LDAP-synchronized member"));
+
+    const { PATCH } = await import("@/app/api/v1/departments/[id]/route");
+    const res = await PATCH(makeRequest("PATCH", { managerUserId: "00000000-0000-4000-8000-000000000002" }), { params: { id: "d1" } });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error.code).toBe("INVALID_MANAGER");
+  });
 });
 
 describe("DELETE /api/v1/departments/[id]", () => {

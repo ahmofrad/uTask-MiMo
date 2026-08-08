@@ -10,6 +10,7 @@ type LdapState = {
   bindUpn: string;
   bindPassword: string;
   upnSuffix: string;
+  searchBase: string;
   emailAttribute: string;
   nameAttribute: string;
   defaultRole: string;
@@ -60,6 +61,10 @@ function Field({ label, children }: { label: string } & React.PropsWithChildren)
 const inputClass =
   "w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent";
 
+function ldapPayload(ldap: LdapState) {
+  return { ...ldap, searchBase: ldap.searchBase.trim() || undefined };
+}
+
 export default function SsoPage() {
   const t = useTranslations("admin");
   const [saving, setSaving] = useState(false);
@@ -71,6 +76,7 @@ export default function SsoPage() {
     bindUpn: "",
     bindPassword: "",
     upnSuffix: "",
+    searchBase: "",
     emailAttribute: "mail",
     nameAttribute: "cn",
     defaultRole: "member",
@@ -131,7 +137,7 @@ export default function SsoPage() {
     try {
       await apiFetch("/api/v1/admin/sso", {
         method: "PATCH",
-        body: JSON.stringify({ ldap, saml }),
+        body: JSON.stringify({ ldap: ldapPayload(ldap), saml }),
       });
       setTestState("idle");
     } finally {
@@ -145,7 +151,7 @@ export default function SsoPage() {
     try {
       const res = await apiFetch("/api/v1/admin/ldap/test", {
         method: "POST",
-        body: JSON.stringify({ ldap }),
+        body: JSON.stringify({ ldap: ldapPayload(ldap) }),
       });
       const json = await res.json();
       if (res.ok && json.data?.ok) {
@@ -280,6 +286,14 @@ export default function SsoPage() {
               value={ldap.upnSuffix}
               onChange={(e) => setLdap((p) => ({ ...p, upnSuffix: e.target.value }))}
               placeholder="company.local"
+            />
+          </Field>
+          <Field label={t("searchBase")}>
+            <input
+              className={inputClass}
+              value={ldap.searchBase}
+              onChange={(e) => setLdap((p) => ({ ...p, searchBase: e.target.value }))}
+              placeholder="DC=company,DC=local"
             />
           </Field>
           <Field label={t("ldapSyncInterval")}>

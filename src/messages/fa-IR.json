@@ -97,12 +97,16 @@
       "forgotTitle": "بازنشانی رمز عبور",
       "forgotDescription": "ایمیل خود را وارد کنید تا لینک بازنشانی رمز عبور برایتان ارسال شود.",
       "forgotSubmit": "ارسال لینک بازنشانی",
+      "forgotSending": "در حال ارسال...",
       "forgotSuccess": "اگر ایمیل وجود داشته باشد، لینک بازنشانی ارسال شد.",
+      "forgotError": "درخواست بازنشانی انجام نشد. دوباره تلاش کنید.",
       "resetTitle": "رمز عبور جدید تنظیم کنید",
       "resetNewPassword": "رمز عبور جدید",
       "resetConfirmPassword": "تأیید رمز عبور جدید",
       "resetSubmit": "ذخیره رمز عبور",
+      "resetSaving": "در حال ذخیره...",
       "resetSuccess": "رمز عبور ذخیره شد. در حال انتقال...",
+      "resetError": "این لینک بازنشانی نامعتبر یا منقضی شده است.",
       "inviteTitle": "شما دعوت شده‌اید",
       "inviteDescription": "پروفایل خود را تکمیل کنید تا به تیم بپیوندید.",
       "inviteDisplayName": "نام نمایشی",
@@ -225,6 +229,14 @@
     "restore": "بازیابی",
     "suspend": "تعلیق",
     "newDepartment": "نام دپارتمان جدید",
+    "parentDepartment": "دپارتمان والد",
+    "noParent": "بدون والد",
+    "assignManager": "تعیین مدیر",
+    "noManager": "بدون مدیر",
+    "managerSaved": "مدیر ذخیره شد",
+    "ldapDepartment": "دپارتمان LDAP",
+    "manualDepartment": "دپارتمان دستی",
+    "archiveDepartment": "بایگانی",
     "add": "افزودن",
     "delete": "حذف",
     "noDepartments": "هنوز دپارتمانی وجود ندارد.",
@@ -495,6 +507,28 @@
       "viewer": "بازدیدکننده"
     },
     "tags": "برچسب‌ها",
+    "departmentLinks": {
+      "title": "دسترسی دپارتمانی",
+      "selectDepartment": "انتخاب دپارتمان",
+      "noDepartments": "دپارتمان دیگری در دسترس نیست",
+      "request": "درخواست دسترسی",
+      "approve": "تأیید",
+      "reject": "رد",
+      "cancel": "لغو",
+      "requestedBy": "درخواست‌دهنده: {user}",
+      "saving": "در حال ذخیره…",
+      "loading": "در حال بارگذاری…",
+      "loadError": "بارگذاری دسترسی دپارتمانی ممکن نیست",
+      "requestError": "درخواست دسترسی دپارتمانی ممکن نیست",
+      "decisionError": "به‌روزرسانی درخواست ممکن نیست",
+      "status": {
+        "pending": "در انتظار",
+        "approved": "تأییدشده",
+        "rejected": "ردشده",
+        "cancelled": "لغوشده",
+        "revoked": "باطل‌شده"
+      }
+    },
     "backToProjects": "بازگشت به پروژه‌ها"
   },
   "comment": {
@@ -522,7 +556,9 @@
     "statusChangedTitle": "تغییر وضعیت تسک",
     "statusChangedBody": "وضعیت تسک «{task}» تغییر کرد",
     "dueSoonTitle": "سررسید نزدیک",
-    "dueSoonBody": "سررسید تسک «{task}» نزدیک است"
+    "dueSoonBody": "سررسید تسک «{task}» نزدیک است",
+    "departmentLinkRequestTitle": "درخواست دسترسی دپارتمانی",
+    "departmentLinkRequestBody": "برای پروژه {project} درخواست دسترسی دپارتمانی ثبت شده است."
   },
   "settings": {
     "title": "تنظیمات",

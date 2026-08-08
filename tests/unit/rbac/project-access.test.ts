@@ -5,6 +5,7 @@ vi.mock("@/lib/db", () => ({
     role: { findFirst: vi.fn() },
     projectMember: { findUnique: vi.fn() },
     project: { findUnique: vi.fn() },
+    department: { findMany: vi.fn() },
     task: { findUnique: vi.fn() },
   },
 }));
@@ -63,6 +64,61 @@ describe("project read access", () => {
     await expect(canReadProject("manager-2", "department-project")).resolves.toBe(false);
   });
 
+  it("allows a department manager to read descendant projects without a global manager role", async () => {
+    const { prisma } = await import("@/lib/db");
+    const { canReadProject } = await import("@/lib/rbac/can");
+    vi.mocked(prisma.role.findFirst).mockResolvedValue({ type: "member" } as never);
+    vi.mocked(prisma.projectMember.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.project.findUnique).mockResolvedValue({
+      archivedAt: null,
+      department: null,
+      departmentLinks: [{ departmentId: "child-department" }],
+    } as never);
+    vi.mocked(prisma.department.findMany).mockResolvedValue([
+      { id: "root-department", parentId: null, managerUserId: "manager-1", manager: { status: "active" }, deletedAt: null },
+      { id: "child-department", parentId: "root-department", managerUserId: null, deletedAt: null },
+      { id: "sibling-department", parentId: null, managerUserId: null, deletedAt: null },
+    ] as never);
+
+    await expect(canReadProject("manager-1", "descendant-project")).resolves.toBe(true);
+  });
+
+  it("allows scoped task mutations through any linked department", async () => {
+    const { prisma } = await import("@/lib/db");
+    const { canProject } = await import("@/lib/rbac/can");
+    vi.mocked(prisma.role.findFirst).mockResolvedValue({ type: "member" } as never);
+    vi.mocked(prisma.projectMember.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.project.findUnique).mockResolvedValue({
+      archivedAt: null,
+      department: null,
+      departmentLinks: [{ departmentId: "child-department" }, { departmentId: "other-department" }],
+    } as never);
+    vi.mocked(prisma.department.findMany).mockResolvedValue([
+      { id: "root-department", parentId: null, managerUserId: "manager-1", manager: { status: "active" }, deletedAt: null },
+      { id: "child-department", parentId: "root-department", managerUserId: null, deletedAt: null },
+      { id: "other-department", parentId: null, managerUserId: null, deletedAt: null },
+    ] as never);
+
+    await expect(canProject("manager-1", "task:edit_any", "linked-project")).resolves.toBe(true);
+  });
+
+  it("does not extend a department manager's scope to sibling departments", async () => {
+    const { prisma } = await import("@/lib/db");
+    const { canReadProject } = await import("@/lib/rbac/can");
+    vi.mocked(prisma.role.findFirst).mockResolvedValue({ type: "member" } as never);
+    vi.mocked(prisma.projectMember.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.project.findUnique).mockResolvedValue({
+      archivedAt: null,
+      department: { id: "sibling-department" },
+    } as never);
+    vi.mocked(prisma.department.findMany).mockResolvedValue([
+      { id: "root-department", parentId: null, managerUserId: "manager-1", manager: { status: "active" }, deletedAt: null },
+      { id: "sibling-department", parentId: null, managerUserId: null, deletedAt: null },
+    ] as never);
+
+    await expect(canReadProject("manager-1", "sibling-project")).resolves.toBe(false);
+  });
+
   it("never grants global edit roles access to deleted tasks", async () => {
     const { prisma } = await import("@/lib/db");
     const { canReadTask } = await import("@/lib/rbac/can");
@@ -93,6 +149,7 @@ describe("project read access", () => {
     vi.mocked(prisma.role.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.projectMember.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.project.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.department.findMany).mockResolvedValue([]);
     vi.mocked(prisma.task.findUnique).mockResolvedValue(null);
   });
 });

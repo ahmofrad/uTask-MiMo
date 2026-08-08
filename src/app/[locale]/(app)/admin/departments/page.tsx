@@ -15,6 +15,7 @@ export default async function AdminDepartmentsPage() {
   const t = await getTranslations("admin");
 
   const departments = await prisma.department.findMany({
+    where: { deletedAt: null },
     orderBy: { name: "asc" },
     include: {
       _count: { select: { projects: true } },
