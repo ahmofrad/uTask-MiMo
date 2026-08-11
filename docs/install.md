@@ -28,7 +28,7 @@
 | Component | Version | Required for |
 |-----------|---------|-------------|
 | Docker Engine | 24+ | Single-VM install |
-| Docker Compose | v2 | Single-VM install |
+| Docker Compose | v2.20+ | Single-VM install and readiness waits |
 | Kubernetes | 1.28+ | k8s install |
 | Helm | 3.14+ | k8s install |
 | OpenSSL | 1.1+ | Generating secrets |
@@ -50,7 +50,7 @@
 | Tool | Version | Purpose |
 |------|---------|---------|
 | Docker Engine | 24+ | Container runtime |
-| Docker Compose | v2 | Orchestration (single-VM) |
+| Docker Compose | v2.20+ | Orchestration and readiness waits |
 | Helm | 3.14+ | k8s deployment |
 | kubectl | 1.28+ | k8s management |
 | OpenSSL | 1.1+ | Secret generation |
@@ -105,16 +105,18 @@ chmod 600 .env.prod
 #   DB_PASSWORD, AUTH_SECRET, S3_ACCESS_KEY, S3_SECRET_KEY,
 #   WEBHOOK_SECRET_ENCRYPTION_KEY
 #   SMTP_* (if email is needed)
+# Replace REPLACE_WITH_DB_PASSWORD in DATABASE_URL for host-side backup/restore.
+
+# Supply customer-trusted TLS files at the paths in .env.prod.
+# For local-only validation, generate an ignored self-signed certificate:
+# bash scripts/generate-local-tls.sh
 ```
 
 ### 2.5 Start the stack
 
 ```bash
-# Build the app image
-docker build -t taskapp/app:1.0.0 .
-
-# Start all services
-docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d
+# Validate, build the app image, start all services, and wait for readiness.
+bash scripts/deploy-compose.sh --env-file .env.prod --build
 
 # Check logs
 docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml logs -f
@@ -136,7 +138,7 @@ docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec \
   -e ALLOW_PRODUCTION_SEED=true \
   -e SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" \
   -e SEED_ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" \
-  app npx tsx prisma/seed.ts
+  app-1 npx tsx prisma/seed.ts
 ```
 
 Production seeding refuses to run without the explicit flag and operator-supplied
@@ -145,6 +147,7 @@ credentials. No default production account is created.
 ### 2.8 Run the smoke test
 
 ```bash
+# Add CURL_OPTS=-k only when using the local self-signed certificate.
 BASE_URL=https://localhost ADMIN_EMAIL="$SEED_ADMIN_EMAIL" ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" ./scripts/smoke.sh
 ```
 
@@ -176,7 +179,10 @@ curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
 ```bash
 cp ops/helm/taskapp/values.yaml values-prod.yaml
-# Edit values-prod.yaml with your environment settings
+# Edit values-prod.yaml with your environment settings. These values are
+# required before helm install: config.authUrl, secret.dbPassword,
+# secret.authSecret, secret.webhookSecretEncryptionKey, secret.s3AccessKey,
+# and secret.s3SecretKey. Use an external secret manager where available.
 ```
 
 ### 3.3 Create TLS secret (if not using cert-manager)
@@ -194,7 +200,8 @@ kubectl create secret tls taskapp-tls \
 helm install taskapp ops/helm/taskapp/ \
   --values values-prod.yaml \
   --set app.tag=1.0.0 \
-  --set app.replicas=3
+  --set app.replicas=3 \
+  --wait --wait-for-jobs
 
 # Or from a repository
 # helm repo add taskapp https://charts.taskapp.dev
@@ -249,11 +256,11 @@ Key differences from single-VM:
 ### 5.1 Docker Compose
 
 ```bash
-# 1. Pull the new image
-docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml pull app
+# 1. Pull the new image for every app/worker/migration service
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml pull app-1 app-2 worker migrate
 
 # 2. Run database migrations (if applicable)
-docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec app npx prisma migrate deploy
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml run --rm migrate
 
 # 3. Restart services
 docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d
@@ -262,7 +269,7 @@ docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d
 BASE_URL=https://localhost ADMIN_EMAIL="$SEED_ADMIN_EMAIL" ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" ./scripts/smoke.sh
 
 # 5. If something goes wrong, rollback
-# docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml rollback app
+# docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d app-1 app-2 worker
 ```
 
 ### 5.2 Kubernetes (Helm)
@@ -361,14 +368,10 @@ The restore script will:
 
 ## 7. Monitoring Stack (Optional)
 
-Enable the optional monitoring stack for observability:
-
-```bash
-docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml \
-  -f ops/docker/docker-compose.monitoring.yml up -d
-```
-
-This starts Prometheus, Grafana, Loki, and Alertmanager with pre-built dashboards in `ops/grafana/`.
+The repository does not currently bundle a monitoring Compose overlay. Deploy
+Prometheus, Grafana, Loki, and Alertmanager using the customer's standard
+observability platform, and configure it to scrape the app metrics endpoint.
+The repository includes alert rules and Grafana dashboard JSON under `ops/`.
 
 Pre-built Grafana dashboards:
 - **API Overview:** request rate, p50/p95/p99 latency, error rate
@@ -385,8 +388,8 @@ Pre-built Grafana dashboards:
 ### 8.1 App won't start
 
 ```bash
-# Check logs
-docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml logs app
+# Check app logs (the HA stack has app-1 and app-2 services)
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml logs app-1 app-2
 
 # Common issues:
 # - DATABASE_URL wrong or DB not reachable
@@ -414,7 +417,7 @@ docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml logs p
 
 ### 8.4 Attachment upload fails
 
-- Check MinIO is running: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec minio curl -f http://localhost:9000/minio/health/live`
+- Check MinIO is running: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec minio-1 curl -f http://localhost:9000/minio/health/live`
 - Verify `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` in `.env.prod`
 - Check MinIO console at `http://<host>:9001` for bucket existence
 

@@ -137,10 +137,11 @@ Same topology as medium, but:
 
 ```
 ops/docker/
-├── docker-compose.yml         # main compose
-├── docker-compose.monitoring.yml  # optional Grafana/Prometheus stack
-├── .env.example
-└── README.md
+├── docker-compose.yml         # local dependency stack
+├── docker-compose.prod.yml    # HA single-host production stack
+├── nginx.conf                 # TLS reverse proxy
+├── .env.prod.example
+└── postgres/Dockerfile        # pg_partman-enabled database image
 ```
 
 ### 4.2 Services
@@ -299,22 +300,23 @@ storage:
 - `minio-1` through `minio-4` run MinIO distributed mode. The shared Docker
   network alias `minio` is the S3 endpoint used by the application.
 
-Validate the fully interpolated file before starting it. Use a temporary
-environment file containing safe non-production placeholders; never put real
-credentials in shell history or command output:
-
-```bash
-docker compose --env-file .env.prod \
-  -f ops/docker/docker-compose.prod.yml config --quiet
-docker compose --env-file .env.prod \
-  -f ops/docker/docker-compose.prod.yml up -d
-```
-
 Copy `ops/docker/.env.prod.example` to `.env.prod` and set both
 `REDIS_PASSWORD` and `REDIS_SENTINEL_PASSWORD` to the same generated value for
 the bundled Sentinel topology. The application selects Sentinel mode when
 `REDIS_SENTINELS` and `REDIS_SENTINEL_NAME` are present; otherwise it uses the
 direct `REDIS_URL` fallback.
+
+Validate the fully interpolated file before starting it. The wrapper rejects
+unfilled secret markers and missing TLS files before starting services:
+
+```bash
+bash scripts/deploy-compose.sh --env-file .env.prod --check-only
+bash scripts/deploy-compose.sh --env-file .env.prod --build
+```
+
+For CI or dry-run validation, use a temporary environment file containing safe
+non-production placeholders; never put real credentials in shell history or
+command output.
 
 #### Webhook egress policy
 
@@ -496,11 +498,11 @@ Runs nightly via cron / CronJob:
 
 ### 7.1 Docker Compose
 
-1. Pull new image: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml pull app`.
+1. Pull new image: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml pull app-1 app-2 worker migrate`.
 2. Maintenance window (optional; many upgrades are zero-downtime):
    - If DB migration: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml run --rm migrate` (runs `prisma migrate deploy` through the image entrypoint).
    - If breaking: set `app.MAINTENANCE_MODE=true`, take brief downtime.
-3. `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d app`.
+3. `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d app-1 app-2 worker`.
 4. Run `scripts/smoke.sh`.
 5. If broken: restore the previous image tag and run the same Compose command again; Docker Compose has no `rollback` subcommand.
 
@@ -590,12 +592,10 @@ For k8s, use sealed-secrets, external-secrets-operator, or the cloud provider's 
 
 ### 9.1 Docker Compose — monitoring stack
 
-`docker-compose.monitoring.yml`:
-
-- Prometheus (scrapes `/metrics` from app + node-exporter + postgres-exporter + redis-exporter)
-- Grafana (pre-built dashboards in `ops/grafana/`)
-- Loki + Promtail (log aggregation)
-- Alertmanager (alert routing to email / webhook)
+The repository does not currently bundle a monitoring Compose overlay. Use the
+customer's standard Prometheus/Grafana/Loki/Alertmanager deployment to scrape
+`/metrics` and ship logs. Pre-built Grafana dashboards and Prometheus alert
+rules remain under `ops/grafana/` and `ops/prometheus/`.
 
 ### 9.2 Pre-built Grafana dashboards
 

@@ -21,11 +21,13 @@ WEBHOOK_SECRET_ENCRYPTION_KEY=$(openssl rand -hex 32)
 
 # 3. Configure environment
 cp ops/docker/.env.prod.example .env.prod
-# Edit .env.prod with generated secrets
+# Edit .env.prod with generated secrets and replace
+# REPLACE_WITH_DB_PASSWORD in DATABASE_URL
+# Supply trusted TLS files at the configured paths. For local-only testing:
+bash scripts/generate-local-tls.sh
 
 # 4. Build and start
-docker build -t taskapp/app:1.0.0 .
-docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d
+bash scripts/deploy-compose.sh --env-file .env.prod --build
 
 # 5. Migrations run through the dedicated migration service. Provision the
 # initial production owner with operator-supplied credentials (no defaults).
@@ -35,9 +37,10 @@ docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec \
   -e ALLOW_PRODUCTION_SEED=true \
   -e SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" \
   -e SEED_ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" \
-  app npx tsx prisma/seed.ts
+  app-1 npx tsx prisma/seed.ts
 
 # 6. Run smoke test
+# Add CURL_OPTS=-k only for the local self-signed certificate.
 BASE_URL=https://localhost ADMIN_EMAIL="$SEED_ADMIN_EMAIL" ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" ./scripts/smoke.sh
 ```
 
@@ -50,9 +53,13 @@ BASE_URL=https://localhost ADMIN_EMAIL="$SEED_ADMIN_EMAIL" ADMIN_PASSWORD="$SEED
 
 ```bash
 # Install the Helm chart
+cp ops/helm/taskapp/values.yaml values-prod.yaml
+# Set config.authUrl and all required secret.* values in values-prod.yaml.
 helm install taskapp ops/helm/taskapp/ \
+  --values values-prod.yaml \
   --set app.tag=1.0.0 \
-  --set app.replicas=3
+  --set app.replicas=3 \
+  --wait --wait-for-jobs
 
 # Run smoke test
 kubectl port-forward svc/taskapp-app 3000:3000 &

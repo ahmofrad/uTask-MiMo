@@ -91,11 +91,12 @@ pnpm install
 pnpm docker:up
 
 # 3. Initialize environment
-cp .env.example .env.local
-# Edit .env.local — defaults work for local dev
+# Prisma CLI reads .env; Next.js also loads it for local development.
+cp .env.example .env
+# Edit .env if you need non-default local endpoints
 
 # 4. Initialize the database
-pnpm prisma migrate dev
+pnpm prisma:deploy  # Apply tracked migrations without an interactive prompt
 pnpm db:seed        # Creates admin@utask.local (password: password; local only)
 pnpm db:sample      # Optional: adds sample users, projects, tasks
 
@@ -127,7 +128,7 @@ pnpm dev
 
 - **Node.js** ≥ 20
 - **pnpm** ≥ 9 (`npm i -g pnpm`)
-- **Docker** + Docker Compose v2
+- **Docker** + Docker Compose v2.20 or newer (`docker compose up --wait`)
 - 4 GB RAM free for the dev stack
 
 ---
@@ -197,7 +198,8 @@ pnpm dev
 | `pnpm docker:up` | Start dev stack |
 | `pnpm docker:down` | Stop dev stack |
 | `pnpm prisma studio` | Browse the local DB |
-| `pnpm prisma migrate dev` | Apply migrations |
+| `pnpm prisma migrate dev` | Create/apply a new development migration |
+| `pnpm prisma:deploy` | Apply tracked migrations non-interactively |
 | `pnpm db:seed` | Seed sample data |
 | `pnpm i18n:extract` | Extract i18n keys from code |
 | `pnpm i18n:check` | Fail CI if `fa-IR` has missing keys |
