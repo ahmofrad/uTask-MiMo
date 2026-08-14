@@ -158,7 +158,7 @@ export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
       {activeTab === "wbs" && (
         <WBSTree tasks={filteredTasks.map((t) => ({
           id: t.id, title: t.title, status: t.status, priority: t.priority,
-          startDate: t.startDate, dueDate: t.dueDate,
+          projectName: t.projectName, progress: t.progress ?? null,
           assigneeIds: (t.assignees ?? []).map((a) => a.id),
           assigneeNames: (t.assignees ?? []).map((a) => a.displayName),
           parentTaskId: t.parentTaskId,

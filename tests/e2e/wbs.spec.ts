@@ -112,4 +112,78 @@ test.describe("WBS editor", () => {
     await expect(page.locator(`[data-task-id="${b}"] [data-testid="wbs-code"]`)).toHaveText("1.1");
     await memberCtx.close();
   });
+
+  test("provides a searchable planning outline with visible metadata and controls", async ({ page, context }) => {
+    const projectId = await createProject(page, context, `WBS Planning ${Date.now()}`);
+    const parent = await createTask(page, context, projectId, "Release plan");
+    const child = await createTask(page, context, projectId, "API implementation", {
+      parentTaskId: parent,
+      status: "in_progress",
+      priority: "high",
+      progress: 40,
+    });
+    const unrelated = await createTask(page, context, projectId, "Design review");
+
+    await page.goto(`/projects/${projectId}/wbs`);
+
+    await expect(page.getByTestId("wbs-editor")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Work breakdown structure" })).toBeVisible();
+    await expect(page.getByTestId("wbs-column-header")).toContainText("Task");
+    await expect(page.getByTestId("wbs-column-header")).toContainText("Status");
+    await expect(page.getByTestId("wbs-column-header")).toContainText("Priority");
+    await expect(page.getByTestId("wbs-column-header")).toContainText("Progress");
+    await expect(page.locator(`[data-task-id="${parent}"] [data-testid="wbs-row-actions"]`)).toBeVisible();
+    await expect(page.locator(`[data-task-id="${child}"]`)).toContainText("In progress");
+    await expect(page.locator(`[data-task-id="${child}"]`)).toContainText("High");
+
+    await page.getByTestId("wbs-search").fill("API implementation");
+    await expect(page.locator(`[data-task-id="${child}"]`)).toBeVisible();
+    await expect(page.locator(`[data-task-id="${unrelated}"]`)).toBeHidden();
+    await expect(page.locator(`[data-task-id="${parent}"]`)).toBeVisible();
+  });
+
+  test("adds a root task from the WBS toolbar", async ({ page, context }) => {
+    const projectId = await createProject(page, context, `WBS Quick Add ${Date.now()}`);
+    await createTask(page, context, projectId, "Existing work");
+
+    await page.goto(`/projects/${projectId}/wbs`);
+    await page.getByTestId("wbs-add-root").click();
+    await page.getByTestId("wbs-root-title").fill("New work package");
+    await page.getByTestId("wbs-root-title").press("Enter");
+
+    await expect(page.getByText("New work package", { exact: true })).toBeVisible();
+  });
+
+  test("keeps the outline usable on a narrow viewport without body overflow", async ({ page, context }) => {
+    const projectId = await createProject(page, context, `WBS Mobile ${Date.now()}`);
+    const parent = await createTask(page, context, projectId, "Mobile parent");
+    await createTask(page, context, projectId, "Mobile child", { parentTaskId: parent });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`/projects/${projectId}/wbs`);
+    const table = page.getByTestId("wbs-editor").locator(".overflow-x-auto");
+    await expect(table).toBeVisible();
+
+    const dimensions = await page.evaluate(() => ({
+      bodyScrollWidth: document.body.scrollWidth,
+      innerWidth: window.innerWidth,
+    }));
+    const tableDimensions = await table.evaluate((element) => ({ scrollWidth: element.scrollWidth, clientWidth: element.clientWidth }));
+    expect(dimensions.bodyScrollWidth).toBeLessThanOrEqual(dimensions.innerWidth + 1);
+    expect(tableDimensions.scrollWidth).toBeGreaterThan(tableDimensions.clientWidth);
+    await expect(page.getByTestId("wbs-column-header").locator("span").first()).toHaveCSS("position", "sticky");
+    await expect(page.getByTestId("wbs-search")).toBeVisible();
+    await expect(page.getByTestId("wbs-add-root")).toBeVisible();
+  });
+
+  test("uses the same planning outline on the dashboard WBS view", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("button", { name: "WBS" }).click();
+
+    await expect(page.getByTestId("dashboard-wbs")).toBeVisible();
+    await expect(page.getByTestId("dashboard-wbs-column-header")).toContainText("Project");
+    await expect(page.getByTestId("dashboard-wbs-search")).toBeVisible();
+    await expect(page.getByTestId("dashboard-wbs-expand-all")).toBeVisible();
+    await expect(page.getByTestId("dashboard-wbs-collapse-all")).toBeVisible();
+  });
 });

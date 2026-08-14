@@ -301,7 +301,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
 
       {activeTab === "wbs" && (
         <div>
-          <WbsEditor projectId={project.id} />
+          <WbsEditor projectId={project.id} showHeader={false} />
         </div>
       )}
 

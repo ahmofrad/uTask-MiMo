@@ -11,5 +11,5 @@ export default async function WbsPage(props: { params: Promise<{ projectId: stri
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) notFound();
 
-  return <WbsEditor projectId={projectId} />;
+  return <WbsEditor projectId={projectId} projectName={project.name} />;
 }

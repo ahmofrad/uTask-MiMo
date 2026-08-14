@@ -8,7 +8,14 @@ import { formatNumber, type Locale } from "@/lib/date/format";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 import type { GanttReport, GanttRow } from "@/lib/gantt-types";
-import { getTimelineItemWidth, getTimelinePosition, type TimelineDirection } from "@/lib/gantt/timeline";
+import {
+  getTimelineDragDeltaDays,
+  getTimelineItemGeometry,
+  getTimelinePosition,
+  snapTimelineDate,
+  shiftTimelineDateByDays,
+  type TimelineDirection,
+} from "@/lib/gantt/timeline";
 
 const DAY_WIDTH = 52;
 const BOX_WIDTH = 64;
@@ -30,6 +37,19 @@ type TimelineMonth = {
   dayCount: number;
 };
 
+type DragMode = "move" | "resize-start" | "resize-due";
+
+type DragState = {
+  id: string;
+  mode: DragMode;
+  startX: number;
+  origStart: Date;
+  origEnd: Date;
+  currentStart: Date;
+  currentEnd: Date;
+  lastDeltaDays: number;
+};
+
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-info",
   in_progress: "bg-warning",
@@ -47,12 +67,16 @@ function diffDays(a: Date, b: Date): number {
   return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
 }
 
+function isSameCalendarDay(a: Date, b: Date): boolean {
+  return startOfDay(a).getTime() === startOfDay(b).getTime();
+}
+
 export function GanttChart({ report, projectId: _projectId }: { report: GanttReport; projectId: string }) {
   const t = useTranslations("task");
   const locale = useLocale() as Locale;
   const { shortDate } = useFormattedDate();
   const [overrides, setOverrides] = useState<Record<string, { startDate: string | null; dueDate: string | null }>>({});
-  const dragRef = useRef<{ id: string; startX: number; origStart: Date; origEnd: Date } | null>(null);
+  const dragRef = useRef<DragState | null>(null);
 
   const rows = report.tasks;
 
@@ -168,35 +192,81 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
     return sEnd > tStart;
   };
 
-  const onPointerDown = (e: React.PointerEvent, r: GanttRow) => {
+  const onPointerDown = (e: React.PointerEvent, r: GanttRow, mode: DragMode = "move") => {
     if (r.isSummary) return;
     const { start, end } = dateFor(r);
     if (!start) return;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = { id: r.id, startX: e.clientX, origStart: start, origEnd: end ?? start };
+    if (mode !== "move") {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = {
+      id: r.id,
+      mode,
+      startX: e.clientX,
+      origStart: start,
+      origEnd: end ?? start,
+      currentStart: start,
+      currentEnd: end ?? start,
+      lastDeltaDays: 0,
+    };
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
     const d = dragRef.current;
     if (!d) return;
-    const deltaDays = Math.round((e.clientX - d.startX) / DAY_WIDTH);
-    const ns = new Date(d.origStart);
-    ns.setDate(ns.getDate() + deltaDays);
-    const ne = new Date(d.origEnd);
-    ne.setDate(ne.getDate() + deltaDays);
-    setOverrides((prev) => ({ ...prev, [d.id]: { startDate: ns.toISOString(), dueDate: ne.toISOString() } }));
+    const deltaDays = getTimelineDragDeltaDays(
+      d.startX,
+      e.clientX,
+      DAY_WIDTH,
+      direction,
+    );
+    let ns = d.origStart;
+    let ne = d.origEnd;
+    const isSingleDay = isSameCalendarDay(d.origStart, d.origEnd);
+    if (d.mode === "move") {
+      ns = snapTimelineDate(shiftTimelineDateByDays(d.origStart, deltaDays), "start");
+      ne = snapTimelineDate(shiftTimelineDateByDays(d.origEnd, deltaDays), "end");
+    } else if (d.mode === "resize-start") {
+      ns = snapTimelineDate(shiftTimelineDateByDays(d.origStart, deltaDays), "start");
+      if (isSingleDay && deltaDays > 0) {
+        ne = snapTimelineDate(shiftTimelineDateByDays(d.origEnd, deltaDays), "end");
+      } else if (ns > d.origEnd) {
+        ns = snapTimelineDate(d.origEnd, "start");
+      }
+    } else {
+      ne = snapTimelineDate(shiftTimelineDateByDays(d.origEnd, deltaDays), "end");
+      if (isSingleDay && deltaDays < 0) {
+        ns = snapTimelineDate(shiftTimelineDateByDays(d.origStart, deltaDays), "start");
+      } else if (ne < d.origStart) {
+        ne = snapTimelineDate(d.origStart, "end");
+      }
+    }
+    d.currentStart = ns;
+    d.currentEnd = ne;
+    d.lastDeltaDays = deltaDays;
+    setOverrides((prev) => ({
+      ...prev,
+      [d.id]: { startDate: ns.toISOString(), dueDate: ne.toISOString() },
+    }));
   };
 
   const onPointerUp = async () => {
     const d = dragRef.current;
     dragRef.current = null;
-    if (!d) return;
-    const o = overrides[d.id];
-    if (!o) return;
+    if (!d || d.lastDeltaDays === 0) return;
+    const startChanged = d.currentStart.getTime() !== d.origStart.getTime();
+    const dueChanged = d.currentEnd.getTime() !== d.origEnd.getTime();
+    const body = d.mode === "move" || (startChanged && dueChanged)
+      ? { startDate: d.currentStart.toISOString(), dueDate: d.currentEnd.toISOString() }
+      : d.mode === "resize-start"
+        ? { startDate: d.currentStart.toISOString() }
+        : { dueDate: d.currentEnd.toISOString() };
     try {
       await apiFetch(`/api/v1/tasks/${d.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ startDate: o.startDate, dueDate: o.dueDate }),
+        body: JSON.stringify(body),
       });
     } catch {
       setOverrides((prev) => {
@@ -327,7 +397,9 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
             {/* Rows */}
             {rows.map((row, i) => {
               const { start, end } = dateFor(row);
-              const width = getTimelineItemWidth(start, end, DAY_WIDTH, BOX_WIDTH);
+              const geometry = getTimelineItemGeometry(start, end, rangeStart, DAY_WIDTH);
+              const width = geometry.width;
+              const barLeft = timelineXForOffset(geometry.startOffset, width);
               const isCritical = row.critical;
               return (
                 <div
@@ -385,15 +457,37 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                         onPointerDown={(e) => onPointerDown(e, row)}
                         onPointerMove={onPointerMove}
                         onPointerUp={onPointerUp}
-                        className={`absolute top-2.5 h-7 rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} shadow-sm cursor-grab hover:opacity-80 ${
+                        className={`absolute top-2.5 h-7 select-none touch-none rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} shadow-sm cursor-grab hover:opacity-80 ${
                           isCritical ? "ring-2 ring-danger" : ""
                         } ${isDelayed(row) ? "ring-2 ring-danger" : ""}`}
-                        style={{ left: `${dayPos(start, width)}px`, width: `${width}px` }}
+                        style={{ left: `${barLeft}px`, width: `${width}px` }}
                         title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : undefined}
                       >
                         <div
                           className="h-full rounded-md bg-fg-inverse/20"
                           style={{ width: `${row.progress}%` }}
+                        />
+                        <button
+                          type="button"
+                          data-testid="gantt-task-resize-start"
+                          data-task-id={row.id}
+                          aria-label={t("ganttResizeStart")}
+                          onPointerDown={(e) => onPointerDown(e, row, "resize-start")}
+                          onClick={(e) => e.preventDefault()}
+                          className={`absolute inset-y-0 z-10 w-3 cursor-col-resize appearance-none border-0 bg-fg-inverse/20 p-0 opacity-40 transition-opacity hover:bg-fg-inverse/20 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-inverse ${
+                            direction === "rtl" ? "end-0" : "start-0"
+                          }`}
+                        />
+                        <button
+                          type="button"
+                          data-testid="gantt-task-resize-due"
+                          data-task-id={row.id}
+                          aria-label={t("ganttResizeDue")}
+                          onPointerDown={(e) => onPointerDown(e, row, "resize-due")}
+                          onClick={(e) => e.preventDefault()}
+                          className={`absolute inset-y-0 z-10 w-3 cursor-col-resize appearance-none border-0 bg-fg-inverse/20 p-0 opacity-40 transition-opacity hover:bg-fg-inverse/20 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-inverse ${
+                            direction === "rtl" ? "start-0" : "end-0"
+                          }`}
                         />
                       </div>
                     ) : row.isSummary && start ? (
@@ -403,7 +497,7 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                         className={`absolute top-2.5 h-7 rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} border border-fg-primary/40 shadow-sm ${
                           isCritical ? "ring-2 ring-danger" : ""
                         } ${isDelayed(row) ? "ring-2 ring-danger" : ""}`}
-                        style={{ left: `${dayPos(start, width)}px`, width: `${width}px` }}
+                        style={{ left: `${barLeft}px`, width: `${width}px` }}
                         title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : row.title}
                       />
                     ) : null}
@@ -418,13 +512,6 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
       {noDateTasks.length > 0 && (
         <div className="text-xs text-fg-muted">
           {noDateTasks.length} {t("ganttNoDates")}
-        </div>
-      )}
-
-      {report.criticalChain.length > 0 && (
-        <div className="flex items-center gap-2 text-xs text-fg-muted">
-          <span className="w-3 h-3 rounded ring-2 ring-danger" />
-          {t("ganttCriticalPath")}
         </div>
       )}
 
