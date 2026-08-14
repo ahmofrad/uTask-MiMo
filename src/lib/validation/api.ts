@@ -98,6 +98,24 @@ export const projectUpdateSchema = z.object({
   visibility: z.enum(["private", "department", "org"]).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "At least one field is required");
 
+const projectId = z.string().regex(
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+  "Invalid project ID",
+);
+
+const projectIdList = z.array(projectId).min(1).max(200).superRefine((ids, context) => {
+  if (new Set(ids).size !== ids.length) {
+    context.addIssue({ code: "custom", message: "projectIds must not contain duplicates" });
+  }
+});
+
+export const ganttBatchQuerySchema = z.object({
+  projectIds: z.string().trim().min(1)
+    .transform((value) => value.split(",").map((id) => id.trim()))
+    .pipe(projectIdList),
+  include: z.string().optional(),
+}).strict();
+
 export const departmentCreateSchema = z.object({
   name: z.string().trim().min(1).max(255),
   parentId: uuid.nullable().optional(),

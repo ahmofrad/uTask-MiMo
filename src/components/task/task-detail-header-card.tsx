@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { renderMarkdown } from "@/lib/markdown/render";
 
 type TaskStatus = "open" | "in_progress" | "done" | "cancelled";
@@ -13,13 +12,11 @@ type TaskDetailHeaderCardProps = {
   description?: string | null;
   status: TaskStatus;
   priority: TaskPriority;
-  dueDate: string | null;
   projectName: string;
   onSaveTitle: (_title: string) => void;
   onSaveDescription: (_description: string | null) => void;
   onStatusChange: (_status: TaskStatus) => void;
   onPriorityChange: (_priority: TaskPriority) => void;
-  onDueDateChange: (_value: string | null) => void;
 };
 
 export function TaskDetailHeaderCard({
@@ -27,13 +24,11 @@ export function TaskDetailHeaderCard({
   description,
   status,
   priority,
-  dueDate,
   projectName,
   onSaveTitle,
   onSaveDescription,
   onStatusChange,
   onPriorityChange,
-  onDueDateChange,
 }: TaskDetailHeaderCardProps) {
   const t = useTranslations();
   const [editingTitle, setEditingTitle] = useState(false);
@@ -93,12 +88,6 @@ export function TaskDetailHeaderCard({
           <option value="high">{t("task.priority.high")}</option>
           <option value="urgent">{t("task.priority.urgent")}</option>
         </select>
-        <JalaliDatePicker
-          value={dueDate?.split("T")[0] ?? null}
-          onChange={onDueDateChange}
-          placeholder={t("task.selectDate")}
-          className="w-40"
-        />
         <span className="text-xs text-fg-muted bg-bg-secondary px-2.5 py-1 rounded-lg">
           {projectName}
         </span>

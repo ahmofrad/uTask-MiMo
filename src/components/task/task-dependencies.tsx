@@ -121,47 +121,49 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
         </div>
       )}
 
-      {/* Depends on */}
-      <div>
-        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">{t("dependencies.dependsOn")}</h4>
-        {outgoing.length === 0 ? (
-          <p className="text-sm text-fg-muted">{t("dependencies.none")}</p>
-        ) : (
-          <ul className="space-y-1">
-            {outgoing.map((e) => (
-              <li key={e.id} className="flex items-center justify-between gap-2 text-sm">
-                <span className="flex items-center gap-2 min-w-0">
-                  <span className="truncate">{e.predecessor?.title ?? e.dependsOnId}</span>
-                  <span className="text-xs text-fg-muted shrink-0">{typeLabel(e.type)}{e.lag ? ` +${e.lag}d` : ""}</span>
-                </span>
-                <button
-                  onClick={() => removeDep(e.dependsOnId, e.type)}
-                  className="text-xs text-fg-muted hover:text-destructive shrink-0"
-                  title={t("dependencies.remove")}
-                >
-                  {t("dependencies.remove")}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Depends on */}
+        <div>
+          <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">{t("dependencies.dependsOn")}</h4>
+          {outgoing.length === 0 ? (
+            <p className="text-sm text-fg-muted">{t("dependencies.none")}</p>
+          ) : (
+            <ul className="space-y-1">
+              {outgoing.map((e) => (
+                <li key={e.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex items-center gap-2 min-w-0">
+                    <span className="truncate">{e.predecessor?.title ?? e.dependsOnId}</span>
+                    <span className="text-xs text-fg-muted shrink-0">{typeLabel(e.type)}{e.lag ? ` +${e.lag}d` : ""}</span>
+                  </span>
+                  <button
+                    onClick={() => removeDep(e.dependsOnId, e.type)}
+                    className="text-xs text-fg-muted hover:text-destructive shrink-0"
+                    title={t("dependencies.remove")}
+                  >
+                    {t("dependencies.remove")}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-      {/* Blocks */}
-      <div>
-        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">{t("dependencies.blocks")}</h4>
-        {incoming.length === 0 ? (
-          <p className="text-sm text-fg-muted">{t("dependencies.none")}</p>
-        ) : (
-          <ul className="space-y-1">
-            {incoming.map((e) => (
-              <li key={e.id} className="flex items-center gap-2 text-sm">
-                <span className="truncate">{e.dependent?.title ?? e.taskId}</span>
-                <span className="text-xs text-fg-muted shrink-0">{typeLabel(e.type)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        {/* Blocks */}
+        <div>
+          <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">{t("dependencies.blocks")}</h4>
+          {incoming.length === 0 ? (
+            <p className="text-sm text-fg-muted">{t("dependencies.none")}</p>
+          ) : (
+            <ul className="space-y-1">
+              {incoming.map((e) => (
+                <li key={e.id} className="flex items-center gap-2 text-sm">
+                  <span className="truncate">{e.dependent?.title ?? e.taskId}</span>
+                  <span className="text-xs text-fg-muted shrink-0">{typeLabel(e.type)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       {/* Add */}

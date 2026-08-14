@@ -100,9 +100,10 @@ export function formatNumber(
   value: number,
   locale: Locale,
   usePersianDigits = false,
+  useGrouping = true,
 ): string {
   const formatted = new Intl.NumberFormat(locale === "fa-IR" ? "fa-IR" : "en-US", {
-    useGrouping: true,
+    useGrouping,
   }).format(value);
   if (locale === "fa-IR" && usePersianDigits) {
     return toPersianDigits(formatted);

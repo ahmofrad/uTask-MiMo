@@ -164,4 +164,9 @@ describe("formatNumber", () => {
     expect(result).toContain("۱");
     expect(result).toContain("۲");
   });
+
+  it("can format a year without a grouping separator", () => {
+    expect(formatNumber(1405, "fa-IR", true, false)).toBe("۱۴۰۵");
+    expect(formatNumber(2026, "en-US", false, false)).toBe("2026");
+  });
 });

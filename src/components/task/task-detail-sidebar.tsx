@@ -3,6 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import { formatDateTime } from "@/lib/date/format";
+import { estimatedDaysToHours, estimatedHoursToDays } from "@/lib/date/estimated-time";
 import { TagPicker } from "@/components/tags/tag-picker";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { CustomFieldInput } from "@/components/custom-field/custom-field-input";
@@ -33,6 +34,7 @@ type TaskDetailSidebarProps = {
     priority: TaskPriority;
     startDate: string | null;
     endDate: string | null;
+    dueDate: string | null;
     estimatedHours?: number | null;
     spentHours?: number | null;
     assignees: { id: string }[];
@@ -53,6 +55,7 @@ type TaskDetailSidebarProps = {
   onEstimatedChange: (_value: number | null) => void;
   onSpentChange: (_value: number | null) => void;
   onStartDateChange: (_value: string | null) => void;
+  onDueDateChange: (_value: string | null) => void;
   onEndDateChange: (_value: string | null) => void;
   onDurationChange: (_days: number, _hours: number) => void;
   onTagsChange: (_ids: string[]) => void;
@@ -77,6 +80,7 @@ export function TaskDetailSidebar({
   onEstimatedChange,
   onSpentChange,
   onStartDateChange,
+  onDueDateChange,
   onEndDateChange,
   onDurationChange,
   onTagsChange,
@@ -109,41 +113,20 @@ export function TaskDetailSidebar({
           </>
         )}
 
-        <div className="border-t border-border-secondary pt-3 grid grid-cols-2 gap-3">
-          {task.estimatedHours != null && (
-            <div>
-              <h4 className="text-xs text-fg-muted font-medium mb-1">{t("task.estimated")}</h4>
-              <input
-                type="number"
-                value={task.estimatedHours ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value ? Number(e.target.value) : null;
-                  onEstimatedChange(val);
-                }}
-                className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1 text-fg"
-              />
-            </div>
-          )}
-          {task.spentHours != null && (
-            <div>
-              <h4 className="text-xs text-fg-muted font-medium mb-1">{t("task.spent")}</h4>
-              <input
-                type="number"
-                value={task.spentHours ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value ? Number(e.target.value) : null;
-                  onSpentChange(val);
-                }}
-                className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1 text-fg"
-              />
-            </div>
-          )}
-        </div>
-
-        <div className="border-t border-border-secondary pt-3 text-xs text-fg-muted space-y-1">
-          <p>{t("task.createdAt")}: {formatDateTime(new Date(task.createdAt), locale)}</p>
-          <p>{t("task.updatedAt")}: {formatDateTime(new Date(task.updatedAt), locale)}</p>
-        </div>
+        {task.spentHours != null && (
+          <div className="border-t border-border-secondary pt-3">
+            <h4 className="text-xs text-fg-muted font-medium mb-1">{t("task.spent")}</h4>
+            <input
+              type="number"
+              value={task.spentHours ?? ""}
+              onChange={(e) => {
+                const val = e.target.value ? Number(e.target.value) : null;
+                onSpentChange(val);
+              }}
+              className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1 text-fg"
+            />
+          </div>
+        )}
       </div>
 
       {/* Date & Duration card */}
@@ -155,6 +138,15 @@ export function TaskDetailSidebar({
             <JalaliDatePicker
               value={task.startDate?.split("T")[0] ?? null}
               onChange={onStartDateChange}
+              placeholder={t("task.selectDate")}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-fg-muted block mb-1">{t("task.fields.dueDate")}</label>
+            <JalaliDatePicker
+              value={task.dueDate?.split("T")[0] ?? null}
+              onChange={onDueDateChange}
               placeholder={t("task.selectDate")}
               className="w-full"
             />
@@ -202,6 +194,28 @@ export function TaskDetailSidebar({
               <span className="text-xs text-fg-subtle block mt-0.5">{t("task.hours")}</span>
             </div>
           </div>
+        </div>
+        {task.estimatedHours != null && (
+          <div className="border-t border-border-secondary pt-3">
+            <h4 className="text-xs text-fg-muted font-medium mb-1">{t("task.estimated")}</h4>
+            <input
+              type="number"
+              min={0}
+              step={0.5}
+              value={estimatedHoursToDays(task.estimatedHours) ?? ""}
+              onChange={(e) => {
+                const days = e.target.value ? Number(e.target.value) : null;
+                const val = estimatedDaysToHours(days) ?? null;
+                onEstimatedChange(val);
+              }}
+              className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1 text-fg"
+            />
+            <span className="text-xs text-fg-subtle block mt-0.5">{t("task.days")}</span>
+          </div>
+        )}
+        <div className="border-t border-border-secondary pt-3 text-xs text-fg-muted space-y-1">
+          <p>{t("task.createdAt")}: {formatDateTime(new Date(task.createdAt), locale)}</p>
+          <p>{t("task.updatedAt")}: {formatDateTime(new Date(task.updatedAt), locale)}</p>
         </div>
       </div>
 

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Board } from "@/components/task/board";
 import { Timeline } from "@/components/task/timeline";
 import { CalendarView } from "@/components/task/calendar-view";
-import { GanttView } from "@/components/task/gantt-view";
+import { DashboardGanttView } from "@/components/task/dashboard-gantt-view";
 import { WBSTree } from "@/components/task/wbs-tree";
 import { TaskCard } from "@/components/task/task-card";
 import { cn } from "@/lib/cn";
@@ -55,6 +55,22 @@ export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
   const filteredTasks = taskFilter === "mine"
     ? allTasks.filter((t) => (t.assignees ?? []).some((a) => a.id === userId))
     : allTasks;
+
+  const ganttGroups = useMemo(
+    () => Object.values(
+      filteredTasks.reduce<Record<string, { projectId: string; projectName: string }>>(
+        (acc, task) => {
+          acc[task.projectId] ??= {
+            projectId: task.projectId,
+            projectName: task.projectName,
+          };
+          return acc;
+        },
+        {},
+      ),
+    ),
+    [filteredTasks],
+  );
 
   const tabs = [
     { key: "board" as Tab, label: taskT("board"), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7m6-10a2 2 0 012-2h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7m10 0a2 2 0 012-2h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7" /></svg> },
@@ -136,23 +152,7 @@ export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
       )}
 
       {activeTab === "gantt" && (
-        <div className="space-y-6">
-          {Object.values(
-            filteredTasks.reduce<Record<string, { projectId: string; projectName: string; tasks: typeof filteredTasks }>>(
-              (acc, t) => {
-                const group = (acc[t.projectId] ??= { projectId: t.projectId, projectName: t.projectName, tasks: [] });
-                group.tasks.push(t);
-                return acc;
-              },
-              {},
-            ),
-          ).map((group) => (
-            <div key={group.projectId} className="space-y-2">
-              <h3 className="text-sm font-medium text-fg-muted">{group.projectName}</h3>
-              <GanttView projectId={group.projectId} />
-            </div>
-          ))}
-        </div>
+        <DashboardGanttView groups={ganttGroups} />
       )}
 
       {activeTab === "wbs" && (

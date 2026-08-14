@@ -13,6 +13,7 @@ import { TaskDetailHeaderCard } from "@/components/task/task-detail-header-card"
 import { TaskDetailSidebar } from "@/components/task/task-detail-sidebar";
 import type { ActivityEvent } from "@/lib/activity/types";
 import { apiFetch } from "@/lib/api-fetch";
+import { normalizeTaskDate } from "@/lib/date/task-date";
 
 type TaskData = {
   id: string;
@@ -134,9 +135,16 @@ export function TaskDetailPage({
   }, [task.id, auditLimit]);
 
   const updateTask = useCallback(async (updates: Record<string, unknown>) => {
+    const normalizedUpdates = { ...updates };
+    for (const field of ["startDate", "endDate", "dueDate"] as const) {
+      const value = normalizedUpdates[field];
+      if (typeof value === "string" || value === null) {
+        normalizedUpdates[field] = normalizeTaskDate(value);
+      }
+    }
     const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
       method: "PATCH",
-      body: JSON.stringify(updates),
+      body: JSON.stringify(normalizedUpdates),
     });
     if (!res.ok) throw new Error(t("task.updateFailed"));
     const body = await res.json();
@@ -177,10 +185,6 @@ export function TaskDetailPage({
     void updateTask({ priority });
   };
 
-  const handleDueDateChange = (val: string | null) => {
-    setTask((prev) => ({ ...prev, dueDate: val }));
-    void updateTask({ dueDate: val });
-  };
 
   const addComment = async (body: string) => {
     const res = await apiFetch(`/api/v1/tasks/${task.id}/comments`, {
@@ -443,13 +447,11 @@ export function TaskDetailPage({
         description={task.description ?? null}
         status={task.status}
         priority={task.priority}
-        dueDate={task.dueDate}
         projectName={task.projectName}
         onSaveTitle={handleSaveTitle}
         onSaveDescription={handleSaveDescription}
         onStatusChange={handleStatusChange}
         onPriorityChange={handlePriorityChange}
-        onDueDateChange={handleDueDateChange}
       />
 
       {/* Two-column layout */}
@@ -543,6 +545,10 @@ export function TaskDetailPage({
           onEstimatedChange={handleEstimatedChange}
           onSpentChange={handleSpentChange}
           onStartDateChange={handleStartDateChange}
+          onDueDateChange={(val) => {
+            setTask((prev) => ({ ...prev, dueDate: val }));
+            void updateTask({ dueDate: val });
+          }}
           onEndDateChange={handleEndDateChange}
           onDurationChange={handleDurationChange}
           onTagsChange={handleTagsChange}

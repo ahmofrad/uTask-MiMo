@@ -21,7 +21,7 @@ export function useFormattedDate() {
   function shortDate(value: string | Date | null): string {
     if (!value) return "";
     const d = typeof value === "string" ? new Date(value) : value;
-    return formatDate(d, locale).slice(0, 10);
+    return formatDate(d, locale);
   }
 
   return { date, dateTime, shortDate };

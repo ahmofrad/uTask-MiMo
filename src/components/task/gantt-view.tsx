@@ -14,12 +14,18 @@ export function GanttView({ projectId }: { projectId: string }) {
   useEffect(() => {
     let active = true;
     apiFetch(`/api/v1/projects/${projectId}/reports/gantt?include=criticalPath`)
-      .then((r) => r.json())
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Gantt report request failed: ${response.status}`);
+        return response.json();
+      })
       .then((j) => {
-        if (active) setReport(j.data ?? null);
+        if (active) {
+          if (j.data) setReport(j.data);
+          else setError(t("ganttLoadError"));
+        }
       })
       .catch(() => {
-        if (active) setError(t("wbsMoveError"));
+        if (active) setError(t("ganttLoadError"));
       });
     return () => {
       active = false;

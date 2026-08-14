@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
+import { normalizeTaskDate } from "@/lib/date/task-date";
+import { estimatedDaysToHours, estimatedHoursToDays } from "@/lib/date/estimated-time";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { TagPicker } from "@/components/tags/tag-picker";
 import { AssigneeSelect } from "@/components/task/assignee-select";
@@ -35,7 +37,9 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
   const [status, setStatus] = useState(initialData?.status ?? "open");
   const [priority, setPriority] = useState(initialData?.priority ?? "med");
   const [dueDate, setDueDate] = useState(initialData?.dueDate ?? "");
-  const [estimatedHours, setEstimatedHours] = useState(initialData?.estimatedHours?.toString() ?? "");
+  const [estimatedDays, setEstimatedDays] = useState(
+    estimatedHoursToDays(initialData?.estimatedHours)?.toString() ?? "",
+  );
   const [tagIds, setTagIds] = useState<string[]>(initialData?.tagIds ?? []);
   const [assigneeIds, setAssigneeIds] = useState<string[]>(initialData?.assigneeIds ?? []);
   const [members, setMembers] = useState<Member[]>(initialMembers ?? []);
@@ -73,8 +77,8 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
         status,
         priority,
         assigneeIds,
-        dueDate: dueDate || null,
-        estimatedHours: estimatedHours ? Number(estimatedHours) : null,
+        dueDate: normalizeTaskDate(dueDate || null),
+        estimatedHours: estimatedDaysToHours(estimatedDays ? Number(estimatedDays) : null),
         tagIds: tagIds.length > 0 ? tagIds : undefined,
       });
     } finally {
@@ -161,12 +165,13 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
           </label>
           <input
             type="number"
-            value={estimatedHours}
-            onChange={(e) => setEstimatedHours(e.target.value)}
+            value={estimatedDays}
+            onChange={(e) => setEstimatedDays(e.target.value)}
             min="0"
             step="0.5"
             className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm"
           />
+          <span className="text-xs text-fg-subtle block mt-0.5">{t("days")}</span>
         </div>
       </div>
 
