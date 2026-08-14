@@ -23,10 +23,10 @@ export default async function DashboardPage() {
   const name = rawName.includes("@") ? rawName.split("@")[0]! : rawName;
 
   const statCards = [
-    { key: "myTasks", label: t("myTasks"), value: stats.active, tone: "text-accent" },
-    { key: "dueSoon", label: t("dueSoon"), value: stats.dueSoon, tone: "text-warning" },
-    { key: "overdue", label: t("overdue"), value: stats.overdue, tone: "text-destructive" },
-    { key: "completed", label: t("completed"), value: stats.done, tone: "text-success" },
+    { key: "myTasks", label: t("myTasks"), value: stats.active, cardTone: "bg-accent-bg/70 border-accent/25", valueTone: "text-accent" },
+    { key: "dueSoon", label: t("dueSoon"), value: stats.dueSoon, cardTone: "bg-warning-bg/70 border-warning/25", valueTone: "text-warning" },
+    { key: "overdue", label: t("overdue"), value: stats.overdue, cardTone: "bg-danger-bg/70 border-danger/25", valueTone: "text-danger" },
+    { key: "completed", label: t("completed"), value: stats.done, cardTone: "bg-success-bg/70 border-success/25", valueTone: "text-success" },
   ];
 
   return (
@@ -38,9 +38,9 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {statCards.map((s) => (
-          <Card key={s.key} className="p-5">
+          <Card key={s.key} className={`p-5 ${s.cardTone}`}>
             <p className="text-sm text-fg-muted">{s.label}</p>
-            <p className={`text-3xl font-bold mt-2 tabular-nums ${s.tone}`}>{s.value}</p>
+            <p className={`text-3xl font-bold mt-2 tabular-nums ${s.valueTone}`}>{s.value}</p>
           </Card>
         ))}
       </div>

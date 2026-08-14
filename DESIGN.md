@@ -48,31 +48,32 @@ All visual properties are tokens. **Tokens are defined in CSS variables and cons
 @layer base {
   :root {
     /* === Color: surface === */
-    --bg-app:        #fafafa;   /* page background */
+    --bg-app:        #f4f6ff;   /* page background */
     --bg-surface:    #ffffff;   /* cards, panels */
-    --bg-surface-2:  #f4f4f5;   /* nested surfaces, table headers */
-    --bg-surface-3:  #e4e4e7;   /* hover on surface-2 */
-    --bg-overlay:    rgb(0 0 0 / 0.4);
+    --bg-surface-2:  #eef2ff;   /* nested surfaces, table headers */
+    --bg-surface-3:  #e1e7f8;   /* hover on surface-2 */
+    --bg-overlay:    rgb(15 23 42 / 0.48);
+    --app-gradient:  radial-gradient(circle at 0% 0%, rgb(99 102 241 / 0.11), transparent 34%), radial-gradient(circle at 100% 10%, rgb(20 184 166 / 0.09), transparent 30%);
 
     /* === Color: foreground === */
-    --fg:            #18181b;   /* primary text */
-    --fg-muted:      #52525b;   /* secondary text */
-    --fg-subtle:     #a1a1aa;   /* tertiary, placeholders */
-    --fg-inverse:    #fafafa;   /* on accent */
+    --fg:            #17213b;   /* primary text */
+    --fg-muted:      #4f5d79;   /* secondary text */
+    --fg-subtle:     #53617d;   /* tertiary, placeholders */
+    --fg-inverse:    #f8faff;   /* on accent */
 
     /* === Color: borders === */
-    --border:        #e4e4e7;
-    --border-strong: #d4d4d8;
+    --border:        #dce3f3;
+    --border-strong: #c6d0e8;
     --border-focus:  var(--accent);
 
     /* === Color: status === */
-    --success:       #16a34a;
+    --success:       #15803d;
     --success-bg:    #dcfce7;
-    --warning:       #d97706;
+    --warning:       #854d0e;
     --warning-bg:    #fef3c7;
-    --danger:        #dc2626;
+    --danger:        #b91c1c;
     --danger-bg:     #fee2e2;
-    --info:          #0284c7;
+    --info:          #0369a1;
     --info-bg:       #e0f2fe;
 
     /* === Color: priority === */
@@ -88,11 +89,21 @@ All visual properties are tokens. **Tokens are defined in CSS variables and cons
     --status-cancelled:   #94a3b8;
 
     /* === Color: accent (per-user override) === */
-    --accent:       #2563eb;   /* default blue */
+    --accent:       #4f46e5;   /* default indigo */
     --accent-fg:    #ffffff;
-    --accent-hover: #1d4ed8;
-    --accent-bg:    #dbeafe;
-    --accent-ring:  #93c5fd;
+    --accent-hover: #4338ca;
+    --accent-bg:    #e0e7ff;
+    --accent-ring:  #818cf8;
+
+    /* === Color roles: secondary, tertiary, discovery === */
+    --tone-secondary:    #0f766e;
+    --tone-secondary-bg: #ccfbf1;
+    --tone-tertiary:     #c2410c;
+    --tone-tertiary-bg:  #ffedd5;
+    --tone-discovery:    #be185d;
+    --tone-discovery-bg: #fce7f3;
+    --tone-violet:       #6d28d9;
+    --tone-violet-bg:    #ede9fe;
 
     /* === Typography === */
     --font-sans: var(--font-vazirmatn), var(--font-inter), system-ui, sans-serif;
@@ -134,32 +145,46 @@ All visual properties are tokens. **Tokens are defined in CSS variables and cons
     --duration-slow: 280ms;
   }
 
-  /* === Dark mode (soft elevated gray) === */
+  /* === Dark mode (midnight indigo with aurora accents) === */
   .dark {
-    --bg-app:        #1f1f23;
-    --bg-surface:    #27272c;
-    --bg-surface-2:  #303036;
-    --bg-surface-3:  #3b3b42;
-    --bg-overlay:    rgb(0 0 0 / 0.55);
+    --bg-app:        #101528;
+    --bg-surface:    #171d35;
+    --bg-surface-2:  #1e2848;
+    --bg-surface-3:  #29365b;
+    --bg-overlay:    rgb(2 6 23 / 0.72);
+    --app-gradient:  radial-gradient(circle at 0% 0%, rgb(99 102 241 / 0.18), transparent 35%), radial-gradient(circle at 100% 12%, rgb(45 212 191 / 0.12), transparent 30%);
 
-    --fg:            #f4f4f5;
-    --fg-muted:      #a8a8b0;
-    --fg-subtle:     #7e7e88;
-    --fg-inverse:    #18181b;
+    --fg:            #edf2ff;
+    --fg-muted:      #b2bddb;
+    --fg-subtle:     #9aa7ca;
+    --fg-inverse:    #11182e;
 
-    --border:        #35353b;
-    --border-strong: #44444c;
+    --border:        #324066;
+    --border-strong: #465784;
 
     --success-bg:    #16321f;
     --warning-bg:    #3f2a0c;
     --danger-bg:     #3f1717;
     --info-bg:       #0c2f44;
 
-    --accent-bg:     #1e3a8a;
-    --accent-ring:   #1e40af;
+    --accent-bg:     #303171;
+    --accent-ring:   #a5b4fc;
+
+    --tone-secondary:    #5eead4;
+    --tone-secondary-bg: #123c3a;
+    --tone-tertiary:     #fdba74;
+    --tone-tertiary-bg:  #4b2a16;
+    --tone-discovery:    #f9a8d4;
+    --tone-discovery-bg: #4b1d3a;
+    --tone-violet:       #c4b5fd;
+    --tone-violet-bg:    #30215d;
   }
 }
 ```
+
+The current visual direction is **Indigo–Teal Aurora**: a cool periwinkle canvas in light mode and a midnight-indigo canvas in dark mode. Indigo carries primary actions, teal carries secondary progress, amber/coral carries caution and emphasis, and pink/violet carries discovery. Color is applied through roles and surface levels, not as arbitrary decoration. The app background exposes a restrained indigo/teal radial gradient so empty page space is not a flat white or gray field.
+
+**Research basis:** Material Design 3's [color roles](https://m3.material.io/styles/color/roles) informed the primary/secondary/tertiary and on-color pairing; Atlassian Design's [color guidance](https://atlassian.design/foundations/color) informed semantic roles, emphasis levels, interaction states, and inverse text; Radix [Colors](https://www.radix-ui.com/colors) informed the separation of background, interactive, border, solid, and accessible-text steps. Airtable's enterprise palette and Sentry's purple/green contrast were used as visual references, while Linear's restraint was retained for density and focus rather than copied as a monochrome theme.
 
 ### 2.2 Accent color override
 
@@ -188,6 +213,7 @@ export default {
         warning: { DEFAULT: 'var(--warning)', bg: 'var(--warning-bg)' },
         danger:  { DEFAULT: 'var(--danger)',  bg: 'var(--danger-bg)' },
         info:    { DEFAULT: 'var(--info)',    bg: 'var(--info-bg)' },
+        tone: { secondary: 'var(--tone-secondary)', 'secondary-bg': 'var(--tone-secondary-bg)', tertiary: 'var(--tone-tertiary)', 'tertiary-bg': 'var(--tone-tertiary-bg)', discovery: 'var(--tone-discovery)', 'discovery-bg': 'var(--tone-discovery-bg)', violet: 'var(--tone-violet)', 'violet-bg': 'var(--tone-violet-bg)' },
         priority: { low: 'var(--priority-low)', med: 'var(--priority-med)', high: 'var(--priority-high)', urgent: 'var(--priority-urgent)' },
         status: { open: 'var(--status-open)', 'in-progress': 'var(--status-in_progress)', done: 'var(--status-done)', cancelled: 'var(--status-cancelled)' },
       },

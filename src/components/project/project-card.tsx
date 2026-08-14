@@ -19,7 +19,7 @@ export function ProjectCard({ id, name, description, taskCount, memberCount, col
     <Link
       href={`/projects/${id}`}
       className={cn(
-        "block bg-bg-surface border border-border rounded-lg p-4 hover:bg-bg-surface-2 transition-colors",
+        "block bg-bg-surface border border-border rounded-lg p-4 hover:bg-bg-surface-2 hover:border-accent/40 transition-colors",
         className,
       )}
     >

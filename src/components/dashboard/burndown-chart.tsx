@@ -27,7 +27,7 @@ export function BurndownChart({ data }: BurndownChartProps) {
               style={{ height: `${(d.remaining / max) * 100}%` }}
             />
             <div
-              className="w-full bg-fg-subtle rounded-t opacity-30"
+              className="w-full bg-tone-violet rounded-t opacity-60"
               style={{ height: `${(d.ideal / max) * 100}%` }}
             />
           </div>

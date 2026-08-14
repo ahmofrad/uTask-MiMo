@@ -105,7 +105,7 @@ export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
               className={cn(
                 "px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap shrink-0",
                 activeTab === tab.key
-                  ? "bg-bg-primary text-fg-primary shadow-sm"
+                  ? "bg-accent text-accent-fg shadow-sm"
                   : "text-fg-muted hover:text-fg-secondary",
               )}
             >

@@ -96,6 +96,16 @@ const config: Config = {
           DEFAULT: "var(--info)",
           bg: "var(--info-bg)",
         },
+        tone: {
+          secondary: "var(--tone-secondary)",
+          "secondary-bg": "var(--tone-secondary-bg)",
+          tertiary: "var(--tone-tertiary)",
+          "tertiary-bg": "var(--tone-tertiary-bg)",
+          discovery: "var(--tone-discovery)",
+          "discovery-bg": "var(--tone-discovery-bg)",
+          violet: "var(--tone-violet)",
+          "violet-bg": "var(--tone-violet-bg)",
+        },
         priority: {
           low: "var(--priority-low)",
           med: "var(--priority-med)",

@@ -1,17 +1,18 @@
 :root {
-  --bg-app: #f1f1f3;
+  --bg-app: #f4f6ff;
   --bg-surface: #ffffff;
-  --bg-surface-2: #ececee;
-  --bg-surface-3: #e0e0e3;
-  --bg-overlay: rgb(0 0 0 / 0.4);
+  --bg-surface-2: #eef2ff;
+  --bg-surface-3: #e1e7f8;
+  --bg-overlay: rgb(15 23 42 / 0.48);
+  --app-gradient: radial-gradient(circle at 0% 0%, rgb(99 102 241 / 0.11), transparent 34%), radial-gradient(circle at 100% 10%, rgb(20 184 166 / 0.09), transparent 30%);
 
-  --fg: #18181b;
-  --fg-muted: #52525b;
-  --fg-subtle: #666670;
-  --fg-inverse: #fafafa;
+  --fg: #17213b;
+  --fg-muted: #4f5d79;
+  --fg-subtle: #53617d;
+  --fg-inverse: #f8faff;
 
-  --border: #e4e4e7;
-  --border-strong: #d4d4d8;
+  --border: #dce3f3;
+  --border-strong: #c6d0e8;
   --border-focus: var(--accent);
 
   /* 700-level fg hues: pass 4.5:1 on their -bg tints and on white (AA). */
@@ -34,11 +35,21 @@
   --status-done: #15803d;
   --status-cancelled: #475569;
 
-  --accent: #1d4ed8;
+  --accent: #4f46e5;
   --accent-fg: #ffffff;
-  --accent-hover: #1e40af;
-  --accent-bg: #dbeafe;
-  --accent-ring: #3b82f6;
+  --accent-hover: #4338ca;
+  --accent-bg: #e0e7ff;
+  --accent-ring: #818cf8;
+
+  /* === Color roles: secondary, tertiary, discovery === */
+  --tone-secondary: #0f766e;
+  --tone-secondary-bg: #ccfbf1;
+  --tone-tertiary: #c2410c;
+  --tone-tertiary-bg: #ffedd5;
+  --tone-discovery: #be185d;
+  --tone-discovery-bg: #fce7f3;
+  --tone-violet: #6d28d9;
+  --tone-violet-bg: #ede9fe;
 
   --font-sans: var(--font-vazirmatn), var(--font-inter), system-ui, sans-serif;
   --font-mono: ui-monospace, "JetBrains Mono", monospace;
@@ -76,27 +87,28 @@
 }
 
 .dark {
-  --bg-app: #1f1f23;
-  --bg-surface: #27272c;
-  --bg-surface-2: #303036;
-  --bg-surface-3: #3b3b42;
-  --bg-overlay: rgb(0 0 0 / 0.55);
+  --bg-app: #101528;
+  --bg-surface: #171d35;
+  --bg-surface-2: #1e2848;
+  --bg-surface-3: #29365b;
+  --bg-overlay: rgb(2 6 23 / 0.72);
+  --app-gradient: radial-gradient(circle at 0% 0%, rgb(99 102 241 / 0.18), transparent 35%), radial-gradient(circle at 100% 12%, rgb(45 212 191 / 0.12), transparent 30%);
 
-  --fg: #f4f4f5;
-  --fg-muted: #a8a8b0;
-  --fg-subtle: #9a9aa4;
-  --fg-inverse: #18181b;
+  --fg: #edf2ff;
+  --fg-muted: #b2bddb;
+  --fg-subtle: #9aa7ca;
+  --fg-inverse: #11182e;
 
-  --border: #43434b;
-  --border-strong: #56565f;
+  --border: #324066;
+  --border-strong: #465784;
 
   --success-bg: #16321f;
   --warning-bg: #3f2a0c;
   --danger-bg: #3f1717;
   --info-bg: #0c2f44;
 
-  --accent-bg: #1e3a8a;
-  --accent-ring: #3b82f6;
+  --accent-bg: #303171;
+  --accent-ring: #a5b4fc;
 
   /* Softer, easier-on-the-eyes hues for dark surfaces (400-level instead of
      the bright 600-level used in light). The -bg tints above stay dark/muted. */
@@ -114,6 +126,15 @@
   --status-in_progress: #fbbf24;
   --status-done: #4ade80;
   --status-cancelled: #a1a1aa;
+
+  --tone-secondary: #5eead4;
+  --tone-secondary-bg: #123c3a;
+  --tone-tertiary: #fdba74;
+  --tone-tertiary-bg: #4b2a16;
+  --tone-discovery: #f9a8d4;
+  --tone-discovery-bg: #4b1d3a;
+  --tone-violet: #c4b5fd;
+  --tone-violet-bg: #30215d;
 
   /* Visible elevation on dark surfaces (black shadows read on dark gray). */
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.40);

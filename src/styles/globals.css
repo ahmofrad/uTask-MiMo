@@ -73,6 +73,13 @@
 
   body {
     @apply bg-background text-foreground;
+    background-image: var(--app-gradient);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    background: var(--accent-bg);
+    color: var(--accent);
   }
 
   html {

@@ -103,7 +103,7 @@ export function TaskCard({ task, variant, showProject }: TaskCardProps) {
     <Link
       href={`/tasks/${task.id}`}
       draggable={false}
-      className="flex items-center gap-3 p-3 rounded-xl border border-border-primary bg-bg-surface hover:border-border-strong transition-colors"
+      className="flex items-center gap-3 p-3 rounded-xl border border-border-primary bg-bg-surface hover:border-accent/40 transition-colors"
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">

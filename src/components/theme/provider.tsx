@@ -23,10 +23,10 @@ const ThemeContext = createContext<ThemeContextType>({
 // 700/800-level hues so accent text passes 4.5:1 on white and on the
 // runtime rgba(base, 0.14) accent-bg tint (AA for small text).
 const ACCENT_COLORS: Record<Accent, string> = {
-  blue: "#1d4ed8",
-  green: "#166534",
-  purple: "#7e22ce",
-  orange: "#9a3412",
+  blue: "#4f46e5",
+  green: "#15803d",
+  purple: "#7c3aed",
+  orange: "#c2410c",
   red: "#b91c1c",
   teal: "#0f766e",
   pink: "#be185d",

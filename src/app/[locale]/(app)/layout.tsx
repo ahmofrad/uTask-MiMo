@@ -22,7 +22,7 @@ export default async function AppLayout({
   const isAdmin = await can(session.user.id!, "user:manage");
 
   return (
-    <div className="min-h-screen bg-bg-primary flex w-full max-w-full">
+    <div className="min-h-screen bg-bg-app flex w-full max-w-full">
       <a
         href="#main-content"
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:start-2 focus:z-[60] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-accent focus:text-fg-inverse focus:text-sm focus:font-medium"

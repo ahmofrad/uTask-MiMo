@@ -12,10 +12,11 @@ test.describe("Unauthenticated visual regression @visual", () => {
   });
 
   test("home page renders in dark mode", async ({ page }) => {
-    await page.goto("/login");
-    await page.evaluate(() => {
-      document.documentElement.classList.add("dark");
+    await page.addInitScript(() => {
+      window.localStorage.setItem("theme", "dark");
     });
+    await page.goto("/login");
+    await page.waitForLoadState("networkidle");
     await expect(page).toHaveScreenshot("login-page-dark.png", {
       maxDiffPixelRatio: 0.02,
     });

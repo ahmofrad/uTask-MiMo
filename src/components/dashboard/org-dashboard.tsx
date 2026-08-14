@@ -7,9 +7,9 @@ export async function OrgDashboard() {
 
   const cards = [
     { label: t("activeUsers"), value: report.totalUsers, tone: "bg-info-bg text-info" },
-    { label: t("tasks"), value: report.totalTasks, tone: "bg-success-bg text-success" },
+    { label: t("tasks"), value: report.totalTasks, tone: "bg-tone-secondary-bg text-tone-secondary" },
     { label: t("projects"), value: report.totalProjects, tone: "bg-accent-bg text-accent" },
-    { label: t("completed"), value: report.completedTasks, tone: "bg-warning-bg text-warning" },
+    { label: t("completed"), value: report.completedTasks, tone: "bg-tone-tertiary-bg text-tone-tertiary" },
   ];
 
   const completionRate =
@@ -31,7 +31,7 @@ export async function OrgDashboard() {
         <div className="flex items-center gap-4">
           <div className="flex-1 h-4 bg-bg-surface-2 rounded-full overflow-hidden">
             <div
-              className="h-full bg-success rounded-full"
+              className="h-full bg-tone-secondary rounded-full"
               style={{ width: `${completionRate}%` }}
             />
           </div>

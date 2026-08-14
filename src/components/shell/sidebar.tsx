@@ -36,7 +36,7 @@ export function Sidebar({ isAdmin }: SidebarProps) {
 
   return (
     <nav
-      className={`hidden md:flex flex-col shrink-0 border-e border-border bg-bg-secondary transition-[width] duration-200 ${
+      className={`hidden md:flex flex-col shrink-0 border-e border-border bg-bg-secondary shadow-sm transition-[width] duration-200 ${
         collapsed ? "w-16 items-center py-4 px-2" : "w-48 py-4 px-3"
       }`}
     >
@@ -96,12 +96,12 @@ function NavItem({
   return (
     <Link
       href={href}
-      className={`flex items-center gap-2.5 rounded-md text-sm transition-colors ${
+      className={`flex items-center gap-2.5 rounded-md border-s-2 text-sm transition-colors ${
         collapsed ? "justify-center px-0 py-2" : "px-3 py-2"
       } ${
         active
-          ? "bg-accent-bg text-accent font-medium"
-          : "text-fg-muted hover:bg-bg-tertiary hover:text-fg"
+          ? "border-accent bg-accent-bg text-accent font-medium"
+          : "border-transparent text-fg-muted hover:bg-bg-tertiary hover:text-fg"
       }`}
       title={collapsed ? String(children) : undefined}
     >
