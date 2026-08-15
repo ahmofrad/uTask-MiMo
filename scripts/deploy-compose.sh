@@ -93,6 +93,8 @@ for key in DATABASE_URL DB_PASSWORD AUTH_SECRET WEBHOOK_SECRET_ENCRYPTION_KEY \
   require_config_value "$key"
 done
 
+http_only=$(read_env_value TASKAPP_HTTP_ONLY)
+
 resolve_host_path() {
   local path=$1
   if [[ "$path" = /* ]]; then
@@ -106,10 +108,17 @@ cert_file=$(read_env_value TASKAPP_TLS_CERT_FILE)
 key_file=$(read_env_value TASKAPP_TLS_KEY_FILE)
 cert_file=${cert_file:-./certs/cert.pem}
 key_file=${key_file:-./certs/key.pem}
-cert_file=$(resolve_host_path "$cert_file")
-key_file=$(resolve_host_path "$key_file")
-[[ -f "$cert_file" ]] || { echo "TLS certificate not found: $cert_file" >&2; exit 1; }
-[[ -f "$key_file" ]] || { echo "TLS private key not found: $key_file" >&2; exit 1; }
+
+if [[ "$http_only" == "true" ]]; then
+  # HTTP-only mode: nginx serves plain HTTP on :80; no TLS files are required
+  # (the Compose mounts still expect the default cert paths to exist).
+  export TASKAPP_NGINX_CONF=./nginx.http.conf
+else
+  cert_file=$(resolve_host_path "$cert_file")
+  key_file=$(resolve_host_path "$key_file")
+  [[ -f "$cert_file" ]] || { echo "TLS certificate not found: $cert_file" >&2; exit 1; }
+  [[ -f "$key_file" ]] || { echo "TLS private key not found: $key_file" >&2; exit 1; }
+fi
 
 export TASKAPP_ENV_FILE="$ENV_FILE"
 compose=(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE")

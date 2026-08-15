@@ -428,6 +428,68 @@ docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml logs p
 - Ensure the target server is not blocking the request (SSRF protection blocks private IP ranges)
 - If the target is on a private network, configure the firewall to allow egress from the app/worker
 
+### 8.6 Browser shows an SSL warning / service worker fails to register
+
+If you open the site by IP or hostname (for example `https://172.31.252.16/`) but
+the self-signed certificate was generated for `localhost`, the browser rejects
+the certificate. The login page can load only partially and the console shows:
+
+```
+SecurityError: Failed to register a ServiceWorker for scope ('https://172.31.252.16/')
+with script ('https://172.31.252.16/sw.js'): An SSL certificate error occurred
+when fetching the script.
+```
+
+Fix: regenerate the certificate with the address you actually use, then trust it
+in the client browser (or replace it with a customer-trusted certificate):
+
+```bash
+rm -f ops/docker/certs/cert.pem ops/docker/certs/key.pem
+TASKAPP_CERT_HOSTNAME=172.31.252.16 bash scripts/generate-local-tls.sh
+
+# To also cover a hostname, pass both (any value that looks like an IP is
+# emitted as an IP: SAN automatically):
+# TASKAPP_CERT_HOSTNAME=taskapp.corp.example.com \
+#   TASKAPP_CERT_SANS="172.31.252.16" bash scripts/generate-local-tls.sh
+
+docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml restart nginx
+```
+
+Then import `ops/docker/certs/cert.pem` into the client OS/browser trust store
+(Chrome: Settings → Privacy and security → Security → Manage certificates →
+Authorities → Import) and hard-reload the page. A self-signed certificate must
+be trusted by the client for the service worker to register.
+
+### 8.7 Run over plain HTTP (no TLS)
+
+For internal/lab use the stack can serve the site over plain HTTP instead. The
+application is HTTPS-agnostic — login, CSRF, and Socket.IO all work over HTTP —
+but the PWA service worker requires a secure context, so it is skipped silently
+(no offline mode, no install prompt) when the site is opened over plain HTTP.
+
+1. In `.env.prod`, set:
+
+   ```bash
+   TASKAPP_HTTP_ONLY=true
+   # Must match how you open the site; keep it https:// only when TLS is on,
+   # otherwise the secure session cookie is dropped by the browser.
+   AUTH_URL=http://<server-ip-or-hostname>
+   ```
+
+2. Make sure `ops/docker/certs/cert.pem` and `ops/docker/certs/key.pem` still
+   exist — HTTP mode ignores them, but the Compose file still mounts them.
+
+3. Redeploy:
+
+   ```bash
+   bash scripts/deploy-compose.sh --env-file .env.prod --build
+   ```
+
+4. Open `http://<server-ip-or-hostname>` (the HTTPS port 443 is unused).
+
+Plain HTTP sends credentials unencrypted, so never use it outside internal
+testing; the default deployment serves TLS on 443 and redirects port 80 to it.
+
 ---
 
 ## 9. Uninstall

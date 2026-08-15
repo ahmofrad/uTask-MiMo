@@ -26,6 +26,15 @@ cp ops/docker/.env.prod.example .env.prod
 # Supply trusted TLS files at the configured paths. For local-only testing:
 bash scripts/generate-local-tls.sh
 
+# If you open the site from another machine (https://<server-ip>), regenerate
+# the certificate for that address and trust it in the browser, otherwise the
+# service worker fails with an SSL error (see docs/install.md §8.6):
+#   rm -f ops/docker/certs/cert.pem ops/docker/certs/key.pem
+#   TASKAPP_CERT_HOSTNAME=<server-ip> bash scripts/generate-local-tls.sh
+#
+# To skip TLS entirely for internal use, set TASKAPP_HTTP_ONLY=true and
+# AUTH_URL=http://<server-ip> in .env.prod (see docs/install.md §8.7).
+
 # 4. Build and start
 bash scripts/deploy-compose.sh --env-file .env.prod --build
 
