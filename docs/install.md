@@ -138,7 +138,7 @@ docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml exec \
   -e ALLOW_PRODUCTION_SEED=true \
   -e SEED_ADMIN_EMAIL="$SEED_ADMIN_EMAIL" \
   -e SEED_ADMIN_PASSWORD="$SEED_ADMIN_PASSWORD" \
-  app-1 npx tsx prisma/seed.ts
+  app-1 node dist/seed.js
 ```
 
 Production seeding refuses to run without the explicit flag and operator-supplied

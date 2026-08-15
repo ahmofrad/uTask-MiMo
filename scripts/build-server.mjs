@@ -22,3 +22,6 @@ const shared = {
 
 await build({ ...shared, entryPoints: ["server.ts"], outfile: "dist/server.js" });
 await build({ ...shared, entryPoints: ["src/worker.ts"], outfile: "dist/worker.js" });
+// The production image has no src/ tree, so the seed (which imports src code)
+// is bundled into dist/ and run with `node dist/seed.js`.
+await build({ ...shared, entryPoints: ["prisma/seed.ts"], outfile: "dist/seed.js" });
