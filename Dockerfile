@@ -23,7 +23,9 @@ COPY prisma/ ./prisma/
 RUN npx prisma generate
 
 # Build application
-COPY tsconfig.json next.config.mjs ./
+# postcss.config.mjs and tailwind.config.ts must be present or the Tailwind
+# directives in globals.css are emitted literally (no utilities are generated).
+COPY tsconfig.json next.config.mjs postcss.config.mjs tailwind.config.ts ./
 COPY public/ ./public/
 COPY src/ ./src/
 COPY server.ts ./
