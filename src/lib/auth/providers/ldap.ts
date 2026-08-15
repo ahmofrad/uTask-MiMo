@@ -143,15 +143,27 @@ export async function searchLdapGroups(
 
 type LdapGroup = { id: string; dn: string; name: string };
 type LdapSearchEntry = Record<string, unknown> & { dn: string };
+type LdapGroupSnapshot = {
+  group: LdapGroup;
+  entries: LdapSearchEntry[];
+  managerDn: string | null;
+  managerEmail: string | null;
+};
 type LdapDatabase = Pick<
   Prisma.TransactionClient,
-  "user" | "authIdentity" | "projectMember" | "ldapGroupMembership" | "ldapSyncGroup"
+  "user" | "authIdentity" | "projectMember" | "ldapGroupMembership" | "ldapSyncGroup" | "department"
 >;
 
-async function fetchLdapGroupEntries(
+/**
+ * Reads one directory snapshot for a group: its members, its `managedBy`
+ * attribute (the AD-declared manager), and that manager's email/UPN. All reads
+ * happen before any write so a failed directory read leaves the previous
+ * authorization snapshot untouched.
+ */
+async function fetchLdapGroupSnapshot(
   config: LdapConfig,
   group: LdapGroup,
-): Promise<LdapSearchEntry[]> {
+): Promise<LdapGroupSnapshot> {
   const client = await bindAdmin(config);
   try {
     const base = config.searchBase ?? domainDn(config.upnSuffix ?? config.bindUpn);
@@ -168,7 +180,33 @@ async function fetchLdapGroupEntries(
     ) {
       throw new Error("LDAP group search returned an incomplete response");
     }
-    return entries as LdapSearchEntry[];
+
+    let managerDn: string | null = null;
+    let managerEmail: string | null = null;
+    const groupResult = await client.search(group.dn, {
+      scope: "base",
+      attributes: ["managedBy"],
+    });
+    managerDn = groupResult.searchEntries[0]
+      ? attr(groupResult.searchEntries[0], "managedBy")
+      : null;
+    if (managerDn) {
+      const managerResult = await client.search(managerDn, {
+        scope: "base",
+        attributes: ["mail", "userPrincipalName"],
+      });
+      const managerEntry = managerResult.searchEntries[0];
+      managerEmail = managerEntry
+        ? (attr(managerEntry, "userPrincipalName") ?? attr(managerEntry, "mail"))
+        : null;
+    }
+
+    return {
+      group,
+      entries: entries as LdapSearchEntry[],
+      managerDn,
+      managerEmail,
+    };
   } finally {
     try {
       await client.unbind();
@@ -178,11 +216,70 @@ async function fetchLdapGroupEntries(
   }
 }
 
-async function applyLdapGroupEntries(
+/**
+ * Applies the AD-declared manager to the group's department. AD is the source
+ * of truth unless an admin explicitly picked a manager (managerSource =
+ * "manual"); manual choices survive syncs.
+ */
+async function applyLdapDepartmentManager(
   db: LdapDatabase,
   group: LdapGroup,
-  entries: LdapSearchEntry[],
+  managerEmail: string | null,
+): Promise<void> {
+  const department = await db.department.findUnique({
+    where: { ldapSyncGroupId: group.id },
+    select: { id: true, managerUserId: true, managerSource: true },
+  });
+  if (!department || department.managerSource === "manual") return;
+
+  let nextManagerUserId: string | null = null;
+  let nextManagerSource: "ad" | null = null;
+  if (managerEmail) {
+    const manager = await db.user.findUnique({
+      where: { email: managerEmail },
+      select: { id: true, status: true },
+    });
+    if (!manager || manager.status !== "active") {
+      // AD names a manager we cannot resolve yet — keep the current state.
+      return;
+    }
+    nextManagerUserId = manager.id;
+    nextManagerSource = "ad";
+  }
+
+  if (
+    department.managerUserId === nextManagerUserId
+    && department.managerSource === nextManagerSource
+  ) {
+    return;
+  }
+
+  await db.department.update({
+    where: { id: department.id },
+    data: { managerUserId: nextManagerUserId, managerSource: nextManagerSource },
+  });
+
+  await logAudit({
+    actorUserId: null,
+    action: "department_updated",
+    entityType: "department",
+    entityId: department.id,
+    before: {
+      managerUserId: department.managerUserId,
+      managerSource: department.managerSource,
+    },
+    after: {
+      managerUserId: nextManagerUserId,
+      managerSource: nextManagerSource,
+    },
+  });
+}
+
+async function applyLdapGroupSnapshot(
+  db: LdapDatabase,
+  snapshot: LdapGroupSnapshot,
 ): Promise<number> {
+  const { group, entries, managerDn, managerEmail } = snapshot;
   const syncedAt = new Date();
   let count = 0;
   for (const e of entries) {
@@ -264,8 +361,10 @@ async function applyLdapGroupEntries(
 
   await db.ldapSyncGroup.update({
     where: { dn: group.dn },
-    data: { lastSyncedAt: new Date() },
+    data: { lastSyncedAt: new Date(), managerDn },
   });
+
+  await applyLdapDepartmentManager(db, group, managerEmail);
   return count;
 }
 
@@ -273,27 +372,24 @@ export async function syncLdapGroup(
   config: LdapConfig,
   group: LdapGroup,
 ) {
-  const entries = await fetchLdapGroupEntries(config, group);
-  return prisma.$transaction((tx) => applyLdapGroupEntries(tx, group, entries));
+  const snapshot = await fetchLdapGroupSnapshot(config, group);
+  return prisma.$transaction((tx) => applyLdapGroupSnapshot(tx, snapshot));
 }
 
 export async function syncAllLdapGroups(config: LdapConfig): Promise<{ groups: number; users: number }> {
   const groups = await prisma.ldapSyncGroup.findMany({ where: { deletedAt: null } });
-  const stagedGroups: Array<{ group: LdapGroup; entries: LdapSearchEntry[] }> = [];
+  const stagedSnapshots: LdapGroupSnapshot[] = [];
 
   // Read every group before changing users or memberships. A failed directory
   // read therefore leaves the previous authorization snapshot untouched.
   for (const group of groups) {
-    stagedGroups.push({
-      group,
-      entries: await fetchLdapGroupEntries(config, group),
-    });
+    stagedSnapshots.push(await fetchLdapGroupSnapshot(config, group));
   }
 
   return prisma.$transaction(async (tx) => {
     let users = 0;
-    for (const staged of stagedGroups) {
-      users += await applyLdapGroupEntries(tx, staged.group, staged.entries);
+    for (const snapshot of stagedSnapshots) {
+      users += await applyLdapGroupSnapshot(tx, snapshot);
     }
     return { groups: groups.length, users };
   });

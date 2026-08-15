@@ -64,11 +64,13 @@ export async function createDepartment(data: {
   parentId?: string | null;
   managerUserId?: string | null;
 }) {
+  const managerUserId = data.managerUserId ?? null;
   return prisma.department.create({
     data: {
       name: data.name,
       parentId: data.parentId ?? null,
-      managerUserId: data.managerUserId ?? null,
+      managerUserId,
+      managerSource: managerUserId ? "manual" : null,
     },
   });
 }
@@ -125,7 +127,6 @@ export async function updateDepartment(
   }
 
   if (data.parentId !== undefined && data.parentId !== null) {
-    if (data.parentId === id) return prisma.department.update({ where: { id }, data: { parentId: id } });
     if (await hasCycle(id, data.parentId)) {
       throw new Error("Setting this parent would create a cycle");
     }
@@ -134,8 +135,12 @@ export async function updateDepartment(
   const updateData: Record<string, unknown> = {};
   if (data.name !== undefined) updateData.name = data.name;
   if (data.parentId !== undefined) updateData.parentId = data.parentId;
-  if (data.managerUserId !== undefined)
+  if (data.managerUserId !== undefined) {
+    // An explicit choice (or clearing) overrides the AD-sourced manager until
+    // the next manual change; AD re-fills only when the source is not manual.
     updateData.managerUserId = data.managerUserId;
+    updateData.managerSource = data.managerUserId ? "manual" : null;
+  }
 
   return prisma.department.update({
     where: { id },

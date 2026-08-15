@@ -14,18 +14,35 @@ export default async function AdminDepartmentsPage() {
 
   const t = await getTranslations("admin");
 
-  const departments = await prisma.department.findMany({
+  const departmentsRaw = await prisma.department.findMany({
     where: { deletedAt: null },
     orderBy: { name: "asc" },
     include: {
       _count: { select: { projects: true } },
+      ldapSyncGroup: {
+        select: { _count: { select: { memberships: true } } },
+      },
+      manager: { select: { displayName: true } },
     },
   });
+
+  const departments = departmentsRaw.map((department) => ({
+    id: department.id,
+    name: department.name,
+    parentId: department.parentId,
+    managerUserId: department.managerUserId,
+    managerSource: department.managerSource,
+    managerName: department.manager?.displayName ?? null,
+    source: department.source,
+    ldapSyncGroupId: department.ldapSyncGroupId,
+    projectsCount: department._count.projects,
+    memberCount: department.ldapSyncGroup?._count.memberships ?? 0,
+  }));
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">{t("departments")}</h1>
+        <h1 className="text-2xl font-bold text-fg-primary">{t("groups")}</h1>
       </div>
       <DepartmentTree departments={departments} />
     </div>

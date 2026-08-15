@@ -25,6 +25,7 @@ const prisma = {
   projectMember: { updateMany: vi.fn() },
   ldapSyncGroup: { findMany: vi.fn(), update: vi.fn() },
   ldapGroupMembership: { upsert: vi.fn(), findMany: vi.fn(), deleteMany: vi.fn() },
+  department: { findUnique: vi.fn(), update: vi.fn() },
   $transaction: vi.fn(),
 };
 
@@ -61,6 +62,7 @@ beforeEach(() => {
   prisma.ldapGroupMembership.findMany.mockResolvedValue([]);
   prisma.ldapGroupMembership.deleteMany.mockResolvedValue({ count: 0 });
   prisma.ldapGroupMembership.upsert.mockResolvedValue({});
+  prisma.department.findUnique.mockResolvedValue(null);
   prisma.$transaction.mockImplementation(async (callback: (tx: typeof prisma) => Promise<unknown>) => callback(prisma));
 });
 
@@ -146,6 +148,69 @@ describe("syncLdapGroup", () => {
 
     expect(prisma.user.update).toHaveBeenCalled();
     expect(prisma.authIdentity.create).not.toHaveBeenCalled();
+  });
+
+  it("auto-assigns the AD-declared manager when no manual manager is set", async () => {
+    prisma.user.findUnique
+      .mockResolvedValueOnce(null) // member lookup → user is new
+      .mockResolvedValueOnce({ id: "manager-1", status: "active" }); // manager lookup
+    prisma.user.create.mockResolvedValue({ id: "u1" });
+    prisma.authIdentity.findFirst.mockResolvedValue(null);
+    prisma.department.findUnique.mockResolvedValue({
+      id: "department-1",
+      managerUserId: null,
+      managerSource: null,
+    });
+
+    mockLdapSearch.mockImplementation((_base: string, options: { scope?: string; attributes?: string[] }) => {
+      if (options.scope === "base" && options.attributes?.includes("managedBy")) {
+        return {
+          searchEntries: [{ dn: "cn=eng,dc=company,dc=local", managedBy: ["cn=jane,dc=company,dc=local"] }],
+        };
+      }
+      if (options.scope === "base") {
+        return {
+          searchEntries: [{ dn: "cn=jane,dc=company,dc=local", userPrincipalName: "jane@company.local" }],
+        };
+      }
+      return {
+        searchEntries: [{
+          dn: "cn=alice,dc=company,dc=local",
+          userPrincipalName: "alice@company.local",
+          displayName: "Alice A",
+          sAMAccountName: "alice",
+        }],
+      };
+    });
+
+    await syncLdapGroup(config, group);
+
+    expect(prisma.ldapSyncGroup.update).toHaveBeenCalledWith({
+      where: { dn: group.dn },
+      data: expect.objectContaining({ managerDn: "cn=jane,dc=company,dc=local" }),
+    });
+    expect(prisma.department.update).toHaveBeenCalledWith({
+      where: { id: "department-1" },
+      data: { managerUserId: "manager-1", managerSource: "ad" },
+    });
+  });
+
+  it("does not overwrite a manually chosen manager during sync", async () => {
+    prisma.user.findUnique.mockResolvedValue({
+      id: "u1",
+      email: "alice@company.local",
+      status: "active",
+    });
+    prisma.authIdentity.findFirst.mockResolvedValue({ id: "id-1" });
+    prisma.department.findUnique.mockResolvedValue({
+      id: "department-1",
+      managerUserId: "manual-manager",
+      managerSource: "manual",
+    });
+
+    await syncLdapGroup(config, group);
+
+    expect(prisma.department.update).not.toHaveBeenCalled();
   });
 });
 

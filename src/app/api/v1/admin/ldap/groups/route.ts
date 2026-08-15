@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
-import { getLdapConfig, searchLdapGroups } from "@/lib/auth/providers/ldap";
+import { getLdapConfig, searchLdapGroups, syncLdapGroup } from "@/lib/auth/providers/ldap";
 import { logAudit } from "@/lib/audit/log";
 import { ensureLdapDepartment } from "@/lib/departments";
 import { ldapGroupSchema, readJsonBody, validationError } from "@/lib/validation/api";
@@ -57,6 +57,14 @@ export async function POST(request: Request) {
 
   const departmentResult = await ensureLdapDepartment({ id: group.id, name: group.name });
 
+  // Pull members + AD-declared manager immediately so the group and its users
+  // show up in the Groups/Users sections right away, not on the next sync.
+  let syncedUsers: number | null = null;
+  const config = await getLdapConfig();
+  if (config && config.enabled) {
+    syncedUsers = await syncLdapGroup(config, { id: group.id, dn: group.dn, name: group.name });
+  }
+
   if (departmentResult.created) {
     await logAudit({
       actorUserId: userId,
@@ -83,5 +91,11 @@ export async function POST(request: Request) {
     after: { dn, name, departmentId: departmentResult.department.id },
   });
 
-  return NextResponse.json({ data: { ...group, department: departmentResult.department } });
+  return NextResponse.json({
+    data: {
+      ...group,
+      department: departmentResult.department,
+      ...(syncedUsers !== null ? { users: syncedUsers } : {}),
+    },
+  });
 }

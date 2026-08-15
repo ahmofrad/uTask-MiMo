@@ -19,10 +19,12 @@ vi.mock("@/lib/departments", () => ({
 vi.mock("@/lib/auth/providers/ldap", () => ({
   getLdapConfig: vi.fn(),
   searchLdapGroups: vi.fn(),
+  syncLdapGroup: vi.fn(),
 }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: mockLogAudit }));
 
 const { POST } = await import("@/app/api/v1/admin/ldap/groups/route");
+const { getLdapConfig, syncLdapGroup } = await import("@/lib/auth/providers/ldap");
 
 function request(body: unknown): Request {
   return new Request("http://localhost/api/v1/admin/ldap/groups", {
@@ -72,5 +74,35 @@ describe("POST /api/v1/admin/ldap/groups", () => {
         entityId: "department-1",
       }),
     );
+  });
+
+  it("syncs members and manager immediately when LDAP is enabled", async () => {
+    (getLdapConfig as ReturnType<typeof vi.fn>).mockResolvedValue({ enabled: true });
+    (syncLdapGroup as ReturnType<typeof vi.fn>).mockResolvedValue(3);
+
+    const response = await POST(request({
+      dn: "cn=engineering,dc=company,dc=local",
+      name: "Engineering",
+    }));
+
+    expect(response.status).toBe(200);
+    expect(syncLdapGroup).toHaveBeenCalledWith(
+      { enabled: true },
+      { id: "group-1", dn: "cn=engineering,dc=company,dc=local", name: "Engineering" },
+    );
+    const body = await response.json();
+    expect(body.data.users).toBe(3);
+  });
+
+  it("does not sync when LDAP is disabled", async () => {
+    (getLdapConfig as ReturnType<typeof vi.fn>).mockResolvedValue({ enabled: false });
+
+    const response = await POST(request({
+      dn: "cn=engineering,dc=company,dc=local",
+      name: "Engineering",
+    }));
+
+    expect(response.status).toBe(200);
+    expect(syncLdapGroup).not.toHaveBeenCalled();
   });
 });

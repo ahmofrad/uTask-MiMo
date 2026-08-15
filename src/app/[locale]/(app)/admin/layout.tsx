@@ -19,6 +19,7 @@ export default async function AdminLayout({
 
   const navLinks = [
     { href: "/admin/users", label: t("users") },
+    { href: "/admin/departments", label: t("groups") },
     { href: "/admin/webhooks", label: t("webhooks") },
     { href: "/admin/webhook-deliveries", label: t("auditLog") },
     { href: "/admin/sso", label: t("sso") },

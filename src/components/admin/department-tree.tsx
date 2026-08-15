@@ -9,9 +9,12 @@ type Department = {
   name: string;
   parentId: string | null;
   managerUserId: string | null;
+  managerSource?: "ad" | "manual" | null;
+  managerName?: string | null;
   source?: "manual" | "ldap";
   ldapSyncGroupId?: string | null;
-  _count: { projects: number };
+  projectsCount: number;
+  memberCount: number;
 };
 
 type ManagerCandidate = {
@@ -24,11 +27,38 @@ type Props = {
   departments: Department[];
 };
 
+/** All department ids at or below `rootId` (used to block cycle-creating moves). */
+function collectSubtree(departments: Department[], rootId: string): Set<string> {
+  const byParent = new Map<string | null, Department[]>();
+  for (const department of departments) {
+    const list = byParent.get(department.parentId) ?? [];
+    list.push(department);
+    byParent.set(department.parentId, list);
+  }
+  const result = new Set<string>([rootId]);
+  const stack = [rootId];
+  while (stack.length > 0) {
+    const id = stack.pop()!;
+    for (const child of byParent.get(id) ?? []) {
+      if (!result.has(child.id)) {
+        result.add(child.id);
+        stack.push(child.id);
+      }
+    }
+  }
+  return result;
+}
+
+function parentOptions(departments: Department[], departmentId: string): Department[] {
+  const excluded = collectSubtree(departments, departmentId);
+  return departments.filter((department) => !excluded.has(department.id));
+}
+
 export function DepartmentTree({ departments: initial }: Props) {
   const t = useTranslations("admin");
   const [departments, setDepartments] = useState(initial);
   const [newName, setNewName] = useState("");
-  const [parentId, setParentId] = useState("");
+  const [newParentId, setNewParentId] = useState("");
   const [managerCandidates, setManagerCandidates] = useState<Record<string, ManagerCandidate[]>>({});
   const [saveMessage, setSaveMessage] = useState("");
 
@@ -54,7 +84,7 @@ export function DepartmentTree({ departments: initial }: Props) {
     if (!newName.trim()) return;
     const body = {
       name: newName.trim(),
-      ...(parentId ? { parentId } : {}),
+      ...(newParentId ? { parentId: newParentId } : {}),
     };
     const res = await fetch("/api/v1/departments", {
       method: "POST",
@@ -65,7 +95,7 @@ export function DepartmentTree({ departments: initial }: Props) {
       const json = await res.json();
       setDepartments((prev) => [...prev, json.data]);
       setNewName("");
-      setParentId("");
+      setNewParentId("");
     }
   }
 
@@ -78,10 +108,32 @@ export function DepartmentTree({ departments: initial }: Props) {
     if (res.ok) {
       const json = await res.json();
       setDepartments((prev) => prev.map((department) => (
-        department.id === departmentId ? { ...department, managerUserId: json.data.managerUserId } : department
+        department.id === departmentId
+          ? {
+              ...department,
+              managerUserId: json.data.managerUserId,
+              managerSource: json.data.managerSource ?? null,
+            }
+          : department
       )));
       setSaveMessage(t("managerSaved"));
       window.setTimeout(() => setSaveMessage(""), 2000);
+    }
+  }
+
+  async function saveParent(departmentId: string, value: string) {
+    const res = await fetch(`/api/v1/departments/${departmentId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parentId: value || null }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      setDepartments((prev) => prev.map((department) => (
+        department.id === departmentId
+          ? { ...department, parentId: json.data.parentId }
+          : department
+      )));
     }
   }
 
@@ -91,6 +143,98 @@ export function DepartmentTree({ departments: initial }: Props) {
       setDepartments((prev) => prev.filter((department) => department.id !== id));
     }
   }
+
+  function renderRow(department: Department, level: number) {
+    const candidates = managerCandidates[department.id] ?? [];
+    const managerOptions =
+      department.managerUserId && !candidates.some((candidate) => candidate.id === department.managerUserId)
+        ? [
+            {
+              id: department.managerUserId,
+              displayName: department.managerName ?? "…",
+              email: "",
+            },
+            ...candidates,
+          ]
+        : candidates;
+
+    return (
+      <div key={department.id}>
+        <div
+          className="flex flex-col gap-3 rounded-lg border border-border-primary p-3 sm:flex-row sm:items-center sm:justify-between"
+          style={{ marginInlineStart: `${level * 24}px` }}
+        >
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-medium text-fg-primary">{department.name}</span>
+              <span className="text-xs text-fg-tertiary">
+                {department.ldapSyncGroupId ? t("ldapDepartment") : t("manualDepartment")}
+              </span>
+              {department.ldapSyncGroupId && (
+                <span className="text-xs text-fg-tertiary">
+                  {t("membersCount", { count: department.memberCount })}
+                </span>
+              )}
+              <span className="text-sm text-fg-secondary">
+                {t("projectsCount", { count: department.projectsCount })}
+              </span>
+              {department.parentId && (
+                <span className="text-xs text-fg-tertiary">{t("subgroup")}</span>
+              )}
+            </div>
+            {department.managerSource === "ad" && department.managerName && (
+              <p className="mt-1 text-xs text-fg-secondary">
+                {department.managerName} · {t("managerFromAd")}
+              </p>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={department.parentId ?? ""}
+              onChange={(e) => void saveParent(department.id, e.target.value)}
+              aria-label={`${t("moveToParent")}: ${department.name}`}
+              className="max-w-56 rounded-md border border-border-primary bg-bg-primary px-2 py-1 text-sm text-fg-primary"
+            >
+              <option value="">{t("noParent")}</option>
+              {parentOptions(departments, department.id).map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.name}
+                </option>
+              ))}
+            </select>
+            {department.ldapSyncGroupId && (
+              <select
+                value={department.managerUserId ?? ""}
+                onChange={(e) => void saveManager(department.id, e.target.value)}
+                aria-label={`${t("assignManager")}: ${department.name}`}
+                className="max-w-64 rounded-md border border-border-primary bg-bg-primary px-2 py-1 text-sm text-fg-primary"
+              >
+                <option value="">{t("noManager")}</option>
+                {managerOptions.map((candidate) => (
+                  <option key={candidate.id} value={candidate.id}>
+                    {candidate.displayName}
+                    {candidate.email ? ` (${candidate.email})` : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+            <Button variant="ghost" size="sm" onClick={() => void removeDepartment(department.id)}>
+              {t("archiveDepartment")}
+            </Button>
+          </div>
+        </div>
+        {childrenOf(department.id).map((child) => renderRow(child, level + 1))}
+      </div>
+    );
+  }
+
+  function childrenOf(parentId: string | null): Department[] {
+    return departments
+      .filter((department) => department.parentId === parentId)
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  const roots = childrenOf(null);
 
   return (
     <div className="space-y-4">
@@ -103,8 +247,8 @@ export function DepartmentTree({ departments: initial }: Props) {
           onKeyDown={(e) => e.key === "Enter" && addDepartment()}
         />
         <select
-          value={parentId}
-          onChange={(e) => setParentId(e.target.value)}
+          value={newParentId}
+          onChange={(e) => setNewParentId(e.target.value)}
           aria-label={t("parentDepartment")}
           className="rounded-md border border-border-primary bg-bg-primary px-3 py-2 text-fg-primary"
         >
@@ -117,48 +261,7 @@ export function DepartmentTree({ departments: initial }: Props) {
       </div>
       {saveMessage && <p className="text-sm text-status-success">{saveMessage}</p>}
       <div className="space-y-2">
-        {departments.map((department) => {
-          const candidates = managerCandidates[department.id] ?? [];
-          return (
-            <div
-              key={department.id}
-              className="flex flex-col gap-3 rounded-lg border border-border-primary p-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div>
-                <span className="font-medium text-fg-primary">{department.name}</span>
-                <span className="ms-3 text-sm text-fg-secondary">
-                  {t("projectsCount", { count: department._count.projects })}
-                </span>
-                <span className="ms-3 text-xs text-fg-tertiary">
-                  {department.ldapSyncGroupId ? t("ldapDepartment") : t("manualDepartment")}
-                </span>
-                {department.parentId && (
-                  <span className="ms-3 text-xs text-fg-tertiary">{t("parentDepartment")}</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {department.ldapSyncGroupId && (
-                  <select
-                    value={department.managerUserId ?? ""}
-                    onChange={(e) => void saveManager(department.id, e.target.value)}
-                    aria-label={`${t("assignManager")}: ${department.name}`}
-                    className="max-w-64 rounded-md border border-border-primary bg-bg-primary px-2 py-1 text-sm text-fg-primary"
-                  >
-                    <option value="">{t("noManager")}</option>
-                    {candidates.map((candidate) => (
-                      <option key={candidate.id} value={candidate.id}>
-                        {candidate.displayName} ({candidate.email})
-                      </option>
-                    ))}
-                  </select>
-                )}
-                <Button variant="ghost" size="sm" onClick={() => void removeDepartment(department.id)}>
-                  {t("archiveDepartment")}
-                </Button>
-              </div>
-            </div>
-          );
-        })}
+        {roots.map((department) => renderRow(department, 0))}
         {departments.length === 0 && (
           <p className="text-sm text-fg-tertiary">{t("noDepartments")}</p>
         )}

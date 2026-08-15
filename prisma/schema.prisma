@@ -49,6 +49,11 @@ enum DepartmentSource {
   ldap
 }
 
+enum DepartmentManagerSource {
+  ad
+  manual
+}
+
 enum ProjectDepartmentLinkRequestStatus {
   pending
   approved
@@ -272,15 +277,16 @@ model Role {
 }
 
 model Department {
-  id              String           @id @default(uuid()) @db.Uuid
-  name            String           @db.VarChar(255)
-  parentId        String?          @db.Uuid
-  managerUserId   String?          @db.Uuid
-  source          DepartmentSource @default(manual)
-  ldapSyncGroupId String?          @unique @db.Uuid
-  deletedAt       DateTime?        @db.Timestamptz
-  createdAt       DateTime         @default(now()) @db.Timestamptz
-  updatedAt       DateTime         @updatedAt @db.Timestamptz
+  id              String                  @id @default(uuid()) @db.Uuid
+  name            String                  @db.VarChar(255)
+  parentId        String?                 @db.Uuid
+  managerUserId   String?                 @db.Uuid
+  managerSource   DepartmentManagerSource?
+  source          DepartmentSource        @default(manual)
+  ldapSyncGroupId String?                 @unique @db.Uuid
+  deletedAt       DateTime?               @db.Timestamptz
+  createdAt       DateTime                @default(now()) @db.Timestamptz
+  updatedAt       DateTime                @updatedAt @db.Timestamptz
 
   parent                 Department?                    @relation("DepartmentTree", fields: [parentId], references: [id])
   children               Department[]                   @relation("DepartmentTree")
@@ -699,6 +705,7 @@ model LdapSyncGroup {
   name         String    @db.VarChar(255)
   dn           String    @unique @db.VarChar(512)
   objectGuid   String?   @unique @db.VarChar(128)
+  managerDn    String?   @db.VarChar(512)
   lastSyncedAt DateTime? @db.Timestamptz
   deletedAt    DateTime? @db.Timestamptz
   createdAt    DateTime  @default(now()) @db.Timestamptz

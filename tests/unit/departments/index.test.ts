@@ -99,6 +99,7 @@ describe("createDepartment", () => {
         name: "Engineering",
         parentId: null,
         managerUserId: null,
+        managerSource: null,
       },
     });
   });
@@ -118,6 +119,7 @@ describe("createDepartment", () => {
         name: "Backend",
         parentId: "dept-0",
         managerUserId: "user-1",
+        managerSource: "manual",
       },
     });
   });
@@ -137,14 +139,14 @@ describe("updateDepartment", () => {
     });
   });
 
-  it("updates manager", async () => {
+  it("updates manager and marks it manual", async () => {
     vi.mocked(prisma.department.update).mockResolvedValue(mockDepartment as never);
 
     await updateDepartment("dept-1", { managerUserId: "user-2" });
 
     expect(prisma.department.update).toHaveBeenCalledWith({
       where: { id: "dept-1" },
-      data: { managerUserId: "user-2" },
+      data: { managerUserId: "user-2", managerSource: "manual" },
     });
   });
 
