@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import vm from "node:vm";
 
 const PUBLIC = "public";
 
@@ -72,8 +73,54 @@ for (const icon of manifestRequiredIcons) {
 }
 
 if (!existsSync(join(PUBLIC, "offline.html"))) fail("public/offline.html is missing");
-if (!existsSync(join(PUBLIC, "sw.js"))) {
-  console.warn("⚠ pwa:check: public/sw.js not found (run `pnpm build` to generate it)");
+const swPath = join(PUBLIC, "sw.js");
+if (!existsSync(swPath)) {
+  fail("public/sw.js is missing (run `pnpm build` to generate it)");
+}
+
+// Evaluate the service worker in a mocked worker scope. Serwist throws during
+// script evaluation on duplicate precache entries (e.g. offline.html added
+// both by the manifest and manually), which makes browsers fail registration
+// entirely and keep serving stale precached JS from a previous build. Catching
+// that here keeps the check fast and deterministic without a browser.
+const swSource = readFileSync(swPath, "utf8");
+const swSelf = {
+  location: { origin: "http://localhost:3000", href: "http://localhost:3000/" },
+  navigator: { userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36" },
+  registration: { scope: "http://localhost:3000/" },
+  addEventListener: () => undefined,
+  skipWaiting: () => undefined,
+  clientsClaim: () => undefined,
+  caches: { keys: async () => [], open: async () => ({}), match: async () => null },
+  fetch: () => Promise.reject(new Error("no network in pwa:check")),
+  __SW_MANIFEST: [],
+};
+(swSelf as Record<string, unknown>).self = swSelf;
+try {
+  vm.runInNewContext(swSource, {
+    self: swSelf,
+    console,
+    URL,
+    Request,
+    Response,
+    Headers,
+    Blob,
+    Date,
+    Math,
+    Promise,
+    Set,
+    Map,
+    WeakSet,
+    WeakMap,
+    setTimeout,
+    clearTimeout,
+    navigator: swSelf.navigator,
+    location: swSelf.location,
+    registration: swSelf.registration,
+  } as never, { filename: "sw.js" });
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  fail(`public/sw.js failed to evaluate: ${message}`);
 }
 
 console.log("✓ pwa:check passed");

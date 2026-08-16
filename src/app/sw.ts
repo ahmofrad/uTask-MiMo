@@ -29,7 +29,12 @@ const runtimeCaching: RuntimeCaching[] = [
 ];
 
 const serwist = new Serwist({
-  precacheEntries: [...(self.__SW_MANIFEST ?? []), { url: "/offline.html" }],
+  // Note: do NOT add public/offline.html here — @serwist/next already includes
+  // it in __SW_MANIFEST (with a revision hash). Adding it a second time makes
+  // addToPrecacheList throw "add-to-cache-list-conflicting-entries" during
+  // script evaluation, which fails SW registration entirely and leaves any
+  // previously installed SW serving stale precached JS after a rebuild.
+  precacheEntries: [...(self.__SW_MANIFEST ?? [])],
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
