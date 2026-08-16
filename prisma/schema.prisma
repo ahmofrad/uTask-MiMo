@@ -653,7 +653,9 @@ model AuditLog {
   actorIp     String?     @db.VarChar(45)
   action      AuditAction
   entityType  String      @db.VarChar(100)
-  entityId    String      @db.Uuid
+  // Domain-specific entity identifier (UUID for row entities, or a stable
+  // key for non-row entities like settings sections "sso"/"smtp"/"storage").
+  entityId    String      @db.VarChar(512)
   beforeJson  Json?
   afterJson   Json?
   occurredAt  DateTime    @default(now()) @db.Timestamptz
