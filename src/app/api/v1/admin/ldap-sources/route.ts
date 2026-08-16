@@ -53,7 +53,7 @@ export async function POST(request: Request) {
 
   await logAudit({
     actorUserId: userId,
-    action: "created",
+    action: "ldap_source_created",
     entityType: "ldapsource",
     entityId: source.id,
     after: { name: source.name, url: source.url, enabled: source.enabled },

@@ -122,13 +122,22 @@ describe("POST /api/v1/admin/ldap-sources", () => {
       }),
     });
     expect(mockLogAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "created", entityType: "ldapsource", entityId: "new-1" }),
+      expect.objectContaining({ action: "ldap_source_created", entityType: "ldapsource", entityId: "new-1" }),
     );
   });
 
   it("rejects invalid payloads", async () => {
     const response = await collection.POST(jsonRequest({ name: "X" }));
     expect(response.status).toBe(400);
+    expect(mockSourceCreate).not.toHaveBeenCalled();
+  });
+
+  it("denies users without sso:configure", async () => {
+    mockRequirePermission.mockReturnValueOnce(
+      async () => NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 }),
+    );
+    const response = await collection.POST(jsonRequest({ name: "Corp" }));
+    expect(response.status).toBe(403);
     expect(mockSourceCreate).not.toHaveBeenCalled();
   });
 });
@@ -155,7 +164,10 @@ describe("PATCH /api/v1/admin/ldap-sources/[id]", () => {
       }),
     });
     expect(mockLogAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "updated", entityType: "ldapsource", entityId: "src-1" }),
+      expect.objectContaining({ action: "ldap_source_updated", entityType: "ldapsource", entityId: "src-1" }),
+    );
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ before: expect.objectContaining({ id: "src-1" }) }),
     );
   });
 
@@ -199,7 +211,7 @@ describe("DELETE /api/v1/admin/ldap-sources/[id]", () => {
       where: { id: "src-1" },
       data: expect.objectContaining({ deletedAt: expect.any(Date), enabled: false }),
     });
-    expect(mockLogAudit).toHaveBeenCalledWith(expect.objectContaining({ action: "deleted" }));
+    expect(mockLogAudit).toHaveBeenCalledWith(expect.objectContaining({ action: "ldap_source_deleted" }));
   });
 
   it("404s for an unknown source", async () => {
@@ -224,6 +236,9 @@ describe("POST /api/v1/admin/ldap-sources/[id]/test", () => {
 
     expect(response.status).toBe(200);
     expect(mockTestConnection).toHaveBeenCalledWith({ url: "ldaps://dc.corp.local:636" });
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "ldap_source_tested", entityType: "ldapsource", entityId: "src-1" }),
+    );
     const body = await response.json();
     expect(body.data.ok).toBe(true);
   });
@@ -235,6 +250,18 @@ describe("POST /api/v1/admin/ldap-sources/[id]/test", () => {
       { params: Promise.resolve({ id: "missing" }) },
     );
     expect(response.status).toBe(404);
+  });
+
+  it("denies users without sso:configure", async () => {
+    mockRequirePermission.mockReturnValueOnce(
+      async () => NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 }),
+    );
+    const response = await testRoute.POST(
+      new Request("http://localhost/api/v1/admin/ldap-sources/src-1/test", { method: "POST" }),
+      { params: Promise.resolve({ id: "src-1" }) },
+    );
+    expect(response.status).toBe(403);
+    expect(mockTestConnection).not.toHaveBeenCalled();
   });
 });
 
@@ -250,10 +277,37 @@ describe("POST /api/v1/admin/ldap-sources/[id]/sync", () => {
     expect(response.status).toBe(200);
     expect(mockSyncLdapSource).toHaveBeenCalledWith("src-1");
     expect(mockLogAudit).toHaveBeenCalledWith(
-      expect.objectContaining({ action: "ldap_sync", entityType: "ldapsource", entityId: "src-1" }),
+      expect.objectContaining({
+        action: "ldap_sync",
+        entityType: "ldapsource",
+        entityId: "src-1",
+        before: expect.objectContaining({ id: "src-1" }),
+      }),
     );
     const body = await response.json();
     expect(body.data.users).toBe(5);
+  });
+
+  it("404s for an unknown source", async () => {
+    mockGetLdapSource.mockResolvedValue(null);
+    const response = await syncRoute.POST(
+      new Request("http://localhost/api/v1/admin/ldap-sources/missing/sync", { method: "POST" }),
+      { params: Promise.resolve({ id: "missing" }) },
+    );
+    expect(response.status).toBe(404);
+    expect(mockSyncLdapSource).not.toHaveBeenCalled();
+  });
+
+  it("denies users without sso:configure", async () => {
+    mockRequirePermission.mockReturnValueOnce(
+      async () => NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 }),
+    );
+    const response = await syncRoute.POST(
+      new Request("http://localhost/api/v1/admin/ldap-sources/src-1/sync", { method: "POST" }),
+      { params: Promise.resolve({ id: "src-1" }) },
+    );
+    expect(response.status).toBe(403);
+    expect(mockSyncLdapSource).not.toHaveBeenCalled();
   });
 
   it("returns 500 with the error message on failure", async () => {

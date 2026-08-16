@@ -54,7 +54,7 @@ describe("POST /api/v1/admin/ldap/sync", () => {
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({
         action: "ldap_sync",
-        entityType: "ldapgroup",
+        entityType: "ldapsource",
         entityId: "source-1",
       }),
     );

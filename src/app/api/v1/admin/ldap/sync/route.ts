@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     await logAudit({
       actorUserId: userId,
       action: "ldap_sync",
-      entityType: "ldapgroup",
+      entityType: "ldapsource",
       entityId: source.id,
       after: result,
     });
@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   await logAudit({
     actorUserId: userId,
     action: "ldap_sync",
-    entityType: "ldapgroup",
+    entityType: "ldapsource",
     entityId: "all",
     after: result,
   });

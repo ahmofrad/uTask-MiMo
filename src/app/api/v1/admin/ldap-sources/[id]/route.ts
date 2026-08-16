@@ -66,7 +66,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   await logAudit({
     actorUserId: userId,
-    action: "updated",
+    action: "ldap_source_updated",
     entityType: "ldapsource",
     entityId: updated.id,
     before,
@@ -100,7 +100,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   await logAudit({
     actorUserId: userId,
-    action: "deleted",
+    action: "ldap_source_deleted",
     entityType: "ldapsource",
     entityId: id,
     before: redactLdapSource(existing),
