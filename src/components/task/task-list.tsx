@@ -6,6 +6,7 @@ import { useOptimisticTasks, type Task } from "@/hooks/use-optimistic-task";
 import { BulkActionsBar } from "@/components/task/bulk-actions";
 import { TaskForm } from "@/components/task/task-form";
 import { Dialog } from "@/components/ui/dialog";
+import { apiFetch } from "@/lib/api-fetch";
 import { AssigneeStack } from "@/components/task/assignee-stack";
 import { StatusBadge } from "@/components/task/status-badge";
 import { PriorityBadge } from "@/components/task/priority-badge";
@@ -44,7 +45,7 @@ export function TaskList({ initialTasks }: { initialTasks: Task[] }) {
 
   async function handleUpdate(data: Record<string, unknown>) {
     if (!editingTask) return;
-    const res = await fetch(`/api/v1/tasks/${editingTask.id}`, {
+    const res = await apiFetch(`/api/v1/tasks/${editingTask.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),

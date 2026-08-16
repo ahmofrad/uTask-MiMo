@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useToast } from "@/components/ui/toast";
+import { apiFetch } from "@/lib/api-fetch";
 
 type BulkActionsProps = {
   selectedIds: string[];
@@ -22,7 +23,7 @@ export function BulkActionsBar({ selectedIds, onClear, onRefresh }: BulkActionsP
     try {
       const results = await Promise.allSettled(
         selectedIds.map((id) =>
-          fetch(`/api/v1/tasks/${id}`, {
+          apiFetch(`/api/v1/tasks/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body ?? { status: action }),
@@ -38,7 +39,7 @@ export function BulkActionsBar({ selectedIds, onClear, onRefresh }: BulkActionsP
           onClick: async () => {
             await Promise.allSettled(
               ids.map((id) =>
-                fetch(`/api/v1/tasks/${id}`, {
+                apiFetch(`/api/v1/tasks/${id}`, {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ status: "open" }),
@@ -63,7 +64,7 @@ export function BulkActionsBar({ selectedIds, onClear, onRefresh }: BulkActionsP
     try {
       const results = await Promise.allSettled(
         ids.map((id) =>
-          fetch(`/api/v1/tasks/${id}`, {
+          apiFetch(`/api/v1/tasks/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ deletedAt: new Date().toISOString() }),
@@ -81,7 +82,7 @@ export function BulkActionsBar({ selectedIds, onClear, onRefresh }: BulkActionsP
           onClick: async () => {
             await Promise.allSettled(
               ids.map((id) =>
-                fetch(`/api/v1/tasks/${id}`, {
+                apiFetch(`/api/v1/tasks/${id}`, {
                   method: "PATCH",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ deletedAt: null }),

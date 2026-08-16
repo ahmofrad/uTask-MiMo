@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/cn";
 import { useTranslations } from "next-intl";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { apiFetch } from "@/lib/api-fetch";
 
 type TaskQuickAddProps = {
   open: boolean;
@@ -42,7 +43,7 @@ export function TaskQuickAdd({ open, onClose, projectId, onCreated }: TaskQuickA
     if (!title.trim() || saving) return;
     setSaving(true);
     try {
-      await fetch("/api/v1/tasks", {
+      await apiFetch("/api/v1/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: title.trim(), projectId: projectId ?? undefined }),

@@ -6,6 +6,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { apiFetch } from "@/lib/api-fetch";
 
 type ChangePasswordDialogProps = {
   open: boolean;
@@ -55,7 +56,7 @@ export function ChangePasswordDialog({ open, onClose }: ChangePasswordDialogProp
 
     setSubmitting(true);
     try {
-      const res = await fetch("/api/v1/auth/change-password", {
+      const res = await apiFetch("/api/v1/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),

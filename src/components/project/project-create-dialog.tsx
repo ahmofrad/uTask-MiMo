@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Dialog } from "@/components/ui/dialog";
+import { apiFetch } from "@/lib/api-fetch";
 
 export function ProjectCreateButton() {
   const t = useTranslations("project");
@@ -40,7 +41,7 @@ function ProjectCreateDialog({ onClose }: { onClose: () => void }) {
     setSubmitting(true);
     setError("");
     try {
-      const res = await fetch("/api/v1/projects", {
+      const res = await apiFetch("/api/v1/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: name.trim(), description: description.trim() || undefined, color }),

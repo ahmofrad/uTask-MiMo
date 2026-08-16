@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/api-fetch";
 
 type UserWithRole = {
   id: string;
@@ -28,7 +29,7 @@ export function AdminUserList({ users }: Props) {
   const [list, setList] = useState(users);
 
   async function toggleSuspend(userId: string, currentStatus: string) {
-    const res = await fetch(`/api/v1/users/${userId}/suspend`, { method: "POST" });
+    const res = await apiFetch(`/api/v1/users/${userId}/suspend`, { method: "POST" });
     if (res.ok) {
       setList((prev) =>
         prev.map((u) =>

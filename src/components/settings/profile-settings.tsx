@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useToast } from "@/components/ui/toast";
+import { apiFetch } from "@/lib/api-fetch";
 
 type ProfileProps = {
   userId: string;
@@ -19,7 +20,7 @@ export function ProfileSettings({ userId, name, email }: ProfileProps) {
   async function handleSave() {
     setSaving(true);
     try {
-      const res = await fetch(`/api/v1/users/${userId}`, {
+      const res = await apiFetch(`/api/v1/users/${userId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ displayName: displayName.trim() }),

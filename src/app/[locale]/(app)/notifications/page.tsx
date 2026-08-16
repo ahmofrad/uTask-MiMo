@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { notificationContent } from "@/lib/notifications/content";
+import { apiFetch } from "@/lib/api-fetch";
 
 type Notification = {
   id: string;
@@ -30,7 +31,7 @@ export default function NotificationsPage() {
   }
 
   useEffect(() => {
-    fetch("/api/v1/notifications")
+    apiFetch("/api/v1/notifications")
       .then((r) => r.json())
       .then((j) => setNotifications(j.data ?? []))
       .catch(() => {});
@@ -39,7 +40,7 @@ export default function NotificationsPage() {
   async function markAllRead() {
     setMarkingAll(true);
     try {
-      await fetch("/api/v1/notifications/read-all", { method: "POST" });
+      await apiFetch("/api/v1/notifications/read-all", { method: "POST" });
       setNotifications((prev) => prev.map((n) => ({ ...n, readAt: n.readAt || new Date().toISOString() })));
     } finally {
       setMarkingAll(false);
