@@ -36,21 +36,22 @@ export function DashboardGanttView({ groups }: { groups: GanttDashboardGroup[] }
     () => (projectIdsKey ? projectIdsKey.split(",") : []),
     [projectIdsKey],
   );
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
 
+    setLoading(true);
+    setError(null);
+    setReports({});
+
+    if (projectIds.length === 0) {
+      setLoading(false);
+      return () => undefined;
+    }
+
     async function loadReports() {
-      setLoading(true);
-      setError(null);
-      setReports({});
-
-      if (projectIds.length === 0) {
-        setLoading(false);
-        return;
-      }
-
       try {
         const batches: string[][] = [];
         for (let i = 0; i < projectIds.length; i += PROJECT_BATCH_SIZE) {
@@ -91,7 +92,7 @@ export function DashboardGanttView({ groups }: { groups: GanttDashboardGroup[] }
       active = false;
       controller.abort();
     };
-  }, [projectIds, projectIdsKey, t]);
+  }, [projectIds, projectIdsKey, t, version]);
 
   if (loading) {
     return <div className="text-sm text-fg-muted py-8 text-center">{t("loading")}</div>;
@@ -111,7 +112,11 @@ export function DashboardGanttView({ groups }: { groups: GanttDashboardGroup[] }
           <div key={group.projectId} className="space-y-2">
             <h3 className="text-sm font-medium text-fg-muted">{group.projectName}</h3>
             {report ? (
-              <GanttChart report={report} projectId={group.projectId} />
+              <GanttChart
+                report={report}
+                projectId={group.projectId}
+                onReload={() => setVersion((v) => v + 1)}
+              />
             ) : (
               <div className="text-sm text-fg-muted py-8 text-center">{t("ganttNoTasks")}</div>
             )}

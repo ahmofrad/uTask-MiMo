@@ -455,6 +455,8 @@
     "ganttResizeDue": "Resize task due date",
     "ganttInvalidDep": "Invalid dependency (overlapping dates)",
     "ganttInvalidDeps": "Invalid dependencies",
+    "ganttLinkTasks": "Link tasks",
+    "ganttLinkHint": "Click a task to set it as the predecessor, then click the dependent task. Click an arrow to remove a link.",
     "prevMonth": "Previous month",
     "nextMonth": "Next month",
     "dragToReschedule": "Drag to reschedule",

@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { prisma } from "@/lib/db";
 
 type GanttTestTask = {
   id: string;
@@ -543,5 +544,84 @@ test.describe("Gantt timeline", () => {
     const payload = JSON.parse((await patchRequest).postData() ?? "{}");
     expect(payload.startDate).toBe("2026-08-21T00:00:00.000Z");
     expect(payload.dueDate).toBe("2026-08-23T23:59:59.999Z");
+  });
+
+  test("links two tasks by clicking their bars and removes the link by clicking the arrow", async ({ page }) => {
+    const projectId = "00000000-0000-4000-8000-000000000012";
+    const sourceId = "00000000-0000-4000-8000-000000000110";
+    const targetId = "00000000-0000-4000-8000-000000000111";
+
+    // Pin the two tasks to well-separated dates so their bars never overlap
+    // (the seeded due dates would stack the target bar under the source bar).
+    await page.route("**/api/v1/projects/*/reports/gantt**", async (route) => {
+      const response = await route.fetch();
+      const payload = await response.json() as GanttTestResponse;
+      const report = Object.values(payload.data)[0];
+      for (const task of report?.tasks ?? []) {
+        if (task.id === sourceId) {
+          task.startDate = "2026-08-19T00:00:00.000Z";
+          task.dueDate = "2026-08-19T00:00:00.000Z";
+          task.summaryStart = null;
+          task.summaryEnd = null;
+        } else if (task.id === targetId) {
+          task.startDate = "2026-08-25T00:00:00.000Z";
+          task.dueDate = "2026-08-25T00:00:00.000Z";
+          task.summaryStart = null;
+          task.summaryEnd = null;
+        }
+      }
+      await route.fulfill({ response, body: JSON.stringify(payload) });
+    });
+
+    await page.goto(`/en-US/projects/${projectId}`);
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    const chart = page.getByTestId("gantt-scroll-container").first();
+    await expect(chart).toBeVisible();
+
+    // Link mode toggle only shows for users who can edit the project.
+    const toggle = page.getByTestId("gantt-link-toggle");
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+    await expect(page.getByText("Click a task to set it as the predecessor", { exact: false })).toBeVisible();
+
+    // Click the source bar, then the dependent bar. The POST carries the FS edge.
+    const sourceBar = chart.locator(`[data-testid="gantt-task-bar"][data-task-id="${sourceId}"]`);
+    const targetBar = chart.locator(`[data-testid="gantt-task-bar"][data-task-id="${targetId}"]`);
+    await expect(sourceBar).toBeVisible();
+    await expect(targetBar).toBeVisible();
+
+    const postRequest = page.waitForRequest((request) => (
+      request.method() === "POST"
+      && request.url().includes(`/api/v1/projects/${projectId}/tasks/${targetId}/dependencies`)
+    ));
+    await sourceBar.click();
+    await expect(sourceBar).toHaveAttribute("aria-pressed", "true");
+    await targetBar.click();
+    const postPayload = JSON.parse((await postRequest).postData() ?? "{}");
+    expect(postPayload).toEqual({ dependsOnId: sourceId, type: "FINISH_TO_START", lag: 0 });
+
+    // After reload, the arrow connecting the two tasks appears.
+    const arrow = chart.locator(
+      `[data-testid="gantt-link-arrow"][data-link-source="${sourceId}"][data-link-target="${targetId}"]`,
+    );
+    await expect(arrow).toBeVisible();
+
+    // Clicking the arrow deletes the dependency.
+    const deleteRequest = page.waitForRequest((request) => (
+      request.method() === "DELETE"
+      && request.url().includes(`/api/v1/projects/${projectId}/tasks/${targetId}/dependencies/${sourceId}`)
+    ));
+    await arrow.click();
+    await deleteRequest;
+    await expect(arrow).toBeHidden();
+
+    // Toggling link mode off returns the chart to normal drag state.
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    // Cleanup: remove any dependency the test created directly.
+    await prisma.taskDependency.deleteMany({
+      where: { taskId: targetId, dependsOnId: sourceId },
+    });
   });
 });

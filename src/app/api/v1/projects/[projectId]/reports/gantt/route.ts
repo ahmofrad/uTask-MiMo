@@ -24,6 +24,9 @@ export async function GET(
   const include = new Set((url.searchParams.get("include") ?? "").split(",").map((s) => s.trim()).filter(Boolean));
   const withCritical = include.has("criticalPath");
 
-  const report = await buildGanttReport(resolvedParams.projectId, withCritical);
-  return NextResponse.json({ data: report });
+  const [report, canEdit] = await Promise.all([
+    buildGanttReport(resolvedParams.projectId, withCritical),
+    canProject(userId, "task:edit_any", resolvedParams.projectId),
+  ]);
+  return NextResponse.json({ data: { ...report, canEdit } });
 }

@@ -7,7 +7,7 @@ import { toJalali, getMonthName } from "@/lib/date/jalali";
 import { formatNumber, type Locale } from "@/lib/date/format";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
-import type { GanttReport, GanttRow } from "@/lib/gantt-types";
+import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
 import {
   getTimelineDragDeltaDays,
   getTimelineItemGeometry,
@@ -71,12 +71,50 @@ function isSameCalendarDay(a: Date, b: Date): boolean {
   return startOfDay(a).getTime() === startOfDay(b).getTime();
 }
 
-export function GanttChart({ report, projectId: _projectId }: { report: GanttReport; projectId: string }) {
+type LinkErrorKey =
+  | "loadError"
+  | "cycleError"
+  | "selfError"
+  | "sameProjectError"
+  | "duplicateError"
+  | "blocked";
+
+function linkErrorKey(code?: string): LinkErrorKey {
+  switch (code) {
+    case "SELF":
+      return "selfError";
+    case "DUPLICATE":
+      return "duplicateError";
+    case "CROSS_PROJECT":
+      return "sameProjectError";
+    case "DEPENDENCY_CYCLE":
+      return "cycleError";
+    case "DEPENDENCY_BLOCKED":
+      return "blocked";
+    default:
+      return "loadError";
+  }
+}
+
+export function GanttChart({
+  report,
+  projectId,
+  onReload,
+}: {
+  report: GanttReport;
+  projectId: string;
+  onReload?: () => void;
+}) {
   const t = useTranslations("task");
   const locale = useLocale() as Locale;
   const { shortDate } = useFormattedDate();
   const [overrides, setOverrides] = useState<Record<string, { startDate: string | null; dueDate: string | null }>>({});
   const dragRef = useRef<DragState | null>(null);
+  const [linkMode, setLinkMode] = useState(false);
+  const [linkSourceId, setLinkSourceId] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkError, setLinkError] = useState<LinkErrorKey | null>(null);
+  const canEdit = report.canEdit ?? false;
 
   const rows = report.tasks;
 
@@ -277,6 +315,71 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
     }
   };
 
+  const toggleLinkMode = () => {
+    setLinkMode((active) => !active);
+    setLinkSourceId(null);
+    setLinkError(null);
+  };
+
+  const startLink = (row: GanttRow) => {
+    if (linkBusy || row.isSummary || row.isMilestone) return;
+    if (!linkSourceId) {
+      setLinkSourceId(row.id);
+      setLinkError(null);
+      return;
+    }
+    if (linkSourceId === row.id) {
+      setLinkSourceId(null);
+      return;
+    }
+    void createLink(linkSourceId, row.id);
+  };
+
+  const createLink = async (dependsOnId: string, taskId: string) => {
+    setLinkBusy(true);
+    setLinkError(null);
+    try {
+      const res = await apiFetch(`/api/v1/projects/${projectId}/tasks/${taskId}/dependencies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dependsOnId, type: "FINISH_TO_START", lag: 0 }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
+        setLinkError(linkErrorKey(json?.error?.code));
+        return;
+      }
+      setLinkSourceId(null);
+      onReload?.();
+    } catch {
+      setLinkError("loadError");
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
+  const removeLink = async (link: GanttLink) => {
+    if (linkBusy) return;
+    setLinkBusy(true);
+    setLinkError(null);
+    try {
+      const res = await apiFetch(
+        `/api/v1/projects/${projectId}/tasks/${link.target}/dependencies/${link.source}?type=${link.type}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
+        setLinkError(linkErrorKey(json?.error?.code));
+        return;
+      }
+      onReload?.();
+    } catch {
+      setLinkError("loadError");
+    } finally {
+      setLinkBusy(false);
+    }
+  };
+
   if (rows.length === 0) {
     return <div className="text-center py-12 text-fg-muted text-sm">{t("ganttNoTasks")}</div>;
   }
@@ -293,6 +396,33 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
 
   return (
     <div className="space-y-4">
+      {canEdit && (
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <button
+            type="button"
+            data-testid="gantt-link-toggle"
+            onClick={toggleLinkMode}
+            aria-pressed={linkMode}
+            className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+              linkMode
+                ? "border-accent bg-accent text-fg-inverse"
+                : "border-border-primary bg-bg-primary text-fg-secondary hover:bg-bg-surface"
+            }`}
+          >
+            {t("ganttLinkTasks")}
+          </button>
+          {linkMode && (
+            <span className="text-xs text-fg-muted" role="status">
+              {t("ganttLinkHint")}
+            </span>
+          )}
+          {linkError && (
+            <span className="text-xs text-destructive" role="alert">
+              {t(`dependencies.${linkError}`)}
+            </span>
+          )}
+        </div>
+      )}
       <div
         data-testid="gantt-scroll-container"
         className="overflow-x-auto border border-border-primary rounded-lg"
@@ -354,7 +484,11 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
 
           {/* Dependency arrows overlay */}
           <div className="relative" style={{ height: rowsHeight }}>
-            <svg className="pointer-events-none absolute inset-0" width={totalWidth + LEFT_WIDTH} height={rowsHeight}>
+            <svg
+              className={`absolute inset-0 pointer-events-none ${linkMode ? "z-30" : ""}`}
+              width={totalWidth + LEFT_WIDTH}
+              height={rowsHeight}
+            >
               <defs>
                 <marker id="gantt-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
                   <path d="M0,0 L6,3 L0,6 Z" className="fill-fg-muted" />
@@ -379,17 +513,38 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                 const mx = (x1 + x2) / 2;
                 const invalid = isInvalidLink(sTask, tTask);
                 return (
-                  <path
+                  <g
                     key={link.id}
-                    d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={invalid ? 1.5 : 1}
-                    className={invalid ? "text-danger" : "text-fg-subtle"}
-                    markerEnd="url(#gantt-arrow)"
+                    data-testid="gantt-link-arrow"
+                    data-link-source={link.source}
+                    data-link-target={link.target}
+                    className={linkMode ? "cursor-pointer" : ""}
+                    onClick={linkMode ? () => void removeLink(link) : undefined}
+                    role={linkMode ? "button" : undefined}
+                    aria-label={linkMode ? t("dependencies.remove") : undefined}
                   >
-                    {invalid ? <title>{t("ganttInvalidDep")}</title> : null}
-                  </path>
+                    {linkMode && (
+                      // Invisible wide hit area: a 1px bezier is nearly
+                      // impossible to click, so extend the target to 12px.
+                      <path
+                        d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth={12}
+                        style={{ pointerEvents: "stroke" }}
+                      />
+                    )}
+                    <path
+                      d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={invalid ? 1.5 : 1}
+                      className={`${invalid ? "text-danger" : "text-fg-subtle"} ${linkMode ? "hover:opacity-70" : ""}`}
+                      markerEnd="url(#gantt-arrow)"
+                    >
+                      {invalid ? <title>{t("ganttInvalidDep")}</title> : null}
+                    </path>
+                  </g>
                 );
               })}
             </svg>
@@ -454,12 +609,26 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                       <div
                         data-testid="gantt-task-bar"
                         data-task-id={row.id}
-                        onPointerDown={(e) => onPointerDown(e, row)}
-                        onPointerMove={onPointerMove}
-                        onPointerUp={onPointerUp}
-                        className={`absolute top-2.5 h-7 select-none touch-none rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} shadow-sm cursor-grab hover:opacity-80 ${
+                        onPointerDown={linkMode ? undefined : (e) => onPointerDown(e, row)}
+                        onPointerMove={linkMode ? undefined : onPointerMove}
+                        onPointerUp={linkMode ? undefined : onPointerUp}
+                        onClick={linkMode ? () => startLink(row) : undefined}
+                        onKeyDown={linkMode ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            startLink(row);
+                          }
+                        } : undefined}
+                        role={linkMode ? "button" : undefined}
+                        tabIndex={linkMode ? 0 : undefined}
+                        aria-pressed={linkMode ? linkSourceId === row.id : undefined}
+                        className={`absolute top-2.5 h-7 select-none touch-none rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} shadow-sm ${
+                          linkMode ? "cursor-pointer" : "cursor-grab"
+                        } hover:opacity-80 ${
                           isCritical ? "ring-2 ring-danger" : ""
-                        } ${isDelayed(row) ? "ring-2 ring-danger" : ""}`}
+                        } ${isDelayed(row) ? "ring-2 ring-danger" : ""} ${
+                          linkSourceId === row.id ? "ring-2 ring-accent" : ""
+                        }`}
                         style={{ left: `${barLeft}px`, width: `${width}px` }}
                         title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : undefined}
                       >
@@ -467,28 +636,32 @@ export function GanttChart({ report, projectId: _projectId }: { report: GanttRep
                           className="h-full rounded-md bg-fg-inverse/20"
                           style={{ width: `${row.progress}%` }}
                         />
-                        <button
-                          type="button"
-                          data-testid="gantt-task-resize-start"
-                          data-task-id={row.id}
-                          aria-label={t("ganttResizeStart")}
-                          onPointerDown={(e) => onPointerDown(e, row, "resize-start")}
-                          onClick={(e) => e.preventDefault()}
-                          className={`absolute inset-y-0 z-10 w-3 cursor-col-resize appearance-none border-0 bg-fg-inverse/20 p-0 opacity-40 transition-opacity hover:bg-fg-inverse/20 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-inverse ${
-                            direction === "rtl" ? "end-0" : "start-0"
-                          }`}
-                        />
-                        <button
-                          type="button"
-                          data-testid="gantt-task-resize-due"
-                          data-task-id={row.id}
-                          aria-label={t("ganttResizeDue")}
-                          onPointerDown={(e) => onPointerDown(e, row, "resize-due")}
-                          onClick={(e) => e.preventDefault()}
-                          className={`absolute inset-y-0 z-10 w-3 cursor-col-resize appearance-none border-0 bg-fg-inverse/20 p-0 opacity-40 transition-opacity hover:bg-fg-inverse/20 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-inverse ${
-                            direction === "rtl" ? "start-0" : "end-0"
-                          }`}
-                        />
+                        {!linkMode && (
+                          <>
+                            <button
+                              type="button"
+                              data-testid="gantt-task-resize-start"
+                              data-task-id={row.id}
+                              aria-label={t("ganttResizeStart")}
+                              onPointerDown={(e) => onPointerDown(e, row, "resize-start")}
+                              onClick={(e) => e.preventDefault()}
+                              className={`absolute inset-y-0 z-10 w-3 cursor-col-resize appearance-none border-0 bg-fg-inverse/20 p-0 opacity-40 transition-opacity hover:bg-fg-inverse/20 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-inverse ${
+                                direction === "rtl" ? "end-0" : "start-0"
+                              }`}
+                            />
+                            <button
+                              type="button"
+                              data-testid="gantt-task-resize-due"
+                              data-task-id={row.id}
+                              aria-label={t("ganttResizeDue")}
+                              onPointerDown={(e) => onPointerDown(e, row, "resize-due")}
+                              onClick={(e) => e.preventDefault()}
+                              className={`absolute inset-y-0 z-10 w-3 cursor-col-resize appearance-none border-0 bg-fg-inverse/20 p-0 opacity-40 transition-opacity hover:bg-fg-inverse/20 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fg-inverse ${
+                                direction === "rtl" ? "start-0" : "end-0"
+                              }`}
+                            />
+                          </>
+                        )}
                       </div>
                     ) : row.isSummary && start ? (
                       <div

@@ -40,6 +40,8 @@ describe("GET /api/v1/reports/gantt", () => {
     expect(response.status).toBe(200);
     expect(body.data).toHaveProperty(projectA);
     expect(body.data).toHaveProperty(projectB);
+    expect(body.data[projectA]).toHaveProperty("canEdit", true);
+    expect(body.data[projectB]).toHaveProperty("canEdit", true);
     expect(mockBuildGanttReport).toHaveBeenCalledTimes(2);
     expect(mockBuildGanttReport).toHaveBeenNthCalledWith(1, projectA, true);
     expect(mockBuildGanttReport).toHaveBeenNthCalledWith(2, projectB, true);
@@ -74,6 +76,19 @@ describe("GET /api/v1/reports/gantt", () => {
 
     expect(response.status).toBe(403);
     expect(mockBuildGanttReport).not.toHaveBeenCalled();
+  });
+
+  it("marks a readable-but-not-editable project with canEdit false", async () => {
+    mockCanProject.mockImplementation(async (_userId: string, action: string) => action !== "task:edit_any");
+    const { GET } = await import("@/app/api/v1/reports/gantt/route");
+
+    const response = await GET(
+      makeRequest("projectIds=11111111-1111-4111-8111-111111111111"),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data["11111111-1111-4111-8111-111111111111"]).toHaveProperty("canEdit", false);
   });
 
   it("requires authentication", async () => {

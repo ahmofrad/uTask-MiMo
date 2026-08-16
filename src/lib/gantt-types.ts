@@ -30,4 +30,6 @@ export type GanttReport = {
   criticalChain: string[];
   scheduleVersion: number;
   project: { start: string | null; end: string | null };
+  /** Whether the current user may edit tasks (and thus link/unlink) in this project. */
+  canEdit?: boolean;
 };

@@ -39,10 +39,13 @@ export async function GET(request: Request) {
   }
 
   const reports = await Promise.all(
-    parsed.data.projectIds.map(async (projectId) => [
-      projectId,
-      await buildGanttReport(projectId, withCritical),
-    ] as const),
+    parsed.data.projectIds.map(async (projectId) => {
+      const [report, canEdit] = await Promise.all([
+        buildGanttReport(projectId, withCritical),
+        canProject(userId, "task:edit_any", projectId),
+      ]);
+      return [projectId, { ...report, canEdit }] as const;
+    }),
   );
 
   return NextResponse.json({ data: Object.fromEntries(reports) });
