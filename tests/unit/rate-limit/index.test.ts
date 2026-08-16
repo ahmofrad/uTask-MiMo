@@ -82,4 +82,22 @@ describe("checkRateLimit", () => {
     const r3 = await checkRateLimit(key, config);
     expect(r3.remaining).toBe(0);
   });
+
+  it("allows all requests when RATE_LIMIT_DISABLED is set", async () => {
+    vi.resetModules();
+    process.env.RATE_LIMIT_DISABLED = "true";
+    try {
+      const { checkRateLimit: disabledCheck } = await import("@/lib/rate-limit");
+      const key = uniqueKey("test-disabled");
+      const config = { windowMs: 60000, maxRequests: 2 };
+      for (let i = 0; i < 5; i++) {
+        const result = await disabledCheck(key, config);
+        expect(result.allowed).toBe(true);
+        expect(result.remaining).toBe(config.maxRequests);
+      }
+    } finally {
+      delete process.env.RATE_LIMIT_DISABLED;
+      vi.resetModules();
+    }
+  });
 });

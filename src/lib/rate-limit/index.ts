@@ -6,6 +6,9 @@ import { getRedisConnectionOptions } from "@/lib/redis/config";
 
 const rateLimitBackend = process.env.RATE_LIMIT_BACKEND ?? "redis";
 const failClosed = process.env.NODE_ENV === "production" || process.env.RATE_LIMIT_FAIL_CLOSED === "true";
+// Bypass all rate limits. Used by the e2e test server (playwright.config.ts) so
+// suite-wide API traffic from a single IP cannot trip the shared per-IP tier.
+const rateLimitingDisabled = process.env.RATE_LIMIT_DISABLED === "true";
 
 type RedisClient = RedisReadyClient & {
   incr(_key: string): Promise<number>;
@@ -145,6 +148,10 @@ function redisUnavailableResult(tier: RateLimitTier): RateLimitResult {
   return { allowed: false, remaining: 0, resetAt: Date.now() + 10_000, limit: tier.maxRequests };
 }
 
+function disabledResult(tier: RateLimitTier): RateLimitResult {
+  return { allowed: true, remaining: tier.maxRequests, resetAt: Date.now() + tier.windowMs, limit: tier.maxRequests };
+}
+
 // --- Redis sliding window ---
 
 type RateLimitResult = {
@@ -198,18 +205,22 @@ export async function checkRateLimit(
   config: { windowMs: number; maxRequests: number } = { windowMs: 60_000, maxRequests: 60 },
 ): Promise<RateLimitResult> {
   const tier: RateLimitTier = { prefix: "rl:custom:", ...config };
+  if (rateLimitingDisabled) return disabledResult(tier);
   return checkRedis(key, tier);
 }
 
 export async function checkRateLimitIp(ip: string): Promise<RateLimitResult> {
+  if (rateLimitingDisabled) return disabledResult(TIERS.ip);
   return checkRedis(ip, TIERS.ip);
 }
 
 export async function checkRateLimitUser(userId: string): Promise<RateLimitResult> {
+  if (rateLimitingDisabled) return disabledResult(TIERS.user);
   return checkRedis(userId, TIERS.user);
 }
 
 export async function checkRateLimitToken(tokenId: string): Promise<RateLimitResult> {
+  if (rateLimitingDisabled) return disabledResult(TIERS.token);
   return checkRedis(tokenId, TIERS.token);
 }
 
