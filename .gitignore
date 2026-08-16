@@ -66,3 +66,5 @@ ops/docker/certs/
 compose.override.local.yml
 ops/docker/compose.verify.yml
 dist/
+.hermes/
+docs/superpowers/
