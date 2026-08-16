@@ -27,6 +27,7 @@ export default async function AdminLayout({
     { href: "/admin/users", label: t("users"), visible: isAdmin },
     { href: "/admin/departments", label: t("departments"), visible: isAdmin },
     { href: "/admin/groups", label: t("groups"), visible: true },
+    { href: "/admin/active-directory", label: t("activeDirectory"), visible: isAdmin },
     { href: "/admin/webhooks", label: t("webhooks"), visible: isAdmin },
     { href: "/admin/webhook-deliveries", label: t("auditLog"), visible: isAdmin },
     { href: "/admin/sso", label: t("sso"), visible: isAdmin },

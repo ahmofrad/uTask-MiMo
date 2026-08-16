@@ -180,6 +180,38 @@ export const projectDepartmentLinkDecisionSchema = z.object({
 }).strict();
 
 const patchUrlSchema = z.union([z.literal(""), z.string().url()]);
+
+export const ldapSourceCreateSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  enabled: z.boolean().default(false),
+  url: z.string().url(),
+  bindUpn: z.string().trim().min(1).max(255),
+  bindPassword: z.string().min(1).max(512),
+  upnSuffix: z.string().trim().max(255).optional(),
+  searchBase: z.string().trim().max(512).optional(),
+  emailAttribute: z.string().trim().max(64).default("mail"),
+  nameAttribute: z.string().trim().max(64).default("cn"),
+  defaultRole: z.string().trim().max(64).default("member"),
+  syncIntervalHours: z.number().int().min(1).max(744).default(12),
+  tlsCaCert: z.string().max(16_384).optional(),
+}).strict();
+
+export const ldapSourceUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  enabled: z.boolean().optional(),
+  url: patchUrlSchema.optional(),
+  bindUpn: z.string().trim().min(1).max(255).optional(),
+  // "" keeps the existing password; anything else replaces it.
+  bindPassword: z.string().max(512).optional(),
+  upnSuffix: z.union([z.literal(""), z.string().trim().max(255)]).optional(),
+  searchBase: z.union([z.literal(""), z.string().trim().max(512)]).optional(),
+  emailAttribute: z.string().trim().max(64).optional(),
+  nameAttribute: z.string().trim().max(64).optional(),
+  defaultRole: z.string().trim().max(64).optional(),
+  syncIntervalHours: z.number().int().min(1).max(744).optional(),
+  tlsCaCert: z.union([z.literal(""), z.string().max(16_384)]).optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, "At least one field is required");
+
 export const ldapSettingsUpdateSchema = z.object({
   enabled: z.boolean().optional(),
   url: patchUrlSchema.optional(),
