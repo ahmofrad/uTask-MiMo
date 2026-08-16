@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
+import { DEFAULT_MAIL_TEMPLATES, renderTemplate } from "@/lib/mail/templates";
 
 type TemplateValues = {
   invite_subject: string;
@@ -11,6 +12,16 @@ type TemplateValues = {
   reset_subject: string;
   reset_text: string;
   reset_html: string;
+};
+
+type SectionKey = "invite" | "reset";
+
+/** Sample values substituted into the preview so placeholders resolve. */
+const PREVIEW_VARS: Record<string, string> = {
+  link: "https://app.example.com/invite/sample-token",
+  expiryDays: "7",
+  expiryMinutes: "60",
+  email: "member@example.com",
 };
 
 const EMPTY: TemplateValues = {
@@ -29,6 +40,7 @@ export default function EmailTemplatesPage() {
   const [values, setValues] = useState<TemplateValues>(EMPTY);
   const [loaded, setLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [previewFor, setPreviewFor] = useState<SectionKey | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
@@ -61,7 +73,21 @@ export default function EmailTemplatesPage() {
   const inputClass =
     "w-full px-3 py-2 border border-border-primary rounded-md bg-bg-primary text-fg-primary text-sm placeholder:text-fg-tertiary focus:outline-none focus:ring-2 focus:ring-accent";
 
-  function section(title: string, prefix: "invite" | "reset") {
+  /** Effective HTML for a section: a blank override falls back to the default, exactly like getMailTemplates. */
+  function effectiveHtml(prefix: SectionKey): string {
+    const custom = values[`${prefix}_html`].trim();
+    if (custom) return custom;
+    return DEFAULT_MAIL_TEMPLATES[prefix === "invite" ? "invite" : "passwordReset"].html;
+  }
+
+  function effectiveSubject(prefix: SectionKey): string {
+    const custom = values[`${prefix}_subject`].trim();
+    if (custom) return custom;
+    return DEFAULT_MAIL_TEMPLATES[prefix === "invite" ? "invite" : "passwordReset"].subject;
+  }
+
+  function section(title: string, prefix: SectionKey) {
+    const previewOpen = previewFor === prefix;
     return (
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-fg-primary">{title}</h2>
@@ -85,7 +111,16 @@ export default function EmailTemplatesPage() {
           />
         </div>
         <div>
-          <label htmlFor={`${prefix}_html`} className="block text-sm font-medium text-fg-secondary mb-1">{t("htmlBody")}</label>
+          <div className="flex items-center justify-between mb-1">
+            <label htmlFor={`${prefix}_html`} className="block text-sm font-medium text-fg-secondary">{t("htmlBody")}</label>
+            <button
+              type="button"
+              onClick={() => setPreviewFor(previewOpen ? null : prefix)}
+              className="text-sm font-medium text-accent hover:underline"
+            >
+              {previewOpen ? t("hidePreview") : t("preview")}
+            </button>
+          </div>
           <textarea
             id={`${prefix}_html`}
             rows={6}
@@ -93,6 +128,22 @@ export default function EmailTemplatesPage() {
             onChange={(e) => setValues((v) => ({ ...v, [`${prefix}_html`]: e.target.value }))}
             className={`${inputClass} font-mono text-xs`}
           />
+          {previewOpen && (
+            <div className="mt-2">
+              <p className="text-xs text-fg-tertiary mb-2">{t("previewUsesSample")}</p>
+              <div className="rounded-md border border-border-primary overflow-hidden">
+                <div className="px-4 py-2 border-b border-border-primary bg-bg-surface text-sm font-medium text-fg-primary truncate">
+                  {renderTemplate(effectiveSubject(prefix), PREVIEW_VARS)}
+                </div>
+                <iframe
+                  title={t("preview")}
+                  sandbox=""
+                  className="w-full h-72 bg-bg-surface"
+                  srcDoc={`<!doctype html><html><body style="margin:0;padding:24px;background:#ffffff;color:#1a1a1a;font-family:-apple-system,Segoe UI,Roboto,sans-serif">${renderTemplate(effectiveHtml(prefix), PREVIEW_VARS)}</body></html>`}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
