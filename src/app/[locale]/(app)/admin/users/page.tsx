@@ -31,10 +31,22 @@ export default async function AdminUsersPage() {
     },
   });
 
+  // Invited users carry a pending invite token; surface its expiry so admins
+  // know when the accept link stops working and a resend is needed.
+  const invitedIds = usersRaw.filter((u) => u.status === "invited").map((u) => u.id);
+  const inviteTokens = invitedIds.length
+    ? await prisma.verificationToken.findMany({
+        where: { identifier: { in: invitedIds } },
+        select: { identifier: true, expires: true },
+      })
+    : [];
+  const inviteExpiry = new Map(inviteTokens.map((t) => [t.identifier, t.expires.getTime()]));
+
   const users = usersRaw.map((u) => ({
     ...u,
     lastLoginAt: u.lastLoginAt?.toISOString() ?? null,
     createdAt: u.createdAt.toISOString(),
+    inviteExpiresAt: inviteExpiry.get(u.id) ? new Date(inviteExpiry.get(u.id)!).toISOString() : null,
   }));
 
   return (

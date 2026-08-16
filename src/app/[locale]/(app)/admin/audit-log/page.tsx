@@ -13,10 +13,12 @@ const GROUP_ACCESS_ACTIONS = [
   "group_member_removed",
 ] as const;
 
+const INVITE_ACTIONS = ["invite_sent", "invite_accepted"] as const;
+
 export default async function AuditLogPage({
   searchParams,
 }: {
-  searchParams: Promise<{ groupAccess?: string }>;
+  searchParams: Promise<{ groupAccess?: string; invites?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -25,13 +27,18 @@ export default async function AuditLogPage({
   if (!allowed) redirect("/");
 
   const t = await getTranslations("audit");
-  const { groupAccess } = await searchParams;
+  const { groupAccess, invites } = await searchParams;
   const showGroupAccess = groupAccess === "true";
+  const showInvites = invites === "true";
 
   const logs = await prisma.auditLog.findMany({
     take: 100,
     orderBy: { occurredAt: "desc" },
-    ...(showGroupAccess ? { where: { action: { in: [...GROUP_ACCESS_ACTIONS] } } } : {}),
+    ...(showGroupAccess
+      ? { where: { action: { in: [...GROUP_ACCESS_ACTIONS] } } }
+      : showInvites
+        ? { where: { action: { in: [...INVITE_ACTIONS] } } }
+        : {}),
     include: {
       actor: { select: { id: true, displayName: true, email: true } },
     },
@@ -47,6 +54,7 @@ export default async function AuditLogPage({
     const json = (log.beforeJson ?? log.afterJson) as { groupId?: string; userId?: string } | null;
     if (json?.groupId) groupIds.add(json.groupId);
     if (json?.userId) userIds.add(json.userId);
+    if (showInvites && log.entityType === "user") userIds.add(log.entityId);
   }
 
   const [projects, groups, users] = await Promise.all([
@@ -103,9 +111,22 @@ export default async function AuditLogPage({
           >
             {t("groupAccess")}
           </Link>
+          <Link
+            href="/admin/audit-log?invites=true"
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              showInvites
+                ? "bg-accent text-accent-fg font-medium"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+          >
+            {t("invites")}
+          </Link>
         </div>
         {showGroupAccess && (
           <p className="text-sm text-fg-tertiary">{t("groupAccessHint")}</p>
+        )}
+        {showInvites && (
+          <p className="text-sm text-fg-tertiary">{t("invitesHint")}</p>
         )}
       </div>
 
@@ -122,7 +143,7 @@ export default async function AuditLogPage({
           <tbody>
             {logs.map((log) => {
               const json = (log.beforeJson ?? log.afterJson) as
-                | { groupId?: string; userId?: string; role?: string }
+                | { groupId?: string; userId?: string; role?: string; email?: string }
                 | null;
               const isGroupAccess = isGroupAccessAction(log.action);
               const group = json?.groupId ? groupName.get(json.groupId) : undefined;
@@ -151,7 +172,24 @@ export default async function AuditLogPage({
                     </span>
                   </td>
                   <td className="p-2 text-fg-secondary">
-                    {isGroupAccess ? (
+                    {showInvites ? (
+                      <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                        {log.entityType === "user" && (
+                          <span className="font-medium text-fg-primary">
+                            {userName.get(log.entityId) ?? json?.email ?? log.entityId.slice(0, 8)}
+                          </span>
+                        )}
+                        {json?.email && log.entityType === "user" && (
+                          <span className="inline-flex items-center gap-1">
+                            <span aria-hidden>·</span>
+                            {t("inviteeLabel")}: {json.email}
+                          </span>
+                        )}
+                        {!json?.email && (
+                          <span className="font-mono text-xs">{log.entityId.slice(0, 8)}...</span>
+                        )}
+                      </span>
+                    ) : isGroupAccess ? (
                       <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                         {entityName && (
                           <span className="font-medium text-fg-primary">{entityName}</span>
@@ -193,7 +231,7 @@ export default async function AuditLogPage({
             {logs.length === 0 && (
               <tr>
                 <td colSpan={4} className="p-4 text-center text-fg-tertiary">
-                  {showGroupAccess ? t("emptyGroupAccess") : t("empty")}
+                  {showGroupAccess ? t("emptyGroupAccess") : showInvites ? t("emptyInvites") : t("empty")}
                 </td>
               </tr>
             )}

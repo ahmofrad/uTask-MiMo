@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { sendMail } from "@/lib/mail/send";
+import { getMailTemplates, renderTemplate } from "@/lib/mail/templates";
 import { randomHex, sha256 } from "@/lib/crypto";
 import { logger } from "@/lib/logging";
 
@@ -44,12 +45,15 @@ export async function issueInvite(params: {
   });
 
   const url = inviteUrl(params.request, rawToken);
+  const vars = { link: url, expiryDays: 7, email: params.email };
+  const templates = await getMailTemplates();
+  const invite = templates.invite;
   try {
     await sendMail({
       to: params.email,
-      subject: "You've been invited to uTask",
-      text: `You've been invited to join uTask. Use this link to set your password and join the team. It expires in 7 days:\n\n${url}`,
-      html: `<p>You've been invited to join uTask.</p><p>Use this link to set your password and join the team. It expires in 7 days:</p><p><a href="${url}">Accept invitation</a></p>`,
+      subject: renderTemplate(invite.subject, vars),
+      text: renderTemplate(invite.text, vars),
+      html: renderTemplate(invite.html, vars),
     });
   } catch (error) {
     logger.error({ error, userId: params.userId }, "Invite email delivery failed");

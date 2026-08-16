@@ -32,6 +32,7 @@ export default async function AdminLayout({
     { href: "/admin/webhook-deliveries", label: t("auditLog"), visible: isAdmin },
     { href: "/admin/sso", label: t("sso"), visible: isAdmin },
     { href: "/admin/backups", label: t("backups"), visible: isAdmin },
+    { href: "/admin/settings/email-templates", label: t("emailTemplates"), visible: isAdmin },
   ].filter((link) => link.visible);
 
   return (

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/toast";
+import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 
 type UserWithRole = {
@@ -15,8 +16,11 @@ type UserWithRole = {
   ldapGroup: string | null;
   lastLoginAt: string | null;
   createdAt: string;
+  inviteExpiresAt: string | null;
   roles: { type: string }[];
 };
+
+const STATUS_FILTERS = ["all", "active", "suspended", "invited"] as const;
 
 type Props = {
   users: UserWithRole[];
@@ -32,8 +36,12 @@ function getRole(roles: { type: string }[]): string {
 
 export function AdminUserList({ users }: Props) {
   const t = useTranslations("admin");
+  const { date } = useFormattedDate();
   const [list, setList] = useState(users);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
+
+  const visible = statusFilter === "all" ? list : list.filter((u) => u.status === statusFilter);
 
   const { addToast } = useToast();
 
@@ -66,7 +74,21 @@ export function AdminUserList({ users }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-4">
+        <label className="flex items-center gap-2 text-sm text-fg-secondary">
+          <span>{t("statusFilter")}</span>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-2 py-1.5 border border-border-primary rounded-md bg-bg-primary text-fg-primary text-sm"
+          >
+            {STATUS_FILTERS.map((s) => (
+              <option key={s} value={s}>
+                {t(`statusFilter_${s}`)}
+              </option>
+            ))}
+          </select>
+        </label>
         <Button onClick={() => setCreateOpen(true)}>{t("newUser")}</Button>
       </div>
       {createOpen && <CreateUserDialog onClose={() => setCreateOpen(false)} onCreated={handleCreated} />}
@@ -83,7 +105,7 @@ export function AdminUserList({ users }: Props) {
           </tr>
         </thead>
         <tbody className="divide-y divide-border-primary">
-          {list.map((u) => (
+          {visible.map((u) => (
             <tr key={u.id} className="hover:bg-bg-secondary/50">
               <td className="ps-4 pe-4 py-3 text-fg-primary">{u.displayName}</td>
               <td className="ps-4 pe-4 py-3 text-fg-secondary">{u.email}</td>
@@ -120,9 +142,16 @@ export function AdminUserList({ users }: Props) {
                 ) : (
                   <div className="flex items-center gap-2">
                     {u.status === "invited" && (
-                      <Button variant="ghost" size="sm" onClick={() => void resendInvite(u.id)}>
-                        {t("resendInvite")}
-                      </Button>
+                      <div className="flex flex-col items-start gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => void resendInvite(u.id)}>
+                          {t("resendInvite")}
+                        </Button>
+                        {u.inviteExpiresAt && (
+                          <span className="text-xs text-fg-muted">
+                            {t("inviteExpires", { date: date(u.inviteExpiresAt) })}
+                          </span>
+                        )}
+                      </div>
                     )}
                     <Button
                       variant="ghost"
@@ -188,6 +217,7 @@ function CreateUserDialog({ onClose, onCreated }: { onClose: () => void; onCreat
         ldapGroup: null,
         lastLoginAt: null,
         createdAt: new Date().toISOString(),
+        inviteExpiresAt: null,
         roles: [{ type: role }],
       });
     } catch (err) {

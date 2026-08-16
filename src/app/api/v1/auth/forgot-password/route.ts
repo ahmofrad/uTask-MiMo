@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { sendMail } from "@/lib/mail/send";
 import { randomHex, sha256 } from "@/lib/crypto";
+import { getMailTemplates, renderTemplate } from "@/lib/mail/templates";
 import { logger } from "@/lib/logging";
 import { passwordResetRequestSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
@@ -55,11 +56,14 @@ export async function POST(request: Request) {
     });
 
     const url = resetUrl(request, rawToken);
+    const vars = { link: url, expiryMinutes: 60, email: user.email };
+    const templates = await getMailTemplates();
+    const reset = templates.passwordReset;
     await sendMail({
       to: user.email,
-      subject: "Reset your uTask password",
-      text: `Use this link to reset your password. It expires in one hour:\n\n${url}`,
-      html: `<p>Use this link to reset your password. It expires in one hour:</p><p><a href="${url}">Reset password</a></p>`,
+      subject: renderTemplate(reset.subject, vars),
+      text: renderTemplate(reset.text, vars),
+      html: renderTemplate(reset.html, vars),
     });
   } catch {
     logger.error({ requestId }, "Password reset processing failed");

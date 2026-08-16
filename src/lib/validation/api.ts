@@ -286,6 +286,16 @@ export const passwordResetRequestSchema = z.object({
   email: z.string().trim().email().max(320),
 }).strict();
 
+export const emailTemplatesSchema = z.object({
+  // Blank subject/text intentionally allowed: a blank override keeps the default.
+  invite_subject: z.string().trim().max(200),
+  invite_text: z.string().trim().max(4000),
+  invite_html: z.string().trim().max(8000).optional(),
+  reset_subject: z.string().trim().max(200),
+  reset_text: z.string().trim().max(4000),
+  reset_html: z.string().trim().max(8000).optional(),
+}).strict();
+
 export const inviteAcceptSchema = z.object({
   displayName: z.string().trim().min(1).max(100),
   password: z.string().min(12).max(128),
