@@ -352,9 +352,14 @@ async function applyLdapGroupSnapshot(
     count += 1;
   }
 
+  // Reconcile only AD-origin memberships: rows whose directory entry was not
+  // seen in this snapshot are stale and removed. Manual memberships (added
+  // in-app, `sourceMemberDn IS NULL`) are never touched — hybrid groups keep
+  // their hand-picked members across syncs.
   await db.ldapGroupMembership.deleteMany({
     where: {
       ldapSyncGroupId: group.id,
+      sourceMemberDn: { not: null },
       lastSeenAt: { lt: syncedAt },
     },
   });
@@ -377,8 +382,20 @@ export async function syncLdapGroup(
 }
 
 export async function syncAllLdapGroups(config: LdapConfig): Promise<{ groups: number; users: number }> {
-  const groups = await prisma.ldapSyncGroup.findMany({ where: { deletedAt: null } });
+  // Only AD-synced groups are reconciled against the directory; manual groups
+  // (source = manual) have no real DN to search and are skipped entirely.
+  const groups: LdapGroup[] = (await prisma.ldapSyncGroup.findMany({
+    where: { deletedAt: null, source: "ldap" },
+  })).flatMap((group) =>
+    group.dn ? [{ id: group.id, dn: group.dn, name: group.name }] : [],
+  );
   const stagedSnapshots: LdapGroupSnapshot[] = [];
+
+  // Nothing to reconcile (e.g. only manual groups exist) — skip entirely so no
+  // write transaction is opened.
+  if (groups.length === 0) {
+    return { groups: 0, users: 0 };
+  }
 
   // Read every group before changing users or memberships. A failed directory
   // read therefore leaves the previous authorization snapshot untouched.

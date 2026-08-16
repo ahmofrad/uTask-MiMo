@@ -60,7 +60,7 @@ describe("POST /api/v1/admin/ldap/groups", () => {
     expect(response.status).toBe(200);
     expect(mockUpsert).toHaveBeenCalledWith({
       where: { dn: "cn=engineering,dc=company,dc=local" },
-      create: { dn: "cn=engineering,dc=company,dc=local", name: "Engineering" },
+      create: { dn: "cn=engineering,dc=company,dc=local", name: "Engineering", source: "ldap" },
       update: { name: "Engineering", deletedAt: null },
     });
     expect(mockEnsureLdapDepartment).toHaveBeenCalledWith({

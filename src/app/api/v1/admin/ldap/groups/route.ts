@@ -49,9 +49,15 @@ export async function POST(request: Request) {
   }
   const { dn, name } = parsed.data;
 
+  // POST only ever creates AD-synced groups (manual groups have a separate
+  // create path), so dn is guaranteed to be a real directory DN here.
+  if (!dn) {
+    return NextResponse.json({ error: { code: "validation_error", message: "dn is required for LDAP groups" } }, { status: 400 });
+  }
+
   const group = await prisma.ldapSyncGroup.upsert({
     where: { dn },
-    create: { dn, name },
+    create: { dn, name, source: "ldap" },
     update: { name, deletedAt: null },
   });
 
@@ -62,7 +68,7 @@ export async function POST(request: Request) {
   let syncedUsers: number | null = null;
   const config = await getLdapConfig();
   if (config && config.enabled) {
-    syncedUsers = await syncLdapGroup(config, { id: group.id, dn: group.dn, name: group.name });
+    syncedUsers = await syncLdapGroup(config, { id: group.id, dn, name: group.name });
   }
 
   if (departmentResult.created) {

@@ -48,16 +48,6 @@ export async function canProject(
     return true;
   }
 
-  // Check project membership
-  const member = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId } },
-    select: { projectRole: true, disabledAt: true, project: { select: { archivedAt: true } } },
-  });
-  if (member) {
-    const membershipActive = member.disabledAt === null || member.disabledAt === undefined;
-    return member.project.archivedAt === null && membershipActive && hasProjectPermission(member.projectRole as ProjectMemberRole, permission);
-  }
-
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: {
@@ -66,14 +56,35 @@ export async function canProject(
       departmentLinks: { select: { departmentId: true } },
     },
   });
-  if (project?.archivedAt !== null) return false;
-  if (project?.department?.managerUserId === userId) {
+  if (!project || project.archivedAt !== null) return false;
+
+  // Check project membership
+  const member = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+    select: { projectRole: true, disabledAt: true },
+  });
+  if (member) {
+    const membershipActive = member.disabledAt === null || member.disabledAt === undefined;
+    if (membershipActive && hasProjectPermission(member.projectRole as ProjectMemberRole, permission)) {
+      return true;
+    }
+  }
+
+  // Live group grants: a member of a group granted a role on this project
+  // inherits that role. Computed at check time, so membership changes apply
+  // immediately. Direct membership is checked first; grants are additive.
+  const groupRole = await getUserProjectGroupRole(userId, projectId);
+  if (groupRole && hasProjectPermission(groupRole, permission)) {
+    return true;
+  }
+
+  if (project.department?.managerUserId === userId) {
     return hasPermission("manager", permission);
   }
 
   const linkedDepartmentIds = Array.from(new Set([
-    ...(project?.department?.id ? [project.department.id] : []),
-    ...(project?.departmentLinks?.map((link) => link.departmentId) ?? []),
+    ...(project.department?.id ? [project.department.id] : []),
+    ...(project.departmentLinks?.map((link) => link.departmentId) ?? []),
   ]));
   if (linkedDepartmentIds.length > 0) {
     const managedDepartmentIds = await getManagedDepartmentIds(userId);
@@ -81,6 +92,74 @@ export async function canProject(
   }
 
   return false;
+}
+
+const PROJECT_ROLE_RANK: Record<ProjectMemberRole, number> = {
+  viewer: 1,
+  contributor: 2,
+  lead: 3,
+};
+
+/**
+ * Highest project role the user inherits from groups granted a role on the
+ * project. Grants are computed live from `ProjectGroupGrant` + current
+ * memberships, so membership changes propagate immediately.
+ */
+async function getUserProjectGroupRole(
+  userId: string,
+  projectId: string,
+): Promise<ProjectMemberRole | null> {
+  const grants = await prisma.projectGroupGrant.findMany({
+    where: {
+      projectId,
+      group: {
+        deletedAt: null,
+        memberships: { some: { userId } },
+      },
+    },
+    select: { role: true },
+  });
+  if (grants.length === 0) return null;
+  let best: ProjectMemberRole | null = null;
+  for (const grant of grants) {
+    if (!best || PROJECT_ROLE_RANK[grant.role] > PROJECT_ROLE_RANK[best]) {
+      best = grant.role;
+    }
+  }
+  return best;
+}
+
+/**
+ * Whether a user can manage a group. Owner/admin override. Managers are
+ * scoped: the group's owning department (or its linked department, for LDAP
+ * groups) must be inside the user's managed department subtree.
+ */
+export async function canManageGroup(
+  userId: string,
+  groupId: string,
+): Promise<boolean> {
+  const globalRole = await prisma.role.findFirst({
+    where: { userId, scopeType: "global", scopeId: null },
+    select: { type: true },
+  });
+  if (globalRole && (globalRole.type === "owner" || globalRole.type === "admin")) {
+    return true;
+  }
+
+  const group = await prisma.ldapSyncGroup.findFirst({
+    where: { id: groupId, deletedAt: null },
+    select: {
+      ownerDepartmentId: true,
+      department: { select: { id: true } },
+    },
+  });
+  if (!group) return false;
+
+  const departmentId = group.ownerDepartmentId ?? group.department?.id ?? null;
+  if (!departmentId) return false;
+
+  const managedDepartmentIds = await getManagedDepartmentIds(userId);
+  return managedDepartmentIds.includes(departmentId);
 }
 
 export async function canCreateProject(userId: string, departmentId?: string | null): Promise<boolean> {
@@ -106,12 +185,6 @@ export const canReadProject = cache(async (userId: string, projectId: string): P
     return true;
   }
 
-  const member = await prisma.projectMember.findUnique({
-    where: { projectId_userId: { projectId, userId } },
-    select: { disabledAt: true, project: { select: { archivedAt: true } } },
-  });
-  if (member?.project.archivedAt === null && (member.disabledAt === null || member.disabledAt === undefined)) return true;
-
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     select: {
@@ -120,12 +193,22 @@ export const canReadProject = cache(async (userId: string, projectId: string): P
       departmentLinks: { select: { departmentId: true } },
     },
   });
-  if (project?.archivedAt !== null) return false;
-  if (project?.department?.managerUserId === userId) return true;
+  if (!project || project.archivedAt !== null) return false;
+
+  const member = await prisma.projectMember.findUnique({
+    where: { projectId_userId: { projectId, userId } },
+    select: { disabledAt: true },
+  });
+  if (member && (member.disabledAt === null || member.disabledAt === undefined)) return true;
+
+  // A member of a group granted any role on the project can read it.
+  if ((await getUserProjectGroupRole(userId, projectId)) !== null) return true;
+
+  if (project.department?.managerUserId === userId) return true;
 
   const linkedDepartmentIds = Array.from(new Set([
-    ...(project?.department?.id ? [project.department.id] : []),
-    ...(project?.departmentLinks?.map((link) => link.departmentId) ?? []),
+    ...(project.department?.id ? [project.department.id] : []),
+    ...(project.departmentLinks?.map((link) => link.departmentId) ?? []),
   ]));
   if (linkedDepartmentIds.length > 0) {
     const managedDepartmentIds = await getManagedDepartmentIds(userId);

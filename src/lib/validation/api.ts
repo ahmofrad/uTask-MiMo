@@ -49,6 +49,7 @@ export const publicTaskUpdateSchema = z.object({
 
 export const taskCreateSchema = publicTaskCreateSchema.extend({
   parentTaskId: uuid.nullable().optional(),
+  assigneeGroupId: uuid.nullable().optional(),
   estimatedHours: z.number().finite().min(0).max(100_000).nullable().optional(),
   progress: z.number().finite().min(0).max(100).optional(),
   tagIds: z.array(uuid).max(100).optional(),
@@ -57,6 +58,7 @@ export const taskCreateSchema = publicTaskCreateSchema.extend({
 
 export const taskUpdateSchema = publicTaskUpdateSchema.extend({
   parentTaskId: uuid.nullable().optional(),
+  assigneeGroupId: uuid.nullable().optional(),
   endDate: isoDate.nullable().optional(),
   estimatedHours: z.number().finite().min(0).max(100_000).nullable().optional(),
   spentHours: z.number().finite().min(0).max(100_000).nullable().optional(),
@@ -98,12 +100,7 @@ export const projectUpdateSchema = z.object({
   visibility: z.enum(["private", "department", "org"]).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "At least one field is required");
 
-const projectId = z.string().regex(
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-  "Invalid project ID",
-);
-
-const projectIdList = z.array(projectId).min(1).max(200).superRefine((ids, context) => {
+const projectIdList = z.array(uuid).min(1).max(200).superRefine((ids, context) => {
   if (new Set(ids).size !== ids.length) {
     context.addIssue({ code: "custom", message: "projectIds must not contain duplicates" });
   }
@@ -225,6 +222,25 @@ export const ssoSettingsUpdateSchema = z.object({
 export const ldapGroupSchema = z.object({
   dn: z.string().trim().min(1).max(2_048),
   name: z.string().trim().min(1).max(255),
+}).strict();
+
+export const groupCreateSchema = z.object({
+  name: z.string().trim().min(1).max(255),
+  ownerDepartmentId: uuid.nullable().optional(),
+}).strict();
+
+export const groupUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(255).optional(),
+  ownerDepartmentId: uuid.nullable().optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, "At least one field is required");
+
+export const groupMemberAddSchema = z.object({
+  userId: uuid,
+}).strict();
+
+export const projectGroupGrantSchema = z.object({
+  groupId: uuid,
+  role: z.enum(["lead", "contributor", "viewer"]).optional(),
 }).strict();
 
 export const ldapLoginSchema = z.object({

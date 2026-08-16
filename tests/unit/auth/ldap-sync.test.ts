@@ -100,7 +100,13 @@ describe("syncLdapGroup", () => {
       }),
     );
     expect(prisma.ldapGroupMembership.deleteMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { ldapSyncGroupId: "group-1", lastSeenAt: expect.any(Object) } }),
+      expect.objectContaining({
+        where: {
+          ldapSyncGroupId: "group-1",
+          sourceMemberDn: { not: null },
+          lastSeenAt: expect.any(Object),
+        },
+      }),
     );
     expect(mockLdapSearch).toHaveBeenCalledWith(
       "ou=Users,dc=company,dc=local",
@@ -212,6 +218,54 @@ describe("syncLdapGroup", () => {
 
     expect(prisma.department.update).not.toHaveBeenCalled();
   });
+
+  it("reconciles only AD-origin memberships so manual members survive", async () => {
+    // Manual memberships carry no `sourceMemberDn` and must never be swept by
+    // the stale-`lastSeenAt` reconcile; only AD-origin rows are eligible.
+    prisma.user.findUnique.mockResolvedValue({
+      id: "u1",
+      email: "alice@company.local",
+      status: "active",
+    });
+    prisma.authIdentity.findFirst.mockResolvedValue({ id: "id-1" });
+
+    await syncLdapGroup(config, group);
+
+    expect(prisma.ldapGroupMembership.deleteMany).toHaveBeenCalledWith({
+      where: {
+        ldapSyncGroupId: "group-1",
+        sourceMemberDn: { not: null },
+        lastSeenAt: expect.any(Object),
+      },
+    });
+  });
+
+  it("keeps bumping lastSeenAt for AD members on hybrid groups", async () => {
+    // A hybrid group has both AD-origin and manual rows. The upsert path must
+    // still refresh the AD member's `lastSeenAt` (so it is not treated as
+    // stale) while leaving manual rows untouched by the reconcile.
+    prisma.user.findUnique.mockResolvedValue({
+      id: "u1",
+      email: "alice@company.local",
+      status: "active",
+    });
+    prisma.authIdentity.findFirst.mockResolvedValue({ id: "id-1" });
+
+    await syncLdapGroup(config, group);
+
+    expect(prisma.ldapGroupMembership.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId_ldapSyncGroupId: { userId: "u1", ldapSyncGroupId: "group-1" } },
+        update: expect.objectContaining({ lastSeenAt: expect.any(Date) }),
+      }),
+    );
+    // The reconcile delete must never match manual rows (sourceMemberDn null).
+    expect(prisma.ldapGroupMembership.deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ sourceMemberDn: { not: null } }),
+      }),
+    );
+  });
 });
 
 describe("syncAllLdapGroups", () => {
@@ -220,7 +274,20 @@ describe("syncAllLdapGroups", () => {
     prisma.ldapSyncGroup.findMany.mockResolvedValue([]);
 
     await expect(syncAllLdapGroups(config)).resolves.toEqual({ groups: 0, users: 0 });
-    expect(prisma.ldapSyncGroup.findMany).toHaveBeenCalledWith({ where: { deletedAt: null } });
+    expect(prisma.ldapSyncGroup.findMany).toHaveBeenCalledWith({
+      where: { deletedAt: null, source: "ldap" },
+    });
+  });
+
+  it("never reconciles manual groups against the directory", async () => {
+    const { syncAllLdapGroups } = await import("@/lib/auth/providers/ldap");
+    const manualGroup = { id: "group-manual", dn: null, name: "Design Team", source: "manual" };
+    prisma.ldapSyncGroup.findMany.mockResolvedValue([manualGroup] as never);
+
+    await expect(syncAllLdapGroups(config)).resolves.toEqual({ groups: 0, users: 0 });
+    expect(mockLdapSearch).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.ldapGroupMembership.upsert).not.toHaveBeenCalled();
   });
 
   it("does not reconcile earlier groups when a later LDAP read fails", async () => {

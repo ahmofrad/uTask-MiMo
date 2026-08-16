@@ -20,6 +20,7 @@ const ALL_PERMISSIONS = [
   "api_token:manage",
   "webhook:manage",
   "sso:configure",
+  "group:manage",
 ] as const;
 
 describe("RBAC permission matrix", () => {
@@ -42,7 +43,7 @@ describe("RBAC permission matrix", () => {
     }
   });
 
-  it("manager has project/task/comment/report perms but not audit/user/sso/webhook/org", () => {
+  it("manager has project/task/comment/report perms but not audit/user/sso/webhook/org/group", () => {
     const perms = getRolePermissions("manager");
     const allowed = [
       "project:create",
@@ -65,6 +66,7 @@ describe("RBAC permission matrix", () => {
       "user:manage",
       "webhook:manage",
       "sso:configure",
+      "group:manage",
     ];
     for (const p of allowed) {
       expect(perms).toContain(p);

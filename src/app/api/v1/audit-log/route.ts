@@ -18,6 +18,7 @@ export async function GET(request: Request) {
     ...(searchParams.get("cursor") ? { cursor: searchParams.get("cursor")! } : {}),
     ...(searchParams.get("entityType") ? { entityType: searchParams.get("entityType")! } : {}),
     ...(searchParams.get("action") ? { action: searchParams.get("action")! } : {}),
+    ...(searchParams.get("groupAccess") === "true" ? { groupAccess: true } : {}),
   });
 
   return NextResponse.json(result);

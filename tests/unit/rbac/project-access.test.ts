@@ -5,6 +5,7 @@ vi.mock("@/lib/db", () => ({
     role: { findFirst: vi.fn() },
     projectMember: { findUnique: vi.fn() },
     project: { findUnique: vi.fn() },
+    projectGroupGrant: { findMany: vi.fn() },
     department: { findMany: vi.fn() },
     task: { findUnique: vi.fn() },
   },
@@ -23,7 +24,8 @@ describe("project read access", () => {
     const { prisma } = await import("@/lib/db");
     const { canReadProject } = await import("@/lib/rbac/can");
     vi.mocked(prisma.role.findFirst).mockResolvedValue({ type: "member" } as never);
-    vi.mocked(prisma.projectMember.findUnique).mockResolvedValue({ project: { archivedAt: null } } as never);
+    vi.mocked(prisma.project.findUnique).mockResolvedValue({ archivedAt: null, department: null, departmentLinks: [] } as never);
+    vi.mocked(prisma.projectMember.findUnique).mockResolvedValue({ disabledAt: null } as never);
 
     await expect(canReadProject("member-1", "project-1")).resolves.toBe(true);
   });
@@ -45,7 +47,8 @@ describe("project read access", () => {
     const { canReadTask } = await import("@/lib/rbac/can");
     vi.mocked(prisma.role.findFirst).mockResolvedValue({ type: "member" } as never);
     vi.mocked(prisma.task.findUnique).mockResolvedValue({ projectId: "project-4" } as never);
-    vi.mocked(prisma.projectMember.findUnique).mockResolvedValue({ project: { archivedAt: null } } as never);
+    vi.mocked(prisma.project.findUnique).mockResolvedValue({ archivedAt: null, department: null, departmentLinks: [] } as never);
+    vi.mocked(prisma.projectMember.findUnique).mockResolvedValue({ disabledAt: null } as never);
 
     await expect(canReadTask("member-4", "task-4")).resolves.toBe(true);
   });
@@ -59,6 +62,7 @@ describe("project read access", () => {
       archivedAt: null,
       department: { managerUserId: "manager-1" },
     } as never);
+    vi.mocked(prisma.projectMember.findUnique).mockResolvedValue(null);
 
     await expect(canReadProject("manager-1", "department-project")).resolves.toBe(true);
     await expect(canReadProject("manager-2", "department-project")).resolves.toBe(false);
@@ -149,6 +153,7 @@ describe("project read access", () => {
     vi.mocked(prisma.role.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.projectMember.findUnique).mockResolvedValue(null);
     vi.mocked(prisma.project.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.projectGroupGrant.findMany).mockResolvedValue([]);
     vi.mocked(prisma.department.findMany).mockResolvedValue([]);
     vi.mocked(prisma.task.findUnique).mockResolvedValue(null);
   });

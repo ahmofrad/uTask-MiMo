@@ -25,7 +25,9 @@ export async function apiFetch(
     if (
       method === "POST" &&
       !headers.has("Idempotency-Key") &&
-      /\/api\/v1\/(?:public\/)?tasks(?:\/[^/]+\/comments)?$/.test(new URL(url, window.location.origin).pathname)
+      /\/api\/v1\/(?:(?:public\/)?tasks(?:\/[^/]+\/comments)?|groups\/[^/]+\/members)$/.test(
+        new URL(url, window.location.origin).pathname,
+      )
     ) {
       headers.set("Idempotency-Key", crypto.randomUUID());
     }

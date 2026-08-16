@@ -2,31 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockRequireAuth = vi.fn();
 const mockRequirePermission = vi.fn();
-const mockFindUnique = vi.fn();
-const mockGroupUpdate = vi.fn();
-const mockMembershipFindMany = vi.fn();
-
-const mockUserUpdateMany = vi.fn();
-const mockProjectMemberUpdateMany = vi.fn();
-const mockDepartmentUpdate = vi.fn();
-const mockProjectUpdateMany = vi.fn();
-const mockLogAudit = vi.fn();
+const mockDeleteGroup = vi.fn();
 
 vi.mock("@/lib/rbac/middleware", () => ({
   requireAuth: mockRequireAuth,
   requirePermission: mockRequirePermission,
 }));
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    ldapSyncGroup: { findUnique: mockFindUnique, update: mockGroupUpdate },
-    ldapGroupMembership: { findMany: mockMembershipFindMany },
-    user: { updateMany: mockUserUpdateMany },
-    projectMember: { updateMany: mockProjectMemberUpdateMany },
-    department: { update: mockDepartmentUpdate },
-    project: { updateMany: mockProjectUpdateMany },
-  },
-}));
-vi.mock("@/lib/audit/log", () => ({ logAudit: mockLogAudit }));
+vi.mock("@/lib/groups", () => ({ deleteGroup: mockDeleteGroup }));
 
 const { DELETE } = await import("@/app/api/v1/admin/ldap/groups/[id]/route");
 
@@ -34,54 +16,44 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRequireAuth.mockResolvedValue({ userId: "admin-1" });
   mockRequirePermission.mockReturnValue(vi.fn().mockResolvedValue(null));
-  mockFindUnique.mockResolvedValue({
-    id: "group-1",
-    name: "Engineering",
-    dn: "cn=engineering,dc=company,dc=local",
-    department: { id: "department-1" },
-  });
-  mockMembershipFindMany.mockResolvedValueOnce([
-    { userId: "user-leaving" },
-    { userId: "user-still-member" },
-  ]).mockResolvedValueOnce([{ userId: "user-still-member" }]);
-
-  mockUserUpdateMany.mockResolvedValue({ count: 1 });
-  mockProjectMemberUpdateMany.mockResolvedValue({ count: 1 });
-  mockDepartmentUpdate.mockResolvedValue({ id: "department-1", deletedAt: new Date() });
-  mockProjectUpdateMany.mockResolvedValue({ count: 1 });
-  mockGroupUpdate.mockResolvedValue({ id: "group-1", deletedAt: new Date() });
+  mockDeleteGroup.mockResolvedValue({ usersAffected: 1 });
 });
 
 describe("DELETE /api/v1/admin/ldap/groups/[id]", () => {
-  it("archives the department and disables access only for users with no remaining LDAP membership", async () => {
+  it("delegates to the shared deleteGroup with the actor user id", async () => {
     const response = await DELETE(new Request("http://localhost"), {
       params: { id: "group-1" },
     });
 
     expect(response.status).toBe(200);
-    expect(mockDepartmentUpdate).toHaveBeenCalledWith({
-      where: { id: "department-1" },
-      data: { deletedAt: expect.any(Date) },
+    expect(mockDeleteGroup).toHaveBeenCalledWith("group-1", "admin-1");
+    const body = await response.json();
+    expect(body.data).toEqual({ success: true, usersAffected: 1 });
+  });
+
+  it("returns 404 when the group does not exist", async () => {
+    mockDeleteGroup.mockResolvedValue(null);
+
+    const response = await DELETE(new Request("http://localhost"), {
+      params: { id: "missing-group" },
     });
-    expect(mockMembershipFindMany).toHaveBeenNthCalledWith(2, {
-      where: {
-        userId: { in: ["user-leaving", "user-still-member"] },
-        group: { deletedAt: null },
-      },
-      select: { userId: true },
+
+    expect(response.status).toBe(404);
+    expect(mockDeleteGroup).toHaveBeenCalledWith("missing-group", "admin-1");
+  });
+
+  it("denies access without sso:configure permission", async () => {
+    mockRequirePermission.mockReturnValue(
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: "FORBIDDEN" } }), { status: 403 }),
+      ),
+    );
+
+    const response = await DELETE(new Request("http://localhost"), {
+      params: { id: "group-1" },
     });
-    expect(mockUserUpdateMany).toHaveBeenCalledWith({
-      where: { id: { in: ["user-leaving"] } },
-      data: { status: "ldapGroupRemoved", ldapGroupId: null },
-    });
-    expect(mockProjectMemberUpdateMany).toHaveBeenCalledWith({
-      where: { userId: { in: ["user-leaving"] } },
-      data: { disabledAt: expect.any(Date), disabledReason: "ldap" },
-    });
-    expect(mockProjectUpdateMany).not.toHaveBeenCalled();
-    expect(mockGroupUpdate).toHaveBeenCalledWith({
-      where: { id: "group-1" },
-      data: { deletedAt: expect.any(Date) },
-    });
+
+    expect(response.status).toBe(403);
+    expect(mockDeleteGroup).not.toHaveBeenCalled();
   });
 });

@@ -21,7 +21,8 @@ export type Permission =
   | "webhook:manage"
   | "sso:configure"
   | "org:reports"
-  | "settings:update";
+  | "settings:update"
+  | "group:manage";
 
 const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
   owner: [
@@ -44,6 +45,7 @@ const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
     "api_token:manage",
     "webhook:manage",
     "sso:configure",
+    "group:manage",
   ],
   admin: [
     "org:settings",
@@ -64,6 +66,7 @@ const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
     "sso:configure",
     "org:reports",
     "settings:update",
+    "group:manage",
   ],
   manager: [
     "project:create",
