@@ -47,7 +47,7 @@ describe("GET /api/v1/reports/gantt", () => {
 
   it("accepts deterministic seed project IDs", async () => {
     const { GET } = await import("@/app/api/v1/reports/gantt/route");
-    const seededProjectId = "00000000-0000-0000-0000-000000000012";
+    const seededProjectId = "00000000-0000-4000-8000-000000000012";
 
     const response = await GET(makeRequest(`projectIds=${seededProjectId}`));
 

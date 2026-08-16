@@ -14,7 +14,7 @@ async function main() {
   // ── Users ──
   const owner = await prisma.user.upsert({
     where: { email: "owner@utask.local" },
-    update: {},
+    update: { displayName: "مدیر سیستم", locale: "fa_IR" },
     create: {
       email: "owner@utask.local",
       displayName: "مدیر سیستم",
@@ -26,7 +26,7 @@ async function main() {
 
   const admin = await prisma.user.upsert({
     where: { email: "admin@utask.local" },
-    update: {},
+    update: { displayName: "مدیر ارشد", locale: "fa_IR" },
     create: {
       email: "admin@utask.local",
       displayName: "مدیر ارشد",
@@ -38,7 +38,7 @@ async function main() {
 
   const manager = await prisma.user.upsert({
     where: { email: "manager@utask.local" },
-    update: {},
+    update: { displayName: "سرپرست تیم", locale: "fa_IR" },
     create: {
       email: "manager@utask.local",
       displayName: "سرپرست تیم",
@@ -50,7 +50,7 @@ async function main() {
 
   const member1 = await prisma.user.upsert({
     where: { email: "sara@utask.local" },
-    update: {},
+    update: { displayName: "سارا محمدی", locale: "fa_IR" },
     create: {
       email: "sara@utask.local",
       displayName: "سارا محمدی",
@@ -62,7 +62,7 @@ async function main() {
 
   const member2 = await prisma.user.upsert({
     where: { email: "ali@utask.local" },
-    update: {},
+    update: { displayName: "علی رضایی", locale: "fa_IR" },
     create: {
       email: "ali@utask.local",
       displayName: "علی رضایی",
@@ -74,7 +74,7 @@ async function main() {
 
   const member = await prisma.user.upsert({
     where: { email: "member@utask.local" },
-    update: {},
+    update: { displayName: "عضو تیم", locale: "fa_IR" },
     create: {
       email: "member@utask.local",
       displayName: "عضو تیم",
@@ -86,7 +86,7 @@ async function main() {
 
   const guest = await prisma.user.upsert({
     where: { email: "guest@utask.local" },
-    update: {},
+    update: { displayName: "مهمان", locale: "fa_IR" },
     create: {
       email: "guest@utask.local",
       displayName: "مهمان",
@@ -98,7 +98,7 @@ async function main() {
 
   const englishUser = await prisma.user.upsert({
     where: { email: "john@utask.local" },
-    update: {},
+    update: { displayName: "John Smith", locale: "en_US" },
     create: {
       email: "john@utask.local",
       displayName: "John Smith",
@@ -133,20 +133,20 @@ async function main() {
 
   // ── Departments ──
   const deptEngineering = await prisma.department.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000001" },
+    where: { id: "00000000-0000-4000-8000-000000000001" },
     update: { name: "Engineering" },
     create: {
-      id: "00000000-0000-0000-0000-000000000001",
+      id: "00000000-0000-4000-8000-000000000001",
       name: "Engineering",
       managerUserId: manager.id,
     },
   });
 
   const deptProduct = await prisma.department.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000002" },
+    where: { id: "00000000-0000-4000-8000-000000000002" },
     update: { name: "Product" },
     create: {
-      id: "00000000-0000-0000-0000-000000000002",
+      id: "00000000-0000-4000-8000-000000000002",
       name: "Product",
       parentId: deptEngineering.id,
       managerUserId: admin.id,
@@ -154,20 +154,79 @@ async function main() {
   });
 
   const deptFinance = await prisma.department.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000003" },
+    where: { id: "00000000-0000-4000-8000-000000000003" },
     update: { name: "Finance" },
     create: {
-      id: "00000000-0000-0000-0000-000000000003",
+      id: "00000000-0000-4000-8000-000000000003",
       name: "Finance",
     },
   });
 
+  // ── AD Sync Group (drives an LDAP department + memberships) ──
+  const engGroup = await prisma.ldapSyncGroup.upsert({
+    where: { dn: "cn=engineering-team,dc=company,dc=local" },
+    update: { name: "Engineering Team", deletedAt: null },
+    create: {
+      name: "Engineering Team",
+      dn: "cn=engineering-team,dc=company,dc=local",
+      lastSyncedAt: new Date(),
+    },
+  });
+
+  const existingLinkedDept = await prisma.department.findFirst({
+    where: { ldapSyncGroupId: engGroup.id },
+  });
+  if (!existingLinkedDept) {
+    await prisma.department.create({
+      data: {
+        name: "Engineering Team",
+        source: "ldap",
+        ldapSyncGroupId: engGroup.id,
+        managerUserId: admin.id,
+        managerSource: "manual",
+      },
+    });
+  }
+
+  for (const groupUser of [users.member1, users.member2, users.englishUser, users.manager]) {
+    await prisma.ldapGroupMembership.upsert({
+      where: {
+        userId_ldapSyncGroupId: { userId: groupUser.id, ldapSyncGroupId: engGroup.id },
+      },
+      update: {},
+      create: { userId: groupUser.id, ldapSyncGroupId: engGroup.id },
+    });
+  }
+
+  // ── Manual Group (created in-app; no AD source) ──
+  const manualGroup = await prisma.ldapSyncGroup.upsert({
+    where: { id: "00000000-0000-4000-8000-000000000021" },
+    update: { name: "Design Team", deletedAt: null },
+    create: {
+      id: "00000000-0000-4000-8000-000000000021",
+      name: "Design Team",
+      dn: null,
+      source: "manual",
+      ownerDepartmentId: deptProduct.id,
+    },
+  });
+
+  for (const groupUser of [users.member, users.englishUser]) {
+    await prisma.ldapGroupMembership.upsert({
+      where: {
+        userId_ldapSyncGroupId: { userId: groupUser.id, ldapSyncGroupId: manualGroup.id },
+      },
+      update: {},
+      create: { userId: groupUser.id, ldapSyncGroupId: manualGroup.id },
+    });
+  }
+
   // ── Projects ──
   const projectWork = await prisma.project.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000010" },
+    where: { id: "00000000-0000-4000-8000-000000000010" },
     update: { name: "Work" },
     create: {
-      id: "00000000-0000-0000-0000-000000000010",
+      id: "00000000-0000-4000-8000-000000000010",
       name: "Work",
       description: "Work-related tasks and projects",
       color: "#2563eb",
@@ -178,10 +237,10 @@ async function main() {
   });
 
   const projectPersonal = await prisma.project.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000011" },
+    where: { id: "00000000-0000-4000-8000-000000000011" },
     update: { name: "Personal" },
     create: {
-      id: "00000000-0000-0000-0000-000000000011",
+      id: "00000000-0000-4000-8000-000000000011",
       name: "Personal",
       description: "Personal tasks and side projects",
       color: "#16a34a",
@@ -191,10 +250,10 @@ async function main() {
   });
 
   const productLaunch = await prisma.project.upsert({
-    where: { id: "00000000-0000-0000-0000-000000000012" },
+    where: { id: "00000000-0000-4000-8000-000000000012" },
     update: { name: "Product Launch" },
     create: {
-      id: "00000000-0000-0000-0000-000000000012",
+      id: "00000000-0000-4000-8000-000000000012",
       name: "Product Launch",
       description: "Q4 product launch coordination",
       color: "#ea580c",
@@ -322,7 +381,7 @@ async function main() {
 
   const taskData = [
     {
-      id: "00000000-0000-0000-0000-000000000100",
+      id: "00000000-0000-4000-8000-000000000100",
       projectId: projectWork.id,
       title: "Fix login page SSL error",
       description: "The login page throws a 500 error when the SSL certificate is expired. Need to add better error handling.",
@@ -336,7 +395,7 @@ async function main() {
       orderIndex: 1,
     },
     {
-      id: "00000000-0000-0000-0000-000000000101",
+      id: "00000000-0000-4000-8000-000000000101",
       projectId: projectWork.id,
       title: "Design new dashboard layout",
       description: "Create wireframes for the new analytics dashboard with charts and KPIs.",
@@ -350,7 +409,7 @@ async function main() {
       orderIndex: 2,
     },
     {
-      id: "00000000-0000-0000-0000-000000000102",
+      id: "00000000-0000-4000-8000-000000000102",
       projectId: projectWork.id,
       title: "Update API documentation",
       description: "Document all new REST API endpoints for v2 release.",
@@ -365,7 +424,7 @@ async function main() {
       completedAt: day(-1),
     },
     {
-      id: "00000000-0000-0000-0000-000000000103",
+      id: "00000000-0000-4000-8000-000000000103",
       projectId: projectWork.id,
       title: "Investigate database connection pool leak",
       description: "Production DB connections are not being released properly after queries.",
@@ -379,7 +438,7 @@ async function main() {
       orderIndex: 4,
     },
     {
-      id: "00000000-0000-0000-0000-000000000104",
+      id: "00000000-0000-4000-8000-000000000104",
       projectId: projectWork.id,
       title: "Set up staging environment",
       description: "Provision a staging server that mirrors production for pre-release testing.",
@@ -391,7 +450,7 @@ async function main() {
       orderIndex: 5,
     },
     {
-      id: "00000000-0000-0000-0000-000000000105",
+      id: "00000000-0000-4000-8000-000000000105",
       projectId: projectWork.id,
       title: "Implement dark mode toggle",
       description: "Add a theme switcher that persists user preference and respects system settings.",
@@ -405,7 +464,7 @@ async function main() {
       orderIndex: 6,
     },
     {
-      id: "00000000-0000-0000-0000-000000000106",
+      id: "00000000-0000-4000-8000-000000000106",
       projectId: projectWork.id,
       title: "Write unit tests for auth module",
       description: "Achieve > 80% code coverage on the authentication module.",
@@ -419,7 +478,7 @@ async function main() {
       orderIndex: 7,
     },
     {
-      id: "00000000-0000-0000-0000-000000000107",
+      id: "00000000-0000-4000-8000-000000000107",
       projectId: projectWork.id,
       title: "Code review: PR #234",
       description: "Review the new file upload implementation.",
@@ -433,7 +492,7 @@ async function main() {
       orderIndex: 8,
     },
     {
-      id: "00000000-0000-0000-0000-000000000108",
+      id: "00000000-0000-4000-8000-000000000108",
       projectId: projectWork.id,
       title: "Optimize image loading for task list",
       description: "Implement lazy loading and responsive image sizes for attachment thumbnails.",
@@ -447,7 +506,7 @@ async function main() {
       orderIndex: 9,
     },
     {
-      id: "00000000-0000-0000-0000-000000000109",
+      id: "00000000-0000-4000-8000-000000000109",
       projectId: projectPersonal.id,
       title: "Plan weekend trip",
       description: "Research destinations, book flights and hotel.",
@@ -460,7 +519,7 @@ async function main() {
       orderIndex: 1,
     },
     {
-      id: "00000000-0000-0000-0000-000000000110",
+      id: "00000000-0000-4000-8000-000000000110",
       projectId: productLaunch.id,
       title: "Finalize launch checklist",
       description: "Review all items on the pre-launch checklist and mark completed items.",
@@ -474,7 +533,7 @@ async function main() {
       orderIndex: 1,
     },
     {
-      id: "00000000-0000-0000-0000-000000000111",
+      id: "00000000-0000-4000-8000-000000000111",
       projectId: productLaunch.id,
       title: "Prepare marketing materials",
       description: "Create social media posts, blog announcements, and email newsletters.",
@@ -488,7 +547,7 @@ async function main() {
       orderIndex: 2,
     },
     {
-      id: "00000000-0000-0000-0000-000000000112",
+      id: "00000000-0000-4000-8000-000000000112",
       projectId: productLaunch.id,
       title: "Coordinate with PR team",
       description: "Schedule meeting with PR agency to align messaging.",
@@ -503,7 +562,7 @@ async function main() {
       completedAt: day(-2),
     },
     {
-      id: "00000000-0000-0000-0000-000000000113",
+      id: "00000000-0000-4000-8000-000000000113",
       projectId: productLaunch.id,
       title: "Security audit sign-off",
       description: "Get final sign-off from the security team before launch.",
@@ -517,7 +576,7 @@ async function main() {
       orderIndex: 4,
     },
     {
-      id: "00000000-0000-0000-0000-000000000114",
+      id: "00000000-0000-4000-8000-000000000114",
       projectId: productLaunch.id,
       title: "Set up monitoring dashboards",
       description: "Configure Grafana dashboards for launch day monitoring.",
@@ -531,7 +590,7 @@ async function main() {
       orderIndex: 5,
     },
     {
-      id: "00000000-0000-0000-0000-000000000115",
+      id: "00000000-0000-4000-8000-000000000115",
       projectId: productLaunch.id,
       title: "Fix critical login bug",
       description: "Hotfix: Users cannot log in after the latest SAML configuration change.",
@@ -565,15 +624,15 @@ async function main() {
 
   // ── Task Tags ──
   const taskTagsData = [
-    { taskId: "00000000-0000-0000-0000-000000000100", tagId: tagBug.id },
-    { taskId: "00000000-0000-0000-0000-000000000100", tagId: tagUrgent.id },
-    { taskId: "00000000-0000-0000-0000-000000000101", tagId: tagDesign.id },
-    { taskId: "00000000-0000-0000-0000-000000000102", tagId: tagDocs.id },
-    { taskId: "00000000-0000-0000-0000-000000000103", tagId: tagBug.id },
-    { taskId: "00000000-0000-0000-0000-000000000103", tagId: tagUrgent.id },
-    { taskId: "00000000-0000-0000-0000-000000000105", tagId: tagFeature.id },
-    { taskId: "00000000-0000-0000-0000-000000000115", tagId: tagBug.id },
-    { taskId: "00000000-0000-0000-0000-000000000115", tagId: tagUrgent.id },
+    { taskId: "00000000-0000-4000-8000-000000000100", tagId: tagBug.id },
+    { taskId: "00000000-0000-4000-8000-000000000100", tagId: tagUrgent.id },
+    { taskId: "00000000-0000-4000-8000-000000000101", tagId: tagDesign.id },
+    { taskId: "00000000-0000-4000-8000-000000000102", tagId: tagDocs.id },
+    { taskId: "00000000-0000-4000-8000-000000000103", tagId: tagBug.id },
+    { taskId: "00000000-0000-4000-8000-000000000103", tagId: tagUrgent.id },
+    { taskId: "00000000-0000-4000-8000-000000000105", tagId: tagFeature.id },
+    { taskId: "00000000-0000-4000-8000-000000000115", tagId: tagBug.id },
+    { taskId: "00000000-0000-4000-8000-000000000115", tagId: tagUrgent.id },
   ];
 
   for (const tt of taskTagsData) {
@@ -586,19 +645,19 @@ async function main() {
 
   // ── Custom Field Values ──
   const cfValuesData = [
-    { taskId: "00000000-0000-0000-0000-000000000100", customFieldId: cfStoryPoints.id, valueNumber: 5 },
-    { taskId: "00000000-0000-0000-0000-000000000100", customFieldId: cfComponent.id, valueJson: "backend" },
-    { taskId: "00000000-0000-0000-0000-000000000101", customFieldId: cfStoryPoints.id, valueNumber: 8 },
-    { taskId: "00000000-0000-0000-0000-000000000101", customFieldId: cfComponent.id, valueJson: "frontend" },
-    { taskId: "00000000-0000-0000-0000-000000000103", customFieldId: cfStoryPoints.id, valueNumber: 3 },
-    { taskId: "00000000-0000-0000-0000-000000000103", customFieldId: cfComponent.id, valueJson: "backend" },
-    { taskId: "00000000-0000-0000-0000-000000000105", customFieldId: cfComponent.id, valueJson: "frontend" },
-    { taskId: "00000000-0000-0000-0000-000000000107", customFieldId: cfStoryPoints.id, valueNumber: 2 },
-    { taskId: "00000000-0000-0000-0000-000000000107", customFieldId: cfComponent.id, valueJson: "backend" },
-    { taskId: "00000000-0000-0000-0000-000000000107", customFieldId: cfQaUrl.id, valueText: "https://staging.example.com/pr-234" },
-    { taskId: "00000000-0000-0000-0000-000000000110", customFieldId: cfSeverity.id, valueJson: "critical" },
-    { taskId: "00000000-0000-0000-0000-000000000113", customFieldId: cfSeverity.id, valueJson: "blocker" },
-    { taskId: "00000000-0000-0000-0000-000000000115", customFieldId: cfSeverity.id, valueJson: "blocker" },
+    { taskId: "00000000-0000-4000-8000-000000000100", customFieldId: cfStoryPoints.id, valueNumber: 5 },
+    { taskId: "00000000-0000-4000-8000-000000000100", customFieldId: cfComponent.id, valueJson: "backend" },
+    { taskId: "00000000-0000-4000-8000-000000000101", customFieldId: cfStoryPoints.id, valueNumber: 8 },
+    { taskId: "00000000-0000-4000-8000-000000000101", customFieldId: cfComponent.id, valueJson: "frontend" },
+    { taskId: "00000000-0000-4000-8000-000000000103", customFieldId: cfStoryPoints.id, valueNumber: 3 },
+    { taskId: "00000000-0000-4000-8000-000000000103", customFieldId: cfComponent.id, valueJson: "backend" },
+    { taskId: "00000000-0000-4000-8000-000000000105", customFieldId: cfComponent.id, valueJson: "frontend" },
+    { taskId: "00000000-0000-4000-8000-000000000107", customFieldId: cfStoryPoints.id, valueNumber: 2 },
+    { taskId: "00000000-0000-4000-8000-000000000107", customFieldId: cfComponent.id, valueJson: "backend" },
+    { taskId: "00000000-0000-4000-8000-000000000107", customFieldId: cfQaUrl.id, valueText: "https://staging.example.com/pr-234" },
+    { taskId: "00000000-0000-4000-8000-000000000110", customFieldId: cfSeverity.id, valueJson: "critical" },
+    { taskId: "00000000-0000-4000-8000-000000000113", customFieldId: cfSeverity.id, valueJson: "blocker" },
+    { taskId: "00000000-0000-4000-8000-000000000115", customFieldId: cfSeverity.id, valueJson: "blocker" },
   ];
 
   for (const cfv of cfValuesData) {
@@ -621,33 +680,33 @@ async function main() {
   // ── Comments ──
   const commentsData = [
     {
-      id: "00000000-0000-0000-0000-000000000200",
-      taskId: "00000000-0000-0000-0000-000000000100",
+      id: "00000000-0000-4000-8000-000000000200",
+      taskId: "00000000-0000-4000-8000-000000000100",
       authorId: member1.id,
       bodyMarkdown: "I think the issue is in the nginx config. Let me check the SSL certificate paths.",
     },
     {
-      id: "00000000-0000-0000-0000-000000000201",
-      taskId: "00000000-0000-0000-0000-000000000100",
+      id: "00000000-0000-4000-8000-000000000201",
+      taskId: "00000000-0000-4000-8000-000000000100",
       authorId: manager.id,
       bodyMarkdown: "Confirmed. The certificate expired yesterday. I've uploaded the new one, please verify.",
-      parentCommentId: "00000000-0000-0000-0000-000000000200",
+      parentCommentId: "00000000-0000-4000-8000-000000000200",
     },
     {
-      id: "00000000-0000-0000-0000-000000000202",
-      taskId: "00000000-0000-0000-0000-000000000103",
+      id: "00000000-0000-4000-8000-000000000202",
+      taskId: "00000000-0000-4000-8000-000000000103",
       authorId: owner.id,
       bodyMarkdown: "This is blocking the deployment pipeline. @manager please prioritize.",
     },
     {
-      id: "00000000-0000-0000-0000-000000000203",
-      taskId: "00000000-0000-0000-0000-000000000110",
+      id: "00000000-0000-4000-8000-000000000203",
+      taskId: "00000000-0000-4000-8000-000000000110",
       authorId: admin.id,
       bodyMarkdown: "Please review the checklist at https://docs.google.com/spreadsheets/launch-checklist",
     },
     {
-      id: "00000000-0000-0000-0000-000000000204",
-      taskId: "00000000-0000-0000-0000-000000000115",
+      id: "00000000-0000-4000-8000-000000000204",
+      taskId: "00000000-0000-4000-8000-000000000115",
       authorId: member1.id,
       bodyMarkdown: "Fixed in commit abc123. The SAML assertion validation was missing a null check.",
     },
@@ -664,9 +723,9 @@ async function main() {
   // ── Subtasks ──
   const subtaskData = [
     {
-      id: "00000000-0000-0000-0000-000000000300",
+      id: "00000000-0000-4000-8000-000000000300",
       projectId: projectWork.id,
-      parentTaskId: "00000000-0000-0000-0000-000000000100",
+      parentTaskId: "00000000-0000-4000-8000-000000000100",
       title: "Check certificate expiry date",
       status: "done" as const,
       priority: "high" as const,
@@ -676,9 +735,9 @@ async function main() {
       orderIndex: 1.0,
     },
     {
-      id: "00000000-0000-0000-0000-000000000301",
+      id: "00000000-0000-4000-8000-000000000301",
       projectId: projectWork.id,
-      parentTaskId: "00000000-0000-0000-0000-000000000100",
+      parentTaskId: "00000000-0000-4000-8000-000000000100",
       title: "Deploy new certificate to production",
       status: "in_progress" as const,
       priority: "high" as const,
@@ -705,11 +764,11 @@ async function main() {
 
   // ── Watchers ──
   const watcherData = [
-    { taskId: "00000000-0000-0000-0000-000000000100", userId: owner.id },
-    { taskId: "00000000-0000-0000-0000-000000000100", userId: manager.id },
-    { taskId: "00000000-0000-0000-0000-000000000103", userId: owner.id },
-    { taskId: "00000000-0000-0000-0000-000000000103", userId: member1.id },
-    { taskId: "00000000-0000-0000-0000-000000000110", userId: manager.id },
+    { taskId: "00000000-0000-4000-8000-000000000100", userId: owner.id },
+    { taskId: "00000000-0000-4000-8000-000000000100", userId: manager.id },
+    { taskId: "00000000-0000-4000-8000-000000000103", userId: owner.id },
+    { taskId: "00000000-0000-4000-8000-000000000103", userId: member1.id },
+    { taskId: "00000000-0000-4000-8000-000000000110", userId: manager.id },
   ];
 
   for (const w of watcherData) {

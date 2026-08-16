@@ -13,7 +13,7 @@ test.describe("Tasks", () => {
 
   test("groups start, due, and end dates and saves picker values", async ({ page }) => {
     const patchBodies: Record<string, unknown>[] = [];
-    await page.route("**/api/v1/tasks/00000000-0000-0000-0000-000000000100", async (route) => {
+    await page.route("**/api/v1/tasks/00000000-0000-4000-8000-000000000100", async (route) => {
       if (route.request().method() !== "PATCH") {
         await route.continue();
         return;
@@ -27,7 +27,7 @@ test.describe("Tasks", () => {
       });
     });
 
-    await page.goto("/en-US/tasks/00000000-0000-0000-0000-000000000100");
+    await page.goto("/en-US/tasks/00000000-0000-4000-8000-000000000100");
     const dateCard = page.getByRole("heading", { name: "Date & Duration" }).locator("..");
     await expect(dateCard).toBeVisible();
     await expect(dateCard.locator("label")).toHaveText(["Start Date", "Due date", "End Date", "Duration"]);
