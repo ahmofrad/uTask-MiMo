@@ -5,18 +5,24 @@ import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 
-type LoginFormProps = {
-  ldapConfigured: boolean;
-  ssoConfigured: boolean;
-  ldapDomain: string;
+type LdapSourceOption = {
+  id: string;
+  name: string;
 };
 
-export function LoginForm({ ldapConfigured, ssoConfigured, ldapDomain }: LoginFormProps) {
+type LoginFormProps = {
+  ldapSources: LdapSourceOption[];
+  ssoConfigured: boolean;
+};
+
+export function LoginForm({ ldapSources, ssoConfigured }: LoginFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [provider, setProvider] = useState("local");
   const t = useTranslations("auth.login");
+
+  const ldapConfigured = ldapSources.length > 0;
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -28,9 +34,15 @@ export function LoginForm({ ldapConfigured, ssoConfigured, ldapDomain }: LoginFo
     const password = String(form.get("password") ?? "");
 
     try {
-      if (provider === "ldap") {
-        const result = await signIn("ldap", { email, password, redirect: false });
-        if (result?.error) {
+      if (provider !== "local") {
+        // LDAP: authenticate against the picked directory via the server route,
+        // which binds, JIT-provisions the user, and creates the session.
+        const res = await fetch("/api/v1/auth/ldap/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: email, password, sourceId: provider }),
+        });
+        if (!res.ok) {
           setError(t("errors.invalidCredentials"));
         } else {
           window.location.href = "/";
@@ -109,11 +121,13 @@ export function LoginForm({ ldapConfigured, ssoConfigured, ldapDomain }: LoginFo
         </div>
       </div>
 
-      {/* LDAP Provider selector */}
+      {/* Login method: local vs. the configured Active Directory source(s).
+          With a single source this stays a plain local/LDAP choice; with
+          multiple enabled sources it becomes an explicit directory picker. */}
       {ldapConfigured && (
         <div>
           <label htmlFor="provider" className="block text-sm font-medium text-fg-secondary mb-1.5">
-            {t("loginMethod")}
+            {t(ldapSources.length > 1 ? "directoryLabel" : "loginMethod")}
           </label>
           <select
             id="provider"
@@ -122,7 +136,11 @@ export function LoginForm({ ldapConfigured, ssoConfigured, ldapDomain }: LoginFo
             className="w-full px-3.5 py-2.5 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent transition-colors"
           >
             <option value="local">{t("localLogin")}</option>
-            <option value="ldap">{ldapDomain}</option>
+            {ldapSources.map((source) => (
+              <option key={source.id} value={source.id}>
+                {source.name}
+              </option>
+            ))}
           </select>
         </div>
       )}

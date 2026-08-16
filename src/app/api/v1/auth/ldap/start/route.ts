@@ -32,9 +32,9 @@ export async function POST(request: Request) {
   if (!parsed.success) {
     return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
-  const { username, password } = parsed.data;
+  const { username, password, sourceId } = parsed.data;
 
-  const result = await ldapAuth(username, password);
+  const result = await ldapAuth(username, password, sourceId);
 
   if (!result.success) {
     await logAudit({
@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       action: "login_failed",
       entityType: "user",
       entityId: "",
-      after: { provider: "ldap", username, reason: result.error },
+      after: { provider: "ldap", username, sourceId, reason: result.error },
     });
 
     return NextResponse.json(
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       action: "login_success",
       entityType: "user",
       entityId: result.user!.id,
-      after: { provider: "ldap" },
+      after: { provider: "ldap", sourceId },
     });
 
     return NextResponse.json({ data: { success: true } });

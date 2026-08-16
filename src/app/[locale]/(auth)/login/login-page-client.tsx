@@ -5,13 +5,17 @@ import { LocaleSwitcher } from "@/components/locale/switcher";
 import { Logo } from "@/components/brand/logo";
 import { useTranslations } from "next-intl";
 
-type LoginPageClientProps = {
-  ldapConfigured: boolean;
-  ssoConfigured: boolean;
-  ldapDomain: string;
+type LdapSourceOption = {
+  id: string;
+  name: string;
 };
 
-export function LoginPageClient({ ldapConfigured, ssoConfigured, ldapDomain }: LoginPageClientProps) {
+type LoginPageClientProps = {
+  ldapSources: LdapSourceOption[];
+  ssoConfigured: boolean;
+};
+
+export function LoginPageClient({ ldapSources, ssoConfigured }: LoginPageClientProps) {
   const t = useTranslations("auth.login");
 
   return (
@@ -30,7 +34,7 @@ export function LoginPageClient({ ldapConfigured, ssoConfigured, ldapDomain }: L
             <h1 className="text-xl font-semibold text-fg">{t("title")}</h1>
             <p className="text-sm text-fg-muted mt-1">{t("welcomeBack")}</p>
           </div>
-          <LoginForm ldapConfigured={ldapConfigured} ssoConfigured={ssoConfigured} ldapDomain={ldapDomain} />
+          <LoginForm ldapSources={ldapSources} ssoConfigured={ssoConfigured} />
         </div>
 
         <p className="text-center text-xs text-fg-muted mt-6">{t("footer")}</p>

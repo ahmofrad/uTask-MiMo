@@ -246,6 +246,8 @@ export const projectGroupGrantSchema = z.object({
 export const ldapLoginSchema = z.object({
   username: z.string().trim().min(1).max(320),
   password: z.string().min(1).max(512),
+  // Optional directory to authenticate against; omitted for legacy single-source clients.
+  sourceId: uuid.optional(),
 }).strict();
 
 export const passwordResetRequestSchema = z.object({

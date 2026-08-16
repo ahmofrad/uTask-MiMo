@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { ldapConfigSchema, type LdapConfig } from "../ldap-schema";
-import { getEnabledLdapSources, sourceToLdapConfig } from "../ldap-sources";
+import { getEnabledLdapSources, getFirstEnabledLdapSource, getLdapSource, sourceToLdapConfig } from "../ldap-sources";
 import { logger } from "@/lib/logging";
 import { decryptSecret } from "@/lib/webhook";
 
@@ -462,11 +462,17 @@ export async function syncAllLdapSources(): Promise<{ sources: number; groups: n
 export async function ldapAuth(
   username: string,
   password: string,
+  sourceId?: string,
 ): Promise<LdapAuthResult> {
-  const config = await getLdapConfig();
-  if (!config || !config.enabled) {
+  // Resolve the directory the user picked: an explicit sourceId (must be an
+  // enabled source) or the first enabled source when omitted (legacy callers).
+  const source = sourceId
+    ? await getLdapSource(sourceId)
+    : await getFirstEnabledLdapSource();
+  if (!source || !source.enabled) {
     return { success: false, error: "LDAP not configured" };
   }
+  const config = sourceToLdapConfig(source);
 
   let client: Client | null = null;
   try {
@@ -521,7 +527,9 @@ export async function ldapAuth(
       });
     }
 
-    // Upsert auth identity (subject = UPN/email, which is stable per user)
+    // Upsert auth identity (subject = UPN/email, which is stable per user).
+    // `providerIssuer` records which directory the user authenticated
+    // against, so multi-AD setups can trace the source of each identity.
     const existingIdentity = await prisma.authIdentity.findFirst({
       where: { provider: "ldap", providerSubject: email },
     });
@@ -532,6 +540,8 @@ export async function ldapAuth(
           userId: user.id,
           provider: "ldap",
           providerSubject: email,
+          providerIssuer: source.id,
+          lastUsedAt: new Date(),
         },
       });
 
@@ -540,7 +550,20 @@ export async function ldapAuth(
         action: "identity_linked",
         entityType: "authidentity",
         entityId: user.id,
-        after: { provider: "ldap" },
+        after: { provider: "ldap", sourceId: source.id },
+      });
+    } else if (existingIdentity.providerIssuer !== source.id) {
+      // The same UPN appearing in a second directory resolves to the same
+      // user (email is the user key); the issuer follows the most recent
+      // successful login so the source stays traceable.
+      await prisma.authIdentity.update({
+        where: { id: existingIdentity.id },
+        data: { providerIssuer: source.id, lastUsedAt: new Date() },
+      });
+    } else {
+      await prisma.authIdentity.update({
+        where: { id: existingIdentity.id },
+        data: { lastUsedAt: new Date() },
       });
     }
 

@@ -83,6 +83,7 @@
       "footer": "حساب کاربری ندارید؟ از مدیر خود بخواهید شما را دعوت کند.",
       "divider": "یا",
       "loginMethod": "روش ورود",
+      "directoryLabel": "دایرکتوری",
       "localLogin": "ورود محلی",
       "forgotPassword": "رمز عبور را فراموش کردید؟",
       "ssoButton": "ورود با SSO",

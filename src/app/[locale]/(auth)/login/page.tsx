@@ -8,16 +8,16 @@ export default async function LoginPage() {
   const saml = (allSettings.saml ?? {}) as Record<string, unknown>;
 
   const enabledSources = await getEnabledLdapSources();
-  const ldapConfigured = enabledSources.length > 0;
+  const ldapSources = enabledSources.map((source) => ({
+    id: source.id,
+    name: source.name,
+  }));
   const ssoConfigured = Boolean(saml.enabled && saml.ssoUrl);
-  const first = enabledSources[0];
-  const ldapDomain = first?.name || first?.upnSuffix?.replace(/^@/, "") || "LDAP";
 
   return (
     <LoginPageClient
-      ldapConfigured={ldapConfigured}
+      ldapSources={ldapSources}
       ssoConfigured={ssoConfigured}
-      ldapDomain={ldapDomain}
     />
   );
 }

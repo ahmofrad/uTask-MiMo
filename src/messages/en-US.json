@@ -83,6 +83,7 @@
       "footer": "Don't have an account? Ask your admin to invite you.",
       "divider": "or",
       "loginMethod": "Login method",
+      "directoryLabel": "Directory",
       "localLogin": "Local login",
       "forgotPassword": "Forgot password?",
       "ssoButton": "Sign in with SSO",

@@ -33,3 +33,36 @@ test.describe("Authentication", () => {
     await expect(page).toHaveURL(/\/login/);
   });
 });
+
+test.describe("Active Directory directory picker", () => {
+  // The default chromium project carries an authenticated admin storageState,
+  // which this spec uses to enable the seeded LDAP source via the SSO API.
+  // The standalone `request` fixture keeps its own admin session, so cleanup
+  // still works after the page's cookies are cleared for the login view.
+  async function setSeededSourceEnabled(request: import("@playwright/test").APIRequestContext, enabled: boolean) {
+    // Load a page first so middleware sets the CSRF cookie the API validates.
+    await request.get("/en-US/admin/sso");
+    const cookies = (await request.storageState()).cookies;
+    const csrf = cookies.find((c) => c.name === "csrf_token")?.value ?? "";
+    const res = await request.patch("/api/v1/admin/sso", {
+      headers: { "content-type": "application/json", "x-csrf-token": csrf },
+      data: { ldap: { enabled } },
+    });
+    expect(res.ok()).toBeTruthy();
+  }
+
+  test("login lists enabled AD sources in the directory picker", async ({ page, request }) => {
+    await setSeededSourceEnabled(request, true);
+
+    try {
+      // Drop the admin session so /login renders instead of redirecting home.
+      await page.context().clearCookies();
+      await page.goto("/login");
+      await expect(page.locator("#provider")).toBeVisible();
+      await expect(page.locator("#provider option")).toContainText(["Local login", "Company Directory"]);
+      await expect(page.getByLabel(/login method/i)).toBeVisible();
+    } finally {
+      await setSeededSourceEnabled(request, false);
+    }
+  });
+});
