@@ -19,6 +19,13 @@ export function notificationContent(
   const by = payload?.by ?? "";
   const departmentName = typeof payload?.departmentName === "string" ? payload.departmentName : "";
   const projectName = typeof payload?.projectName === "string" ? payload.projectName : "";
+  const groupName = typeof payload?.groupName === "string" ? payload.groupName : "";
+  const roleValue = typeof payload?.role === "string" ? payload.role : "";
+  const roleLabel = roleValue === "lead"
+    ? t("roleLead")
+    : roleValue === "viewer"
+      ? t("roleViewer")
+      : t("roleContributor");
 
   switch (type) {
     case "assigned": {
@@ -41,6 +48,16 @@ export function notificationContent(
       return {
         title: t("departmentLinkRequestTitle"),
         body: t("departmentLinkRequestBody", { department: departmentName, project: projectName }),
+      };
+    case "group_role_granted":
+      return {
+        title: t("groupRoleGrantedTitle"),
+        body: t("groupRoleGrantedBody", { group: groupName, role: roleLabel, project: projectName }),
+      };
+    case "group_role_revoked":
+      return {
+        title: t("groupRoleRevokedTitle"),
+        body: t("groupRoleRevokedBody", { group: groupName, role: roleLabel, project: projectName }),
       };
     default:
       return { title: type.replace(/_/g, " "), body: "" };

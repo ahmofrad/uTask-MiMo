@@ -44,6 +44,8 @@ export default async function ProjectDetail(props: {
     || project.owner.id === userId
     || membership?.projectRole === "lead";
 
+  const canAssignRoles = await canProject(userId, "project_role:assign", projectId);
+
   const tasks = await prisma.task.findMany({
     where: { projectId, deletedAt: null },
     orderBy: { orderIndex: "asc" },
@@ -91,6 +93,7 @@ export default async function ProjectDetail(props: {
             avatarUrl: m.user.avatarUrl,
           })),
           projectRole: project.members.find((m) => m.user.id === userId)?.projectRole ?? null,
+          canAssignRoles: canAssignRoles,
         }}
         initialTasks={tasks.map((t) => ({
           id: t.id,

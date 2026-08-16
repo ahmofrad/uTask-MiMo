@@ -35,4 +35,23 @@ describe("notificationContent", () => {
     expect(c.title).toContain("departmentLinkRequestTitle");
     expect(c.body).toContain("departmentLinkRequestBody");
   });
+
+  it("renders group role grants with a localized role label", () => {
+    const c = notificationContent("group_role_granted", { groupName: "Engineering", projectName: "Roadmap", role: "lead" }, t);
+    expect(c.title).toContain("groupRoleGrantedTitle");
+    expect(c.body).toContain("groupRoleGrantedBody");
+    expect(c.body).toContain("roleLead");
+  });
+
+  it("renders group role revokes", () => {
+    const c = notificationContent("group_role_revoked", { groupName: "Design", projectName: "Roadmap", role: "viewer" }, t);
+    expect(c.title).toContain("groupRoleRevokedTitle");
+    expect(c.body).toContain("groupRoleRevokedBody");
+    expect(c.body).toContain("roleViewer");
+  });
+
+  it("defaults unknown roles to contributor", () => {
+    const c = notificationContent("group_role_granted", { groupName: "Engineering", projectName: "Roadmap", role: "admin" }, t);
+    expect(c.body).toContain("roleContributor");
+  });
 });

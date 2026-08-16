@@ -35,6 +35,7 @@ type ProjectInfo = {
   taskCount: number;
   members: { id: string; displayName: string; avatarUrl?: string | null }[];
   projectRole: string | null;
+  canAssignRoles: boolean;
 };
 
 type TaskItem = {
@@ -338,6 +339,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
         open={showMembersModal}
         onClose={() => setShowMembersModal(false)}
         projectId={project.id}
+        canAssignRoles={project.canAssignRoles}
       />
 
       <TagsModal

@@ -1,9 +1,20 @@
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logging";
 
+export type NotificationType =
+  | "assigned"
+  | "mentioned"
+  | "due_soon"
+  | "commented"
+  | "status_changed"
+  | "unblocked"
+  | "department_link_request"
+  | "group_role_granted"
+  | "group_role_revoked";
+
 export async function createNotification(params: {
   userId: string;
-  type: "assigned" | "mentioned" | "due_soon" | "commented" | "status_changed" | "unblocked" | "department_link_request";
+  type: NotificationType;
   taskId?: string;
   payload?: Record<string, unknown>;
 }) {
@@ -24,7 +35,7 @@ export async function createNotification(params: {
  */
 export async function notify(params: {
   userId: string;
-  type: "assigned" | "mentioned" | "due_soon" | "commented" | "status_changed" | "unblocked" | "department_link_request";
+  type: NotificationType;
   taskId?: string;
   payload?: Record<string, unknown>;
 }): Promise<void> {
@@ -33,6 +44,41 @@ export async function notify(params: {
   } catch (err) {
     logger.warn({ err, userId: params.userId, type: params.type }, "Failed to create notification");
   }
+}
+
+/**
+ * Notify every current member of a group that its role on a project was
+ * granted or revoked. Live membership: the fan-out reads memberships at emit
+ * time, so only currently-affected users are notified. Empty groups are a
+ * no-op; notification failures never propagate.
+ */
+export async function notifyGroupRoleChange(params: {
+  groupId: string;
+  groupName: string;
+  projectId: string;
+  projectName: string;
+  role: string;
+  action: "granted" | "revoked";
+}): Promise<void> {
+  const memberships = await prisma.ldapGroupMembership.findMany({
+    where: { ldapSyncGroupId: params.groupId },
+    select: { userId: true },
+  });
+  const userIds = Array.from(new Set(memberships.map((membership) => membership.userId)));
+  if (userIds.length === 0) return;
+
+  const type: NotificationType = params.action === "granted" ? "group_role_granted" : "group_role_revoked";
+  await Promise.all(userIds.map((userId) => notify({
+    userId,
+    type,
+    payload: {
+      groupId: params.groupId,
+      groupName: params.groupName,
+      projectId: params.projectId,
+      projectName: params.projectName,
+      role: params.role,
+    },
+  })));
 }
 
 export async function getUnreadCount(userId: string): Promise<number> {

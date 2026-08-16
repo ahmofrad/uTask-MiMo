@@ -20,14 +20,31 @@ type UserSearchResult = {
   avatarUrl: string | null;
 };
 
+type GroupGrant = {
+  groupId: string;
+  role: string;
+  grantedAt: string;
+  memberCount: number;
+  group: { id: string; name: string; source: "ldap" | "manual" };
+};
+
+type GroupOption = {
+  id: string;
+  name: string;
+  source: "ldap" | "manual";
+  memberCount: number;
+};
+
 export function MembersModal({
   open,
   onClose,
   projectId,
+  canAssignRoles,
 }: {
   open: boolean;
   onClose: () => void;
   projectId: string;
+  canAssignRoles: boolean;
 }) {
   const t = useTranslations("project.members");
   const [members, setMembers] = useState<Member[]>([]);
@@ -35,6 +52,13 @@ export function MembersModal({
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+
+  const [grants, setGrants] = useState<GroupGrant[]>([]);
+  const [groupOptions, setGroupOptions] = useState<GroupOption[]>([]);
+  const [grantsLoading, setGrantsLoading] = useState(false);
+  const [grantGroupId, setGrantGroupId] = useState("");
+  const [grantRole, setGrantRole] = useState("contributor");
+  const [granting, setGranting] = useState(false);
 
   const ROLES = [
     { value: "lead", label: t("lead") },
@@ -50,6 +74,22 @@ export function MembersModal({
       .then((r) => r.json())
       .then((j) => { setMembers(j.data ?? []); setLoading(false); })
       .catch(() => setLoading(false));
+  }, [open, projectId]);
+
+  useEffect(() => {
+    if (!open) return;
+    setGrantsLoading(true);
+    apiFetch(`/api/v1/projects/${projectId}/group-grants`)
+      .then(async (r) => {
+        if (!r.ok) return;
+        const j = await r.json();
+        setGrants(j.data ?? []);
+        setGroupOptions((j.groups ?? []).filter(
+          (g: GroupOption) => !(j.data ?? []).some((grant: GroupGrant) => grant.groupId === g.id),
+        ));
+      })
+      .catch(() => {})
+      .finally(() => setGrantsLoading(false));
   }, [open, projectId]);
 
   useEffect(() => {
@@ -101,6 +141,60 @@ export function MembersModal({
     });
     if (res.ok) {
       setMembers((prev) => prev.map((m) => m.userId === userId ? { ...m, projectRole: newRole } : m));
+    }
+  }
+
+  async function grantAccess() {
+    if (!grantGroupId || granting) return;
+    setGranting(true);
+    try {
+      const res = await apiFetch(`/api/v1/projects/${projectId}/group-grants`, {
+        method: "POST",
+        body: JSON.stringify({ groupId: grantGroupId, role: grantRole }),
+      });
+      if (res.ok) {
+        const selected = groupOptions.find((g) => g.id === grantGroupId);
+        if (selected) {
+          setGrants((prev) => [...prev, {
+            groupId: selected.id,
+            role: grantRole,
+            grantedAt: new Date().toISOString(),
+            memberCount: selected.memberCount,
+            group: { id: selected.id, name: selected.name, source: selected.source },
+          }]);
+        }
+        setGroupOptions((prev) => prev.filter((g) => g.id !== grantGroupId));
+        setGrantGroupId("");
+        setGrantRole("contributor");
+      }
+    } finally {
+      setGranting(false);
+    }
+  }
+
+  async function changeGrantRole(groupId: string, newRole: string) {
+    const res = await apiFetch(`/api/v1/projects/${projectId}/group-grants`, {
+      method: "POST",
+      body: JSON.stringify({ groupId, role: newRole }),
+    });
+    if (res.ok) {
+      setGrants((prev) => prev.map((g) => g.groupId === groupId ? { ...g, role: newRole } : g));
+    }
+  }
+
+  async function revokeGrant(groupId: string) {
+    const res = await apiFetch(`/api/v1/projects/${projectId}/group-grants/${groupId}`, { method: "DELETE" });
+    if (res.ok) {
+      setGrants((prev) => prev.filter((g) => g.groupId !== groupId));
+      const revoked = grants.find((g) => g.groupId === groupId);
+      if (revoked) {
+        setGroupOptions((prev) => [...prev, {
+          id: revoked.groupId,
+          name: revoked.group.name,
+          source: revoked.group.source,
+          memberCount: revoked.memberCount,
+        }]);
+      }
     }
   }
 
@@ -195,7 +289,90 @@ export function MembersModal({
               </div>
             ))
           )}
-      </div>
+
+          {/* Group grants */}
+          <div className="pt-4 mt-4 border-t border-border-secondary space-y-3">
+            <div>
+              <h3 className="text-sm font-semibold text-fg">{t("groupGrants")}</h3>
+              <p className="text-xs text-fg-muted mt-0.5">{t("groupGrantsNote")}</p>
+            </div>
+
+            {grantsLoading ? (
+              <p className="text-sm text-fg-muted text-center py-3">{t("loading")}</p>
+            ) : grants.length === 0 ? (
+              <p className="text-sm text-fg-muted text-center py-3">{t("noGroupGrants")}</p>
+            ) : (
+              <div className="space-y-2">
+                {grants.map((grant) => (
+                  <div
+                    key={grant.groupId}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border-secondary"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-fg-primary truncate">{grant.group.name}</p>
+                      <p className="text-xs text-fg-muted truncate">
+                        {t("membersCount", { count: grant.memberCount })}
+                        {" · "}
+                        {grant.group.source === "manual" ? t("sourceManual") : t("sourceLdap")}
+                      </p>
+                    </div>
+                    {canAssignRoles && (
+                      <>
+                        <select
+                          value={grant.role}
+                          onChange={(e) => changeGrantRole(grant.groupId, e.target.value)}
+                          className="text-xs px-2 py-1 border border-border-primary rounded-lg bg-bg-primary text-fg-primary focus:outline-none focus:ring-1 focus:ring-accent shrink-0"
+                        >
+                          {ROLES.map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => revokeGrant(grant.groupId)}
+                          className="text-xs text-fg-muted hover:text-destructive transition-colors shrink-0"
+                        >
+                          {t("revoke")}
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {canAssignRoles && groupOptions.length > 0 && (
+              <div className="flex gap-2">
+                <select
+                  value={grantGroupId}
+                  onChange={(e) => setGrantGroupId(e.target.value)}
+                  aria-label={t("selectGroup")}
+                  className="flex-1 px-2 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+                >
+                  <option value="">{t("selectGroup")}</option>
+                  {groupOptions.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+                <select
+                  value={grantRole}
+                  onChange={(e) => setGrantRole(e.target.value)}
+                  className="px-2 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
+                >
+                  {ROLES.map((r) => (
+                    <option key={r.value} value={r.value}>{r.label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => void grantAccess()}
+                  disabled={!grantGroupId || granting}
+                  className="px-4 py-2 text-sm font-medium rounded-md bg-accent text-fg-inverse hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0"
+                >
+                  {granting ? t("saving") : t("grant")}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
     </Dialog>
   );
 }
