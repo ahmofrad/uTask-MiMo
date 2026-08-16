@@ -68,10 +68,11 @@ maybe("LDAP auto-migration (settings.ldap -> first LdapSource)", () => {
   afterAll(async () => {
     // Clean up migrated rows. The source's groups point at it; delete them first.
     if (migratedSourceId) {
+      // The AD-synced legacy group got its sourceId backfilled by the migration,
+      // so this deleteMany already removes it — no separate delete needed.
       await prisma.ldapSyncGroup.deleteMany({ where: { sourceId: migratedSourceId } });
       await prisma.ldapSource.delete({ where: { id: migratedSourceId } }).catch(() => undefined);
     }
-    if (legacyGroupId) await prisma.ldapSyncGroup.delete({ where: { id: legacyGroupId } }).catch(() => undefined);
     if (manualGroupId) await prisma.ldapSyncGroup.delete({ where: { id: manualGroupId } }).catch(() => undefined);
     await prisma.settings.deleteMany({ where: { scope: "install", scopeId: null, key: "ldap" } }).catch(() => undefined);
   });
