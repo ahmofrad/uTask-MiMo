@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { apiFetch } from "@/lib/api-fetch";
 
 type Department = {
   id: string;
@@ -67,7 +68,7 @@ export function DepartmentTree({ departments: initial }: Props) {
     const ldapDepartments = departments.filter((department) => department.ldapSyncGroupId);
     void Promise.all(
       ldapDepartments.map(async (department) => {
-        const response = await fetch(`/api/v1/departments/${department.id}/manager-candidates`);
+        const response = await apiFetch(`/api/v1/departments/${department.id}/manager-candidates`);
         if (!response.ok) return [department.id, []] as const;
         const body = (await response.json()) as { data?: ManagerCandidate[] };
         return [department.id, body.data ?? []] as const;
@@ -86,9 +87,8 @@ export function DepartmentTree({ departments: initial }: Props) {
       name: newName.trim(),
       ...(newParentId ? { parentId: newParentId } : {}),
     };
-    const res = await fetch("/api/v1/departments", {
+    const res = await apiFetch("/api/v1/departments", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (res.ok) {
@@ -100,9 +100,8 @@ export function DepartmentTree({ departments: initial }: Props) {
   }
 
   async function saveManager(departmentId: string, value: string) {
-    const res = await fetch(`/api/v1/departments/${departmentId}`, {
+    const res = await apiFetch(`/api/v1/departments/${departmentId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ managerUserId: value || null }),
     });
     if (res.ok) {
@@ -122,9 +121,8 @@ export function DepartmentTree({ departments: initial }: Props) {
   }
 
   async function saveParent(departmentId: string, value: string) {
-    const res = await fetch(`/api/v1/departments/${departmentId}`, {
+    const res = await apiFetch(`/api/v1/departments/${departmentId}`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ parentId: value || null }),
     });
     if (res.ok) {
@@ -138,7 +136,7 @@ export function DepartmentTree({ departments: initial }: Props) {
   }
 
   async function removeDepartment(id: string) {
-    const res = await fetch(`/api/v1/departments/${id}`, { method: "DELETE" });
+    const res = await apiFetch(`/api/v1/departments/${id}`, { method: "DELETE" });
     if (res.ok) {
       setDepartments((prev) => prev.filter((department) => department.id !== id));
     }

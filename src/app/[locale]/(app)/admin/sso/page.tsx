@@ -37,9 +37,6 @@ type SamlState = {
   digestAlgorithm: string;
 };
 
-type SyncGroup = { id: string; dn: string; name: string };
-type Suggestion = { dn: string; name: string };
-
 function SsoCard({ title, children }: { title: string } & React.PropsWithChildren) {
   return (
     <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-4">
@@ -105,13 +102,6 @@ export default function SsoPage() {
   const [testState, setTestState] = useState<"idle" | "testing" | "ok" | "error">("idle");
   const [testMsg, setTestMsg] = useState("");
 
-  const [search, setSearch] = useState("");
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [groups, setGroups] = useState<SyncGroup[]>([]);
-
-  const [syncing, setSyncing] = useState(false);
-  const [syncMsg, setSyncMsg] = useState("");
-
   useEffect(() => {
     (async () => {
       try {
@@ -120,11 +110,6 @@ export default function SsoPage() {
           const json = await res.json();
           if (json.data?.ldap) setLdap((p) => ({ ...p, ...json.data.ldap }));
           if (json.data?.saml) setSaml((p) => ({ ...p, ...json.data.saml }));
-        }
-        const g = await apiFetch("/api/v1/admin/ldap/groups");
-        if (g.ok) {
-          const j = await g.json();
-          setGroups(j.data ?? []);
         }
       } finally {
         setLoading(false);
@@ -163,67 +148,6 @@ export default function SsoPage() {
     } catch {
       setTestState("error");
       setTestMsg("request failed");
-    }
-  }
-
-  async function handleSearch(q: string) {
-    setSearch(q);
-    if (!q.trim()) {
-      setSuggestions([]);
-      return;
-    }
-    try {
-      const res = await apiFetch(`/api/v1/admin/ldap/groups?q=${encodeURIComponent(q)}`);
-      if (res.ok) {
-        const json = await res.json();
-        setSuggestions(json.data ?? []);
-      }
-    } catch {
-      setSuggestions([]);
-    }
-  }
-
-  async function handleAddGroup(g: Suggestion) {
-    try {
-      const res = await apiFetch("/api/v1/admin/ldap/groups", {
-        method: "POST",
-        body: JSON.stringify({ dn: g.dn, name: g.name }),
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setGroups((prev) => [json.data, ...prev.filter((x) => x.dn !== g.dn)]);
-        setSearch("");
-        setSuggestions([]);
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function handleRemoveGroup(id: string) {
-    try {
-      const res = await apiFetch(`/api/v1/admin/ldap/groups/${id}`, { method: "DELETE" });
-      if (res.ok) setGroups((prev) => prev.filter((x) => x.id !== id));
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function handleSync() {
-    setSyncing(true);
-    setSyncMsg("");
-    try {
-      const res = await apiFetch("/api/v1/admin/ldap/sync", { method: "POST" });
-      const json = await res.json();
-      if (res.ok) {
-        setSyncMsg(t("ldapSyncDone", { users: json.data.users, groups: json.data.groups }));
-      } else {
-        setSyncMsg(json?.error?.message ?? "sync failed");
-      }
-    } catch {
-      setSyncMsg("sync failed");
-    } finally {
-      setSyncing(false);
     }
   }
 
@@ -306,7 +230,6 @@ export default function SsoPage() {
           </Field>
         </div>
 
-
         <div className="flex items-center gap-3">
           <button
             onClick={handleTest}
@@ -321,72 +244,6 @@ export default function SsoPage() {
           )}
         </div>
 
-        <div className="pt-2 border-t border-border-primary space-y-3">
-          <div className="text-sm font-medium text-fg-primary">{t("ldapGroups")}</div>
-
-          <div className="relative">
-            <input
-              className={inputClass}
-              value={search}
-              onChange={(e) => handleSearch(e.target.value)}
-              placeholder={t("ldapSearchGroups")}
-            />
-            {suggestions.length > 0 && (
-              <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-border-primary bg-bg-primary shadow-lg">
-                {suggestions.map((s) => (
-                  <li key={s.dn}>
-                    <button
-                      type="button"
-                      onClick={() => handleAddGroup(s)}
-                      className="w-full text-start px-3 py-2 text-sm text-fg-primary hover:bg-bg-surface"
-                    >
-                      <span className="block">{s.name}</span>
-                      <span className="block text-xs text-fg-muted">{s.dn}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {ldap.url && !suggestions.length && search && (
-            <p className="text-xs text-fg-muted">{t("ldapSaveFirst")}</p>
-          )}
-
-          {groups.length === 0 ? (
-            <p className="text-sm text-fg-muted">{t("ldapNoGroups")}</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {groups.map((g) => (
-                <span
-                  key={g.id}
-                  className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-bg-surface border border-border-primary text-sm text-fg-primary"
-                >
-                  {g.name}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveGroup(g.id)}
-                    className="text-fg-muted hover:text-status-danger"
-                    aria-label={t("delete")}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleSync}
-              disabled={syncing}
-              className="px-3 py-2 text-sm font-medium rounded-lg bg-accent text-fg-inverse hover:opacity-90 disabled:opacity-50"
-            >
-              {syncing ? t("ldapSyncing") : t("ldapSyncNow")}
-            </button>
-            {syncMsg && <span className="text-sm text-fg-muted">{syncMsg}</span>}
-          </div>
-        </div>
       </SsoCard>
 
       <SsoCard title="SAML 2.0">

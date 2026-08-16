@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { can } from "@/lib/rbac/can";
+import { getManagedDepartmentIds } from "@/lib/departments";
 import { QuickAddPalette } from "@/components/search/quick-add";
 import { SearchDialog } from "@/components/search/dialog";
 import { CommandPalette } from "@/components/shell/command-palette";
@@ -20,6 +21,8 @@ export default async function AppLayout({
 
   const t = await getTranslations("common");
   const isAdmin = await can(session.user.id!, "user:manage");
+  const managedDepartmentIds = isAdmin ? null : await getManagedDepartmentIds(session.user.id!);
+  const canManageGroups = isAdmin || (managedDepartmentIds !== null && managedDepartmentIds.length > 0);
 
   return (
     <div className="min-h-screen bg-bg-app flex w-full max-w-full">
@@ -32,9 +35,9 @@ export default async function AppLayout({
       <QuickAddPalette />
       <SearchDialog />
       <CommandPalette />
-      <Sidebar isAdmin={isAdmin} />
+      <Sidebar isAdmin={isAdmin} canManageGroups={canManageGroups} />
       <div className="flex-1 flex flex-col min-w-0">
-        <Header email={session.user?.email ?? ""} name={session.user?.name ?? ""} isAdmin={isAdmin} />
+        <Header email={session.user?.email ?? ""} name={session.user?.name ?? ""} isAdmin={isAdmin} canManageGroups={canManageGroups} />
         <main id="main-content" className="flex-1 p-6 overflow-y-auto overflow-x-hidden">{children}</main>
       </div>
     </div>

@@ -7,9 +7,10 @@ import { useTranslations } from "next-intl";
 
 type MobileNavProps = {
   isAdmin: boolean;
+  canManageGroups: boolean;
 };
 
-export function MobileNav({ isAdmin }: MobileNavProps) {
+export function MobileNav({ isAdmin, canManageGroups }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const t = useTranslations("nav");
 
@@ -31,6 +32,7 @@ export function MobileNav({ isAdmin }: MobileNavProps) {
           <Link href="/calendar" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("calendar")}</Link>
           <Link href="/settings" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("settings")}</Link>
           {isAdmin && <Link href="/admin/users" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("admin")}</Link>}
+          {!isAdmin && canManageGroups && <Link href="/admin/groups" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("groups")}</Link>}
         </nav>
       </Sheet>
     </>

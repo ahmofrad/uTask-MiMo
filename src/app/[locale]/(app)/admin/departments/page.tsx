@@ -42,7 +42,7 @@ export default async function AdminDepartmentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-fg-primary">{t("groups")}</h1>
+        <h1 className="text-2xl font-bold text-fg-primary">{t("departments")}</h1>
       </div>
       <DepartmentTree departments={departments} />
     </div>

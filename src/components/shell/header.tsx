@@ -8,14 +8,15 @@ type HeaderProps = {
   email: string;
   name: string;
   isAdmin: boolean;
+  canManageGroups: boolean;
 };
 
-export async function Header({ email, name, isAdmin }: HeaderProps) {
+export async function Header({ email, name, isAdmin, canManageGroups }: HeaderProps) {
   return (
     <header className="border-t-2 border-t-accent/40 border-b border-border bg-bg-secondary/90 px-6 py-3 shadow-xs backdrop-blur-sm">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <MobileNav isAdmin={isAdmin} />
+          <MobileNav isAdmin={isAdmin} canManageGroups={canManageGroups} />
           <SearchTrigger />
         </div>
         <div className="flex items-center gap-4">

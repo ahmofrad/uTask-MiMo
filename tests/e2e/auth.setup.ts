@@ -2,6 +2,7 @@ import { test as setup } from "@playwright/test";
 
 const USERS = {
   admin: { email: "admin@utask.local", password: "password", file: ".auth/admin.json" },
+  manager: { email: "manager@utask.local", password: "password", file: ".auth/manager.json" },
   member: { email: "member@utask.local", password: "password", file: ".auth/member.json" },
   guest: { email: "guest@utask.local", password: "password", file: ".auth/guest.json" },
 } as const;

@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 import { can } from "@/lib/rbac/can";
+import { getManagedDepartmentIds } from "@/lib/departments";
 import { getTranslations } from "next-intl/server";
 import Link from "next/link";
 
@@ -12,19 +13,25 @@ export default async function AdminLayout({
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
-  const allowed = await can(session.user.id, "user:manage");
-  if (!allowed) redirect("/");
+  // Full admins (user:manage) see every admin page. Department managers with
+  // at least one managed department get a scoped view — currently only the
+  // Groups page, which supports per-group management in their subtree.
+  const isAdmin = await can(session.user.id, "user:manage");
+  const managedDepartmentIds = isAdmin ? null : await getManagedDepartmentIds(session.user.id);
+  const canManageGroups = isAdmin || (managedDepartmentIds !== null && managedDepartmentIds.length > 0);
+  if (!isAdmin && !canManageGroups) redirect("/");
 
   const t = await getTranslations("admin");
 
   const navLinks = [
-    { href: "/admin/users", label: t("users") },
-    { href: "/admin/departments", label: t("groups") },
-    { href: "/admin/webhooks", label: t("webhooks") },
-    { href: "/admin/webhook-deliveries", label: t("auditLog") },
-    { href: "/admin/sso", label: t("sso") },
-    { href: "/admin/backups", label: t("backups") },
-  ];
+    { href: "/admin/users", label: t("users"), visible: isAdmin },
+    { href: "/admin/departments", label: t("departments"), visible: isAdmin },
+    { href: "/admin/groups", label: t("groups"), visible: true },
+    { href: "/admin/webhooks", label: t("webhooks"), visible: isAdmin },
+    { href: "/admin/webhook-deliveries", label: t("auditLog"), visible: isAdmin },
+    { href: "/admin/sso", label: t("sso"), visible: isAdmin },
+    { href: "/admin/backups", label: t("backups"), visible: isAdmin },
+  ].filter((link) => link.visible);
 
   return (
     <div className="px-6 py-6 flex gap-6">
