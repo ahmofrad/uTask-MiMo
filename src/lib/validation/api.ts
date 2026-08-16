@@ -286,6 +286,11 @@ export const passwordResetRequestSchema = z.object({
   email: z.string().trim().email().max(320),
 }).strict();
 
+export const inviteAcceptSchema = z.object({
+  displayName: z.string().trim().min(1).max(100),
+  password: z.string().min(12).max(128),
+}).strict();
+
 export const passwordResetSchema = z.object({
   token: z.string().trim().min(32).max(256),
   password: z.string().min(12).max(128),

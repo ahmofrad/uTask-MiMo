@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api-fetch";
 
 type UserWithRole = {
@@ -33,6 +34,17 @@ export function AdminUserList({ users }: Props) {
   const t = useTranslations("admin");
   const [list, setList] = useState(users);
   const [createOpen, setCreateOpen] = useState(false);
+
+  const { addToast } = useToast();
+
+  async function resendInvite(userId: string) {
+    const res = await apiFetch(`/api/v1/users/${userId}/invite`, { method: "POST" });
+    if (res.ok) {
+      addToast({ message: t("inviteSent") });
+    } else {
+      addToast({ message: t("inviteFailed") });
+    }
+  }
 
   async function toggleSuspend(userId: string, currentStatus: string) {
     const res = await apiFetch(`/api/v1/users/${userId}/suspend`, { method: "POST" });
@@ -106,13 +118,20 @@ export function AdminUserList({ users }: Props) {
                 {u.status === "ldapGroupRemoved" ? (
                   <span className="text-xs text-fg-muted">—</span>
                 ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => toggleSuspend(u.id, u.status)}
-                  >
-                    {u.status === "suspended" ? t("restore") : t("suspend")}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {u.status === "invited" && (
+                      <Button variant="ghost" size="sm" onClick={() => void resendInvite(u.id)}>
+                        {t("resendInvite")}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => toggleSuspend(u.id, u.status)}
+                    >
+                      {u.status === "suspended" ? t("restore") : t("suspend")}
+                    </Button>
+                  </div>
                 )}
               </td>
             </tr>

@@ -5,6 +5,8 @@ import { listUsers, createUser } from "@/lib/users";
 import { prisma } from "@/lib/db";
 import type { AuditAction } from "@prisma/client";
 import { readJsonBody, userCreateSchema, validationError } from "@/lib/validation/api";
+import { issueInvite } from "@/lib/auth/invites";
+import { logger } from "@/lib/logging";
 
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
@@ -69,6 +71,23 @@ export async function POST(request: Request) {
   }
 
   await logAudit({ actorUserId: userId, action: "created" as AuditAction, entityType: "user", entityId: user.id, after: { email: user.email, displayName: user.displayName, status: user.status } as never });
+
+  // Users created without a password are invited — email them the accept link.
+  if (!password && user.status === "invited") {
+    try {
+      await issueInvite({
+        userId: user.id,
+        email: user.email,
+        request,
+        actorUserId: userId,
+        requestId: request.headers.get("x-request-id") ?? "",
+      });
+    } catch (error) {
+      // Token + audit are written; only delivery/DB failure lands here. The
+      // admin can resend from the user list, so don't fail the create.
+      logger.error({ error, userId: user.id }, "Invite issuance failed after user creation");
+    }
+  }
 
   return NextResponse.json(
     { data: { id: user.id, email: user.email, displayName: user.displayName, status: user.status } },

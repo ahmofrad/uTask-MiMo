@@ -160,6 +160,8 @@ enum AuditAction {
   user_jit_created
   password_changed
   password_reset_requested
+  invite_sent
+  invite_accepted
   saml_config_changed
   ldap_config_changed
   ldap_source_created

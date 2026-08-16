@@ -9,6 +9,9 @@ describe("public authentication pages", () => {
     "/reset-password/0123456789abcdef",
     "/en-US/reset-password/0123456789abcdef",
     "/fa-IR/reset-password/0123456789abcdef",
+    "/invite/0123456789abcdef",
+    "/en-US/invite/0123456789abcdef",
+    "/fa-IR/invite/0123456789abcdef",
   ])("allows unauthenticated access to %s", (pathname) => {
     expect(isPublicAuthPage(pathname)).toBe(true);
   });
