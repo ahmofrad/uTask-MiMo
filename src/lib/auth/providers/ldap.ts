@@ -3,7 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { ldapConfigSchema, type LdapConfig } from "../ldap-schema";
-import { getFirstEnabledLdapSource, sourceToLdapConfig } from "../ldap-sources";
+import { getEnabledLdapSources, sourceToLdapConfig } from "../ldap-sources";
 import { logger } from "@/lib/logging";
 import { decryptSecret } from "@/lib/webhook";
 
@@ -60,7 +60,8 @@ function domainDn(upn: string): string {
  * is enabled — the same contract the legacy settings blob provided.
  */
 export async function getLdapConfig(): Promise<LdapConfig | null> {
-  const source = await getFirstEnabledLdapSource();
+  const sources = await getEnabledLdapSources();
+  const source = sources[0] ?? null;
   if (!source) return null;
   return sourceToLdapConfig(source);
 }
@@ -379,35 +380,83 @@ export async function syncLdapGroup(
   return prisma.$transaction((tx) => applyLdapGroupSnapshot(tx, snapshot));
 }
 
-export async function syncAllLdapGroups(config: LdapConfig): Promise<{ groups: number; users: number }> {
-  // Only AD-synced groups are reconciled against the directory; manual groups
-  // (source = manual) have no real DN to search and are skipped entirely.
+/**
+ * Synchronizes every AD-synced group that belongs to the given source against
+ * that source's directory. Manual groups (`source = manual`) and groups from
+ * other sources are never touched — a source only reconciles its own rows.
+ *
+ * Directory reads happen before any write, so a failed read leaves the
+ * previous authorization snapshot untouched.
+ */
+export async function syncLdapSource(
+  sourceId: string,
+): Promise<{ groups: number; users: number }> {
+  const source = await prisma.ldapSource.findFirst({
+    where: { id: sourceId, deletedAt: null },
+  });
+  if (!source) {
+    throw new Error("LDAP source not found");
+  }
+  const config = sourceToLdapConfig(source);
+
   const groups: LdapGroup[] = (await prisma.ldapSyncGroup.findMany({
-    where: { deletedAt: null, source: "ldap" },
+    where: { deletedAt: null, source: "ldap", sourceId },
   })).flatMap((group) =>
     group.dn ? [{ id: group.id, dn: group.dn, name: group.name }] : [],
   );
-  const stagedSnapshots: LdapGroupSnapshot[] = [];
 
-  // Nothing to reconcile (e.g. only manual groups exist) — skip entirely so no
-  // write transaction is opened.
-  if (groups.length === 0) {
-    return { groups: 0, users: 0 };
-  }
-
-  // Read every group before changing users or memberships. A failed directory
-  // read therefore leaves the previous authorization snapshot untouched.
-  for (const group of groups) {
-    stagedSnapshots.push(await fetchLdapGroupSnapshot(config, group));
-  }
-
-  return prisma.$transaction(async (tx) => {
-    let users = 0;
-    for (const snapshot of stagedSnapshots) {
-      users += await applyLdapGroupSnapshot(tx, snapshot);
+  try {
+    const stagedSnapshots: LdapGroupSnapshot[] = [];
+    for (const group of groups) {
+      stagedSnapshots.push(await fetchLdapGroupSnapshot(config, group));
     }
-    return { groups: groups.length, users };
-  });
+
+    const result = await prisma.$transaction(async (tx) => {
+      let users = 0;
+      for (const snapshot of stagedSnapshots) {
+        users += await applyLdapGroupSnapshot(tx, snapshot);
+      }
+      return { groups: groups.length, users };
+    });
+
+    await prisma.ldapSource.update({
+      where: { id: source.id },
+      data: { lastSyncedAt: new Date(), lastSyncError: null },
+    });
+
+    return result;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    await prisma.ldapSource.update({
+      where: { id: source.id },
+      data: { lastSyncError: message },
+    });
+    throw err;
+  }
+}
+
+/**
+ * Synchronizes every enabled source, each against its own directory. A failure
+ * in one source is recorded on that source and does not stop the others;
+ * the aggregate counts the successful sources only.
+ */
+export async function syncAllLdapSources(): Promise<{ sources: number; groups: number; users: number }> {
+  const sources = await getEnabledLdapSources();
+  let groups = 0;
+  let users = 0;
+  for (const source of sources) {
+    try {
+      const result = await syncLdapSource(source.id);
+      groups += result.groups;
+      users += result.users;
+    } catch (err) {
+      logger.error(
+        { err, sourceId: source.id, sourceName: source.name },
+        "LDAP source sync failed; continuing with remaining sources",
+      );
+    }
+  }
+  return { sources: sources.length, groups, users };
 }
 
 export async function ldapAuth(

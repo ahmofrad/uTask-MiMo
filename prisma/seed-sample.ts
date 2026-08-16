@@ -162,13 +162,40 @@ async function main() {
     },
   });
 
+  // ── Active Directory Source (default, disabled; powers AD group sync) ──
+  const defaultSource = await prisma.ldapSource.upsert({
+    where: { id: "00000000-0000-4000-8000-000000000031" },
+    update: {
+      name: "Company Directory",
+      url: "ldaps://ad.company.local:636",
+      bindUpn: "svc-utask@company.local",
+      upnSuffix: "@company.local",
+      searchBase: "dc=company,dc=local",
+      syncIntervalHours: 12,
+      deletedAt: null,
+    },
+    create: {
+      id: "00000000-0000-4000-8000-000000000031",
+      name: "Company Directory",
+      enabled: false,
+      url: "ldaps://ad.company.local:636",
+      bindUpn: "svc-utask@company.local",
+      // Placeholder — replaced by the admin on the Active Directory page.
+      bindPassword: "seed-placeholder",
+      upnSuffix: "@company.local",
+      searchBase: "dc=company,dc=local",
+      syncIntervalHours: 12,
+    },
+  });
+
   // ── AD Sync Group (drives an LDAP department + memberships) ──
   const engGroup = await prisma.ldapSyncGroup.upsert({
     where: { dn: "cn=engineering-team,dc=company,dc=local" },
-    update: { name: "Engineering Team", deletedAt: null },
+    update: { name: "Engineering Team", sourceId: defaultSource.id, deletedAt: null },
     create: {
       name: "Engineering Team",
       dn: "cn=engineering-team,dc=company,dc=local",
+      sourceId: defaultSource.id,
       lastSyncedAt: new Date(),
     },
   });
@@ -781,6 +808,7 @@ async function main() {
 
   console.log("✅ Seed complete!");
   console.log(`   Users: ${Object.keys(users).length}`);
+  console.log(`   AD Sources: 1`);
   console.log(`   Departments: 3`);
   console.log(`   Projects: 3`);
   console.log(`   Tasks: ${createdTasks.length + subtaskData.length}`);
