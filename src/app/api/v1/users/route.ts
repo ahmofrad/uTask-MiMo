@@ -63,7 +63,7 @@ export async function POST(request: Request) {
         type: role,
         scopeType: "global",
         scopeId: null,
-        grantedBy: "system",
+        grantedBy: userId,
       },
     });
   }
