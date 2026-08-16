@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac/middleware";
 import { canReadTask, canEditTask } from "@/lib/rbac";
+import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { emitToProject, emitToTask } from "@/lib/realtime/server";
@@ -60,9 +61,19 @@ export async function PATCH(
   const parsed = taskUpdateSchema.safeParse(await readJsonBody(request));
   if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
   const body = parsed.data;
+
+  if (body.assigneeGroupId) {
+    const group = await prisma.ldapSyncGroup.findUnique({
+      where: { id: body.assigneeGroupId },
+      select: { id: true, deletedAt: true },
+    });
+    if (!group || group.deletedAt) {
+      return NextResponse.json({ error: { code: "NOT_FOUND", message: "Assignee group not found" } }, { status: 404 });
+    }
+  }
   const {
     title, description, status: taskStatus, priority: taskPriority,
-    startDate, endDate, dueDate, assigneeId, assigneeIds, estimatedHours, spentHours, progress,
+    startDate, endDate, dueDate, assigneeId, assigneeIds, assigneeGroupId, estimatedHours, spentHours, progress,
     deletedAt,
     customFields, tagIds,
   } = body;
@@ -80,6 +91,7 @@ export async function PATCH(
   } else if (assigneeId !== undefined) {
     data.assigneeIds = assigneeId === null ? [] : [String(assigneeId)];
   }
+  if (assigneeGroupId !== undefined) data.assigneeGroupId = assigneeGroupId === null ? null : String(assigneeGroupId);
   if (estimatedHours !== undefined) data.estimatedHours = estimatedHours === null ? null : Number(estimatedHours);
   if (spentHours !== undefined) data.spentHours = spentHours === null ? null : Number(spentHours);
   if (progress !== undefined) data.progress = Number(progress);
@@ -104,6 +116,18 @@ export async function PATCH(
   }
 
   await logAudit({ actorUserId: userId, action: "task_updated", entityType: "task", entityId: task.id, before: before as never, after: task as never });
+
+  const groupChanged = before?.assigneeGroupId !== task.assigneeGroupId;
+  if (groupChanged) {
+    await logAudit({
+      actorUserId: userId,
+      action: "task_group_assigned",
+      entityType: "task",
+      entityId: task.id,
+      before: { assigneeGroupId: before?.assigneeGroupId ?? null },
+      after: { assigneeGroupId: task.assigneeGroupId, taskTitle: task.title },
+    });
+  }
 
   await emitTaskEvent("task.updated", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
   emitToProject(task.projectId, "task.updated", { id: task.id, title: task.title, projectId: task.projectId });

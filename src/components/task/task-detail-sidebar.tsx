@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
+import { apiFetch } from "@/lib/api-fetch";
 import { formatDateTime } from "@/lib/date/format";
 import { estimatedDaysToHours, estimatedHoursToDays } from "@/lib/date/estimated-time";
 import { TagPicker } from "@/components/tags/tag-picker";
@@ -38,6 +40,7 @@ type TaskDetailSidebarProps = {
     estimatedHours?: number | null;
     spentHours?: number | null;
     assignees: { id: string }[];
+    assigneeGroup: { id: string; name: string } | null;
     reporter: { id: string; displayName: string } | null;
     createdAt: string;
     updatedAt: string;
@@ -52,6 +55,7 @@ type TaskDetailSidebarProps = {
   durationDays: number;
   durationHours: number;
   onAssigneeChange: (_ids: string[]) => void;
+  onGroupChange: (_groupId: string | null) => void;
   onEstimatedChange: (_value: number | null) => void;
   onSpentChange: (_value: number | null) => void;
   onStartDateChange: (_value: string | null) => void;
@@ -77,6 +81,7 @@ export function TaskDetailSidebar({
   durationDays,
   durationHours,
   onAssigneeChange,
+  onGroupChange,
   onEstimatedChange,
   onSpentChange,
   onStartDateChange,
@@ -91,6 +96,29 @@ export function TaskDetailSidebar({
 }: TaskDetailSidebarProps) {
   const t = useTranslations();
   const locale = useLocale() as "fa-IR" | "en-US";
+  const [groups, setGroups] = useState<{ id: string; name: string }[] | null>(null);
+
+  // The group picker is available to users who can list groups (group:manage
+  // or scoped managers); a 403 hides it. The current group is always shown.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await apiFetch("/api/v1/groups");
+        if (res.ok) {
+          const json = (await res.json()) as { data?: { id: string; name: string }[] };
+          if (active) setGroups(json.data ?? []);
+        } else if (active) {
+          setGroups([]);
+        }
+      } catch {
+        if (active) setGroups([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -103,6 +131,25 @@ export function TaskDetailSidebar({
           onChange={onAssigneeChange}
           placeholder={t("task.searchMembers")}
         />
+
+        {groups !== null && (
+          <div className="border-t border-border-secondary pt-3">
+            <h4 className="text-xs text-fg-muted font-medium mb-1">{t("task.fields.assigneeGroup")}</h4>
+            <select
+              value={task.assigneeGroup?.id ?? ""}
+              onChange={(e) => onGroupChange(e.target.value || null)}
+              className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
+            >
+              <option value="">{t("task.noAssigneeGroup")}</option>
+              {groups.some((group) => group.id === task.assigneeGroup?.id) ? null : task.assigneeGroup ? (
+                <option key={task.assigneeGroup.id} value={task.assigneeGroup.id}>{task.assigneeGroup.name}</option>
+              ) : null}
+              {groups.map((group) => (
+                <option key={group.id} value={group.id}>{group.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {task.reporter && (
           <>

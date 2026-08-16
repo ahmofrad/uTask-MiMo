@@ -12,6 +12,9 @@ vi.mock("@/lib/db", () => ({
     taskAssignee: {
       findMany: vi.fn(() => Promise.resolve([])),
     },
+    ldapGroupMembership: {
+      findMany: vi.fn(() => Promise.resolve([])),
+    },
     instanceSetting: {
       findUnique: vi.fn(),
     },
@@ -98,6 +101,93 @@ describe("createTask", () => {
       }),
     );
   });
+
+  it("fans out a group assignment to the group's current members", async () => {
+    vi.mocked(prisma.task.aggregate).mockResolvedValue({ _max: { orderIndex: null } });
+    vi.mocked(prisma.task.create).mockResolvedValue(mockTask as never);
+    vi.mocked(prisma.ldapGroupMembership.findMany).mockResolvedValue([
+      { userId: "user-a" },
+      { userId: "user-b" },
+    ] as never);
+
+    await createTask({
+      title: "Group Task",
+      projectId: "proj-1",
+      reporterId: "user-1",
+      createdById: "user-1",
+      assigneeGroupId: "group-1",
+    });
+
+    expect(prisma.ldapGroupMembership.findMany).toHaveBeenCalledWith({
+      where: { ldapSyncGroupId: "group-1" },
+      select: { userId: true },
+    });
+    expect(prisma.task.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          assigneeGroupId: "group-1",
+          assignees: {
+            create: [{ userId: "user-a" }, { userId: "user-b" }],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("merges explicit assignees with the group fan-out and dedupes", async () => {
+    vi.mocked(prisma.task.aggregate).mockResolvedValue({ _max: { orderIndex: null } });
+    vi.mocked(prisma.task.create).mockResolvedValue(mockTask as never);
+    vi.mocked(prisma.ldapGroupMembership.findMany).mockResolvedValue([
+      { userId: "user-a" },
+      { userId: "user-b" },
+    ] as never);
+
+    await createTask({
+      title: "Group Task",
+      projectId: "proj-1",
+      reporterId: "user-1",
+      createdById: "user-1",
+      assigneeIds: ["user-c", "user-a"],
+      assigneeGroupId: "group-1",
+    });
+
+    expect(prisma.task.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          assignees: {
+            create: expect.arrayContaining([
+              { userId: "user-a" },
+              { userId: "user-b" },
+              { userId: "user-c" },
+            ]),
+          },
+        }),
+      }),
+    );
+  });
+
+  it("is a no-op fan-out for an empty group", async () => {
+    vi.mocked(prisma.task.aggregate).mockResolvedValue({ _max: { orderIndex: null } });
+    vi.mocked(prisma.task.create).mockResolvedValue(mockTask as never);
+    vi.mocked(prisma.ldapGroupMembership.findMany).mockResolvedValue([]);
+
+    await createTask({
+      title: "Empty Group Task",
+      projectId: "proj-1",
+      reporterId: "user-1",
+      createdById: "user-1",
+      assigneeGroupId: "group-empty",
+    });
+
+    expect(prisma.task.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          assigneeGroupId: "group-empty",
+          assignees: { create: [] },
+        }),
+      }),
+    );
+  });
 });
 
 describe("updateTask", () => {
@@ -122,6 +212,53 @@ describe("updateTask", () => {
         data: expect.objectContaining({
           status: "done",
           completedAt: expect.any(Date),
+        }),
+      }),
+    );
+  });
+
+  it("replaces assignee rows with the group fan-out when a group is assigned", async () => {
+    vi.mocked(prisma.task.findUnique).mockResolvedValue({ id: "task-1", title: "Old", status: "open" } as never);
+    vi.mocked(prisma.taskAssignee.findMany).mockResolvedValue([{ userId: "user-old" }] as never);
+    vi.mocked(prisma.ldapGroupMembership.findMany).mockResolvedValue([
+      { userId: "user-a" },
+      { userId: "user-b" },
+    ] as never);
+    vi.mocked(prisma.task.update).mockResolvedValue({ id: "task-1", assigneeGroupId: "group-1" } as never);
+
+    await updateTask("task-1", { assigneeGroupId: "group-1" });
+
+    expect(prisma.task.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          assigneeGroupId: "group-1",
+          assignees: {
+            deleteMany: { userId: { in: ["user-old"] } },
+            create: [{ userId: "user-a" }, { userId: "user-b" }],
+          },
+        }),
+      }),
+    );
+  });
+
+  it("clears the fan-out rows when the group is removed", async () => {
+    vi.mocked(prisma.task.findUnique).mockResolvedValue({ id: "task-1", title: "Old", status: "open" } as never);
+    vi.mocked(prisma.taskAssignee.findMany).mockResolvedValue([
+      { userId: "user-a" },
+      { userId: "user-b" },
+    ] as never);
+    vi.mocked(prisma.task.update).mockResolvedValue({ id: "task-1", assigneeGroupId: null } as never);
+
+    await updateTask("task-1", { assigneeGroupId: null });
+
+    expect(prisma.task.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          assigneeGroupId: null,
+          assignees: {
+            deleteMany: { userId: { in: ["user-a", "user-b"] } },
+            create: [],
+          },
         }),
       }),
     );

@@ -10,6 +10,7 @@ import { TagPicker } from "@/components/tags/tag-picker";
 import { AssigneeSelect } from "@/components/task/assignee-select";
 
 type Member = { id: string; displayName: string; avatarUrl?: string | null };
+type GroupOption = { id: string; name: string };
 
 type TaskFormProps = {
   projectId?: string;
@@ -20,6 +21,7 @@ type TaskFormProps = {
     status?: string;
     priority?: string;
     assigneeIds?: string[];
+    assigneeGroupId?: string | null;
     dueDate?: string | null;
     estimatedHours?: number;
     tagIds?: string[];
@@ -42,7 +44,9 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
   );
   const [tagIds, setTagIds] = useState<string[]>(initialData?.tagIds ?? []);
   const [assigneeIds, setAssigneeIds] = useState<string[]>(initialData?.assigneeIds ?? []);
+  const [assigneeGroupId, setAssigneeGroupId] = useState<string | null>(initialData?.assigneeGroupId ?? null);
   const [members, setMembers] = useState<Member[]>(initialMembers ?? []);
+  const [groups, setGroups] = useState<GroupOption[] | null>(null);
 
   useEffect(() => {
     if (initialMembers) {
@@ -65,6 +69,28 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
     };
   }, [projectId, initialMembers]);
 
+  // Group picker is available to users who can list groups (group:manage or
+  // scoped managers); a 403 hides it silently.
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await apiFetch("/api/v1/groups");
+        if (res.ok) {
+          const json = (await res.json()) as { data?: GroupOption[] };
+          if (active) setGroups(json.data ?? []);
+        } else if (active) {
+          setGroups([]);
+        }
+      } catch {
+        if (active) setGroups([]);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
@@ -77,6 +103,7 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
         status,
         priority,
         assigneeIds,
+        assigneeGroupId,
         dueDate: normalizeTaskDate(dueDate || null),
         estimatedHours: estimatedDaysToHours(estimatedDays ? Number(estimatedDays) : null),
         tagIds: tagIds.length > 0 ? tagIds : undefined,
@@ -199,6 +226,24 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
               placeholder={t("searchMembers")}
             />
           )}
+        </div>
+      )}
+
+      {projectId && groups !== null && (
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary mb-1.5">
+            {t("fields.assigneeGroup")}
+          </label>
+          <select
+            value={assigneeGroupId ?? ""}
+            onChange={(e) => setAssigneeGroupId(e.target.value || null)}
+            className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm"
+          >
+            <option value="">{t("noAssigneeGroup")}</option>
+            {groups.map((group) => (
+              <option key={group.id} value={group.id}>{group.name}</option>
+            ))}
+          </select>
         </div>
       )}
 

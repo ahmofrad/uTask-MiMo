@@ -26,6 +26,7 @@ const TASK_LIST_INCLUDE = {
 const TASK_DETAIL_INCLUDE = {
   project: { select: { id: true, name: true } },
   ...ASSIGNEES_INCLUDE,
+  assigneeGroup: { select: { id: true, name: true } },
   reporter: { select: { id: true, displayName: true, email: true } },
   createdBy: { select: { id: true, displayName: true } },
   parentTask: { select: { id: true, title: true } },

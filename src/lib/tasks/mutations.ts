@@ -17,6 +17,7 @@ export type CreateTaskData = {
   projectId: string;
   parentTaskId?: string | null;
   assigneeIds?: string[] | null;
+  assigneeGroupId?: string | null;
   reporterId: string;
   createdById: string;
   status?: string;
@@ -28,6 +29,19 @@ export type CreateTaskData = {
   tagIds?: string[];
   customFields?: Record<string, unknown>;
 };
+
+/**
+ * Fans out a group assignment to the group's current members. Later membership
+ * changes do NOT retroactively update tasks — the fan-out is captured at
+ * assignment time.
+ */
+async function resolveGroupAssigneeIds(groupId: string): Promise<string[]> {
+  const memberships = await prisma.ldapGroupMembership.findMany({
+    where: { ldapSyncGroupId: groupId },
+    select: { userId: true },
+  });
+  return memberships.map((membership) => membership.userId);
+}
 
 function clampProgress(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
@@ -91,6 +105,16 @@ export async function createTask(data: CreateTaskData) {
     orderIndex = Number(maxOrder._max.orderIndex ?? 0) + 1000;
   }
 
+  // Group assignment fans out to the group's current members; explicit
+  // assignees are merged in. Empty groups fan out to nobody (no-op).
+  let assigneeIds = [...(data.assigneeIds ?? [])];
+  let assigneeGroupId: string | null = null;
+  if (data.assigneeGroupId) {
+    const memberIds = await resolveGroupAssigneeIds(data.assigneeGroupId);
+    assigneeIds = Array.from(new Set([...assigneeIds, ...memberIds]));
+    assigneeGroupId = data.assigneeGroupId;
+  }
+
   const task = await prisma.task.create({
     data: {
       projectId: data.projectId,
@@ -98,8 +122,9 @@ export async function createTask(data: CreateTaskData) {
       description: data.description ?? null,
       parentTaskId,
       assignees: {
-        create: (data.assigneeIds ?? []).map((userId) => ({ userId })),
+        create: assigneeIds.map((userId) => ({ userId })),
       },
+      assigneeGroupId,
       reporterId: data.reporterId,
       createdById: data.createdById,
       status: (data.status as never) ?? "open",
@@ -112,7 +137,7 @@ export async function createTask(data: CreateTaskData) {
     },
   });
 
-  await notifyNewAssignees(task.id, task.title, data.assigneeIds ?? []);
+  await notifyNewAssignees(task.id, task.title, assigneeIds);
 
   if (data.customFields && typeof data.customFields === "object") {
     const { setCustomFieldValues } = await import("@/lib/custom-fields/values");
@@ -133,6 +158,7 @@ export type UpdateTaskData = {
   status?: string;
   priority?: string;
   assigneeIds?: string[] | null;
+  assigneeGroupId?: string | null;
   startDate?: string | null;
   endDate?: string | null;
   dueDate?: string | null;
@@ -159,6 +185,7 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
   if (data.spentHours !== undefined) updateData.spentHours = data.spentHours ?? null;
   if (data.parentTaskId !== undefined) updateData.parentTaskId = data.parentTaskId;
   if (data.deletedAt !== undefined) updateData.deletedAt = data.deletedAt === null ? null : new Date(data.deletedAt);
+  if (data.assigneeGroupId !== undefined) updateData.assigneeGroupId = data.assigneeGroupId;
 
   if (data.progress !== undefined) updateData.progress = clampProgress(data.progress);
 
@@ -177,12 +204,27 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
     }
   }
 
-  // Sync the multi-assignee list when provided.
-  if (data.assigneeIds !== undefined) {
+  // Sync the multi-assignee list when provided. A group assignment fans out to
+  // the group's current members (replacing the previous assignee rows — the
+  // group is the assignee target); removing the group clears the fan-out rows.
+  if (data.assigneeIds !== undefined || data.assigneeGroupId !== undefined) {
     const currentIds = (
       await prisma.taskAssignee.findMany({ where: { taskId: id }, select: { userId: true } })
     ).map((a) => a.userId);
-    const nextIds = data.assigneeIds ?? [];
+
+    let nextIds: string[];
+    if (data.assigneeGroupId) {
+      nextIds = [...(await resolveGroupAssigneeIds(data.assigneeGroupId))];
+      if (data.assigneeIds) {
+        nextIds = Array.from(new Set([...nextIds, ...data.assigneeIds]));
+      }
+    } else if (data.assigneeGroupId === null) {
+      // Group removed — clear the fan-out rows unless explicit assignees given.
+      nextIds = data.assigneeIds ?? [];
+    } else {
+      nextIds = data.assigneeIds ?? currentIds;
+    }
+
     const added = nextIds.filter((uid) => !currentIds.includes(uid));
     const removed = currentIds.filter((uid) => !nextIds.includes(uid));
     updateData.assignees = {

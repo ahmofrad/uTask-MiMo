@@ -29,6 +29,7 @@ type TaskData = {
   projectId: string;
   projectName: string;
   assignees: { id: string; displayName: string; avatarUrl?: string | null }[];
+  assigneeGroup: { id: string; name: string } | null;
   reporter: { id: string; displayName: string } | null;
   tags: { id: string; name: string }[];
   subtasks: { id: string; title: string; status: string; priority: string; assignees: { id: string; displayName: string; avatarUrl?: string | null }[] }[];
@@ -312,6 +313,21 @@ export function TaskDetailPage({
     void updateTask({ assigneeIds: ids });
   };
 
+  const handleGroupChange = async (groupId: string | null) => {
+    const res = await apiFetch(`/api/v1/tasks/${task.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ assigneeGroupId: groupId }),
+    });
+    if (!res.ok) return;
+    // Re-fetch to sync the fanned-out assignee rows from the server.
+    const fresh = await apiFetch(`/api/v1/tasks/${task.id}`);
+    if (fresh.ok) {
+      const body = await fresh.json();
+      if (body.data) setTask((prev) => ({ ...prev, ...body.data }));
+      void refreshAudit();
+    }
+  };
+
   const handleEstimatedChange = (val: number | null) => {
     setTask((prev) => ({ ...prev, estimatedHours: val }));
     void updateTask({ estimatedHours: val });
@@ -542,6 +558,7 @@ export function TaskDetailPage({
           durationDays={durationDays}
           durationHours={durationHours}
           onAssigneeChange={handleAssigneeChange}
+          onGroupChange={handleGroupChange}
           onEstimatedChange={handleEstimatedChange}
           onSpentChange={handleSpentChange}
           onStartDateChange={handleStartDateChange}

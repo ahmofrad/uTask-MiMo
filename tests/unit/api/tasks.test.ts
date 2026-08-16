@@ -8,6 +8,7 @@ vi.mock("@/lib/db", () => ({
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     tag: { findMany: vi.fn(), create: vi.fn(), findFirst: vi.fn(), deleteMany: vi.fn(), delete: vi.fn() },
     projectMember: { findMany: vi.fn().mockResolvedValue([]) },
+    ldapSyncGroup: { findUnique: vi.fn().mockResolvedValue({ id: "group-1", deletedAt: null }) },
   },
 }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn() }));
@@ -100,6 +101,42 @@ describe("POST /api/v1/tasks", () => {
       expect.objectContaining({ action: "task_created", entityType: "task" }),
     );
     expect(mockEmitTaskEvent).toHaveBeenCalledWith("task.created", "t1", expect.anything(), "user-1");
+  });
+
+  it("passes assigneeGroupId through and audits the group assignment", async () => {
+    mockCanProject.mockResolvedValue(true);
+    mockCreateTask.mockResolvedValue({ id: "t1", title: "Task", projectId: "11111111-1111-4111-8111-111111111111", assigneeGroupId: "group-1" });
+
+    const { POST } = await import("@/app/api/v1/tasks/route");
+    const res = await POST(makeRequest("POST", {
+      projectId: "11111111-1111-4111-8111-111111111111",
+      title: "Task",
+      assigneeGroupId: "00000000-0000-4000-8000-0000000000b1",
+    }));
+
+    expect(res.status).toBe(201);
+    expect(mockCreateTask).toHaveBeenCalledWith(
+      expect.objectContaining({ assigneeGroupId: "00000000-0000-4000-8000-0000000000b1" }),
+    );
+    expect(mockLogAudit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "task_group_assigned", entityType: "task" }),
+    );
+  });
+
+  it("returns 404 when the assignee group does not exist", async () => {
+    mockCanProject.mockResolvedValue(true);
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.ldapSyncGroup.findUnique).mockResolvedValue(null);
+
+    const { POST } = await import("@/app/api/v1/tasks/route");
+    const res = await POST(makeRequest("POST", {
+      projectId: "11111111-1111-4111-8111-111111111111",
+      title: "Task",
+      assigneeGroupId: "00000000-0000-4000-8000-0000000000b1",
+    }));
+
+    expect(res.status).toBe(404);
+    expect(mockCreateTask).not.toHaveBeenCalled();
   });
 });
 

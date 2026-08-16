@@ -18,6 +18,7 @@ export default async function TaskDetailRoute(props: {
     include: {
       project: { select: { id: true, name: true } },
       assignees: { include: { user: { select: { id: true, displayName: true, email: true, avatarUrl: true } } } },
+      assigneeGroup: { select: { id: true, name: true } },
       reporter: { select: { id: true, displayName: true, email: true } },
       createdBy: { select: { id: true, displayName: true } },
       parentTask: { select: { id: true, title: true } },
@@ -124,6 +125,7 @@ export default async function TaskDetailRoute(props: {
           displayName: a.user.displayName,
           avatarUrl: a.user.avatarUrl,
         })),
+        assigneeGroup: task.assigneeGroup,
         reporter: task.reporter
           ? { id: task.reporter.id, displayName: task.reporter.displayName }
           : null,

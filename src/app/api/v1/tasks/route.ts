@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac/middleware";
 import { canProject } from "@/lib/rbac";
+import { prisma } from "@/lib/db";
 import { getUserReadableProjectIds } from "@/lib/projects/queries";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
@@ -70,13 +71,23 @@ export async function POST(request: Request) {
   const {
     projectId, title, description, parentTaskId,
     status: taskStatus, priority: taskPriority,
-    startDate, dueDate, assigneeId, assigneeIds, estimatedHours, progress,
+    startDate, dueDate, assigneeId, assigneeIds, assigneeGroupId, estimatedHours, progress,
     customFields, tagIds,
   } = body;
 
   const projectPermitted = await canProject(userId, "task:create", String(projectId));
   if (!projectPermitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient project permissions" } }, { status: 403 });
+  }
+
+  if (assigneeGroupId) {
+    const group = await prisma.ldapSyncGroup.findUnique({
+      where: { id: String(assigneeGroupId) },
+      select: { id: true, deletedAt: true },
+    });
+    if (!group || group.deletedAt) {
+      return NextResponse.json({ error: { code: "NOT_FOUND", message: "Assignee group not found" } }, { status: 404 });
+    }
   }
 
   const idempotencyKey = request.headers.get("idempotency-key");
@@ -130,6 +141,7 @@ export async function POST(request: Request) {
     } else if (assigneeId) {
       data.assigneeIds = [String(assigneeId)];
     }
+    if (assigneeGroupId !== undefined) data.assigneeGroupId = assigneeGroupId === null ? null : String(assigneeGroupId);
     if (estimatedHours) data.estimatedHours = Number(estimatedHours);
     if (progress !== undefined) data.progress = Number(progress);
     if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;
@@ -150,6 +162,16 @@ export async function POST(request: Request) {
     }
 
     await logAudit({ actorUserId: userId, action: "task_created", entityType: "task", entityId: task.id, after: task as never });
+
+    if (data.assigneeGroupId) {
+      await logAudit({
+        actorUserId: userId,
+        action: "task_group_assigned",
+        entityType: "task",
+        entityId: task.id,
+        after: { assigneeGroupId: data.assigneeGroupId, taskTitle: task.title },
+      });
+    }
 
     await emitTaskEvent("task.created", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
     emitToProject(task.projectId, "task.created", { id: task.id, title: task.title, projectId: task.projectId });
