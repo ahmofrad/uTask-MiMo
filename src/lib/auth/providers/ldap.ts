@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { ldapConfigSchema, type LdapConfig } from "../ldap-schema";
+import { getFirstEnabledLdapSource, sourceToLdapConfig } from "../ldap-sources";
 import { logger } from "@/lib/logging";
 import { decryptSecret } from "@/lib/webhook";
 
@@ -53,18 +54,15 @@ function domainDn(upn: string): string {
     .join(",");
 }
 
+/**
+ * Single-source compatibility read: the first enabled `LdapSource` row mapped
+ * to the runtime config (bind password decrypted). Returns null when no source
+ * is enabled — the same contract the legacy settings blob provided.
+ */
 export async function getLdapConfig(): Promise<LdapConfig | null> {
-  const setting = await prisma.settings.findFirst({
-    where: { scope: "install", key: "ldap" },
-  });
-  if (!setting?.valueJson) return null;
-
-  try {
-    const parsed = JSON.parse(setting.valueJson as string);
-    return ldapConfigSchema.parse(parsed);
-  } catch {
-    return null;
-  }
+  const source = await getFirstEnabledLdapSource();
+  if (!source) return null;
+  return sourceToLdapConfig(source);
 }
 
 /** Validate a config object (e.g. from the admin form) and decrypt the password if needed. */

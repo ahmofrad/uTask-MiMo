@@ -1,15 +1,17 @@
 import { getSettings } from "@/lib/settings";
+import { getEnabledLdapSources } from "@/lib/auth/ldap-sources";
 import { LoginPageClient } from "./login-page-client";
 
 export default async function LoginPage() {
   const allSettings = (await getSettings("install", null).catch(() => ({}))) as Record<string, unknown>;
 
-  const ldap = (allSettings.ldap ?? {}) as Record<string, unknown>;
   const saml = (allSettings.saml ?? {}) as Record<string, unknown>;
 
-  const ldapConfigured = Boolean(ldap.enabled && ldap.serverUrl);
+  const enabledSources = await getEnabledLdapSources();
+  const ldapConfigured = enabledSources.length > 0;
   const ssoConfigured = Boolean(saml.enabled && saml.ssoUrl);
-  const ldapDomain = String(ldap.domain || "LDAP");
+  const first = enabledSources[0];
+  const ldapDomain = first?.name || first?.upnSuffix?.replace(/^@/, "") || "LDAP";
 
   return (
     <LoginPageClient

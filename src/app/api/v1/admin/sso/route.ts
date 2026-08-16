@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
 import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { prisma } from "@/lib/db";
 import { updateSettings, getSettings } from "@/lib/settings";
 import { logAudit } from "@/lib/audit/log";
 import { encrypt } from "@/lib/crypto/encrypt";
+import { deriveLdapSourceName, getFirstLdapSource, redactLdapSource } from "@/lib/auth/ldap-sources";
 import { readJsonBody, ssoSettingsUpdateSchema, validationError } from "@/lib/validation/api";
 
-const SENSITIVE_SSO_KEYS = new Set(["bindPassword", "idpCertificate"]);
+const SENSITIVE_SAML_KEYS = new Set(["idpCertificate"]);
 
-function redactSsoSettings(value: Record<string, unknown>): Record<string, unknown> {
+function redactSamlSettings(value: Record<string, unknown>): Record<string, unknown> {
   const safe: Record<string, unknown> = {};
   for (const [key, entry] of Object.entries(value)) {
-    if (SENSITIVE_SSO_KEYS.has(key)) {
+    if (SENSITIVE_SAML_KEYS.has(key)) {
       safe[`${key}Configured`] = typeof entry === "string" && entry.length > 0;
     } else {
       safe[key] = entry;
@@ -27,9 +29,10 @@ export async function GET() {
   const guardResult = await guard(new Request("http://localhost"), { params: {} });
   if (guardResult) return guardResult;
 
+  const source = await getFirstLdapSource();
+  const ldap = source ? redactLdapSource(source) : {};
   const allSettings = await getSettings("install", null);
-  const ldap = redactSsoSettings((allSettings.ldap ?? {}) as Record<string, unknown>);
-  const saml = redactSsoSettings((allSettings.saml ?? {}) as Record<string, unknown>);
+  const saml = redactSamlSettings((allSettings.saml ?? {}) as Record<string, unknown>);
 
   return NextResponse.json({ data: { ldap, saml } });
 }
@@ -49,10 +52,13 @@ export async function PATCH(request: Request) {
   }
   const { ldap, saml } = parsed.data;
 
-  // Fetch current values for audit before/after
+  // LDAP config now lives in the LdapSource table (one row per directory); the
+  // legacy settings blob is no longer read or written by this route.
+  const beforeSource = await getFirstLdapSource();
+  const beforeLdap = beforeSource ? redactLdapSource(beforeSource) : {};
+
   const allBefore = await getSettings("install", null);
-  const beforeLdap = redactSsoSettings((allBefore.ldap ?? {}) as Record<string, unknown>);
-  const beforeSaml = redactSsoSettings((allBefore.saml ?? {}) as Record<string, unknown>);
+  const beforeSaml = redactSamlSettings((allBefore.saml ?? {}) as Record<string, unknown>);
 
   const updates: Record<string, unknown> = {};
 
@@ -69,7 +75,49 @@ export async function PATCH(request: Request) {
       filtered.bindPassword = `${enc.iv}:${enc.ciphertext}:${enc.tag}`;
     }
     if (Object.keys(filtered).length > 0) {
-      updates.ldap = filtered;
+      const existing = await prisma.ldapSource.findFirst({
+        where: { deletedAt: null },
+        orderBy: { createdAt: "asc" },
+      });
+      if (existing) {
+        await prisma.ldapSource.update({
+          where: { id: existing.id },
+          data: {
+            ...(typeof filtered.enabled === "boolean" ? { enabled: filtered.enabled } : {}),
+            ...(typeof filtered.url === "string" ? { url: filtered.url } : {}),
+            ...(typeof filtered.bindUpn === "string" ? { bindUpn: filtered.bindUpn } : {}),
+            ...(typeof filtered.bindPassword === "string" ? { bindPassword: filtered.bindPassword } : {}),
+            ...(typeof filtered.upnSuffix === "string" ? { upnSuffix: filtered.upnSuffix } : {}),
+            ...(typeof filtered.searchBase === "string" ? { searchBase: filtered.searchBase } : {}),
+            ...(typeof filtered.emailAttribute === "string" ? { emailAttribute: filtered.emailAttribute } : {}),
+            ...(typeof filtered.nameAttribute === "string" ? { nameAttribute: filtered.nameAttribute } : {}),
+            ...(typeof filtered.defaultRole === "string" ? { defaultRole: filtered.defaultRole } : {}),
+            ...(typeof filtered.syncIntervalHours === "number" ? { syncIntervalHours: filtered.syncIntervalHours } : {}),
+            ...(typeof filtered.tlsCaCert === "string" ? { tlsCaCert: filtered.tlsCaCert } : {}),
+          },
+        });
+      } else {
+        await prisma.ldapSource.create({
+          data: {
+            name: deriveLdapSourceName({
+              ...(typeof filtered.upnSuffix === "string" ? { upnSuffix: filtered.upnSuffix as string } : {}),
+              ...(typeof filtered.bindUpn === "string" ? { bindUpn: filtered.bindUpn as string } : {}),
+              ...(typeof filtered.url === "string" ? { url: filtered.url as string } : {}),
+            }),
+            enabled: typeof filtered.enabled === "boolean" ? filtered.enabled : false,
+            url: typeof filtered.url === "string" ? filtered.url : "",
+            bindUpn: typeof filtered.bindUpn === "string" ? filtered.bindUpn : "",
+            bindPassword: typeof filtered.bindPassword === "string" ? filtered.bindPassword : "",
+            upnSuffix: typeof filtered.upnSuffix === "string" ? filtered.upnSuffix : null,
+            searchBase: typeof filtered.searchBase === "string" ? filtered.searchBase : null,
+            emailAttribute: typeof filtered.emailAttribute === "string" ? filtered.emailAttribute : "mail",
+            nameAttribute: typeof filtered.nameAttribute === "string" ? filtered.nameAttribute : "cn",
+            defaultRole: typeof filtered.defaultRole === "string" ? filtered.defaultRole : "member",
+            syncIntervalHours: typeof filtered.syncIntervalHours === "number" ? filtered.syncIntervalHours : 12,
+            tlsCaCert: typeof filtered.tlsCaCert === "string" ? filtered.tlsCaCert : null,
+          },
+        });
+      }
     }
   }
 
@@ -94,9 +142,11 @@ export async function PATCH(request: Request) {
     await updateSettings("install", null, updates);
   }
 
+  const afterSource = await getFirstLdapSource();
+  const afterLdap = afterSource ? redactLdapSource(afterSource) : {};
+
   const allAfter = await getSettings("install", null);
-  const afterLdap = redactSsoSettings((allAfter.ldap ?? {}) as Record<string, unknown>);
-  const afterSaml = redactSsoSettings((allAfter.saml ?? {}) as Record<string, unknown>);
+  const afterSaml = redactSamlSettings((allAfter.saml ?? {}) as Record<string, unknown>);
 
   await logAudit({
     actorUserId: userId,

@@ -9,9 +9,16 @@ vi.mock("@/lib/rbac", () => ({ can: mockCan, canProject: mockCanProject }));
 vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canProject: mockCanProject }));
 vi.mock("@/lib/db", () => ({
   prisma: {
+    ldapSource: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     tag: { findMany: vi.fn(), create: vi.fn(), findFirst: vi.fn(), deleteMany: vi.fn(), delete: vi.fn() },
   },
+}));
+vi.mock("@/lib/auth/ldap-sources", () => ({
+  getFirstLdapSource: vi.fn(),
+  getEnabledLdapSources: vi.fn(),
+  redactLdapSource: vi.fn((s: unknown) => s as Record<string, unknown>),
+  deriveLdapSourceName: vi.fn(() => "Active Directory"),
 }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn() }));
 vi.mock("@/lib/webhook/emit", () => ({ emitTaskEvent: vi.fn() }));
@@ -70,9 +77,17 @@ describe("GET /api/v1/admin/sso", () => {
     expect(res.status).toBe(403);
   });
 
-  it("returns SSO config", async () => {
+  it("returns SSO config with LDAP from the source table", async () => {
     mockCan.mockResolvedValue(true);
     mockGetSettings.mockResolvedValue({ url: "https://sso.example.com" });
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.ldapSource.findFirst).mockResolvedValue({
+      id: "src-1", name: "corp.local", enabled: true, url: "ldaps://dc.corp.local",
+      bindUpn: "svc@corp.local", bindPassword: "enc", upnSuffix: "@corp.local",
+      searchBase: null, emailAttribute: "mail", nameAttribute: "cn", defaultRole: "member",
+      syncIntervalHours: 12, tlsCaCert: null, lastSyncedAt: null, lastSyncError: null,
+      deletedAt: null, createdAt: new Date(), updatedAt: new Date(),
+    } as never);
 
     const { GET } = await import("@/app/api/v1/admin/sso/route");
     const res = await GET();
@@ -92,27 +107,45 @@ describe("PATCH /api/v1/admin/sso", () => {
     expect(res.status).toBe(401);
   });
 
-  it("saves LDAP settings to DB", async () => {
+  it("upserts LDAP into the LdapSource table", async () => {
     mockCan.mockResolvedValue(true);
     mockGetSettings.mockResolvedValue({});
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.ldapSource.findFirst).mockResolvedValue({
+      id: "src-1", name: "corp.local", enabled: true, url: "ldaps://dc.corp.local",
+      bindUpn: "svc@corp.local", bindPassword: "enc", upnSuffix: "@corp.local",
+      searchBase: null, emailAttribute: "mail", nameAttribute: "cn", defaultRole: "member",
+      syncIntervalHours: 12, tlsCaCert: null, lastSyncedAt: null, lastSyncError: null,
+      deletedAt: null, createdAt: new Date(), updatedAt: new Date(),
+    } as never);
 
     const { PATCH } = await import("@/app/api/v1/admin/sso/route");
     const res = await PATCH(makeRequest("PATCH", { ldap: { url: "ldap://ldap.local", bindUpn: "svc@example.com", bindPassword: "secret" } }));
 
     expect(res.status).toBe(200);
-    expect(mockUpdateSettings).toHaveBeenCalledWith("install", null, { ldap: { url: "ldap://ldap.local", bindUpn: "svc@example.com", bindPassword: expect.any(String) } });
+    expect(prisma.ldapSource.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: "src-1" },
+      data: expect.objectContaining({ url: "ldap://ldap.local", bindUpn: "svc@example.com" }),
+    }));
+    expect(prisma.ldapSource.create).not.toHaveBeenCalled();
+    expect(mockUpdateSettings).not.toHaveBeenCalledWith("install", null, expect.objectContaining({ ldap: expect.anything() }));
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({ entityType: "settings", entityId: "sso" }),
     );
   });
 
-  it("filters out empty string values", async () => {
+  it("creates a new source when none exists", async () => {
     mockCan.mockResolvedValue(true);
     mockGetSettings.mockResolvedValue({});
+    const { prisma } = await import("@/lib/db");
+    vi.mocked(prisma.ldapSource.findFirst).mockResolvedValue(null);
 
     const { PATCH } = await import("@/app/api/v1/admin/sso/route");
-    await PATCH(makeRequest("PATCH", { ldap: { url: "ldap://ldap.local", bindPassword: "" } }));
+    const res = await PATCH(makeRequest("PATCH", { ldap: { url: "ldap://ldap.local", bindUpn: "svc@example.com", bindPassword: "secret" } }));
 
-    expect(mockUpdateSettings).toHaveBeenCalledWith("install", null, { ldap: { url: "ldap://ldap.local" } });
+    expect(res.status).toBe(200);
+    expect(prisma.ldapSource.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ url: "ldap://ldap.local", bindUpn: "svc@example.com" }),
+    }));
   });
 });
