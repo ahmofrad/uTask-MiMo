@@ -742,6 +742,42 @@ model Settings {
   @@map("Settings")
 }
 
+/// A configured Active Directory (LDAP) directory. An instance can register
+/// several sources, each with its own connection, bind credentials, UPN
+/// suffix, search base, and sync schedule; AD-synced groups point at the
+/// source they came from via `LdapSyncGroup.sourceId`.
+model LdapSource {
+  id               String    @id @default(uuid()) @db.Uuid
+  name             String    @db.VarChar(255)
+  enabled          Boolean   @default(false)
+  url              String    @db.VarChar(512)
+  // Service account UPN used to bind and search the directory.
+  bindUpn          String    @db.VarChar(255)
+  // Encrypted at rest (iv:ciphertext:tag, AES-256-GCM via lib/crypto).
+  bindPassword     String    @db.VarChar(512)
+  // Optional UPN suffix (e.g. "@corp.local") appended when a user logs in
+  // with only a samaccountname; end users may also log in with a full UPN.
+  upnSuffix        String?   @db.VarChar(255)
+  // Base DN for directory searches; falls back to the UPN-derived domain DN.
+  searchBase       String?   @db.VarChar(512)
+  emailAttribute   String    @default("mail") @db.VarChar(64)
+  nameAttribute    String    @default("cn") @db.VarChar(64)
+  defaultRole      String    @default("member") @db.VarChar(64)
+  // Hours between automatic group syncs (per source).
+  syncIntervalHours Int      @default(12)
+  tlsCaCert        String?   @db.Text
+  lastSyncedAt     DateTime? @db.Timestamptz
+  lastSyncError    String?   @db.Text
+  deletedAt        DateTime? @db.Timestamptz
+  createdAt        DateTime  @default(now()) @db.Timestamptz
+  updatedAt        DateTime  @updatedAt @db.Timestamptz
+
+  groups LdapSyncGroup[]
+
+  @@index([deletedAt])
+  @@map("LdapSource")
+}
+
 model LdapSyncGroup {
   id                String      @id @default(uuid()) @db.Uuid
   name              String      @db.VarChar(255)
@@ -749,17 +785,21 @@ model LdapSyncGroup {
   objectGuid        String?     @unique @db.VarChar(128)
   managerDn         String?     @db.VarChar(512)
   source            GroupSource @default(ldap)
+  // Directory this AD-synced group came from; null for manual groups.
+  sourceId          String?     @db.Uuid
   ownerDepartmentId String?     @db.Uuid
   lastSyncedAt      DateTime?   @db.Timestamptz
   deletedAt         DateTime?   @db.Timestamptz
   createdAt         DateTime    @default(now()) @db.Timestamptz
 
+  ldapSource      LdapSource?            @relation(fields: [sourceId], references: [id], onDelete: SetNull)
   department      Department?            @relation("LdapSyncGroupDepartment")
   ownerDepartment Department?            @relation("GroupOwnerDepartment", fields: [ownerDepartmentId], references: [id], onDelete: SetNull)
   memberships     LdapGroupMembership[]
   assignedTasks   Task[]                 @relation("TaskAssigneeGroup")
   projectGrants   ProjectGroupGrant[]
 
+  @@index([sourceId])
   @@index([ownerDepartmentId])
   @@index([deletedAt])
   @@map("LdapSyncGroup")
