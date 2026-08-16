@@ -58,10 +58,56 @@ test.describe("Active Directory directory picker", () => {
       // Drop the admin session so /login renders instead of redirecting home.
       await page.context().clearCookies();
       await page.goto("/login");
-      await expect(page.locator("#provider")).toBeVisible();
-      await expect(page.locator("#provider option")).toContainText(["Local login", "Company Directory"]);
-      await expect(page.getByLabel(/login method/i)).toBeVisible();
+      // The App Router briefly double-renders during navigation; scope to the
+      // first match (see admin-groups.spec.ts).
+      const provider = page.locator("#provider").first();
+      await expect(provider).toBeVisible();
+      await expect(provider.locator("option")).toContainText(["Local login", "Company Directory"]);
+      // With a single enabled source the selector stays a plain login-method
+      // choice (not yet an explicit directory picker).
+      await expect(page.getByLabel(/login method/i).first()).toBeVisible();
+      await expect(page.getByLabel(/directory/i)).toHaveCount(0);
     } finally {
+      await setSeededSourceEnabled(request, false);
+    }
+  });
+
+  test("login shows an explicit directory picker when 2 sources are enabled", async ({ page, request }) => {
+    await setSeededSourceEnabled(request, true);
+
+    // Create a second enabled source via the admin API (CSRF from the request
+    // fixture's own session).
+    await request.get("/en-US/admin/active-directory");
+    const cookies = (await request.storageState()).cookies;
+    const csrf = cookies.find((c) => c.name === "csrf_token")?.value ?? "";
+    const name = `Second Dir ${Date.now()}`;
+    const create = await request.post("/api/v1/admin/ldap-sources", {
+      headers: { "content-type": "application/json", "x-csrf-token": csrf },
+      data: {
+        name,
+        enabled: true,
+        url: "ldaps://dc.second.local:636",
+        bindUpn: "svc@second.local",
+        bindPassword: "second-secret",
+      },
+    });
+    expect(create.status()).toBe(201);
+    const sourceId = ((await create.json()) as { data: { id: string } }).data.id;
+
+    try {
+      await page.context().clearCookies();
+      await page.goto("/login");
+      const provider = page.locator("#provider").first();
+      await expect(provider).toBeVisible();
+      // Both directories appear as options, and the label switches to the
+      // explicit "Directory" picker.
+      await expect(provider.locator("option")).toContainText(["Local login", "Company Directory", name]);
+      await expect(page.getByLabel(/directory/i).first()).toBeVisible();
+      await expect(page.getByLabel(/login method/i)).toHaveCount(0);
+    } finally {
+      await request.delete(`/api/v1/admin/ldap-sources/${sourceId}`, {
+        headers: { "x-csrf-token": csrf },
+      });
       await setSeededSourceEnabled(request, false);
     }
   });
