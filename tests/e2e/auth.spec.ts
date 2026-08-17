@@ -35,15 +35,39 @@ test.describe("Authentication", () => {
 });
 
 test.describe("Active Directory directory picker", () => {
+  // fullyParallel is on globally, so these two tests share the LDAP source
+  // table across workers — run them serially to avoid racing each other.
+  test.describe.configure({ mode: "serial" });
+
   // The default chromium project carries an authenticated admin storageState,
   // which this spec uses to enable the seeded LDAP source via the SSO API.
   // The standalone `request` fixture keeps its own admin session, so cleanup
   // still works after the page's cookies are cleared for the login view.
-  async function setSeededSourceEnabled(request: import("@playwright/test").APIRequestContext, enabled: boolean) {
+  async function csrfToken(request: import("@playwright/test").APIRequestContext) {
     // Load a page first so middleware sets the CSRF cookie the API validates.
     await request.get("/en-US/admin/sso");
     const cookies = (await request.storageState()).cookies;
-    const csrf = cookies.find((c) => c.name === "csrf_token")?.value ?? "";
+    return cookies.find((c) => c.name === "csrf_token")?.value ?? "";
+  }
+
+  // Interrupted runs of auth.spec / active-directory.spec leave "Second Dir *"
+  // and "AD Source *" sources behind. A leftover *enabled* one would break the
+  // picker assertions below (extra option + directory label), so remove any
+  // test-created sources before each test.
+  async function deleteTestSources(request: import("@playwright/test").APIRequestContext) {
+    const csrf = await csrfToken(request);
+    const res = await request.get("/api/v1/admin/ldap-sources");
+    if (!res.ok()) return;
+    const body = (await res.json()) as { data?: { id: string; name: string }[] };
+    await Promise.all(
+      (body.data ?? [])
+        .filter((s) => s.name.startsWith("Second Dir ") || s.name.startsWith("AD Source "))
+        .map((s) => request.delete(`/api/v1/admin/ldap-sources/${s.id}`, { headers: { "x-csrf-token": csrf } })),
+    );
+  }
+
+  async function setSeededSourceEnabled(request: import("@playwright/test").APIRequestContext, enabled: boolean) {
+    const csrf = await csrfToken(request);
     const res = await request.patch("/api/v1/admin/sso", {
       headers: { "content-type": "application/json", "x-csrf-token": csrf },
       data: { ldap: { enabled } },
@@ -52,6 +76,7 @@ test.describe("Active Directory directory picker", () => {
   }
 
   test("login lists enabled AD sources in the directory picker", async ({ page, request }) => {
+    await deleteTestSources(request);
     await setSeededSourceEnabled(request, true);
 
     try {
@@ -73,6 +98,7 @@ test.describe("Active Directory directory picker", () => {
   });
 
   test("login shows an explicit directory picker when 2 sources are enabled", async ({ page, request }) => {
+    await deleteTestSources(request);
     await setSeededSourceEnabled(request, true);
 
     // Create a second enabled source via the admin API (CSRF from the request

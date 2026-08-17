@@ -21,13 +21,21 @@ import { computeSchedule } from "@/lib/scheduling/cpm";
  * rows are never rewritten. Every changed task is audited (`task_updated`)
  * and emits a `task.updated` event so clients and webhooks stay in sync.
  *
- * Returns the ids of the tasks whose dates actually changed.
+ * Returns the tasks whose dates actually changed, together with their
+ * pre-change dates so callers can offer an undo.
  */
+export type AutoScheduledChange = {
+  id: string;
+  title: string;
+  startDate: Date | null;
+  dueDate: Date | null;
+};
+
 export async function autoScheduleDependents(
   projectId: string,
   changedTaskId: string,
   actorId?: string | null,
-): Promise<string[]> {
+): Promise<AutoScheduledChange[]> {
   // Fast path: nothing schedules off this task.
   const directEdge = await prisma.taskDependency.findFirst({
     where: { dependsOnId: changedTaskId, deletedAt: null, type: { not: "RELATES_TO" } },
@@ -116,12 +124,19 @@ export async function autoScheduleDependents(
     ),
   );
 
+  const changed: AutoScheduledChange[] = [];
   for (const update of updates) {
     const after = await prisma.task.findUnique({
       where: { id: update.id },
       select: { id: true, title: true, startDate: true, dueDate: true, projectId: true },
     });
     if (!after) continue;
+    changed.push({
+      id: after.id,
+      title: after.title,
+      startDate: update.before.startDate,
+      dueDate: update.before.dueDate,
+    });
     await logAudit({
       actorUserId: actorId ?? null,
       action: "task_updated",
@@ -135,5 +150,5 @@ export async function autoScheduleDependents(
     emitToTask(after.id, "task.updated", { id: after.id, title: after.title, projectId: after.projectId });
   }
 
-  return updates.map((update) => update.id);
+  return changed;
 }

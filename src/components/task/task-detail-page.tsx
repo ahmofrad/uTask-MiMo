@@ -11,9 +11,17 @@ import { CommentThread } from "@/components/comment/comment-thread";
 import { ActivityTimeline } from "@/components/task/activity-timeline";
 import { TaskDetailHeaderCard } from "@/components/task/task-detail-header-card";
 import { TaskDetailSidebar } from "@/components/task/task-detail-sidebar";
+import { useToast } from "@/components/ui/toast";
 import type { ActivityEvent } from "@/lib/activity/types";
 import { apiFetch } from "@/lib/api-fetch";
 import { normalizeTaskDate } from "@/lib/date/task-date";
+
+type AutoScheduledChange = {
+  id: string;
+  title: string;
+  startDate: string | null;
+  dueDate: string | null;
+};
 
 type TaskData = {
   id: string;
@@ -99,6 +107,7 @@ export function TaskDetailPage({
 }: Props) {
   const t = useTranslations();
   const router = useRouter();
+  const { addToast } = useToast();
   const [task, setTask] = useState(initialTask);
   const [taskTagIds, setTaskTagIds] = useState<string[]>(initialTask.tags.map((tg) => tg.id));
   const [cfValues, setCfValues] = useState(initialCFValues);
@@ -152,8 +161,30 @@ export function TaskDetailPage({
     if (body.data) setTask((prev) => ({ ...prev, ...body.data }));
     // Refresh audit events after mutation
     void refreshAudit();
+
+    // If the date change pushed dependent tasks forward, offer to undo it.
+    const autoScheduled = (body.data?.autoScheduled as AutoScheduledChange[] | undefined) ?? [];
+    if (autoScheduled.length > 0) {
+      addToast({
+        message: t("task.autoScheduledToast", { count: autoScheduled.length }),
+        action: {
+          label: t("common.undo"),
+          onClick: async () => {
+            await Promise.allSettled(
+              autoScheduled.map((item) =>
+                apiFetch(`/api/v1/tasks/${item.id}`, {
+                  method: "PATCH",
+                  body: JSON.stringify({ startDate: item.startDate, dueDate: item.dueDate }),
+                }),
+              ),
+            );
+            void refreshAudit();
+          },
+        },
+      });
+    }
     return body.data;
-  }, [refreshAudit, task.id, t]);
+  }, [addToast, refreshAudit, task.id, t]);
 
   const loadMoreAudit = useCallback(async () => {
     if (!auditCursor || !auditHasMore) return;

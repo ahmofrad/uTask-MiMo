@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
+import { getProjectDependencyStatusMap } from "@/lib/tasks/dependency-status-queries";
 import { DashboardPage } from "@/components/dashboard/dashboard-page";
 
 export default async function AppHomePage() {
@@ -58,6 +59,9 @@ export default async function AppHomePage() {
       }),
     ]);
 
+  const projectIds = Array.from(new Set(allTasks.map((task) => task.project.id)));
+  const dependencyStatus = await getProjectDependencyStatusMap(projectIds);
+
   const t = await getTranslations("reports");
 
   return (
@@ -90,6 +94,7 @@ export default async function AppHomePage() {
           tags: t.tags.map((tt) => ({ id: tt.tag.id, name: tt.tag.name })),
           subtaskCount: t._count.subtasks,
           subtaskDone: t.subtasks.filter((st) => st.status === "done").length,
+          blockedBy: dependencyStatus.get(t.id)?.blockedBy ?? [],
         }))}
       />
     </div>

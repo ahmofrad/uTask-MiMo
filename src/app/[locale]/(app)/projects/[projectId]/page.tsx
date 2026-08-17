@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/config";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { can, canProject, canReadProject } from "@/lib/rbac";
+import { getProjectDependencyStatusMap } from "@/lib/tasks/dependency-status-queries";
 import { ProjectDetailPage } from "@/components/project/project-detail-page";
 
 export default async function ProjectDetail(props: {
@@ -45,6 +46,8 @@ export default async function ProjectDetail(props: {
     || membership?.projectRole === "lead";
 
   const canAssignRoles = await canProject(userId, "project_role:assign", projectId);
+
+  const dependencyStatus = await getProjectDependencyStatusMap([projectId]);
 
   const tasks = await prisma.task.findMany({
     where: { projectId, deletedAt: null },
@@ -115,6 +118,7 @@ export default async function ProjectDetail(props: {
           tags: t.tags.map((tt) => ({ id: tt.tag.id, name: tt.tag.name })),
           subtaskCount: t._count.subtasks,
           subtaskDone: t.subtasks.filter((st) => st.status === "done").length,
+          blockedBy: dependencyStatus.get(t.id)?.blockedBy ?? [],
         }))}
       />
     </div>

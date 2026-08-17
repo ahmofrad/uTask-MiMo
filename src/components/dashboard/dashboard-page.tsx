@@ -18,7 +18,7 @@ type DashboardStat = {
 
 type DashboardPageProps = {
   stats: DashboardStat[];
-  allTasks: { id: string; title: string; description: string | null; status: string; priority: string; dueDate: string | null; assignees?: { id: string; displayName: string; avatarUrl?: string | null }[]; startDate: string | null; parentTaskId: string | null; projectId: string; projectName: string; tags: { id: string; name: string }[]; subtaskCount: number; subtaskDone: number; progress?: number | null }[];
+  allTasks: { id: string; title: string; description: string | null; status: string; priority: string; dueDate: string | null; assignees?: { id: string; displayName: string; avatarUrl?: string | null }[]; startDate: string | null; parentTaskId: string | null; projectId: string; projectName: string; tags: { id: string; name: string }[]; subtaskCount: number; subtaskDone: number; progress?: number | null; blockedBy?: { id: string; title: string; status: string; startDate: string | null; dueDate: string | null }[] }[];
   userId: string;
 };
 
@@ -131,6 +131,7 @@ export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
           projectId: "", assignees: t.assignees ?? [], dueDate: t.dueDate,
           projectName: t.projectName,
           tags: t.tags, subtaskCount: t.subtaskCount, subtaskDone: t.subtaskDone,
+          blockedBy: t.blockedBy ?? [],
         }))} projectId="" />
       )}
 
@@ -175,6 +176,7 @@ export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
                 status: task.status, priority: task.priority,
                 dueDate: task.dueDate, assignees: task.assignees ?? [], projectName: task.projectName,
                 tags: task.tags, subtaskCount: task.subtaskCount, subtaskDone: task.subtaskDone,
+                blockedBy: task.blockedBy ?? [],
               }}
               variant="list"
               showProject

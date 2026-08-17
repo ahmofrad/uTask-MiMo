@@ -11,11 +11,12 @@ type JalaliDatePickerProps = {
   onChange: (_value: string | null) => void;
   placeholder?: string;
   className?: string;
+  testId?: string;
 };
 
 const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
 
-export function JalaliDatePicker({ value, onChange, placeholder, className }: JalaliDatePickerProps) {
+export function JalaliDatePicker({ value, onChange, placeholder, className, testId }: JalaliDatePickerProps) {
   const locale = useLocale() as "fa-IR" | "en-US";
   const t = useTranslations();
   const { shortDate } = useFormattedDate();
@@ -115,7 +116,7 @@ export function JalaliDatePicker({ value, onChange, placeholder, className }: Ja
   const displayValue = value ? shortDate(new Date(value)) : "";
 
   return (
-    <div className={cn("relative", className)}>
+    <div data-testid={testId} className={cn("relative", className)}>
       <button
         ref={btnRef}
         type="button"

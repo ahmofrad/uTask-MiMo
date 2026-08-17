@@ -55,7 +55,11 @@ maybe("auto-schedule dependents (integration)", () => {
 
     const { autoScheduled } = await updateTask(a, { startDate: day(5), dueDate: day(5) }, ownerId);
 
-    expect(autoScheduled.sort()).toEqual([b, c].sort());
+    expect(autoScheduled.map((change) => change.id).sort()).toEqual([b, c].sort());
+    // Every entry carries the task's pre-change dates so clients can undo.
+    const byId = new Map(autoScheduled.map((change) => [change.id, change]));
+    expect(byId.get(b)?.startDate?.toISOString()).toBe(day(1));
+    expect(byId.get(c)?.startDate?.toISOString()).toBe(day(2));
 
     const bRow = await prisma.task.findUniqueOrThrow({ where: { id: b }, select: { startDate: true, dueDate: true } });
     const cRow = await prisma.task.findUniqueOrThrow({ where: { id: c }, select: { startDate: true, dueDate: true } });
@@ -87,7 +91,9 @@ maybe("auto-schedule dependents (integration)", () => {
     await addDependency({ taskId: b, dependsOnId: a, type: "FINISH_TO_START", createdBy: ownerId });
 
     const move = await updateTask(a, { startDate: day(2), dueDate: day(6) }, ownerId);
-    expect(move.autoScheduled).toEqual([b]);
+    expect(move.autoScheduled.map((change) => change.id)).toEqual([b]);
+    expect(move.autoScheduled[0]?.startDate?.toISOString()).toBe(day(6));
+    expect(move.autoScheduled[0]?.dueDate?.toISOString()).toBe(day(9));
 
     const bRow = await prisma.task.findUniqueOrThrow({ where: { id: b }, select: { startDate: true, dueDate: true } });
     expect(bRow.startDate?.toISOString()).toBe(day(7));

@@ -668,4 +668,42 @@ test.describe("Gantt timeline", () => {
       where: { taskId: targetId, dependsOnId: sourceId },
     });
   });
+
+  test("remembers zoom and panel toggles across reloads", async ({ page }) => {
+    const projectId = "00000000-0000-4000-8000-000000000012";
+    await page.goto(`/en-US/projects/${projectId}`);
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    await expect(page.getByTestId("gantt-scroll-container").first()).toBeVisible();
+
+    // Flip all three persisted settings.
+    const criticalToggle = page.getByTestId("gantt-critical-toggle");
+    await expect(criticalToggle).toBeVisible();
+    await criticalToggle.click();
+    await page.getByTestId("gantt-deps-toggle").click();
+    await page.getByTestId("gantt-zoom").selectOption("72");
+
+    // Reload: the view preferences survive.
+    await page.reload();
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    await expect(page.getByTestId("gantt-critical-toggle")).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByTestId("gantt-deps-panel")).toBeVisible();
+    await expect(page.getByTestId("gantt-zoom")).toHaveValue("72");
+  });
+
+  test("exports the chart as a PNG and a PDF download", async ({ page }) => {
+    const projectId = "00000000-0000-4000-8000-000000000012";
+    await page.goto(`/en-US/projects/${projectId}`);
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    await expect(page.getByTestId("gantt-scroll-container").first()).toBeVisible();
+
+    const pngDownloadPromise = page.waitForEvent("download");
+    await page.getByTestId("gantt-export-png").click();
+    const pngDownload = await pngDownloadPromise;
+    expect(pngDownload.suggestedFilename()).toBe("gantt.png");
+
+    const pdfDownloadPromise = page.waitForEvent("download");
+    await page.getByTestId("gantt-export-pdf").click();
+    const pdfDownload = await pdfDownloadPromise;
+    expect(pdfDownload.suggestedFilename()).toBe("gantt.pdf");
+  });
 });

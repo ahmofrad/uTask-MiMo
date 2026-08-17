@@ -101,7 +101,7 @@ export async function PATCH(
 
   let before: Awaited<ReturnType<typeof updateTask>>["before"];
   let task: Awaited<ReturnType<typeof updateTask>>["task"];
-  let autoScheduled: string[] = [];
+  let autoScheduled: Awaited<ReturnType<typeof updateTask>>["autoScheduled"] = [];
   try {
     const result = await updateTask(resolvedParams.id, data, userId);
     before = result.before;

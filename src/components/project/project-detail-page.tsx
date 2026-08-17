@@ -54,6 +54,7 @@ type TaskItem = {
   subtaskCount?: number;
   subtaskDone?: number;
   progress?: number | null;
+  blockedBy?: { id: string; title: string; status: string; startDate: string | null; dueDate: string | null }[];
 };
 
 type ProjectDetailPageProps = {
@@ -173,12 +174,21 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
   }, [project.id]);
 
   async function handleCreateTask(data: Record<string, unknown>) {
+    const { dependsOnId, ...createPayload } = data;
     const res = await apiFetch(`/api/v1/tasks`, {
       method: "POST",
-      body: JSON.stringify({ ...data, projectId: project.id }),
+      body: JSON.stringify({ ...createPayload, projectId: project.id }),
     });
     if (res.ok) {
       const result = await res.json();
+      // The task was created with a chosen predecessor — wire up the
+      // dependency (non-fatal if it fails; the task itself is already saved).
+      if (typeof dependsOnId === "string" && dependsOnId) {
+        void apiFetch(`/api/v1/projects/${project.id}/tasks/${result.data.id}/dependencies`, {
+          method: "POST",
+          body: JSON.stringify({ dependsOnId, type: "FINISH_TO_START", lag: 0, lagUnit: "DAY" }),
+        }).catch(() => {});
+      }
       setTasks((prev) => [...prev, {
         id: result.data.id,
         title: result.data.title,
@@ -322,7 +332,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
       )}
 
       {/* Task Create Modal */}
-      <Dialog open={showCreateForm} onClose={() => setShowCreateForm(false)} title={taskT("createTask")} className="max-w-lg">
+      <Dialog open={showCreateForm} onClose={() => setShowCreateForm(false)} title={taskT("createTask")} className="max-w-lg max-h-[90vh] overflow-y-auto">
         <TaskForm projectId={project.id} onSubmit={handleCreateTask} onCancel={() => setShowCreateForm(false)} />
       </Dialog>
 

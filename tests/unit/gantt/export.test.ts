@@ -1,0 +1,78 @@
+import { describe, it, expect } from "vitest";
+import { buildGanttExportSvg, FALLBACK_PALETTE } from "@/lib/gantt/export";
+import type { GanttReport } from "@/lib/gantt-types";
+
+const report: GanttReport = {
+  tasks: [
+    {
+      id: "t1",
+      title: "Design <schema> & API",
+      wbsCode: "1.1",
+      parentTaskId: null,
+      depth: 0,
+      isSummary: false,
+      isMilestone: false,
+      status: "in_progress",
+      progress: 40,
+      startDate: "2026-08-10T00:00:00.000Z",
+      dueDate: "2026-08-14T00:00:00.000Z",
+      critical: true,
+    },
+    {
+      id: "t2",
+      title: "Ship v1",
+      wbsCode: "1.2",
+      parentTaskId: null,
+      depth: 0,
+      isSummary: false,
+      isMilestone: true,
+      status: "open",
+      progress: 0,
+      startDate: "2026-08-15T00:00:00.000Z",
+      dueDate: null,
+    },
+  ],
+  links: [
+    { id: "l1", source: "t1", target: "t2", type: "FINISH_TO_START", lag: 0, lagUnit: "DAY" },
+  ],
+  criticalChain: ["t1"],
+  scheduleVersion: 1,
+  project: { start: "2026-08-10T00:00:00.000Z", end: "2026-08-15T00:00:00.000Z" },
+};
+
+describe("buildGanttExportSvg", () => {
+  it("renders a self-contained SVG with header, rows, bars and arrows", () => {
+    const svg = buildGanttExportSvg({ report, locale: "en-US", palette: FALLBACK_PALETTE });
+    expect(svg.startsWith("<svg")).toBe(true);
+    expect(svg.endsWith("</svg>")).toBe(true);
+    expect(svg).toContain("xmlns=\"http://www.w3.org/2000/svg\"");
+    // Task labels are present.
+    expect(svg).toContain("Design");
+    expect(svg).toContain("Ship v1");
+    // Status fills are resolved to literal colors (no var() references).
+    expect(svg).toContain(FALLBACK_PALETTE.warning);
+    expect(svg).not.toContain("var(");
+    // A dependency arrow with its FS label is drawn.
+    expect(svg).toContain("marker-end=\"url(#gantt-arrow)\"");
+    expect(svg).toContain(">FS</text>");
+    // The critical task carries the danger stroke.
+    expect(svg).toContain(`stroke="${FALLBACK_PALETTE.danger}" stroke-width="2"`);
+  });
+
+  it("escapes XML in task titles", () => {
+    const svg = buildGanttExportSvg({ report, locale: "en-US", palette: FALLBACK_PALETTE });
+    expect(svg).toContain("Design &lt;schema&gt; &amp; API");
+    expect(svg).not.toContain("<schema>");
+  });
+
+  it("renders a milestone as a diamond polygon", () => {
+    const svg = buildGanttExportSvg({ report, locale: "en-US", palette: FALLBACK_PALETTE });
+    expect(svg).toContain("<polygon points=");
+  });
+
+  it("includes both calendar months in the header", () => {
+    const svg = buildGanttExportSvg({ report, locale: "en-US", palette: FALLBACK_PALETTE });
+    // Aug 2026 spans two Jalali months (Mordad/Shahrivar or their en names).
+    expect(svg.match(/<text x="[^"]+" y="24"/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+});

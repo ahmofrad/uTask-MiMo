@@ -1,14 +1,16 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { toJalali, getMonthName } from "@/lib/date/jalali";
 import { formatNumber, type Locale } from "@/lib/date/format";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
+import { useToast } from "@/components/ui/toast";
 import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
 import { linkShortLabel, linkLagSuffix } from "@/lib/gantt/links";
+import { exportGanttAsPdf, exportGanttAsPng } from "@/lib/gantt/export";
 import {
   getTimelineDragDeltaDays,
   getTimelineItemGeometry,
@@ -18,10 +20,16 @@ import {
   type TimelineDirection,
 } from "@/lib/gantt/timeline";
 
-const DAY_WIDTH = 52;
 const BOX_WIDTH = 64;
 const LEFT_WIDTH = 288;
 const ROW_HEIGHT = 52;
+
+const GANTT_PREFS_KEY = "ganttPrefs:v1";
+const ZOOM_OPTIONS = [
+  { width: 36, label: "ganttZoomSmall" },
+  { width: 52, label: "ganttZoomMedium" },
+  { width: 72, label: "ganttZoomLarge" },
+] as const;
 
 type TimelineDay = {
   date: Date;
@@ -110,8 +118,10 @@ export function GanttChart({
   onReload?: () => void;
 }) {
   const t = useTranslations("task");
+  const tc = useTranslations();
   const locale = useLocale() as Locale;
   const { shortDate } = useFormattedDate();
+  const { addToast } = useToast();
   const [overrides, setOverrides] = useState<Record<string, { startDate: string | null; dueDate: string | null }>>({});
   const dragRef = useRef<DragState | null>(null);
   const [linkMode, setLinkMode] = useState(false);
@@ -124,6 +134,33 @@ export function GanttChart({
   const [linkLagUnit, setLinkLagUnit] = useState<"DAY" | "HOUR">("DAY");
   const [depsOpen, setDepsOpen] = useState(false);
   const [showCritical, setShowCritical] = useState(true);
+  const [dayWidth, setDayWidth] = useState(52);
+  const [exporting, setExporting] = useState<"png" | "pdf" | null>(null);
+
+  // View preferences are remembered per browser (zoom + panel toggles). Read
+  // after mount so server and client render the same initial markup.
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(GANTT_PREFS_KEY);
+      if (!stored) return;
+      const prefs = JSON.parse(stored) as { dayWidth?: number; depsOpen?: boolean; showCritical?: boolean };
+      if (typeof prefs.dayWidth === "number" && ZOOM_OPTIONS.some((z) => z.width === prefs.dayWidth)) {
+        setDayWidth(prefs.dayWidth);
+      }
+      if (typeof prefs.depsOpen === "boolean") setDepsOpen(prefs.depsOpen);
+      if (typeof prefs.showCritical === "boolean") setShowCritical(prefs.showCritical);
+    } catch {
+      // ignore malformed prefs
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(GANTT_PREFS_KEY, JSON.stringify({ dayWidth, depsOpen, showCritical }));
+    } catch {
+      // storage unavailable (private mode etc.)
+    }
+  }, [dayWidth, depsOpen, showCritical]);
   const [depsBusy, setDepsBusy] = useState(false);
   const [depEdits, setDepEdits] = useState<Record<string, { type: LinkType; lag: number; lagUnit: "DAY" | "HOUR" }>>({});
   const canEdit = report.canEdit ?? false;
@@ -198,10 +235,10 @@ export function GanttChart({
     return Math.max(0, Math.min(totalDays, diffDays(rangeStart, startOfDay(new Date(date)))));
   };
 
-  const dayPos = (date: Date | string | null, itemWidth = DAY_WIDTH): number => {
+  const dayPos = (date: Date | string | null, itemWidth = dayWidth): number => {
     const offset = dayOffset(date);
     if (offset == null) return 0;
-    return getTimelinePosition(offset, totalDays, DAY_WIDTH, direction, itemWidth);
+    return getTimelinePosition(offset, totalDays, dayWidth, direction, itemWidth);
   };
 
   const dateFor = (r: GanttRow): { start: Date | null; end: Date | null } => {
@@ -269,7 +306,7 @@ export function GanttChart({
     const deltaDays = getTimelineDragDeltaDays(
       d.startX,
       e.clientX,
-      DAY_WIDTH,
+      dayWidth,
       direction,
     );
     let ns = d.origStart;
@@ -314,10 +351,35 @@ export function GanttChart({
         ? { startDate: d.currentStart.toISOString() }
         : { dueDate: d.currentEnd.toISOString() };
     try {
-      await apiFetch(`/api/v1/tasks/${d.id}`, {
+      const res = await apiFetch(`/api/v1/tasks/${d.id}`, {
         method: "PATCH",
         body: JSON.stringify(body),
       });
+      if (res.ok) {
+        const json = (await res.json().catch(() => null)) as
+          | { data?: { autoScheduled?: { id: string; startDate: string | null; dueDate: string | null }[] } }
+          | null;
+        const autoScheduled = json?.data?.autoScheduled ?? [];
+        if (autoScheduled.length > 0) {
+          addToast({
+            message: t("autoScheduledToast", { count: autoScheduled.length }),
+            action: {
+              label: tc("common.undo"),
+              onClick: async () => {
+                await Promise.allSettled(
+                  autoScheduled.map((item) =>
+                    apiFetch(`/api/v1/tasks/${item.id}`, {
+                      method: "PATCH",
+                      body: JSON.stringify({ startDate: item.startDate, dueDate: item.dueDate }),
+                    }),
+                  ),
+                );
+                onReload?.();
+              },
+            },
+          });
+        }
+      }
     } catch {
       setOverrides((prev) => {
         const next = { ...prev };
@@ -331,6 +393,23 @@ export function GanttChart({
     setLinkMode((active) => !active);
     setLinkSourceId(null);
     setLinkError(null);
+  };
+
+  const doExport = async (format: "png" | "pdf") => {
+    if (exporting) return;
+    setExporting(format);
+    setLinkError(null);
+    try {
+      if (format === "png") {
+        await exportGanttAsPng({ report, locale });
+      } else {
+        await exportGanttAsPdf({ report, locale });
+      }
+    } catch {
+      setLinkError("loadError");
+    } finally {
+      setExporting(null);
+    }
   };
 
   const startLink = (row: GanttRow) => {
@@ -493,11 +572,11 @@ export function GanttChart({
   }
 
   const noDateTasks = rows.filter((r) => !r.startDate && !r.dueDate && !r.summaryStart && !r.summaryEnd);
-  const totalWidth = dayCount * DAY_WIDTH;
+  const totalWidth = dayCount * dayWidth;
   const rowsHeight = rows.length * ROW_HEIGHT;
   const timelineOrigin = direction === "rtl" ? 0 : LEFT_WIDTH;
   const timelineXForOffset = (offset: number, itemWidth = 0): number =>
-    getTimelinePosition(offset, totalDays, DAY_WIDTH, direction, itemWidth);
+    getTimelinePosition(offset, totalDays, dayWidth, direction, itemWidth);
 
   const rowIndex = new Map<string, number>();
   rows.forEach((r, i) => rowIndex.set(r.id, i));
@@ -537,6 +616,39 @@ export function GanttChart({
             {t("ganttCriticalPath")}
           </button>
         )}
+        <label className="flex items-center gap-1.5 text-xs text-fg-muted">
+          {t("ganttZoom")}
+          <select
+            data-testid="gantt-zoom"
+            value={dayWidth}
+            onChange={(ev) => setDayWidth(Number(ev.target.value))}
+            className="text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary"
+          >
+            {ZOOM_OPTIONS.map((zoom) => (
+              <option key={zoom.width} value={zoom.width}>
+                {t(zoom.label)}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="button"
+          data-testid="gantt-export-png"
+          onClick={() => void doExport("png")}
+          disabled={exporting !== null}
+          className="px-3 py-1.5 rounded-md border border-border-primary bg-bg-primary text-fg-secondary text-sm font-medium hover:bg-bg-surface disabled:opacity-40"
+        >
+          {exporting === "png" ? tc("common.loading") : t("ganttExportPng")}
+        </button>
+        <button
+          type="button"
+          data-testid="gantt-export-pdf"
+          onClick={() => void doExport("pdf")}
+          disabled={exporting !== null}
+          className="px-3 py-1.5 rounded-md border border-border-primary bg-bg-primary text-fg-secondary text-sm font-medium hover:bg-bg-surface disabled:opacity-40"
+        >
+          {exporting === "pdf" ? tc("common.loading") : t("ganttExportPdf")}
+        </button>
         {linkMode && (
           <span className="text-xs text-fg-muted" role="status">
             {t("ganttLinkHint")}
@@ -770,8 +882,8 @@ export function GanttChart({
                     dir={locale === "fa-IR" ? "rtl" : "ltr"}
                     className="absolute top-0 flex h-9 items-center border-e border-border-primary px-3 text-[15px] font-bold text-fg-primary"
                     style={{
-                      left: `${timelineXForOffset(month.startOffset, month.dayCount * DAY_WIDTH)}px`,
-                      width: `${month.dayCount * DAY_WIDTH}px`,
+                      left: `${timelineXForOffset(month.startOffset, month.dayCount * dayWidth)}px`,
+                      width: `${month.dayCount * dayWidth}px`,
                     }}
                   >
                     <span className="truncate">{month.label}</span>
@@ -789,8 +901,8 @@ export function GanttChart({
                       day.isMonthStart ? "border-s-2 border-s-border-strong" : ""
                     } ${day.isToday ? "bg-accent-bg text-accent" : ""}`}
                     style={{
-                      left: `${timelineXForOffset(day.offset, DAY_WIDTH)}px`,
-                      width: `${DAY_WIDTH}px`,
+                      left: `${timelineXForOffset(day.offset, dayWidth)}px`,
+                      width: `${dayWidth}px`,
                     }}
                   >
                     {day.label}
@@ -800,7 +912,7 @@ export function GanttChart({
               {todayOffset != null ? (
                 <div
                   className="pointer-events-none absolute top-9 z-10 h-11 w-0.5 bg-danger/70"
-                  style={{ left: `${timelineXForOffset(todayOffset, DAY_WIDTH) + DAY_WIDTH / 2}px` }}
+                  style={{ left: `${timelineXForOffset(todayOffset, dayWidth) + dayWidth / 2}px` }}
                 />
               ) : null}
             </div>
@@ -891,7 +1003,7 @@ export function GanttChart({
             {/* Rows */}
             {rows.map((row, i) => {
               const { start, end } = dateFor(row);
-              const geometry = getTimelineItemGeometry(start, end, rangeStart, DAY_WIDTH);
+              const geometry = getTimelineItemGeometry(start, end, rangeStart, dayWidth);
               const width = geometry.width;
               const barLeft = timelineXForOffset(geometry.startOffset, width);
               const isCritical = row.critical;
@@ -931,8 +1043,8 @@ export function GanttChart({
                         key={day.offset}
                         className={`absolute top-0 h-full border-e border-border-secondary/40 ${day.isToday ? "bg-accent-bg/30" : ""}`}
                         style={{
-                          left: `${timelineXForOffset(day.offset, DAY_WIDTH)}px`,
-                          width: `${DAY_WIDTH}px`,
+                          left: `${timelineXForOffset(day.offset, dayWidth)}px`,
+                          width: `${dayWidth}px`,
                         }}
                       />
                     ))}
@@ -941,7 +1053,7 @@ export function GanttChart({
                         className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rotate-45 bg-accent border border-bg-surface ${
                           isCritical && showCritical ? "ring-2 ring-danger" : ""
                         } ${isDelayed(row) ? "ring-2 ring-danger" : ""}`}
-                        style={{ left: `${dayPos(start, DAY_WIDTH) + DAY_WIDTH / 2 - 8}px` }}
+                        style={{ left: `${dayPos(start, dayWidth) + dayWidth / 2 - 8}px` }}
                         title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : row.title}
                       />
                     ) : !row.isSummary && start ? (

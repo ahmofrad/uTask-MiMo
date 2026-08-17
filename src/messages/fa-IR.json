@@ -384,7 +384,8 @@
       "estimatedHours": "زمان تخمینی (روز)",
       "spentHours": "ساعت صرف‌شده",
       "tags": "برچسب‌ها",
-      "urlPlaceholder": "https://"
+      "urlPlaceholder": "https://",
+      "startDate": "تاریخ شروع"
     },
     "actions": {
       "assign": "اختصاص",
@@ -560,7 +561,20 @@
     "backToProject": "بازگشت به پروژه",
     "assigned": "محول‌شده",
     "noMembers": "هنوز عضوی وجود ندارد",
-    "searchMembers": "جستجوی اعضا برای تخصیص…"
+    "searchMembers": "جستجوی اعضا برای تخصیص…",
+    "autoScheduledToast": "{count, plural, one {# کار برای حفظ وابستگی‌ها باززمان‌بندی شد} other {# کار برای حفظ وابستگی‌ها باززمان‌بندی شدند}}",
+    "blockedBy": "مسدود شده توسط {title}",
+    "blockedByCount": "مسدود شده توسط {count} کار",
+    "dependencyWarning": "زودتر از پایان پیش‌نیاز آغاز می‌شود",
+    "dependsOn": "وابسته به",
+    "noDependsOn": "بدون وابستگی",
+    "suggestedFromDependency": "پیشنهاد شده بر اساس پایان پیش‌نیاز",
+    "ganttZoom": "بزرگ‌نمایی",
+    "ganttZoomSmall": "کوچک",
+    "ganttZoomMedium": "متوسط",
+    "ganttZoomLarge": "بزرگ",
+    "ganttExportPng": "PNG",
+    "ganttExportPdf": "PDF"
   },
   "project": {
     "title": "پروژه‌ها",

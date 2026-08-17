@@ -384,7 +384,8 @@
       "estimatedHours": "Estimated time (days)",
       "spentHours": "Spent hours",
       "tags": "Tags",
-      "urlPlaceholder": "https://"
+      "urlPlaceholder": "https://",
+      "startDate": "Start date"
     },
     "actions": {
       "assign": "Assign",
@@ -560,7 +561,20 @@
     "backToProject": "Back to project",
     "assigned": "Assigned",
     "noMembers": "No members yet",
-    "searchMembers": "Search members to assign…"
+    "searchMembers": "Search members to assign…",
+    "autoScheduledToast": "{count, plural, one {# task was rescheduled to satisfy dependencies} other {# tasks were rescheduled to satisfy dependencies}}",
+    "blockedBy": "Blocked by {title}",
+    "blockedByCount": "Blocked by {count} tasks",
+    "dependencyWarning": "Starts before its predecessor finishes",
+    "dependsOn": "Depends on",
+    "noDependsOn": "No dependency",
+    "suggestedFromDependency": "Suggested from the dependency's end date",
+    "ganttZoom": "Zoom",
+    "ganttZoomSmall": "Small",
+    "ganttZoomMedium": "Medium",
+    "ganttZoomLarge": "Large",
+    "ganttExportPng": "PNG",
+    "ganttExportPdf": "PDF"
   },
   "project": {
     "title": "Projects",

@@ -11,6 +11,10 @@ import { AssigneeSelect } from "@/components/task/assignee-select";
 
 type Member = { id: string; displayName: string; avatarUrl?: string | null };
 type GroupOption = { id: string; name: string };
+type TaskCandidate = { id: string; title: string; startDate: string | null; dueDate: string | null };
+
+// Only shown when creating a task (not when editing an existing one).
+const isCreateMode = (initialData?: TaskFormProps["initialData"]): boolean => !initialData;
 
 type TaskFormProps = {
   projectId?: string;
@@ -47,6 +51,11 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
   const [assigneeGroupId, setAssigneeGroupId] = useState<string | null>(initialData?.assigneeGroupId ?? null);
   const [members, setMembers] = useState<Member[]>(initialMembers ?? []);
   const [groups, setGroups] = useState<GroupOption[] | null>(null);
+  const [startDate, setStartDate] = useState("");
+  const [dependsOnId, setDependsOnId] = useState("");
+  const [taskCandidates, setTaskCandidates] = useState<TaskCandidate[]>([]);
+  const [suggestedByDependency, setSuggestedByDependency] = useState(false);
+  const createMode = isCreateMode(initialData);
 
   useEffect(() => {
     if (initialMembers) {
@@ -68,6 +77,40 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
       active = false;
     };
   }, [projectId, initialMembers]);
+
+  // When creating a task inside a project, load sibling tasks so the user can
+  // pick a predecessor; choosing one suggests a start date from its end.
+  useEffect(() => {
+    if (!createMode || !projectId) return;
+    let active = true;
+    (async () => {
+      try {
+        const res = await apiFetch(`/api/v1/tasks?projectId=${projectId}&limit=200`);
+        if (res.ok) {
+          const json = (await res.json()) as { data?: TaskCandidate[] };
+          if (active) setTaskCandidates(json.data ?? []);
+        }
+      } catch {
+        /* non-fatal: predecessor picker stays empty */
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [createMode, projectId]);
+
+  const handleDependsOnChange = (value: string) => {
+    setDependsOnId(value);
+    if (!value) return;
+    const candidate = taskCandidates.find((c) => c.id === value);
+    // Suggest the earliest moment the dependency allows: right after the
+    // predecessor finishes (its due date, falling back to its start).
+    const end = candidate?.dueDate ?? candidate?.startDate ?? null;
+    if (end) {
+      setStartDate(end);
+      setSuggestedByDependency(true);
+    }
+  };
 
   // Group picker is available to users who can list groups (group:manage or
   // scoped managers); a 403 hides it silently.
@@ -105,6 +148,8 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
         assigneeIds,
         assigneeGroupId,
         dueDate: normalizeTaskDate(dueDate || null),
+        ...(createMode ? { startDate: normalizeTaskDate(startDate || null) } : {}),
+        ...(createMode && dependsOnId ? { dependsOnId } : {}),
         estimatedHours: estimatedDaysToHours(estimatedDays ? Number(estimatedDays) : null),
         tagIds: tagIds.length > 0 ? tagIds : undefined,
       });
@@ -121,6 +166,7 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
         </label>
         <input
           type="text"
+          data-testid="task-form-title"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm"
@@ -175,7 +221,48 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
         </div>
       </div>
 
+      {createMode && (
+        <div>
+          <label className="block text-sm font-medium text-fg-secondary mb-1.5">
+            {t("dependsOn")}
+          </label>
+          <select
+            data-testid="task-form-depends-on"
+            value={dependsOnId}
+            onChange={(e) => handleDependsOnChange(e.target.value)}
+            className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm"
+          >
+            <option value="">{t("noDependsOn")}</option>
+            {taskCandidates.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
+        {createMode && (
+          <div>
+            <label className="block text-sm font-medium text-fg-secondary mb-1.5">
+              {t("fields.startDate")}
+            </label>
+            <JalaliDatePicker
+              testId="task-form-start-date"
+              value={startDate}
+              onChange={(val) => {
+                setStartDate(val ?? "");
+                setSuggestedByDependency(false);
+              }}
+            />
+            {suggestedByDependency && (
+              <span data-testid="task-form-suggested-date" className="text-xs text-accent block mt-1">
+                {t("suggestedFromDependency")}
+              </span>
+            )}
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium text-fg-secondary mb-1.5">
             {t("fields.dueDate")}

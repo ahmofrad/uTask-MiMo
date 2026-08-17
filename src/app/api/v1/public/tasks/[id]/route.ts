@@ -81,7 +81,7 @@ export async function PATCH(
     throw err;
   }
 
-  const { before, task } = result;
+  const { before, task, autoScheduled } = result;
   await logAudit({
     actorUserId: userId,
     action: "task_updated",
@@ -93,7 +93,7 @@ export async function PATCH(
   await emitTaskEvent("task.updated", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
   emitToProject(task.projectId, "task.updated", { id: task.id, title: task.title, projectId: task.projectId });
 
-  return NextResponse.json({ data: task });
+  return NextResponse.json({ data: { ...task, autoScheduled } });
 }
 
 export async function DELETE(
