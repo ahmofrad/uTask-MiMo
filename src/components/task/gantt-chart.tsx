@@ -8,6 +8,7 @@ import { formatNumber, type Locale } from "@/lib/date/format";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
+import { linkShortLabel, linkLagSuffix } from "@/lib/gantt/links";
 import {
   getTimelineDragDeltaDays,
   getTimelineItemGeometry,
@@ -56,6 +57,9 @@ const STATUS_COLORS: Record<string, string> = {
   done: "bg-success",
   cancelled: "bg-fg-subtle",
 };
+
+const DEP_TYPES = ["FINISH_TO_START", "START_TO_START", "FINISH_TO_FINISH", "RELATES_TO"] as const;
+type LinkType = (typeof DEP_TYPES)[number];
 
 function startOfDay(d: Date): Date {
   const r = new Date(d);
@@ -114,6 +118,14 @@ export function GanttChart({
   const [linkSourceId, setLinkSourceId] = useState<string | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
   const [linkError, setLinkError] = useState<LinkErrorKey | null>(null);
+  const [pendingLink, setPendingLink] = useState<{ sourceId: string; targetId: string } | null>(null);
+  const [linkType, setLinkType] = useState<LinkType>("FINISH_TO_START");
+  const [linkLag, setLinkLag] = useState(0);
+  const [linkLagUnit, setLinkLagUnit] = useState<"DAY" | "HOUR">("DAY");
+  const [depsOpen, setDepsOpen] = useState(false);
+  const [showCritical, setShowCritical] = useState(true);
+  const [depsBusy, setDepsBusy] = useState(false);
+  const [depEdits, setDepEdits] = useState<Record<string, { type: LinkType; lag: number; lagUnit: "DAY" | "HOUR" }>>({});
   const canEdit = report.canEdit ?? false;
 
   const rows = report.tasks;
@@ -322,7 +334,7 @@ export function GanttChart({
   };
 
   const startLink = (row: GanttRow) => {
-    if (linkBusy || row.isSummary || row.isMilestone) return;
+    if (linkBusy || pendingLink || row.isSummary || row.isMilestone) return;
     if (!linkSourceId) {
       setLinkSourceId(row.id);
       setLinkError(null);
@@ -332,23 +344,46 @@ export function GanttChart({
       setLinkSourceId(null);
       return;
     }
-    void createLink(linkSourceId, row.id);
+    // Second bar clicked — open the link dialog instead of creating instantly.
+    setLinkType("FINISH_TO_START");
+    setLinkLag(0);
+    setLinkLagUnit("DAY");
+    setPendingLink({ sourceId: linkSourceId, targetId: row.id });
+    setLinkError(null);
   };
 
-  const createLink = async (dependsOnId: string, taskId: string) => {
+  const cancelLink = () => {
+    setPendingLink(null);
+    setLinkSourceId(null);
+    setLinkError(null);
+  };
+
+  const createPendingLink = () => {
+    if (!pendingLink) return;
+    void createLink(pendingLink.sourceId, pendingLink.targetId, linkType, linkLag, linkLagUnit);
+  };
+
+  const createLink = async (
+    dependsOnId: string,
+    taskId: string,
+    type: LinkType,
+    lag: number,
+    lagUnit: "DAY" | "HOUR",
+  ) => {
     setLinkBusy(true);
     setLinkError(null);
     try {
       const res = await apiFetch(`/api/v1/projects/${projectId}/tasks/${taskId}/dependencies`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dependsOnId, type: "FINISH_TO_START", lag: 0 }),
+        body: JSON.stringify({ dependsOnId, type, lag, lagUnit }),
       });
       if (!res.ok) {
         const json = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
         setLinkError(linkErrorKey(json?.error?.code));
         return;
       }
+      setPendingLink(null);
       setLinkSourceId(null);
       onReload?.();
     } catch {
@@ -380,6 +415,79 @@ export function GanttChart({
     }
   };
 
+  const beginDepEdit = (link: GanttLink) => {
+    setDepEdits((prev) => ({
+      ...prev,
+      [link.id]: {
+        type: DEP_TYPES.includes(link.type as LinkType) ? (link.type as LinkType) : "FINISH_TO_START",
+        lag: link.lag,
+        lagUnit: link.lagUnit === "HOUR" ? "HOUR" : "DAY",
+      },
+    }));
+  };
+
+  // Edits are delete + recreate (the API has no dependency PATCH endpoint).
+  const saveDepEdit = async (link: GanttLink) => {
+    const edit = depEdits[link.id];
+    if (!edit || depsBusy) return;
+    setDepsBusy(true);
+    setLinkError(null);
+    try {
+      const del = await apiFetch(
+        `/api/v1/projects/${projectId}/tasks/${link.target}/dependencies/${link.source}?type=${link.type}`,
+        { method: "DELETE" },
+      );
+      if (!del.ok) {
+        const json = (await del.json().catch(() => null)) as { error?: { code?: string } } | null;
+        setLinkError(linkErrorKey(json?.error?.code));
+        return;
+      }
+      const res = await apiFetch(`/api/v1/projects/${projectId}/tasks/${link.target}/dependencies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dependsOnId: link.source, type: edit.type, lag: edit.lag, lagUnit: edit.lagUnit }),
+      });
+      if (!res.ok) {
+        const json = (await res.json().catch(() => null)) as { error?: { code?: string } } | null;
+        setLinkError(linkErrorKey(json?.error?.code));
+        return;
+      }
+      setDepEdits((prev) => {
+        const next = { ...prev };
+        delete next[link.id];
+        return next;
+      });
+      onReload?.();
+    } catch {
+      setLinkError("loadError");
+    } finally {
+      setDepsBusy(false);
+    }
+  };
+
+  const rowTitle = (id: string | null): string => {
+    if (!id) return "";
+    return rows.find((r) => r.id === id)?.title ?? id;
+  };
+
+  const typeLabel = (tp: string) => {
+    const map: Record<string, string> = {
+      FINISH_TO_START: "typeFS",
+      START_TO_START: "typeSS",
+      FINISH_TO_FINISH: "typeFF",
+      RELATES_TO: "typeRelates",
+    };
+    return t(`dependencies.${map[tp] ?? "typeFS"}`);
+  };
+
+  const hasCritical = report.tasks.some((r) => r.critical === true);
+  const toolbarButton = (active: boolean) =>
+    `px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
+      active
+        ? "border-accent bg-accent text-fg-inverse"
+        : "border-border-primary bg-bg-primary text-fg-secondary hover:bg-bg-surface"
+    }`;
+
   if (rows.length === 0) {
     return <div className="text-center py-12 text-fg-muted text-sm">{t("ganttNoTasks")}</div>;
   }
@@ -396,30 +504,246 @@ export function GanttChart({
 
   return (
     <div className="space-y-4">
-      {canEdit && (
-        <div className="flex flex-wrap items-center gap-3 text-sm">
+      <div className="flex flex-wrap items-center gap-3 text-sm">
+        {canEdit && (
           <button
             type="button"
             data-testid="gantt-link-toggle"
             onClick={toggleLinkMode}
             aria-pressed={linkMode}
-            className={`px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
-              linkMode
-                ? "border-accent bg-accent text-fg-inverse"
-                : "border-border-primary bg-bg-primary text-fg-secondary hover:bg-bg-surface"
-            }`}
+            className={toolbarButton(linkMode)}
           >
             {t("ganttLinkTasks")}
           </button>
-          {linkMode && (
-            <span className="text-xs text-fg-muted" role="status">
-              {t("ganttLinkHint")}
+        )}
+        <button
+          type="button"
+          data-testid="gantt-deps-toggle"
+          onClick={() => setDepsOpen((open) => !open)}
+          aria-pressed={depsOpen}
+          aria-expanded={depsOpen}
+          className={toolbarButton(depsOpen)}
+        >
+          {t("ganttDeps")} ({report.links.length})
+        </button>
+        {hasCritical && (
+          <button
+            type="button"
+            data-testid="gantt-critical-toggle"
+            onClick={() => setShowCritical((visible) => !visible)}
+            aria-pressed={showCritical}
+            className={toolbarButton(showCritical)}
+          >
+            {t("ganttCriticalPath")}
+          </button>
+        )}
+        {linkMode && (
+          <span className="text-xs text-fg-muted" role="status">
+            {t("ganttLinkHint")}
+          </span>
+        )}
+        {linkError && (
+          <span className="text-xs text-destructive" role="alert">
+            {t(`dependencies.${linkError}`)}
+          </span>
+        )}
+      </div>
+
+      {pendingLink && (
+        <form
+          data-testid="gantt-link-dialog"
+          role="dialog"
+          aria-label={t("ganttLinkTitle")}
+          onSubmit={(e) => {
+            e.preventDefault();
+            createPendingLink();
+          }}
+          className="flex flex-wrap items-end gap-3 rounded-lg border border-border-primary bg-bg-secondary/50 p-3 text-sm"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold uppercase tracking-wide text-fg-muted">{t("ganttLinkTitle")}</div>
+            <div className="truncate text-xs text-fg-primary">
+              {rowTitle(linkSourceId)} <span className="text-fg-muted">→</span> {rowTitle(pendingLink.targetId)}
+            </div>
+          </div>
+          <label className="text-xs text-fg-muted">
+            {t("dependencies.title")}
+            <select
+              value={linkType}
+              onChange={(ev) => setLinkType(ev.target.value as LinkType)}
+              data-testid="gantt-link-type"
+              className="mt-1 block w-full text-sm bg-bg-primary border border-border rounded px-2 py-1 text-fg-primary"
+            >
+              {DEP_TYPES.map((tp) => (
+                <option key={tp} value={tp}>
+                  {typeLabel(tp)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-xs text-fg-muted">
+            {t("dependencies.lag")}
+            <input
+              type="number"
+              value={linkLag}
+              onChange={(ev) => setLinkLag(Number(ev.target.value))}
+              data-testid="gantt-link-lag"
+              className="mt-1 block w-20 text-sm bg-bg-primary border border-border rounded px-2 py-1 text-fg-primary"
+            />
+          </label>
+          <label className="text-xs text-fg-muted">
+            {t("ganttLinkLagUnit")}
+            <select
+              value={linkLagUnit}
+              onChange={(ev) => setLinkLagUnit(ev.target.value as "DAY" | "HOUR")}
+              data-testid="gantt-link-lag-unit"
+              className="mt-1 block w-full text-sm bg-bg-primary border border-border rounded px-2 py-1 text-fg-primary"
+            >
+              <option value="DAY">{t("dependencies.lagUnitDay")}</option>
+              <option value="HOUR">{t("dependencies.lagUnitHour")}</option>
+            </select>
+          </label>
+          <button
+            type="submit"
+            data-testid="gantt-link-create"
+            disabled={linkBusy}
+            className="px-3 py-1.5 rounded-md bg-accent text-fg-inverse text-sm font-medium hover:opacity-90 disabled:opacity-40"
+          >
+            {t("ganttLinkCreate")}
+          </button>
+          <button
+            type="button"
+            data-testid="gantt-link-cancel"
+            onClick={cancelLink}
+            className="px-3 py-1.5 rounded-md border border-border-primary bg-bg-primary text-fg-secondary text-sm font-medium hover:bg-bg-surface"
+          >
+            {t("ganttLinkCancel")}
+          </button>
+        </form>
+      )}
+
+      {depsOpen && (
+        <div data-testid="gantt-deps-panel" className="rounded-lg border border-border-primary p-3 text-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+              {t("ganttDeps")} ({report.links.length})
             </span>
-          )}
-          {linkError && (
-            <span className="text-xs text-destructive" role="alert">
-              {t(`dependencies.${linkError}`)}
-            </span>
+            {depsBusy && <span className="text-xs text-fg-muted">{t("loading")}</span>}
+          </div>
+          {report.links.length === 0 ? (
+            <p className="text-sm text-fg-muted">{t("dependencies.none")}</p>
+          ) : (
+            <ul className="space-y-2">
+              {report.links.map((link) => {
+                const edit = depEdits[link.id];
+                return (
+                  <li
+                    key={link.id}
+                    data-testid="gantt-dep-row"
+                    data-link-id={link.id}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    <span className="min-w-0 flex-1 text-xs">
+                      <span className="font-medium text-fg-primary">{rowTitle(link.source)}</span>
+                      <span className="mx-1.5 text-fg-muted">→</span>
+                      <span className="text-fg-secondary">{rowTitle(link.target)}</span>
+                    </span>
+                    {canEdit && edit ? (
+                      <>
+                        <select
+                          data-testid="gantt-dep-type"
+                          value={edit.type}
+                          onChange={(ev) =>
+                            setDepEdits((prev) => ({ ...prev, [link.id]: { ...edit, type: ev.target.value as LinkType } }))
+                          }
+                          className="text-xs bg-bg-primary border border-border rounded px-1 py-1 text-fg-primary"
+                        >
+                          {DEP_TYPES.map((tp) => (
+                            <option key={tp} value={tp}>
+                              {typeLabel(tp)}
+                            </option>
+                          ))}
+                        </select>
+                        <input
+                          data-testid="gantt-dep-lag"
+                          type="number"
+                          value={edit.lag}
+                          onChange={(ev) =>
+                            setDepEdits((prev) => ({ ...prev, [link.id]: { ...edit, lag: Number(ev.target.value) } }))
+                          }
+                          className="w-16 text-xs bg-bg-primary border border-border rounded px-1 py-1 text-fg-primary"
+                        />
+                        <select
+                          data-testid="gantt-dep-lag-unit"
+                          value={edit.lagUnit}
+                          onChange={(ev) =>
+                            setDepEdits((prev) => ({
+                              ...prev,
+                              [link.id]: { ...edit, lagUnit: ev.target.value as "DAY" | "HOUR" },
+                            }))
+                          }
+                          className="text-xs bg-bg-primary border border-border rounded px-1 py-1 text-fg-primary"
+                        >
+                          <option value="DAY">{t("dependencies.lagUnitDay")}</option>
+                          <option value="HOUR">{t("dependencies.lagUnitHour")}</option>
+                        </select>
+                        <button
+                          type="button"
+                          data-testid="gantt-dep-save"
+                          onClick={() => void saveDepEdit(link)}
+                          disabled={depsBusy}
+                          className="px-2 py-1 rounded bg-accent text-fg-inverse text-xs font-medium hover:opacity-90 disabled:opacity-40"
+                        >
+                          {t("ganttDepsSave")}
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="gantt-dep-cancel"
+                          onClick={() =>
+                            setDepEdits((prev) => {
+                              const next = { ...prev };
+                              delete next[link.id];
+                              return next;
+                            })
+                          }
+                          className="px-2 py-1 rounded border border-border-primary text-xs text-fg-secondary hover:bg-bg-surface"
+                        >
+                          {t("ganttLinkCancel")}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-xs text-fg-muted">
+                          {typeLabel(link.type)}
+                          <span className="font-mono">{linkLagSuffix(link)}</span>
+                        </span>
+                        {canEdit && (
+                          <>
+                            <button
+                              type="button"
+                              data-testid="gantt-dep-edit"
+                              onClick={() => beginDepEdit(link)}
+                              className="text-xs text-fg-muted hover:text-accent"
+                            >
+                              {t("ganttDepsEdit")}
+                            </button>
+                            <button
+                              type="button"
+                              data-testid="gantt-dep-remove"
+                              onClick={() => void removeLink(link)}
+                              disabled={linkBusy}
+                              className="text-xs text-fg-muted hover:text-destructive disabled:opacity-40"
+                            >
+                              {t("dependencies.remove")}
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
       )}
@@ -544,6 +868,21 @@ export function GanttChart({
                     >
                       {invalid ? <title>{t("ganttInvalidDep")}</title> : null}
                     </path>
+                    <text
+                      x={mx}
+                      y={(y1 + y2) / 2 - 5}
+                      textAnchor="middle"
+                      className="fill-fg-subtle stroke-bg-primary font-mono"
+                      style={{
+                        fontSize: 10,
+                        paintOrder: "stroke",
+                        strokeWidth: 3,
+                        strokeLinejoin: "round",
+                        pointerEvents: "none",
+                      }}
+                    >
+                      {linkShortLabel(link)}
+                    </text>
                   </g>
                 );
               })}
@@ -600,8 +939,8 @@ export function GanttChart({
                     {row.isMilestone && start ? (
                       <div
                         className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 rotate-45 bg-accent border border-bg-surface ${
-                          isDelayed(row) ? "ring-2 ring-danger" : ""
-                        }`}
+                          isCritical && showCritical ? "ring-2 ring-danger" : ""
+                        } ${isDelayed(row) ? "ring-2 ring-danger" : ""}`}
                         style={{ left: `${dayPos(start, DAY_WIDTH) + DAY_WIDTH / 2 - 8}px` }}
                         title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : row.title}
                       />
@@ -625,7 +964,7 @@ export function GanttChart({
                         className={`absolute top-2.5 h-7 select-none touch-none rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} shadow-sm ${
                           linkMode ? "cursor-pointer" : "cursor-grab"
                         } hover:opacity-80 ${
-                          isCritical ? "ring-2 ring-danger" : ""
+                          isCritical && showCritical ? "ring-2 ring-danger" : ""
                         } ${isDelayed(row) ? "ring-2 ring-danger" : ""} ${
                           linkSourceId === row.id ? "ring-2 ring-accent" : ""
                         }`}
@@ -668,7 +1007,7 @@ export function GanttChart({
                         data-testid="gantt-task-bar"
                         data-task-id={row.id}
                         className={`absolute top-2.5 h-7 rounded-md ${STATUS_COLORS[row.status] ?? "bg-info"} border border-fg-primary/40 shadow-sm ${
-                          isCritical ? "ring-2 ring-danger" : ""
+                          isCritical && showCritical ? "ring-2 ring-danger" : ""
                         } ${isDelayed(row) ? "ring-2 ring-danger" : ""}`}
                         style={{ left: `${barLeft}px`, width: `${width}px` }}
                         title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : row.title}

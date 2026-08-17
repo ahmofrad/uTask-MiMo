@@ -239,8 +239,14 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
     data: updateData,
   });
 
+  // Schedule guard: when a task's dates change, push its dependents forward
+  // so the dependency constraints still hold. Runs for every date change (the
+  // guard only ever moves tasks later, never earlier).
+  let autoScheduled: string[] = [];
   if (before && (data.startDate !== undefined || data.dueDate !== undefined)) {
     await bumpScheduleVersion(before.projectId);
+    const { autoScheduleDependents } = await import("@/lib/scheduling/auto-schedule");
+    autoScheduled = await autoScheduleDependents(before.projectId, id, actorId);
   }
 
   if (data.tagIds) {
@@ -277,7 +283,7 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
     await notifyUnblocked(task.id, actorId ?? task.createdById);
   }
 
-  return { before, task };
+  return { before, task, autoScheduled };
 }
 
 export async function deleteTask(id: string) {

@@ -63,7 +63,10 @@ test.describe("Gantt timeline", () => {
     const chartCount = await charts.count();
     let chartsWithLegend = 0;
     for (let index = 0; index < chartCount; index += 1) {
-      const criticalPathCount = await charts.nth(index).locator("..").getByText("Critical path", { exact: true }).count();
+      // Scope to the legend container: the critical-path toggle button in the
+      // toolbar shares the same label text.
+      const legend = charts.nth(index).locator("..").getByText("Legend", { exact: true }).locator("..");
+      const criticalPathCount = await legend.getByText("Critical path", { exact: true }).count();
       expect(criticalPathCount).toBeLessThanOrEqual(1);
       if (criticalPathCount === 1) chartsWithLegend += 1;
     }
@@ -578,13 +581,23 @@ test.describe("Gantt timeline", () => {
     const chart = page.getByTestId("gantt-scroll-container").first();
     await expect(chart).toBeVisible();
 
+    // The critical-path toggle is available (the seeded project has a critical
+    // task) and flips between the highlighted and plain state.
+    const criticalToggle = page.getByTestId("gantt-critical-toggle");
+    await expect(criticalToggle).toBeVisible();
+    await criticalToggle.click();
+    await expect(criticalToggle).toHaveAttribute("aria-pressed", "false");
+    await criticalToggle.click();
+    await expect(criticalToggle).toHaveAttribute("aria-pressed", "true");
+
     // Link mode toggle only shows for users who can edit the project.
     const toggle = page.getByTestId("gantt-link-toggle");
     await expect(toggle).toBeVisible();
     await toggle.click();
     await expect(page.getByText("Click a task to set it as the predecessor", { exact: false })).toBeVisible();
 
-    // Click the source bar, then the dependent bar. The POST carries the FS edge.
+    // Click the source bar, then the dependent bar. The dialog opens instead
+    // of creating the edge instantly; confirming posts the FS edge.
     const sourceBar = chart.locator(`[data-testid="gantt-task-bar"][data-task-id="${sourceId}"]`);
     const targetBar = chart.locator(`[data-testid="gantt-task-bar"][data-task-id="${targetId}"]`);
     await expect(sourceBar).toBeVisible();
@@ -597,22 +610,53 @@ test.describe("Gantt timeline", () => {
     await sourceBar.click();
     await expect(sourceBar).toHaveAttribute("aria-pressed", "true");
     await targetBar.click();
+    const dialog = page.getByTestId("gantt-link-dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByTestId("gantt-link-create").click();
     const postPayload = JSON.parse((await postRequest).postData() ?? "{}");
-    expect(postPayload).toEqual({ dependsOnId: sourceId, type: "FINISH_TO_START", lag: 0 });
+    expect(postPayload).toEqual({ dependsOnId: sourceId, type: "FINISH_TO_START", lag: 0, lagUnit: "DAY" });
 
-    // After reload, the arrow connecting the two tasks appears.
+    // After reload, the arrow connecting the two tasks appears (with its label).
     const arrow = chart.locator(
       `[data-testid="gantt-link-arrow"][data-link-source="${sourceId}"][data-link-target="${targetId}"]`,
     );
     await expect(arrow).toBeVisible();
+    await expect(arrow).toContainText("FS");
 
-    // Clicking the arrow deletes the dependency.
+    // The dependencies panel lists the link; edit it to SS + 2 days lag.
+    await page.getByTestId("gantt-deps-toggle").click();
+    const panel = page.getByTestId("gantt-deps-panel");
+    await expect(panel).toBeVisible();
+    const depRow = panel.getByTestId("gantt-dep-row").first();
+    await expect(depRow).toBeVisible();
+    await expect(depRow.getByText("Finish to Start", { exact: false })).toBeVisible();
+    await depRow.getByTestId("gantt-dep-edit").click();
+    await depRow.getByTestId("gantt-dep-type").selectOption("START_TO_START");
+    await depRow.getByTestId("gantt-dep-lag").fill("2");
     const deleteRequest = page.waitForRequest((request) => (
       request.method() === "DELETE"
       && request.url().includes(`/api/v1/projects/${projectId}/tasks/${targetId}/dependencies/${sourceId}`)
     ));
-    await arrow.click();
+    const editPostRequest = page.waitForRequest((request) => (
+      request.method() === "POST"
+      && request.url().includes(`/api/v1/projects/${projectId}/tasks/${targetId}/dependencies`)
+    ));
+    await depRow.getByTestId("gantt-dep-save").click();
     await deleteRequest;
+    const editPayload = JSON.parse((await editPostRequest).postData() ?? "{}");
+    expect(editPayload).toEqual({ dependsOnId: sourceId, type: "START_TO_START", lag: 2, lagUnit: "DAY" });
+
+    // After reload the arrow reflects the edited edge and stays clickable.
+    await expect(arrow).toBeVisible();
+    await expect(arrow).toContainText("SS");
+
+    // Clicking the arrow deletes the dependency.
+    const arrowDeleteRequest = page.waitForRequest((request) => (
+      request.method() === "DELETE"
+      && request.url().includes(`/api/v1/projects/${projectId}/tasks/${targetId}/dependencies/${sourceId}`)
+    ));
+    await arrow.click();
+    await arrowDeleteRequest;
     await expect(arrow).toBeHidden();
 
     // Toggling link mode off returns the chart to normal drag state.

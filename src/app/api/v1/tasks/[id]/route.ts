@@ -101,10 +101,12 @@ export async function PATCH(
 
   let before: Awaited<ReturnType<typeof updateTask>>["before"];
   let task: Awaited<ReturnType<typeof updateTask>>["task"];
+  let autoScheduled: string[] = [];
   try {
     const result = await updateTask(resolvedParams.id, data, userId);
     before = result.before;
     task = result.task;
+    autoScheduled = result.autoScheduled ?? [];
   } catch (err) {
     if (err instanceof DependencyBlockedError) {
       return NextResponse.json(
@@ -139,7 +141,7 @@ export async function PATCH(
   const { logger } = await import("@/lib/logging");
   logger.info({ taskId: resolvedParams.id, customFieldValues, hasCustomFields: !!data.customFields }, "PATCH task with custom fields");
 
-  return NextResponse.json({ data: { ...task, customFields: customFieldValues } });
+  return NextResponse.json({ data: { ...task, customFields: customFieldValues, autoScheduled } });
 }
 
 export async function DELETE(

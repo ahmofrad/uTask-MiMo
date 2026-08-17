@@ -48,9 +48,11 @@ maybe("moveTask (integration)", () => {
   });
 
   it("reparents a leaf and recomputes WBS codes", async () => {
-    const a = await mkTask(projectId, "A");
-    const b = await mkTask(projectId, "B");
-    const a1 = await mkTask(projectId, "A1", { parentTaskId: a });
+    // Explicit orderIndex values: sibling order is decided by orderIndex, and
+    // Postgres does not guarantee a tiebreak for equal values.
+    const a = await mkTask(projectId, "A", { orderIndex: 1000 });
+    const b = await mkTask(projectId, "B", { orderIndex: 2000 });
+    const a1 = await mkTask(projectId, "A1", { parentTaskId: a, orderIndex: 1500 });
 
     await moveTask(a1, { newParentId: b, position: Number.MAX_SAFE_INTEGER });
 
