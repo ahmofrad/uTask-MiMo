@@ -2,8 +2,6 @@ import { test, expect } from "@playwright/test";
 import { prisma } from "@/lib/db";
 import { toJalali, getMonthName } from "@/lib/date/jalali";
 
-const TASK = "00000000-0000-4000-8000-000000000100";
-
 // The date picker opens on the field's stored Jalali month (or the current
 // month when the field is empty), so derive the expected month from the task's
 // actual dates rather than hardcoding a month name that drifts with the seed.
@@ -27,8 +25,13 @@ test.describe("Tasks", () => {
   });
 
   test("groups start, due, and end dates and saves picker values", async ({ page }) => {
+    // Resolve the seeded fixture task by title instead of hardcoding its UUID.
+    const task = await prisma.task.findFirstOrThrow({
+      where: { title: "Fix login page SSL error" },
+      select: { id: true, startDate: true, dueDate: true, endDate: true },
+    });
     const patchBodies: Record<string, unknown>[] = [];
-    await page.route(`**/api/v1/tasks/${TASK}`, async (route) => {
+    await page.route(`**/api/v1/tasks/${task.id}`, async (route) => {
       if (route.request().method() !== "PATCH") {
         await route.continue();
         return;
@@ -42,13 +45,9 @@ test.describe("Tasks", () => {
       });
     });
 
-    const stored = await prisma.task.findUniqueOrThrow({
-      where: { id: TASK },
-      select: { startDate: true, dueDate: true, endDate: true },
-    });
-    const months = [pickerMonth(stored.startDate), pickerMonth(stored.dueDate), pickerMonth(stored.endDate)];
+    const months = [pickerMonth(task.startDate), pickerMonth(task.dueDate), pickerMonth(task.endDate)];
 
-    await page.goto(`/en-US/tasks/${TASK}`);
+    await page.goto(`/en-US/tasks/${task.id}`);
     const dateCard = page.getByRole("heading", { name: "Date & Duration" }).locator("..");
     await expect(dateCard).toBeVisible();
     await expect(dateCard.locator("label")).toHaveText(["Start Date", "Due date", "End Date", "Duration"]);

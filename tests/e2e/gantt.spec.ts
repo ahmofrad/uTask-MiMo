@@ -14,6 +14,16 @@ type GanttTestResponse = {
   data: Record<string, { tasks: GanttTestTask[]; criticalChain?: string[] }>;
 };
 
+// Resolve the seeded Product Launch project and its task fixtures from the
+// database by name/title rather than hardcoding their UUIDs.
+async function seededProjectId(name: string) {
+  return (await prisma.project.findFirstOrThrow({ where: { name }, select: { id: true } })).id;
+}
+
+async function seededTaskId(title: string) {
+  return (await prisma.task.findFirstOrThrow({ where: { title }, select: { id: true } })).id;
+}
+
 test.describe("Gantt timeline", () => {
   test("keeps task names visible while the timeline scrolls horizontally", async ({ page }) => {
     await page.goto("/en-US");
@@ -550,9 +560,9 @@ test.describe("Gantt timeline", () => {
   });
 
   test("links two tasks by clicking their bars and removes the link by clicking the arrow", async ({ page }) => {
-    const projectId = "00000000-0000-4000-8000-000000000012";
-    const sourceId = "00000000-0000-4000-8000-000000000110";
-    const targetId = "00000000-0000-4000-8000-000000000111";
+    const projectId = await seededProjectId("Product Launch");
+    const sourceId = await seededTaskId("Finalize launch checklist");
+    const targetId = await seededTaskId("Prepare marketing materials");
 
     // Pin the two tasks to well-separated dates so their bars never overlap
     // (the seeded due dates would stack the target bar under the source bar).
@@ -670,7 +680,7 @@ test.describe("Gantt timeline", () => {
   });
 
   test("remembers zoom and panel toggles across reloads", async ({ page }) => {
-    const projectId = "00000000-0000-4000-8000-000000000012";
+    const projectId = await seededProjectId("Product Launch");
     await page.goto(`/en-US/projects/${projectId}`);
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     await expect(page.getByTestId("gantt-scroll-container").first()).toBeVisible();
@@ -691,7 +701,7 @@ test.describe("Gantt timeline", () => {
   });
 
   test("exports the chart as a PNG and a PDF download", async ({ page }) => {
-    const projectId = "00000000-0000-4000-8000-000000000012";
+    const projectId = await seededProjectId("Product Launch");
     await page.goto(`/en-US/projects/${projectId}`);
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     await expect(page.getByTestId("gantt-scroll-container").first()).toBeVisible();

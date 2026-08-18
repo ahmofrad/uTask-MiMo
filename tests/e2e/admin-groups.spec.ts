@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { prisma } from "@/lib/db";
 
 // Tests in this file mutate the same seeded groups (e.g. add/remove
 // member@utask.local on Engineering Team), so they must not run in parallel
@@ -148,10 +149,14 @@ test.describe("Admin Groups", () => {
     await page.waitForTimeout(1200);
 
     // Sara is already in the group: the member list shows exactly one row for
-    // her and the suggestions list stays empty (no duplicate is possible).
+    // her and the suggestions list stays empty (no duplicate is possible). The
+    // member count comes from the DB so it tracks seed membership changes.
+    const memberCount = await prisma.ldapGroupMembership.count({
+      where: { ldapSyncGroupId: (await prisma.ldapSyncGroup.findUniqueOrThrow({ where: { dn: "cn=engineering-team,dc=company,dc=local" }, select: { id: true } })).id },
+    });
     await expect(page.getByText("sara@utask.local")).toHaveCount(1);
     await expect(page.locator("div.relative ul li")).toHaveCount(0);
-    await expect(row).toContainText("4 members");
+    await expect(row).toContainText(`${memberCount} members`);
   });
 
   test("permission-denied on the Groups page for a non-admin", async ({ browser }) => {

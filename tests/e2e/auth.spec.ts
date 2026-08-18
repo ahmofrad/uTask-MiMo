@@ -1,4 +1,16 @@
 import { test, expect } from "@playwright/test";
+import { prisma } from "@/lib/db";
+
+// The seeded AD source fixture, resolved by id so the display name asserted in
+// the picker options below always matches what the seed actually created.
+async function seededSourceName() {
+  return (
+    await prisma.ldapSource.findUniqueOrThrow({
+      where: { id: "00000000-0000-4000-8000-000000000031" },
+      select: { name: true },
+    })
+  ).name;
+}
 
 test.describe("Authentication", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
@@ -77,6 +89,7 @@ test.describe("Active Directory directory picker", () => {
 
   test("login lists enabled AD sources in the directory picker", async ({ page, request }) => {
     await deleteTestSources(request);
+    const seededName = await seededSourceName();
     await setSeededSourceEnabled(request, true);
 
     try {
@@ -87,7 +100,7 @@ test.describe("Active Directory directory picker", () => {
       // first match (see admin-groups.spec.ts).
       const provider = page.locator("#provider").first();
       await expect(provider).toBeVisible();
-      await expect(provider.locator("option")).toContainText(["Local login", "Company Directory"]);
+      await expect(provider.locator("option")).toContainText(["Local login", seededName]);
       // With a single enabled source the selector stays a plain login-method
       // choice (not yet an explicit directory picker).
       await expect(page.getByLabel(/login method/i).first()).toBeVisible();
@@ -99,6 +112,7 @@ test.describe("Active Directory directory picker", () => {
 
   test("login shows an explicit directory picker when 2 sources are enabled", async ({ page, request }) => {
     await deleteTestSources(request);
+    const seededName = await seededSourceName();
     await setSeededSourceEnabled(request, true);
 
     // Create a second enabled source via the admin API (CSRF from the request
@@ -127,7 +141,7 @@ test.describe("Active Directory directory picker", () => {
       await expect(provider).toBeVisible();
       // Both directories appear as options, and the label switches to the
       // explicit "Directory" picker.
-      await expect(provider.locator("option")).toContainText(["Local login", "Company Directory", name]);
+      await expect(provider.locator("option")).toContainText(["Local login", seededName, name]);
       await expect(page.getByLabel(/directory/i).first()).toBeVisible();
       await expect(page.getByLabel(/login method/i)).toHaveCount(0);
     } finally {

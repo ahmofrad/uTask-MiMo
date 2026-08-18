@@ -1,12 +1,15 @@
 import { test, expect } from "@playwright/test";
 import { prisma } from "@/lib/db";
 
-// Work project (not the Product Launch project the gantt link test mutates, so
-// the specs can run in parallel workers without racing over the same rows).
-const PROJECT = "00000000-0000-4000-8000-000000000010"; // Work
-const TASK_PRED = "00000000-0000-4000-8000-000000000100"; // Fix login page SSL error (in_progress)
-const TASK_DEP = "00000000-0000-4000-8000-000000000101"; // Design new dashboard layout (open)
-const TASK_OTHER = "00000000-0000-4000-8000-000000000103"; // Investigate DB pool leak
+// Seeded fixtures resolved from the database by name/title in beforeAll rather
+// than hardcoded UUIDs. The Work project is used (not Product Launch, which the
+// gantt link test mutates) so the specs can run in parallel workers without
+// racing over the same rows.
+let PROJECT = "";
+let TASK_PRED = "";
+let TASK_DEP = "";
+let TASK_OTHER = "";
+let ADMIN_ID = "";
 
 async function createDep(taskId: string, dependsOnId: string) {
   // Idempotent. The unique index covers (taskId, dependsOnId, type) without a
@@ -20,7 +23,7 @@ async function createDep(taskId: string, dependsOnId: string) {
       type: "FINISH_TO_START",
       lag: 0,
       lagUnit: "DAY",
-      createdBy: "00000000-0000-4000-8000-000000000010",
+      createdBy: ADMIN_ID,
     },
   });
 }
@@ -29,6 +32,17 @@ test.describe("Dependency flows", () => {
   // These tests mutate the same seeded tasks, so they must not run in
   // parallel workers (fullyParallel is on globally).
   test.describe.configure({ mode: "serial" });
+
+  test.beforeAll(async () => {
+    const work = await prisma.project.findFirstOrThrow({ where: { name: "Work" }, select: { id: true } });
+    PROJECT = work.id;
+    const byTitle = async (title: string) =>
+      (await prisma.task.findFirstOrThrow({ where: { title, projectId: work.id }, select: { id: true } })).id;
+    TASK_PRED = await byTitle("Fix login page SSL error");
+    TASK_DEP = await byTitle("Design new dashboard layout");
+    TASK_OTHER = await byTitle("Investigate database connection pool leak");
+    ADMIN_ID = (await prisma.user.findUniqueOrThrow({ where: { email: "admin@utask.local" }, select: { id: true } })).id;
+  });
 
   test.afterEach(async () => {
     await prisma.taskDependency.deleteMany({ where: { taskId: { in: [TASK_PRED, TASK_DEP, TASK_OTHER] } } });
