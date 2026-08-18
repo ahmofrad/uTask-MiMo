@@ -573,6 +573,11 @@
     "ganttZoomSmall": "Small",
     "ganttZoomMedium": "Medium",
     "ganttZoomLarge": "Large",
+    "ganttExport": "Export",
+    "ganttExportFormat": "Format",
+    "ganttExportStart": "Start",
+    "ganttExportEnd": "End",
+    "ganttExportSubmit": "Export",
     "ganttExportPng": "PNG",
     "ganttExportPdf": "PDF"
   },

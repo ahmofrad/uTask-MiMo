@@ -706,13 +706,26 @@ test.describe("Gantt timeline", () => {
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     await expect(page.getByTestId("gantt-scroll-container").first()).toBeVisible();
 
+    // One Export button opens a dialog with the format and date-range choices;
+    // the default window is the current Jalali month.
+    await page.getByTestId("gantt-export").click();
+    const dialog = page.getByTestId("gantt-export-dialog");
+    await expect(dialog).toBeVisible();
+    await expect(page.getByTestId("gantt-export-format-png")).toBeChecked();
+    // The start picker is prefilled with the first day of the current month.
+    await expect(page.getByTestId("gantt-export-start").locator("button").first()).toContainText(
+      String(new Date().getFullYear()),
+    );
+
     const pngDownloadPromise = page.waitForEvent("download");
-    await page.getByTestId("gantt-export-png").click();
+    await page.getByTestId("gantt-export-submit").click();
     const pngDownload = await pngDownloadPromise;
     expect(pngDownload.suggestedFilename()).toBe("gantt.png");
 
+    await page.getByTestId("gantt-export").click();
+    await page.getByTestId("gantt-export-format-pdf").check();
     const pdfDownloadPromise = page.waitForEvent("download");
-    await page.getByTestId("gantt-export-pdf").click();
+    await page.getByTestId("gantt-export-submit").click();
     const pdfDownload = await pdfDownloadPromise;
     expect(pdfDownload.suggestedFilename()).toBe("gantt.pdf");
   });

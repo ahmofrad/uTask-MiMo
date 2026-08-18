@@ -75,4 +75,20 @@ describe("buildGanttExportSvg", () => {
     // Aug 2026 spans two Jalali months (Mordad/Shahrivar or their en names).
     expect(svg.match(/<text x="[^"]+" y="24"/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
   });
+
+  it("honors an explicit date range for the timeline", () => {
+    // Without a range the span is padded (-7/+90 days) around the task dates;
+    // with one, the timeline is exactly the requested window: 31 days of Aug
+    // 2026 * 52px + 288px left column = 1900px wide.
+    const svg = buildGanttExportSvg({
+      report,
+      locale: "en-US",
+      palette: FALLBACK_PALETTE,
+      rangeStart: new Date("2026-08-01T00:00:00Z"),
+      rangeEnd: new Date("2026-08-31T00:00:00Z"),
+    });
+    expect(svg).toContain('width="1900"');
+    // August always spans exactly two Jalali months, so two header blocks.
+    expect(svg.match(/<text x="[^"]+" y="24"/g)?.length ?? 0).toBe(2);
+  });
 });

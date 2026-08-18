@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { toJalali, getMonthName } from "@/lib/date/jalali";
+import { toJalali, toGregorian, getMonthName, getDaysInMonth } from "@/lib/date/jalali";
 import { formatNumber, type Locale } from "@/lib/date/format";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 import { useToast } from "@/components/ui/toast";
+import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
 import { linkShortLabel, linkLagSuffix } from "@/lib/gantt/links";
 import { exportGanttAsPdf, exportGanttAsPng } from "@/lib/gantt/export";
@@ -23,6 +24,24 @@ import {
 const BOX_WIDTH = 64;
 const LEFT_WIDTH = 288;
 const ROW_HEIGHT = 52;
+
+function toDateOnly(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function parseDateOnly(value: string): Date {
+  return new Date(`${value}T00:00:00`);
+}
+
+// First and last day of the current Jalali month — the default export window.
+function currentMonthRange(): { start: string; end: string } {
+  const now = toJalali(new Date());
+  return {
+    start: toDateOnly(toGregorian(now.jy, now.jm, 1)),
+    end: toDateOnly(toGregorian(now.jy, now.jm, getDaysInMonth(now.jy, now.jm))),
+  };
+}
 
 const GANTT_PREFS_KEY = "ganttPrefs:v1";
 const ZOOM_OPTIONS = [
@@ -136,6 +155,10 @@ export function GanttChart({
   const [showCritical, setShowCritical] = useState(true);
   const [dayWidth, setDayWidth] = useState(52);
   const [exporting, setExporting] = useState<"png" | "pdf" | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"png" | "pdf">("png");
+  const [exportStart, setExportStart] = useState(currentMonthRange().start);
+  const [exportEnd, setExportEnd] = useState(currentMonthRange().end);
 
   // View preferences are remembered per browser (zoom + panel toggles). Read
   // after mount so server and client render the same initial markup.
@@ -400,16 +423,27 @@ export function GanttChart({
     setExporting(format);
     setLinkError(null);
     try {
+      const range = { rangeStart: parseDateOnly(exportStart), rangeEnd: parseDateOnly(exportEnd) };
       if (format === "png") {
-        await exportGanttAsPng({ report, locale });
+        await exportGanttAsPng({ report, locale, ...range });
       } else {
-        await exportGanttAsPdf({ report, locale });
+        await exportGanttAsPdf({ report, locale, ...range });
       }
+      setExportOpen(false);
     } catch {
       setLinkError("loadError");
     } finally {
       setExporting(null);
     }
+  };
+
+  const openExportDialog = () => {
+    // Reset to the current month each time the dialog opens.
+    const range = currentMonthRange();
+    setExportStart(range.start);
+    setExportEnd(range.end);
+    setExportFormat("png");
+    setExportOpen(true);
   };
 
   const startLink = (row: GanttRow) => {
@@ -633,21 +667,12 @@ export function GanttChart({
         </label>
         <button
           type="button"
-          data-testid="gantt-export-png"
-          onClick={() => void doExport("png")}
+          data-testid="gantt-export"
+          onClick={openExportDialog}
           disabled={exporting !== null}
           className="px-3 py-1.5 rounded-md border border-border-primary bg-bg-primary text-fg-secondary text-sm font-medium hover:bg-bg-surface disabled:opacity-40"
         >
-          {exporting === "png" ? tc("common.loading") : t("ganttExportPng")}
-        </button>
-        <button
-          type="button"
-          data-testid="gantt-export-pdf"
-          onClick={() => void doExport("pdf")}
-          disabled={exporting !== null}
-          className="px-3 py-1.5 rounded-md border border-border-primary bg-bg-primary text-fg-secondary text-sm font-medium hover:bg-bg-surface disabled:opacity-40"
-        >
-          {exporting === "pdf" ? tc("common.loading") : t("ganttExportPdf")}
+          {t("ganttExport")}
         </button>
         {linkMode && (
           <span className="text-xs text-fg-muted" role="status">
@@ -660,6 +685,74 @@ export function GanttChart({
           </span>
         )}
       </div>
+
+      {exportOpen && (
+        <form
+          data-testid="gantt-export-dialog"
+          role="dialog"
+          aria-label={t("ganttExport")}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void doExport(exportFormat);
+          }}
+          className="flex flex-wrap items-end gap-3 rounded-lg border border-border-primary bg-bg-secondary/50 p-3 text-sm"
+        >
+          <fieldset className="flex flex-col gap-1">
+            <legend className="text-xs text-fg-muted mb-1">{t("ganttExportFormat")}</legend>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-1.5 text-fg-primary">
+                <input
+                  type="radio"
+                  name="gantt-export-format"
+                  data-testid="gantt-export-format-png"
+                  value="png"
+                  checked={exportFormat === "png"}
+                  onChange={() => setExportFormat("png")}
+                  className="accent-accent"
+                />
+                {t("ganttExportPng")}
+              </label>
+              <label className="flex items-center gap-1.5 text-fg-primary">
+                <input
+                  type="radio"
+                  name="gantt-export-format"
+                  data-testid="gantt-export-format-pdf"
+                  value="pdf"
+                  checked={exportFormat === "pdf"}
+                  onChange={() => setExportFormat("pdf")}
+                  className="accent-accent"
+                />
+                {t("ganttExportPdf")}
+              </label>
+            </div>
+          </fieldset>
+          <label className="flex flex-col gap-1 text-xs text-fg-muted">
+            {t("ganttExportStart")}
+            <JalaliDatePicker value={exportStart} onChange={(v) => v && setExportStart(v)} className="w-40" testId="gantt-export-start" />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-fg-muted">
+            {t("ganttExportEnd")}
+            <JalaliDatePicker value={exportEnd} onChange={(v) => v && setExportEnd(v)} className="w-40" testId="gantt-export-end" />
+          </label>
+          <div className="flex items-center gap-2 ms-auto">
+            <button
+              type="button"
+              onClick={() => setExportOpen(false)}
+              className="px-3 py-1.5 rounded-md border border-border-primary bg-bg-primary text-fg-secondary text-sm font-medium hover:bg-bg-surface"
+            >
+              {t("common.cancel")}
+            </button>
+            <button
+              type="submit"
+              data-testid="gantt-export-submit"
+              disabled={exporting !== null}
+              className="px-3 py-1.5 rounded-md border border-border-primary bg-bg-surface text-fg-primary text-sm font-medium hover:bg-bg-surface-2 disabled:opacity-40"
+            >
+              {exporting ? tc("common.loading") : t("ganttExportSubmit")}
+            </button>
+          </div>
+        </form>
+      )}
 
       {pendingLink && (
         <form

@@ -123,6 +123,9 @@ export function buildGanttExportSvg(options: {
   report: GanttReport;
   locale: Locale;
   palette?: ExportPalette;
+  /** Explicit time window; defaults to the tasks' span padded by 7/90 days. */
+  rangeStart?: Date;
+  rangeEnd?: Date;
 }): string {
   const { report, locale } = options;
   const palette = options.palette ?? resolveExportPalette();
@@ -130,17 +133,25 @@ export function buildGanttExportSvg(options: {
   const rows = report.tasks;
 
   const today = startOfDay(new Date());
-  const withDates = rows.flatMap((row) => {
-    const start = row.startDate ?? row.summaryStart;
-    const end = row.dueDate ?? row.summaryEnd;
-    return [start, end].filter(Boolean).map((d) => new Date(d as string));
-  });
-  let rangeStart = withDates.length ? new Date(Math.min(...withDates.map((d) => d.getTime()))) : today;
-  let rangeEnd = withDates.length ? new Date(Math.max(...withDates.map((d) => d.getTime()))) : today;
-  rangeStart = startOfDay(rangeStart);
-  rangeEnd = startOfDay(rangeEnd);
-  rangeStart.setDate(rangeStart.getDate() - 7);
-  rangeEnd.setDate(rangeEnd.getDate() + 90);
+  let rangeStart: Date;
+  let rangeEnd: Date;
+  if (options.rangeStart && options.rangeEnd) {
+    // Explicit range (e.g. the chosen export month) is honored exactly.
+    rangeStart = startOfDay(options.rangeStart);
+    rangeEnd = startOfDay(options.rangeEnd);
+  } else {
+    const withDates = rows.flatMap((row) => {
+      const start = row.startDate ?? row.summaryStart;
+      const end = row.dueDate ?? row.summaryEnd;
+      return [start, end].filter(Boolean).map((d) => new Date(d as string));
+    });
+    rangeStart = withDates.length ? new Date(Math.min(...withDates.map((d) => d.getTime()))) : today;
+    rangeEnd = withDates.length ? new Date(Math.max(...withDates.map((d) => d.getTime()))) : today;
+    rangeStart = startOfDay(rangeStart);
+    rangeEnd = startOfDay(rangeEnd);
+    rangeStart.setDate(rangeStart.getDate() - 7);
+    rangeEnd.setDate(rangeEnd.getDate() + 90);
+  }
   const totalDays = Math.max(diffDays(rangeStart, rangeEnd), 14);
   const dayCount = totalDays + 1;
   const totalWidth = dayCount * DAY_WIDTH;
@@ -391,8 +402,16 @@ export async function exportGanttAsPng(options: {
   report: GanttReport;
   locale: Locale;
   filename?: string;
+  rangeStart?: Date;
+  rangeEnd?: Date;
 }): Promise<void> {
-  const svg = buildGanttExportSvg({ report: options.report, locale: options.locale });
+  const svg = buildGanttExportSvg({
+    report: options.report,
+    locale: options.locale,
+    ...(options.rangeStart && options.rangeEnd
+      ? { rangeStart: options.rangeStart, rangeEnd: options.rangeEnd }
+      : {}),
+  });
   const canvas = await rasterize(svg);
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((result) => (result ? resolve(result) : reject(new Error("PNG encoding failed"))), "image/png");
@@ -405,8 +424,16 @@ export async function exportGanttAsPdf(options: {
   report: GanttReport;
   locale: Locale;
   filename?: string;
+  rangeStart?: Date;
+  rangeEnd?: Date;
 }): Promise<void> {
-  const svg = buildGanttExportSvg({ report: options.report, locale: options.locale });
+  const svg = buildGanttExportSvg({
+    report: options.report,
+    locale: options.locale,
+    ...(options.rangeStart && options.rangeEnd
+      ? { rangeStart: options.rangeStart, rangeEnd: options.rangeEnd }
+      : {}),
+  });
   const canvas = await rasterize(svg);
   const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.92);
   const jpegBytes = base64ToBytes(jpegDataUrl.split(",")[1] ?? "");

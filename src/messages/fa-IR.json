@@ -573,6 +573,11 @@
     "ganttZoomSmall": "کوچک",
     "ganttZoomMedium": "متوسط",
     "ganttZoomLarge": "بزرگ",
+    "ganttExport": "خروجی",
+    "ganttExportFormat": "قالب",
+    "ganttExportStart": "شروع",
+    "ganttExportEnd": "پایان",
+    "ganttExportSubmit": "خروجی گرفتن",
     "ganttExportPng": "PNG",
     "ganttExportPdf": "PDF"
   },
