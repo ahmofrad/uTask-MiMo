@@ -792,5 +792,12 @@ test.describe("Gantt timeline", () => {
     await page.getByTestId("gantt-export-submit").click();
     const pdfDownload = await pdfDownloadPromise;
     expect(pdfDownload.suggestedFilename()).toBe("gantt.pdf");
+
+    // Clicking Export again while the box is open closes it, like the other
+    // toolbar toggles.
+    await page.getByTestId("gantt-export").click();
+    await expect(dialog).toBeVisible();
+    await page.getByTestId("gantt-export").click();
+    await expect(dialog).toBeHidden();
   });
 });

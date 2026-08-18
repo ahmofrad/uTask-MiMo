@@ -437,7 +437,11 @@ export function GanttChart({
     }
   };
 
-  const openExportDialog = () => {
+  const toggleExportDialog = () => {
+    if (exportOpen) {
+      setExportOpen(false);
+      return;
+    }
     // Reset to the current month each time the dialog opens.
     const range = currentMonthRange();
     setExportStart(range.start);
@@ -668,9 +672,10 @@ export function GanttChart({
         <button
           type="button"
           data-testid="gantt-export"
-          onClick={openExportDialog}
+          onClick={toggleExportDialog}
           disabled={exporting !== null}
-          className="px-3 py-1.5 rounded-md border border-border-primary bg-bg-primary text-fg-secondary text-sm font-medium hover:bg-bg-surface disabled:opacity-40"
+          aria-expanded={exportOpen}
+          className={exportOpen ? toolbarButton(true) : "px-3 py-1.5 rounded-md border border-border-primary bg-bg-primary text-fg-secondary text-sm font-medium hover:bg-bg-surface disabled:opacity-40"}
         >
           {t("ganttExport")}
         </button>
