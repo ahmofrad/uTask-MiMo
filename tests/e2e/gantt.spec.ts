@@ -123,8 +123,17 @@ test.describe("Gantt timeline", () => {
     const rowCount = await rows.count();
     expect(rowCount).toBeGreaterThan(0);
     for (let index = 0; index < rowCount; index += 1) {
-      await expect(rows.nth(index).getByTestId("gantt-critical-float")).toHaveText(/^[+-]?\d+(\.\d+)?d$/);
+      const row = rows.nth(index);
+      await expect(row.getByTestId("gantt-critical-float")).toHaveText(/^[+-]?\d+(\.\d+)?d$/);
+      // Each row shows its exact date range and why it is critical.
+      const dates = row.getByTestId("gantt-critical-dates");
+      await expect(dates).toBeVisible();
+      expect((await dates.textContent())?.trim().length).toBeGreaterThan(0);
+      await expect(row.getByTestId("gantt-critical-chain")).toHaveText(/.+/);
     }
+    // The seeded projects have no dependencies, so critical tasks explain
+    // themselves by their deadline (or as the head of the chain).
+    await expect(panel.getByText(/no critical predecessor/i).first()).toBeVisible();
 
     // The toolbar toggle collapses the panel again.
     await listToggle.click();

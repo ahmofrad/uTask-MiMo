@@ -12,6 +12,7 @@ import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
 import { linkShortLabel, linkLagSuffix } from "@/lib/gantt/links";
 import { formatFloatDays } from "@/lib/gantt/float";
+import { criticalDescendants, criticalPredecessors } from "@/lib/gantt/chain";
 import { exportGanttAsPdf, exportGanttAsPng } from "@/lib/gantt/export";
 import {
   getTimelineDragDeltaDays,
@@ -622,6 +623,31 @@ export function GanttChart({
     if (days > 0) return t("ganttFloatSlack", { days: formatted });
     return t("ganttFloatBehind", { days: formatted });
   };
+
+  const criticalIdSet = new Set(criticalRows.map((r) => r.id));
+
+  // Why this task is critical, as a short line: its critical predecessors for
+  // leaves, the critical sub-chain for summaries, or the reason it stands
+  // alone (deadline-driven vs. the head of the chain).
+  const criticalChainInfo = (row: GanttRow): string => {
+    if (row.isSummary) {
+      const descendants = criticalDescendants(rows, row.id);
+      if (descendants.length === 0) return "";
+      const shown = descendants.slice(0, 3).map((d) => d.title);
+      if (descendants.length > 3) {
+        shown.push(t("ganttFloatMore", { count: descendants.length - 3 }));
+      }
+      return `${t("ganttFloatVia")}: ${shown.join(", ")}`;
+    }
+    const predecessors = criticalPredecessors(report.links, criticalIdSet, row.id);
+    if (predecessors.length === 0) {
+      const deadlineDriven = row.startDate == null && row.dueDate != null;
+      return deadlineDriven ? t("ganttFloatDeadlineDriven") : t("ganttFloatChainHead");
+    }
+    return `${t("ganttFloatDependsOn")}: ${predecessors
+      .map((p) => `${rowTitle(p.source)} · ${typeLabel(p.type)}${linkLagSuffix(p)}`)
+      .join(", ")}`;
+  };
   const toolbarButton = (active: boolean) =>
     `px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
       active
@@ -879,32 +905,52 @@ export function GanttChart({
           <ul className="space-y-1.5">
             {criticalRows.map((row) => {
               const floatDays = row.floatDays ?? 0;
+              const { start, end } = dateFor(row);
+              const chainInfo = criticalChainInfo(row);
+              const showDates = start != null && end != null;
               return (
                 <li
                   key={row.id}
                   data-testid="gantt-critical-row"
                   data-task-id={row.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-border-secondary/60 bg-bg-secondary/40 px-2.5 py-1.5"
+                  className="rounded-md border border-border-secondary/60 bg-bg-secondary/40 px-2.5 py-1.5"
                 >
-                  <span className="min-w-0 truncate text-xs">
-                    <span className="font-mono text-fg-subtle">{row.wbsCode}</span>
-                    <Link
-                      href={`/tasks/${row.id}`}
-                      className="ms-1.5 font-medium text-fg-primary hover:text-accent truncate"
-                      title={row.title}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="min-w-0 truncate text-xs">
+                      <span className="font-mono text-fg-subtle">{row.wbsCode}</span>
+                      <Link
+                        href={`/tasks/${row.id}`}
+                        className="ms-1.5 font-medium text-fg-primary hover:text-accent truncate"
+                        title={row.title}
+                      >
+                        {row.title}
+                      </Link>
+                    </span>
+                    <span
+                      data-testid="gantt-critical-float"
+                      title={floatPhrase(floatDays)}
+                      className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold ${
+                        floatDays < 0 ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"
+                      }`}
                     >
-                      {row.title}
-                    </Link>
-                  </span>
-                  <span
-                    data-testid="gantt-critical-float"
-                    title={floatPhrase(floatDays)}
-                    className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold ${
-                      floatDays < 0 ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"
-                    }`}
-                  >
-                    {formatFloatDays(floatDays)}
-                  </span>
+                      {formatFloatDays(floatDays)}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-fg-muted">
+                    {showDates && (
+                      <span data-testid="gantt-critical-dates" dir={locale === "fa-IR" ? "rtl" : "ltr"}>
+                        {shortDate(start!.toISOString())} – {shortDate(end!.toISOString())}
+                      </span>
+                    )}
+                    {chainInfo && (
+                      <>
+                        {showDates && <span className="text-fg-subtle">·</span>}
+                        <span data-testid="gantt-critical-chain" className="truncate">
+                          {chainInfo}
+                        </span>
+                      </>
+                    )}
+                  </div>
                 </li>
               );
             })}
