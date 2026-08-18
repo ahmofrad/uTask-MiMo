@@ -15,7 +15,7 @@ import { formatFloatDays } from "@/lib/gantt/float";
 import { criticalDescendants, criticalPredecessors } from "@/lib/gantt/chain";
 import { exportGanttAsPdf, exportGanttAsPng } from "@/lib/gantt/export";
 import {
-  getTimelineDragDeltaDays,
+  getTimelineDragRawDeltaDays,
   getTimelineItemGeometry,
   getTimelinePosition,
   snapTimelineDate,
@@ -335,49 +335,93 @@ export function GanttChart({
     };
   };
 
-  const onPointerMove = (e: React.PointerEvent) => {
-    const d = dragRef.current;
-    if (!d) return;
-    const deltaDays = getTimelineDragDeltaDays(
-      d.startX,
-      e.clientX,
-      dayWidth,
-      direction,
-    );
+  // Move a drag's start/end by a pointer delta. With `snap` false (live drag)
+  // the dates keep their time-of-day so the bar follows the pointer
+  // continuously, including within a day; with `snap` true (release) the dates
+  // are pinned to whole calendar days so the saved values land exactly on
+  // timeline cells.
+  const applyDragDelta = (d: DragState, deltaDays: number, snap: boolean) => {
+    const isSingleDay = isSameCalendarDay(d.origStart, d.origEnd);
+    const shift = (date: Date, boundary: "start" | "end") => {
+      const shifted = shiftTimelineDateByDays(date, deltaDays);
+      return snap ? snapTimelineDate(shifted, boundary) : shifted;
+    };
     let ns = d.origStart;
     let ne = d.origEnd;
-    const isSingleDay = isSameCalendarDay(d.origStart, d.origEnd);
     if (d.mode === "move") {
-      ns = snapTimelineDate(shiftTimelineDateByDays(d.origStart, deltaDays), "start");
-      ne = snapTimelineDate(shiftTimelineDateByDays(d.origEnd, deltaDays), "end");
+      ns = shift(d.origStart, "start");
+      ne = shift(d.origEnd, "end");
     } else if (d.mode === "resize-start") {
-      ns = snapTimelineDate(shiftTimelineDateByDays(d.origStart, deltaDays), "start");
+      ns = shift(d.origStart, "start");
       if (isSingleDay && deltaDays > 0) {
-        ne = snapTimelineDate(shiftTimelineDateByDays(d.origEnd, deltaDays), "end");
+        ne = shift(d.origEnd, "end");
       } else if (ns > d.origEnd) {
-        ns = snapTimelineDate(d.origEnd, "start");
+        ns = snap ? snapTimelineDate(d.origEnd, "start") : d.origEnd;
       }
     } else {
-      ne = snapTimelineDate(shiftTimelineDateByDays(d.origEnd, deltaDays), "end");
+      ne = shift(d.origEnd, "end");
       if (isSingleDay && deltaDays < 0) {
-        ns = snapTimelineDate(shiftTimelineDateByDays(d.origStart, deltaDays), "start");
+        ns = shift(d.origStart, "start");
       } else if (ne < d.origStart) {
-        ne = snapTimelineDate(d.origStart, "end");
+        ne = snap ? snapTimelineDate(d.origStart, "end") : d.origStart;
       }
     }
     d.currentStart = ns;
     d.currentEnd = ne;
     d.lastDeltaDays = deltaDays;
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d) return;
+    const deltaDays = getTimelineDragRawDeltaDays(
+      d.startX,
+      e.clientX,
+      dayWidth,
+      direction,
+    );
+    // Live drag: follow the pointer continuously (no whole-day snapping).
+    applyDragDelta(d, deltaDays, false);
     setOverrides((prev) => ({
       ...prev,
-      [d.id]: { startDate: ns.toISOString(), dueDate: ne.toISOString() },
+      [d.id]: {
+        startDate: d.currentStart.toISOString(),
+        dueDate: d.currentEnd.toISOString(),
+      },
     }));
   };
 
   const onPointerUp = async () => {
     const d = dragRef.current;
     dragRef.current = null;
-    if (!d || d.lastDeltaDays === 0) return;
+    if (!d) return;
+    // The pointer moved less than half a day — the bar did not actually
+    // move. Drop the optimistic override so a stray jitter cannot pin
+    // snapped values (e.g. a start stored at 23:59:59.999 snapping to
+    // 00:00:00) onto the bar for the rest of the session.
+    const deltaDays = Math.round(d.lastDeltaDays);
+    if (deltaDays === 0) {
+      setOverrides((prev) => {
+        if (!(d.id in prev)) return prev;
+        const next = { ...prev };
+        delete next[d.id];
+        return next;
+      });
+      return;
+    }
+    // Re-snap from the original dates with the rounded whole-day delta so
+    // the saved dates land exactly on calendar days (the live drag followed
+    // the pointer continuously with the raw delta). Keep the override in sync
+    // with the values being saved, otherwise the bar would keep the mid-drag
+    // fractional position until the next report refetch.
+    applyDragDelta(d, deltaDays, true);
+    setOverrides((prev) => ({
+      ...prev,
+      [d.id]: {
+        startDate: d.currentStart.toISOString(),
+        dueDate: d.currentEnd.toISOString(),
+      },
+    }));
     const startChanged = d.currentStart.getTime() !== d.origStart.getTime();
     const dueChanged = d.currentEnd.getTime() !== d.origEnd.getTime();
     const body = d.mode === "move" || (startChanged && dueChanged)

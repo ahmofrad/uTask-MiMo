@@ -161,6 +161,40 @@ test.describe("Gantt timeline", () => {
     await expect(page.getByTestId("gantt-critical-panel")).toHaveCount(0);
   });
 
+  test("a tiny drag neither moves the bar nor saves dates", async ({ page }) => {
+    const projectId = await seededProjectId("Product Launch");
+    await page.goto(`/en-US/projects/${projectId}`);
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    const chart = page.getByTestId("gantt-scroll-container").first();
+    await expect(chart).toBeVisible({ timeout: 15000 });
+
+    const bar = chart.getByTestId("gantt-task-bar").first();
+    await expect(bar).toBeVisible();
+    const before = await bar.boundingBox();
+    expect(before).not.toBeNull();
+
+    let patched = false;
+    page.on("request", (req) => {
+      if (req.method() === "PATCH" && req.url().includes("/api/v1/tasks/")) patched = true;
+    });
+
+    // A sub-half-day nudge must leave the bar exactly where it was — the
+    // bar follows the pointer only past the day-snap threshold, and a stray
+    // jitter must not write dates to the database.
+    const x = before!.x + before!.width / 2;
+    const y = before!.y + before!.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 10, y, { steps: 2 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+
+    expect(patched).toBe(false);
+    const after = await bar.boundingBox();
+    expect(after?.x).toBe(before!.x);
+    expect(after?.width).toBe(before!.width);
+  });
+
   test("keeps Persian timeline dates chronological from right to left", async ({ page }) => {
     await page.goto("/fa-IR");
     await page.getByRole("button", { name: "گانت", exact: true }).click();

@@ -5,10 +5,25 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const MINUTES_PER_DAY = 24 * 60;
 
 /**
- * Converts physical pointer movement into chronological day movement.
+ * Converts physical pointer movement into chronological day movement without
+ * rounding, so a bar can follow the pointer continuously during a drag.
  *
  * In RTL, later dates are rendered farther left, so the physical delta is
  * inverted before it is applied to the task's dates.
+ */
+export function getTimelineDragRawDeltaDays(
+  startX: number,
+  currentX: number,
+  dayWidth: number,
+  direction: TimelineDirection,
+): number {
+  const rawDelta = (currentX - startX) / dayWidth;
+  return direction === "rtl" ? -rawDelta : rawDelta;
+}
+
+/**
+ * Rounded whole-day drag delta — the final snap applied on release. Kept for
+ * callers that need the discrete day shift.
  */
 export function getTimelineDragDeltaDays(
   startX: number,
@@ -16,9 +31,7 @@ export function getTimelineDragDeltaDays(
   dayWidth: number,
   direction: TimelineDirection,
 ): number {
-  const rawDelta = (currentX - startX) / dayWidth;
-  const chronologicalDelta = direction === "rtl" ? -rawDelta : rawDelta;
-  return Math.round(chronologicalDelta);
+  return Math.round(getTimelineDragRawDeltaDays(startX, currentX, dayWidth, direction));
 }
 
 function startOfCalendarDay(date: Date): Date {
