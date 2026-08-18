@@ -7,7 +7,6 @@ import { toJalali, toGregorian, getMonthName, getDaysInMonth } from "@/lib/date/
 import { formatNumber, type Locale } from "@/lib/date/format";
 import {
   diffCalendarDays,
-  isSameCalendarDay,
   parseDateOnly,
   startOfCalendarDay,
   toDateOnly,
@@ -22,11 +21,17 @@ import { formatFloatDays } from "@/lib/gantt/float";
 import { criticalDescendants, criticalPredecessors } from "@/lib/gantt/chain";
 import { exportGanttAsPdf, exportGanttAsPng } from "@/lib/gantt/export";
 import {
+  applyDragDelta,
+  createDragState,
+  dragPatchBody,
+  roundedDragDelta,
+  type DragMode,
+  type DragState,
+} from "@/lib/gantt/drag";
+import {
   getTimelineDragRawDeltaDays,
   getTimelineItemGeometry,
   getTimelinePosition,
-  snapTimelineDate,
-  shiftTimelineDateByDays,
   type TimelineDirection,
 } from "@/lib/gantt/timeline";
 
@@ -63,19 +68,6 @@ type TimelineMonth = {
   label: string;
   startOffset: number;
   dayCount: number;
-};
-
-type DragMode = "move" | "resize-start" | "resize-due";
-
-type DragState = {
-  id: string;
-  mode: DragMode;
-  startX: number;
-  origStart: Date;
-  origEnd: Date;
-  currentStart: Date;
-  currentEnd: Date;
-  lastDeltaDays: number;
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -307,52 +299,7 @@ export function GanttChart({
       e.preventDefault();
     }
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragRef.current = {
-      id: r.id,
-      mode,
-      startX: e.clientX,
-      origStart: start,
-      origEnd: end ?? start,
-      currentStart: start,
-      currentEnd: end ?? start,
-      lastDeltaDays: 0,
-    };
-  };
-
-  // Move a drag's start/end by a pointer delta. With `snap` false (live drag)
-  // the dates keep their time-of-day so the bar follows the pointer
-  // continuously, including within a day; with `snap` true (release) the dates
-  // are pinned to whole calendar days so the saved values land exactly on
-  // timeline cells.
-  const applyDragDelta = (d: DragState, deltaDays: number, snap: boolean) => {
-    const isSingleDay = isSameCalendarDay(d.origStart, d.origEnd);
-    const shift = (date: Date, boundary: "start" | "end") => {
-      const shifted = shiftTimelineDateByDays(date, deltaDays);
-      return snap ? snapTimelineDate(shifted, boundary) : shifted;
-    };
-    let ns = d.origStart;
-    let ne = d.origEnd;
-    if (d.mode === "move") {
-      ns = shift(d.origStart, "start");
-      ne = shift(d.origEnd, "end");
-    } else if (d.mode === "resize-start") {
-      ns = shift(d.origStart, "start");
-      if (isSingleDay && deltaDays > 0) {
-        ne = shift(d.origEnd, "end");
-      } else if (ns > d.origEnd) {
-        ns = snap ? snapTimelineDate(d.origEnd, "start") : d.origEnd;
-      }
-    } else {
-      ne = shift(d.origEnd, "end");
-      if (isSingleDay && deltaDays < 0) {
-        ns = shift(d.origStart, "start");
-      } else if (ne < d.origStart) {
-        ne = snap ? snapTimelineDate(d.origStart, "end") : d.origStart;
-      }
-    }
-    d.currentStart = ns;
-    d.currentEnd = ne;
-    d.lastDeltaDays = deltaDays;
+    dragRef.current = createDragState(r.id, mode, e.clientX, start, end ?? start);
   };
 
   const onPointerMove = (e: React.PointerEvent) => {
@@ -365,12 +312,13 @@ export function GanttChart({
       direction,
     );
     // Live drag: follow the pointer continuously (no whole-day snapping).
-    applyDragDelta(d, deltaDays, false);
+    const next = applyDragDelta(d, deltaDays, false);
+    dragRef.current = next;
     setOverrides((prev) => ({
       ...prev,
-      [d.id]: {
-        startDate: d.currentStart.toISOString(),
-        dueDate: d.currentEnd.toISOString(),
+      [next.id]: {
+        startDate: next.currentStart.toISOString(),
+        dueDate: next.currentEnd.toISOString(),
       },
     }));
   };
@@ -383,7 +331,7 @@ export function GanttChart({
     // move. Drop the optimistic override so a stray jitter cannot pin
     // snapped values (e.g. a start stored at 23:59:59.999 snapping to
     // 00:00:00) onto the bar for the rest of the session.
-    const deltaDays = Math.round(d.lastDeltaDays);
+    const deltaDays = roundedDragDelta(d);
     if (deltaDays === 0) {
       setOverrides((prev) => {
         if (!(d.id in prev)) return prev;
@@ -398,21 +346,16 @@ export function GanttChart({
     // the pointer continuously with the raw delta). Keep the override in sync
     // with the values being saved, otherwise the bar would keep the mid-drag
     // fractional position until the next report refetch.
-    applyDragDelta(d, deltaDays, true);
+    const snapped = applyDragDelta(d, deltaDays, true);
+    dragRef.current = snapped;
     setOverrides((prev) => ({
       ...prev,
-      [d.id]: {
-        startDate: d.currentStart.toISOString(),
-        dueDate: d.currentEnd.toISOString(),
+      [snapped.id]: {
+        startDate: snapped.currentStart.toISOString(),
+        dueDate: snapped.currentEnd.toISOString(),
       },
     }));
-    const startChanged = d.currentStart.getTime() !== d.origStart.getTime();
-    const dueChanged = d.currentEnd.getTime() !== d.origEnd.getTime();
-    const body = d.mode === "move" || (startChanged && dueChanged)
-      ? { startDate: d.currentStart.toISOString(), dueDate: d.currentEnd.toISOString() }
-      : d.mode === "resize-start"
-        ? { startDate: d.currentStart.toISOString() }
-        : { dueDate: d.currentEnd.toISOString() };
+    const body = dragPatchBody(snapped);
     try {
       const res = await apiFetch(`/api/v1/tasks/${d.id}`, {
         method: "PATCH",
