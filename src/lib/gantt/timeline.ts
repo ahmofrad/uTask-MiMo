@@ -2,8 +2,10 @@ import {
   DAY_MS,
   isLocalEndOfDay,
   isLocalStartOfDay,
+  isUtcDayMarker,
+  isUtcEndMarker,
   snapToDayBoundary,
-  startOfCalendarDay,
+  timelineDayStart,
 } from "@/lib/date/day-marker";
 
 export type TimelineDirection = "ltr" | "rtl";
@@ -42,8 +44,12 @@ export function getTimelineDragDeltaDays(
 }
 
 function calendarDayOffset(date: Date, rangeStart: Date): number {
+  // Stored day markers anchor to their UTC calendar day so date-only values
+  // land on the same cell in every timezone; genuine instants keep their
+  // local calendar day. Both anchors are local midnights, so the difference
+  // is always a whole number of days.
   return Math.round(
-    (startOfCalendarDay(date).getTime() - startOfCalendarDay(rangeStart).getTime()) / DAY_MS,
+    (timelineDayStart(date).getTime() - timelineDayStart(rangeStart).getTime()) / DAY_MS,
   );
 }
 
@@ -55,13 +61,17 @@ function timeOfDayFraction(date: Date): number {
 }
 
 function timelineStartFraction(date: Date): number {
-  // Day-boundary markers (00:00:00 or 23:59:59.999) anchor a task to its own
-  // calendar day: an end-of-day start must not push the bar into the next
-  // day's cell. Genuine times keep their fractional placement.
+  // Stored day markers (00:00:00Z or 23:59:59.999Z) anchor the bar to its own
+  // calendar day: a marker start sits at the day's start edge in every zone.
+  // Genuine times keep their fractional placement.
+  if (isUtcDayMarker(date)) return 0;
   return isLocalEndOfDay(date) ? 0 : timeOfDayFraction(date);
 }
 
 function timelineEndFraction(date: Date): number {
+  // Stored day markers finish at the end edge of their calendar day, so a
+  // single-day task covers exactly one cell in every zone.
+  if (isUtcDayMarker(date)) return 1;
   const fraction = timeOfDayFraction(date);
   return isLocalStartOfDay(date) || isLocalEndOfDay(date) ? 1 : fraction;
 }
@@ -71,7 +81,10 @@ function timelineEndFraction(date: Date): number {
  * The offset includes the local time within its calendar day.
  */
 export function getTimelineDateOffset(date: Date, rangeStart: Date): number {
-  return calendarDayOffset(date, rangeStart) + timeOfDayFraction(date);
+  const fraction = isUtcDayMarker(date)
+    ? isUtcEndMarker(date) ? 1 : 0
+    : timeOfDayFraction(date);
+  return calendarDayOffset(date, rangeStart) + fraction;
 }
 
 /**
@@ -97,8 +110,8 @@ export function getTimelineItemWidth(
 ): number {
   if (!start || !end) return dayWidth;
 
-  const startDay = startOfCalendarDay(start);
-  const endDay = startOfCalendarDay(end);
+  const startDay = timelineDayStart(start);
+  const endDay = timelineDayStart(end);
   const calendarDayCount = Math.max(0, Math.round(
     (endDay.getTime() - startDay.getTime()) / DAY_MS,
   ));

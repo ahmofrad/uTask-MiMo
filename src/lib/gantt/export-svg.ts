@@ -1,7 +1,7 @@
 import type { GanttReport } from "@/lib/gantt-types";
 import { getMonthName, toJalali, formatJalaliShort } from "@/lib/date/jalali";
 import { formatNumber, type Locale } from "@/lib/date/format";
-import { diffCalendarDays, startOfCalendarDay } from "@/lib/date/day-marker";
+import { diffCalendarDays, startOfCalendarDay, timelineDayStart } from "@/lib/date/day-marker";
 import { getTimelineItemGeometry, getTimelinePosition, type TimelineDirection } from "@/lib/gantt/timeline";
 import { linkShortLabel } from "@/lib/gantt/links";
 
@@ -113,8 +113,10 @@ export function buildGanttExportSvg(options: {
     });
     rangeStart = withDates.length ? new Date(Math.min(...withDates.map((d) => d.getTime()))) : today;
     rangeEnd = withDates.length ? new Date(Math.max(...withDates.map((d) => d.getTime()))) : today;
-    rangeStart = startOfCalendarDay(rangeStart);
-    rangeEnd = startOfCalendarDay(rangeEnd);
+    // Day markers anchor to their UTC calendar day so the range covers the
+    // cells the bars actually occupy in every timezone.
+    rangeStart = timelineDayStart(rangeStart);
+    rangeEnd = timelineDayStart(rangeEnd);
     rangeStart.setDate(rangeStart.getDate() - 7);
     rangeEnd.setDate(rangeEnd.getDate() + 90);
   }
@@ -130,7 +132,7 @@ export function buildGanttExportSvg(options: {
 
   const dayOffset = (date: Date | string | null): number | null => {
     if (!date) return null;
-    return Math.max(0, Math.min(totalDays, diffCalendarDays(rangeStart, startOfCalendarDay(new Date(date)))));
+    return Math.max(0, Math.min(totalDays, diffCalendarDays(rangeStart, timelineDayStart(new Date(date)))));
   };
 
   const dayPos = (date: Date | string | null, itemWidth = DAY_WIDTH): number => {

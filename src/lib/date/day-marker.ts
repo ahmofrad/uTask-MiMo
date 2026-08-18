@@ -78,6 +78,57 @@ export function snapToDayBoundary(date: Date, boundary: "start" | "end"): Date {
   return result;
 }
 
+/**
+ * The timeline day a timestamp anchors to: a stored day marker anchors to its
+ * UTC calendar day (so date-only values sit on the same cell in every
+ * timezone), any other instant anchors to its local calendar day. Returns a
+ * local-midnight Date of that day, so calendar-day differences are always
+ * whole days regardless of the runtime zone.
+ */
+export function timelineDayStart(date: Date): Date {
+  if (isUtcDayMarker(date)) {
+    return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  }
+  return startOfCalendarDay(date);
+}
+
+/** True when two timestamps anchor to the same timeline day. */
+export function isSameTimelineDay(a: Date, b: Date): boolean {
+  return timelineDayStart(a).getTime() === timelineDayStart(b).getTime();
+}
+
+/**
+ * Shift a stored day marker by (possibly fractional) calendar days.
+ *
+ * The marker's anchor day (local midnight of its UTC calendar day) is moved
+ * and the fractional part is applied as minutes, so the resulting value
+ * renders at exactly `anchorDay + deltaDays` on the timeline in every zone.
+ */
+export function shiftDayMarker(date: Date, deltaDays: number): Date {
+  const anchor = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  const whole = Math.trunc(deltaDays);
+  const fractional = deltaDays - whole;
+  anchor.setDate(anchor.getDate() + whole);
+  anchor.setMinutes(anchor.getMinutes() + Math.round(fractional * 24 * 60));
+  return anchor;
+}
+
+/**
+ * Snap a shifted day-marker value back to the stored marker convention: a
+ * start to `00:00:00.000Z`, a due to `23:59:59.999Z`, using the calendar day
+ * the value anchors to. Produces the exact shape `normalizeTaskDate` and the
+ * rest of the app expect.
+ */
+export function snapDayMarker(date: Date, boundary: "start" | "end"): Date {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const day = date.getDate();
+  if (boundary === "start") {
+    return new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+  }
+  return new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+}
+
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /** Local `yyyy-MM-dd` representation of a timestamp. */

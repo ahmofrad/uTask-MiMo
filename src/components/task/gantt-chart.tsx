@@ -9,6 +9,7 @@ import {
   diffCalendarDays,
   parseDateOnly,
   startOfCalendarDay,
+  timelineDayStart,
   toDateOnly,
 } from "@/lib/date/day-marker";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
@@ -187,8 +188,11 @@ export function GanttChart({
     });
     let start = withDates.length ? new Date(Math.min(...withDates.map((d) => d.getTime()))) : today;
     let end = withDates.length ? new Date(Math.max(...withDates.map((d) => d.getTime()))) : today;
-    start = startOfCalendarDay(start);
-    end = startOfCalendarDay(end);
+    // Day markers anchor to their UTC calendar day so the range covers the
+    // cells the bars actually occupy (a due marker must not push the range
+    // into the next local day).
+    start = timelineDayStart(start);
+    end = timelineDayStart(end);
     start.setDate(start.getDate() - 7);
     end.setDate(end.getDate() + 90);
     const total = Math.max(diffCalendarDays(start, end), 14);
@@ -243,7 +247,7 @@ export function GanttChart({
 
   const dayOffset = (date: Date | string | null): number | null => {
     if (!date) return null;
-    return Math.max(0, Math.min(totalDays, diffCalendarDays(rangeStart, startOfCalendarDay(new Date(date)))));
+    return Math.max(0, Math.min(totalDays, diffCalendarDays(rangeStart, timelineDayStart(new Date(date)))));
   };
 
   const dayPos = (date: Date | string | null, itemWidth = dayWidth): number => {
@@ -272,13 +276,15 @@ export function GanttChart({
     if (r.status === "done") return false;
     const { end } = dateFor(r);
     if (!end) return false;
-    return end < todayStart;
+    // Compare calendar days: a stored due marker anchored to its day means
+    // the task is only late once that day is fully behind today.
+    return timelineDayStart(end).getTime() < todayStart.getTime();
   };
 
   const delayedDays = (r: GanttRow): number => {
     const { end } = dateFor(r);
     if (!end) return 0;
-    return Math.max(0, diffCalendarDays(todayStart, end));
+    return Math.max(0, diffCalendarDays(todayStart, timelineDayStart(end)));
   };
 
   // A dependency is invalid when the predecessor's end overlaps the successor's start

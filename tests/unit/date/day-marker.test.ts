@@ -5,12 +5,16 @@ import {
   isLocalEndOfDay,
   isLocalStartOfDay,
   isSameCalendarDay,
+  isSameTimelineDay,
   isUtcDayMarker,
   isUtcEndMarker,
   isUtcStartMarker,
   parseDateOnly,
+  shiftDayMarker,
+  snapDayMarker,
   snapToDayBoundary,
   startOfCalendarDay,
+  timelineDayStart,
   toDateOnly,
 } from "@/lib/date/day-marker";
 
@@ -106,6 +110,48 @@ describe("date-only round trips", () => {
   it("round-trips through toDateOnly and parseDateOnly", () => {
     const original = new Date("2026-08-05T00:00:00.000Z");
     expect(toDateOnly(parseDateOnly(toDateOnly(original)))).toBe("2026-08-05");
+  });
+});
+
+describe("timeline day helpers (marker-aware)", () => {
+  it("anchors a stored marker to its UTC calendar day", () => {
+    // A due marker that falls on the next local day must still anchor to the
+    // calendar day its UTC components say.
+    const due = new Date("2026-08-19T23:59:59.999Z");
+    const anchor = timelineDayStart(due);
+    expect(anchor.getFullYear()).toBe(2026);
+    expect(anchor.getMonth()).toBe(7);
+    expect(anchor.getDate()).toBe(19);
+    expect(anchor.getHours()).toBe(0);
+  });
+
+  it("anchors a genuine instant to its local calendar day", () => {
+    const instant = new Date("2026-08-19T15:30:00.000Z");
+    const anchor = timelineDayStart(instant);
+    expect(anchor.getDate()).toBe(instant.getDate());
+    expect(anchor.getHours()).toBe(0);
+  });
+
+  it("treats a single-day marker pair as the same timeline day", () => {
+    const start = new Date("2026-08-19T00:00:00.000Z");
+    const due = new Date("2026-08-19T23:59:59.999Z");
+    expect(isSameTimelineDay(start, due)).toBe(true);
+    expect(isSameTimelineDay(start, new Date("2026-08-20T00:00:00.000Z"))).toBe(false);
+  });
+
+  it("shifts a marker by whole and fractional days", () => {
+    const start = new Date("2026-08-19T00:00:00.000Z");
+    const shifted = shiftDayMarker(start, 2);
+    expect(shifted.getFullYear()).toBe(2026);
+    expect(shifted.getMonth()).toBe(7);
+    expect(shifted.getDate()).toBe(21);
+    expect(shifted.getHours()).toBe(0);
+  });
+
+  it("snaps a shifted marker back to the stored UTC convention", () => {
+    const anchor = new Date(2026, 7, 20); // local Aug 20 midnight
+    expect(snapDayMarker(anchor, "start").toISOString()).toBe("2026-08-20T00:00:00.000Z");
+    expect(snapDayMarker(anchor, "end").toISOString()).toBe("2026-08-20T23:59:59.999Z");
   });
 });
 

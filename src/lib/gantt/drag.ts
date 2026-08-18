@@ -1,4 +1,9 @@
-import { isSameCalendarDay } from "@/lib/date/day-marker";
+import {
+  isSameTimelineDay,
+  isUtcDayMarker,
+  shiftDayMarker,
+  snapDayMarker,
+} from "@/lib/date/day-marker";
 import { shiftTimelineDateByDays, snapTimelineDate } from "@/lib/gantt/timeline";
 
 export type DragMode = "move" | "resize-start" | "resize-due";
@@ -42,16 +47,27 @@ export function createDragState(
  * are pinned to whole calendar days so the saved values land exactly on
  * timeline cells.
  */
+/**
+ * Shift a timestamp by the drag delta. Stored day markers shift on their
+ * anchor calendar day and snap back to the marker convention (`00:00:00.000Z`
+ * / `23:59:59.999Z`); genuine instants keep their local clock time.
+ */
+function shiftDate(date: Date, boundary: "start" | "end", deltaDays: number, snap: boolean): Date {
+  if (isUtcDayMarker(date)) {
+    const shifted = shiftDayMarker(date, deltaDays);
+    return snap ? snapDayMarker(shifted, boundary) : shifted;
+  }
+  const shifted = shiftTimelineDateByDays(date, deltaDays);
+  return snap ? snapTimelineDate(shifted, boundary) : shifted;
+}
+
 export function applyDragDelta(
   state: DragState,
   deltaDays: number,
   snap: boolean,
 ): DragState {
-  const isSingleDay = isSameCalendarDay(state.origStart, state.origEnd);
-  const shift = (date: Date, boundary: "start" | "end") => {
-    const shifted = shiftTimelineDateByDays(date, deltaDays);
-    return snap ? snapTimelineDate(shifted, boundary) : shifted;
-  };
+  const isSingleDay = isSameTimelineDay(state.origStart, state.origEnd);
+  const shift = (date: Date, boundary: "start" | "end") => shiftDate(date, boundary, deltaDays, snap);
   let ns = state.origStart;
   let ne = state.origEnd;
   if (state.mode === "move") {
@@ -62,14 +78,18 @@ export function applyDragDelta(
     if (isSingleDay && deltaDays > 0) {
       ne = shift(state.origEnd, "end");
     } else if (ns > state.origEnd) {
-      ns = snap ? snapTimelineDate(state.origEnd, "start") : state.origEnd;
+      ns = isUtcDayMarker(state.origEnd)
+        ? snapDayMarker(state.origEnd, "start")
+        : snap ? snapTimelineDate(state.origEnd, "start") : state.origEnd;
     }
   } else {
     ne = shift(state.origEnd, "end");
     if (isSingleDay && deltaDays < 0) {
       ns = shift(state.origStart, "start");
     } else if (ne < state.origStart) {
-      ne = snap ? snapTimelineDate(state.origStart, "end") : state.origStart;
+      ne = isUtcDayMarker(state.origStart)
+        ? snapDayMarker(state.origStart, "end")
+        : snap ? snapTimelineDate(state.origStart, "end") : state.origStart;
     }
   }
   return { ...state, currentStart: ns, currentEnd: ne, lastDeltaDays: deltaDays };
