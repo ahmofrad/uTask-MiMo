@@ -740,7 +740,7 @@ export function GanttChart({
               onClick={() => setExportOpen(false)}
               className="px-3 py-1.5 rounded-md border border-border-primary bg-bg-primary text-fg-secondary text-sm font-medium hover:bg-bg-surface"
             >
-              {t("common.cancel")}
+              {tc("common.cancel")}
             </button>
             <button
               type="submit"
