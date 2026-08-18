@@ -263,6 +263,7 @@ model User {
   auditLogs                             AuditLog[]
   apiTokens                             ApiToken[]
   webhooks                              Webhook[]
+  projectTemplates                      ProjectTemplate[]
   ldapMemberships                       LdapGroupMembership[]
   groupGrantsGranted                    ProjectGroupGrant[]           @relation("ProjectGroupGrantGrantedBy")
   managedDepartments                    Department[]                   @relation("DepartmentManager")
@@ -715,6 +716,22 @@ model Webhook {
   @@index([createdById])
   @@index([deletedAt])
   @@map("Webhook")
+}
+
+model ProjectTemplate {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(255)
+  description String?   @db.Text
+  color       String    @default("#2563eb") @db.VarChar(7)
+  templateJson Json    @db.Json
+  createdById String    @db.Uuid
+  createdAt   DateTime  @default(now()) @db.Timestamptz
+  updatedAt   DateTime  @updatedAt @db.Timestamptz
+
+  createdBy User @relation(fields: [createdById], references: [id])
+
+  @@index([createdById])
+  @@map("ProjectTemplate")
 }
 
 model WebhookDelivery {

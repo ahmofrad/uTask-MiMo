@@ -28,10 +28,12 @@ export default async function AdminLayout({
     { href: "/admin/departments", label: t("departments"), visible: isAdmin },
     { href: "/admin/groups", label: t("groups"), visible: true },
     { href: "/admin/active-directory", label: t("activeDirectory"), visible: isAdmin },
+    { href: "/admin/ldap-sync", label: t("ldapSyncDashboard"), visible: isAdmin },
     { href: "/admin/webhooks", label: t("webhooks"), visible: isAdmin },
     { href: "/admin/webhook-deliveries", label: t("auditLog"), visible: isAdmin },
     { href: "/admin/sso", label: t("sso"), visible: isAdmin },
     { href: "/admin/backups", label: t("backups"), visible: isAdmin },
+    { href: "/admin/templates", label: t("templates"), visible: isAdmin },
     { href: "/admin/settings/email-templates", label: t("emailTemplates"), visible: isAdmin },
   ].filter((link) => link.visible);
 
