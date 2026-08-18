@@ -620,7 +620,7 @@
     "edit": "Edit project",
     "save": "Save",
     "cancel": "Cancel",
-    "saving": "Saving…",
+    "saving": "Saving...",
     "editError": "Could not update project",
     "delete": "Delete project",
     "statusActive": "Active",
@@ -720,8 +720,7 @@
     "useTemplate": "Use template",
     "applyTemplate": "Create project from template",
     "applyFailed": "Could not create project from template",
-    "loading": "Loading...",
-    "saving": "Saving..."
+    "loading": "Loading..."
   },
   "comment": {
     "title": "Comments",
@@ -960,7 +959,13 @@
       "after": "After",
       "field": "Field",
       "noChanges": "No field changes recorded"
-    }
+    },
+    "all": "All",
+    "hideDetails": "Hide details",
+    "showDetails": "Show details",
+    "loading": "Loading...",
+    "loadMore": "Load more",
+    "clearFilters": "Clear filters"
   },
   "webhook": {
     "title": "Webhooks",

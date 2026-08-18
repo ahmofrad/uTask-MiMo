@@ -9,7 +9,7 @@ async function openMembersModal(page: import("@playwright/test").Page) {
 }
 
 test.describe("Admin audit log", () => {
-  test("filters to group access events and shows grant details", async ({ page }) => {
+  test("shows group access events and filters by action", async ({ page }) => {
     // Perform a grant so a group_grant_created audit entry exists.
     await openMembersModal(page);
     const dialog = page.getByRole("dialog");
@@ -28,26 +28,32 @@ test.describe("Admin audit log", () => {
     await designRow.getByRole("button", { name: "Revoke" }).click();
     await expect(designRow).toBeHidden();
 
-    // The audit page defaults to all events; switch to the group-access filter.
+    // The audit page shows the last events in a table; the action labels are
+    // the localized i18n strings (e.g. "granted group access").
     await page.goto("/en-US/admin/audit-log");
     await expect(page.getByRole("heading", { name: "Audit Log" })).toBeVisible();
-    await page.getByRole("link", { name: "Group access" }).click();
-    await expect(page).toHaveURL(/\/admin\/audit-log\?groupAccess=true/);
+    await expect(page.getByRole("cell", { name: "granted group access" }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: "revoked group access" }).first()).toBeVisible();
 
-    // The grant + revoke entries are visible with resolved group/project names.
-    await expect(page.getByText("granted group access").first()).toBeVisible();
-    await expect(page.getByText("revoked group access").first()).toBeVisible();
-    const grantRow = page.getByText("granted group access").first().locator("xpath=ancestor::tr");
-    await expect(grantRow).toContainText("Design Team");
-    await expect(grantRow).toContainText("Work");
-    await expect(grantRow).toContainText("contributor");
+    // The action filter narrows the table to a single action type.
+    await page.getByLabel("Action").selectOption({ label: "granted group access" });
+    await page.getByRole("button", { name: "Apply" }).click();
+    await expect(page.getByRole("cell", { name: "granted group access" }).first()).toBeVisible();
+    await expect(page.getByRole("cell", { name: "revoked group access" })).toHaveCount(0);
   });
 
-  test("all-events tab shows the unfiltered log", async ({ page }) => {
-    await page.goto("/en-US/admin/audit-log?groupAccess=true");
-    await page.getByRole("link", { name: "All events" }).click();
-    await expect(page).toHaveURL(/\/admin\/audit-log$/);
+  test("shows the unfiltered log and clears the action filter", async ({ page }) => {
+    await page.goto("/en-US/admin/audit-log");
     await expect(page.getByRole("heading", { name: "Audit Log" })).toBeVisible();
+    // Rows render with at least one action pill (the table is not empty).
+    await expect(page.getByRole("table").getByRole("row").first()).toBeVisible();
+
+    // Selecting a filter and clearing it restores the full list.
+    await page.getByLabel("Action").selectOption({ label: "granted group access" });
+    await page.getByRole("button", { name: "Apply" }).click();
+    await expect(page.getByRole("cell", { name: "granted group access" }).first()).toBeVisible();
+    await page.getByRole("button", { name: "Clear filters" }).click();
+    await expect(page.getByRole("cell", { name: "granted group access" }).first()).toBeVisible();
   });
 
   test("permission-denied on the audit log for a non-admin", async ({ browser }) => {
