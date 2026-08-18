@@ -3,6 +3,13 @@ import { getWbsForProject } from "@/lib/tasks";
 import { computeSchedule } from "@/lib/scheduling/cpm";
 import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Schedule float in ms → days, rounded to one decimal (negative = behind). */
+function floatDaysFromMs(floatMs: number): number {
+  return Math.round((floatMs / DAY_MS) * 10) / 10;
+}
+
 export async function buildGanttReport(
   projectId: string,
   withCritical: boolean,
@@ -51,15 +58,19 @@ export async function buildGanttReport(
 
     // The schedule only spans leaf tasks, so roll criticality up to summary
     // rows: a parent is on the critical path when any of its descendants is.
+    // Float follows the same rollup — a summary's float is the tightest
+    // (minimum) float among its critical descendants.
     let critical: boolean | undefined;
+    let floatDays: number | undefined;
     if (node.isSummary) {
-      critical = withCritical && descendants.some((id) => schedule.schedule[id]?.critical === true)
-        ? true
-        : undefined;
-    } else {
-      critical = withCritical && scheduleEntry && !scheduleEntry.unscheduled
-        ? scheduleEntry.critical
-        : undefined;
+      const criticalDescendants = descendants.filter((id) => schedule.schedule[id]?.critical === true);
+      critical = withCritical && criticalDescendants.length > 0 ? true : undefined;
+      if (criticalDescendants.length > 0) {
+        floatDays = floatDaysFromMs(Math.min(...criticalDescendants.map((id) => schedule.schedule[id]!.float)));
+      }
+    } else if (withCritical && scheduleEntry && !scheduleEntry.unscheduled) {
+      critical = scheduleEntry.critical;
+      if (scheduleEntry.critical) floatDays = floatDaysFromMs(scheduleEntry.float);
     }
 
     const base = {
@@ -77,7 +88,8 @@ export async function buildGanttReport(
       summaryStart,
       summaryEnd,
     };
-    return critical === undefined ? base : { ...base, critical };
+    if (critical === undefined) return base;
+    return floatDays === undefined ? { ...base, critical } : { ...base, critical, floatDays };
   });
 
   const dependencyRows = await prismaTaskDeps(projectId);

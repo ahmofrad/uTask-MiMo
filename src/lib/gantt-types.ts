@@ -11,6 +11,8 @@ export type GanttRow = {
   startDate: string | null;
   dueDate: string | null;
   critical?: boolean;
+  /** Float in days (negative = behind schedule), present on critical rows. */
+  floatDays?: number;
   summaryStart?: string | null;
   summaryEnd?: string | null;
 };

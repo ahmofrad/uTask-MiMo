@@ -11,6 +11,7 @@ import { useToast } from "@/components/ui/toast";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
 import { linkShortLabel, linkLagSuffix } from "@/lib/gantt/links";
+import { formatFloatDays } from "@/lib/gantt/float";
 import { exportGanttAsPdf, exportGanttAsPng } from "@/lib/gantt/export";
 import {
   getTimelineDragDeltaDays,
@@ -152,6 +153,7 @@ export function GanttChart({
   const [linkLag, setLinkLag] = useState(0);
   const [linkLagUnit, setLinkLagUnit] = useState<"DAY" | "HOUR">("DAY");
   const [depsOpen, setDepsOpen] = useState(false);
+  const [criticalListOpen, setCriticalListOpen] = useState(false);
   const [showCritical, setShowCritical] = useState(true);
   const [dayWidth, setDayWidth] = useState(52);
   const [exporting, setExporting] = useState<"png" | "pdf" | null>(null);
@@ -166,11 +168,17 @@ export function GanttChart({
     try {
       const stored = localStorage.getItem(GANTT_PREFS_KEY);
       if (!stored) return;
-      const prefs = JSON.parse(stored) as { dayWidth?: number; depsOpen?: boolean; showCritical?: boolean };
+      const prefs = JSON.parse(stored) as {
+        dayWidth?: number;
+        depsOpen?: boolean;
+        criticalListOpen?: boolean;
+        showCritical?: boolean;
+      };
       if (typeof prefs.dayWidth === "number" && ZOOM_OPTIONS.some((z) => z.width === prefs.dayWidth)) {
         setDayWidth(prefs.dayWidth);
       }
       if (typeof prefs.depsOpen === "boolean") setDepsOpen(prefs.depsOpen);
+      if (typeof prefs.criticalListOpen === "boolean") setCriticalListOpen(prefs.criticalListOpen);
       if (typeof prefs.showCritical === "boolean") setShowCritical(prefs.showCritical);
     } catch {
       // ignore malformed prefs
@@ -179,11 +187,14 @@ export function GanttChart({
 
   useEffect(() => {
     try {
-      localStorage.setItem(GANTT_PREFS_KEY, JSON.stringify({ dayWidth, depsOpen, showCritical }));
+      localStorage.setItem(
+        GANTT_PREFS_KEY,
+        JSON.stringify({ dayWidth, depsOpen, criticalListOpen, showCritical }),
+      );
     } catch {
       // storage unavailable (private mode etc.)
     }
-  }, [dayWidth, depsOpen, showCritical]);
+  }, [dayWidth, depsOpen, criticalListOpen, showCritical]);
   const [depsBusy, setDepsBusy] = useState(false);
   const [depEdits, setDepEdits] = useState<Record<string, { type: LinkType; lag: number; lagUnit: "DAY" | "HOUR" }>>({});
   const canEdit = report.canEdit ?? false;
@@ -598,6 +609,19 @@ export function GanttChart({
   };
 
   const hasCritical = report.tasks.some((r) => r.critical === true);
+  // Critical rows, most urgent first: negative float (already behind) before
+  // zero, then by WBS order for a stable list.
+  const criticalRows = report.tasks
+    .filter((r) => r.critical === true)
+    .sort((a, b) => (a.floatDays ?? 0) - (b.floatDays ?? 0) || a.wbsCode.localeCompare(b.wbsCode));
+
+  const floatPhrase = (days: number): string => {
+    const abs = Math.round(Math.abs(days) * 10) / 10;
+    const formatted = formatNumber(abs, locale, locale === "fa-IR");
+    if (abs === 0) return t("ganttFloatNone");
+    if (days > 0) return t("ganttFloatSlack", { days: formatted });
+    return t("ganttFloatBehind", { days: formatted });
+  };
   const toolbarButton = (active: boolean) =>
     `px-3 py-1.5 rounded-md border text-sm font-medium transition-colors ${
       active
@@ -652,6 +676,18 @@ export function GanttChart({
             className={toolbarButton(showCritical)}
           >
             {t("ganttCriticalPath")}
+          </button>
+        )}
+        {hasCritical && (
+          <button
+            type="button"
+            data-testid="gantt-critical-list"
+            onClick={() => setCriticalListOpen((open) => !open)}
+            aria-pressed={criticalListOpen}
+            aria-expanded={criticalListOpen}
+            className={toolbarButton(criticalListOpen)}
+          >
+            {t("ganttCriticalList")} ({criticalRows.length})
           </button>
         )}
         <label className="flex items-center gap-1.5 text-xs text-fg-muted">
@@ -830,6 +866,50 @@ export function GanttChart({
             {t("ganttLinkCancel")}
           </button>
         </form>
+      )}
+
+      {criticalListOpen && hasCritical && (
+        <div data-testid="gantt-critical-panel" className="rounded-lg border border-border-primary p-3 text-sm">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+              {t("ganttCriticalPath")} ({criticalRows.length})
+            </span>
+          </div>
+          <p className="mb-2 text-xs text-fg-muted">{t("ganttFloatHint")}</p>
+          <ul className="space-y-1.5">
+            {criticalRows.map((row) => {
+              const floatDays = row.floatDays ?? 0;
+              return (
+                <li
+                  key={row.id}
+                  data-testid="gantt-critical-row"
+                  data-task-id={row.id}
+                  className="flex items-center justify-between gap-3 rounded-md border border-border-secondary/60 bg-bg-secondary/40 px-2.5 py-1.5"
+                >
+                  <span className="min-w-0 truncate text-xs">
+                    <span className="font-mono text-fg-subtle">{row.wbsCode}</span>
+                    <Link
+                      href={`/tasks/${row.id}`}
+                      className="ms-1.5 font-medium text-fg-primary hover:text-accent truncate"
+                      title={row.title}
+                    >
+                      {row.title}
+                    </Link>
+                  </span>
+                  <span
+                    data-testid="gantt-critical-float"
+                    title={floatPhrase(floatDays)}
+                    className={`shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] font-semibold ${
+                      floatDays < 0 ? "bg-danger-bg text-danger" : "bg-warning-bg text-warning"
+                    }`}
+                  >
+                    {formatFloatDays(floatDays)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       )}
 
       {depsOpen && (

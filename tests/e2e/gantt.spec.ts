@@ -108,6 +108,29 @@ test.describe("Gantt timeline", () => {
     expect(chartsWithLegend).toBeGreaterThan(0);
   });
 
+  test("lists critical tasks with their float in the critical-path panel", async ({ page }) => {
+    await page.goto("/en-US");
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    const chart = page.getByTestId("gantt-scroll-container").first();
+    await expect(chart).toBeVisible({ timeout: 15000 });
+
+    const listToggle = page.getByTestId("gantt-critical-list").first();
+    await expect(listToggle).toBeVisible();
+    await listToggle.click();
+    const panel = page.getByTestId("gantt-critical-panel").first();
+    await expect(panel).toBeVisible();
+    const rows = panel.getByTestId("gantt-critical-row");
+    const rowCount = await rows.count();
+    expect(rowCount).toBeGreaterThan(0);
+    for (let index = 0; index < rowCount; index += 1) {
+      await expect(rows.nth(index).getByTestId("gantt-critical-float")).toHaveText(/^[+-]?\d+(\.\d+)?d$/);
+    }
+
+    // The toolbar toggle collapses the panel again.
+    await listToggle.click();
+    await expect(panel).toHaveCount(0);
+  });
+
   test("keeps Persian timeline dates chronological from right to left", async ({ page }) => {
     await page.goto("/fa-IR");
     await page.getByRole("button", { name: "گانت", exact: true }).click();
