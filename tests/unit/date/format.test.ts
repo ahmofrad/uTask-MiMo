@@ -54,6 +54,35 @@ describe("formatDate", () => {
     const result = formatDate(testDate, "fa-IR");
     expect(result).toBe("۱۵ خرداد ۱۴۰۳");
   });
+
+  it("renders UTC day-boundary timestamps as literal calendar days in en-US", async () => {
+    const { format } = await import("date-fns");
+    const formatMock = format as ReturnType<typeof vi.fn>;
+    formatDate(new Date("2026-08-21T00:00:00.000Z"), "en-US"); // start marker
+    formatDate(new Date("2026-08-23T23:59:59.999Z"), "en-US"); // due marker
+    const days = formatMock.mock.calls.map((call) => (call[0] as Date).getDate());
+    expect(days).toEqual([21, 23]);
+  });
+
+  it("renders UTC day-boundary timestamps literally in fa-IR jalali too", async () => {
+    const { format } = await import("date-fns-jalali");
+    const formatMock = format as ReturnType<typeof vi.fn>;
+    formatDate(new Date("2026-08-23T23:59:59.999Z"), "fa-IR", "jalali");
+    const arg = formatMock.mock.calls[0]?.[0] as Date;
+    expect(arg.getFullYear()).toBe(2026);
+    expect(arg.getMonth()).toBe(7); // August
+    expect(arg.getDate()).toBe(23);
+  });
+
+  it("keeps the pinned timezone conversion for real instants", async () => {
+    const { format } = await import("date-fns");
+    const formatMock = format as ReturnType<typeof vi.fn>;
+    // 02:00Z crosses into the previous day in America/New_York — a genuine
+    // instant must still render in the pinned timezone.
+    formatDate(new Date("2026-08-21T02:00:00.000Z"), "en-US");
+    const arg = formatMock.mock.calls[0]?.[0] as Date;
+    expect(arg.getDate()).toBe(20);
+  });
 });
 
 describe("formatDateTime", () => {

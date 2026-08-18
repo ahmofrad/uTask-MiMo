@@ -57,6 +57,24 @@ describe("timeline item geometry", () => {
     )).toEqual({ startOffset: 0.5, width: 104 });
   });
 
+  it("anchors an end-of-day start to its own calendar day", () => {
+    // A start stored at 23:59:59.999 is a day marker, not the next day.
+    expect(getTimelineItemGeometry(
+      new Date("2026-08-20T23:59:59.999Z"),
+      new Date("2026-08-21T23:59:59.999Z"),
+      rangeStart,
+      52,
+    )).toEqual({ startOffset: 1, width: 104 });
+  });
+
+  it("keeps a full multi-day span for an end-of-day start", () => {
+    expect(getTimelineItemWidth(
+      new Date("2026-08-19T23:59:59.999Z"),
+      new Date("2026-08-21T23:59:59.999Z"),
+      52,
+    )).toBe(156);
+  });
+
   it("snaps start and due values to their respective day boundaries", () => {
     const timestamp = new Date("2026-08-19T12:34:56.789Z");
     expect(snapTimelineDate(timestamp, "start").toISOString()).toBe("2026-08-19T00:00:00.000Z");

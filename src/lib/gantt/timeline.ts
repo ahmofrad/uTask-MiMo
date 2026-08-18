@@ -45,14 +45,17 @@ function isStartOfDay(date: Date): boolean {
 }
 
 function isEndOfDay(date: Date): boolean {
+  // Any millisecond: date shifts can leave day markers like 23:59:59.998.
   return date.getHours() === 23
     && date.getMinutes() === 59
-    && date.getSeconds() === 59
-    && date.getMilliseconds() === 999;
+    && date.getSeconds() === 59;
 }
 
 function timelineStartFraction(date: Date): number {
-  return timeOfDayFraction(date);
+  // Day-boundary markers (00:00:00 or 23:59:59.999) anchor a task to its own
+  // calendar day: an end-of-day start must not push the bar into the next
+  // day's cell. Genuine times keep their fractional placement.
+  return isEndOfDay(date) ? 0 : timeOfDayFraction(date);
 }
 
 function timelineEndFraction(date: Date): number {

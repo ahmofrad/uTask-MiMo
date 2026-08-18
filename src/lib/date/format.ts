@@ -15,9 +15,26 @@ const TIMEZONE_BY_LOCALE: Record<Locale, string> = {
   "en-US": "America/New_York",
 };
 
+// The app stores date-only values (task start/due dates, date custom fields)
+// as UTC day-boundary timestamps: starts at 00:00:00.000Z, dues at
+// 23:59:59.999Z. Rendering those instants in a pinned timezone shifts the
+// calendar day — en-US starts show a day early, fa-IR dues show a day late.
+// Boundary timestamps are day markers, not instants, so they are rendered
+// literally (their UTC components) in every locale.
+function isDateOnlyMarker(date: Date): boolean {
+  const hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes();
+  const seconds = date.getUTCSeconds();
+  // A start is stored exactly at 00:00:00.000Z; a due is stored at 23:59:59
+  // (any millisecond — date shifts can leave values like 23:59:59.998).
+  return (hours === 0 && minutes === 0 && seconds === 0 && date.getUTCMilliseconds() === 0)
+    || (hours === 23 && minutes === 59 && seconds === 59);
+}
+
 // Convert an absolute instant into a Date whose *local* wall-clock equals the
 // wall-clock time in `timeZone`. date-fns formats local components, so this
 // makes the output deterministic regardless of the runtime's own timezone.
+// Date-only markers bypass the pin and keep their literal calendar day.
 function toZonedDate(date: Date, timeZone: string): Date {
   const dtf = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -42,7 +59,7 @@ export function formatDate(
   locale: Locale,
   calendar: Calendar = "jalali",
 ): string {
-  const d = toZonedDate(date, TIMEZONE_BY_LOCALE[locale]);
+  const d = isDateOnlyMarker(date) ? toZonedDate(date, "UTC") : toZonedDate(date, TIMEZONE_BY_LOCALE[locale]);
   if (locale === "fa-IR" && calendar === "jalali") {
     return formatJalali(d, "d MMMM yyyy", { locale: faIRJalali });
   }
@@ -57,7 +74,7 @@ export function formatDateTime(
   locale: Locale,
   calendar: Calendar = "jalali",
 ): string {
-  const d = toZonedDate(date, TIMEZONE_BY_LOCALE[locale]);
+  const d = isDateOnlyMarker(date) ? toZonedDate(date, "UTC") : toZonedDate(date, TIMEZONE_BY_LOCALE[locale]);
   if (locale === "fa-IR" && calendar === "jalali") {
     return formatJalali(d, "d MMMM yyyy, HH:mm", { locale: faIRJalali });
   }
