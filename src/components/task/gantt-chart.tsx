@@ -19,7 +19,7 @@ import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
 import { linkShortLabel, linkLagSuffix } from "@/lib/gantt/links";
 import { formatFloatDays } from "@/lib/gantt/float";
 import { criticalDescendants, criticalPredecessors } from "@/lib/gantt/chain";
-import { exportGanttAsPdf, exportGanttAsPng } from "@/lib/gantt/export";
+import { exportGanttAsPdf, exportGanttAsPng } from "@/lib/gantt/export-raster";
 import {
   applyDragDelta,
   createDragState,

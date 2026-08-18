@@ -1,6 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { buildGanttExportSvg, FALLBACK_PALETTE } from "@/lib/gantt/export";
+import { buildGanttExportSvg, FALLBACK_PALETTE } from "@/lib/gantt/export-svg";
 import type { GanttReport } from "@/lib/gantt-types";
+
+describe("pure export module", () => {
+  it("imports without a DOM (no document/window at module scope)", () => {
+    // The module-level default palette is static; the browser adapter owns
+    // resolveExportPalette. Importing the pure module must not require jsdom.
+    expect(FALLBACK_PALETTE.fgPrimary).toBe("#17213b");
+    expect(typeof buildGanttExportSvg).toBe("function");
+  });
+
+  it("falls back to the static palette when none is passed", () => {
+    const svg = buildGanttExportSvg({ report, locale: "en-US" });
+    expect(svg).toContain(FALLBACK_PALETTE.fgPrimary);
+  });
+});
 
 const report: GanttReport = {
   tasks: [
