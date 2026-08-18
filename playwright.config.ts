@@ -14,6 +14,11 @@ export default defineConfig({
     baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
+    // The PWA service worker adds network timeouts and caches (NetworkFirst
+    // with 10s on /api/ GETs) that, under full-suite load, serve stale reports
+    // or fail slow refetches — making chart-heavy specs flaky. E2E runs without
+    // the SW (pwa.spec.ts re-enables it via test.use).
+    serviceWorkers: "block",
   },
   projects: [
     { name: "setup", testMatch: /auth\.setup\.ts/ },

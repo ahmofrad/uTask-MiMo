@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
 
+// The suite blocks service workers (see playwright.config.ts) so API traffic
+// is never served from SW caches; this spec is the one place the SW must run.
+test.use({ serviceWorkers: "allow" });
+
 test.describe("service worker (PWA)", () => {
   test("registers, installs, and activates without evaluation errors", async ({ page }) => {
     // Regression guard: if sw.js throws during script evaluation (e.g. Serwist's

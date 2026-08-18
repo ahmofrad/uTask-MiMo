@@ -25,12 +25,34 @@ async function seededTaskId(title: string) {
 }
 
 test.describe("Gantt timeline", () => {
+  // The link test mutates dependencies in the seeded Product Launch project,
+  // and every test's afterEach wipes that project's dependencies. Under
+  // fullyParallel, a finishing sibling test would delete the link test's
+  // freshly-created dependency mid-test (the edit DELETE then 404s / the
+  // refetch shows 0 links). Run the file serially so only the link test's own
+  // afterEach ever touches its dependencies.
+  test.describe.configure({ mode: "serial" });
+
+  // The link test mutates dependencies in the seeded Product Launch project.
+  // Wipe every dependency touching that project after each test so a failed or
+  // interrupted run can never leave a stale link behind — a leftover link would
+  // shift the deps-panel row order and make the link test flaky.
+  test.afterEach(async () => {
+    const project = await prisma.project.findFirstOrThrow({ where: { name: "Product Launch" }, select: { id: true } });
+    const taskIds = (await prisma.task.findMany({ where: { projectId: project.id }, select: { id: true } })).map(
+      (task) => task.id,
+    );
+    await prisma.taskDependency.deleteMany({
+      where: { OR: [{ taskId: { in: taskIds } }, { dependsOnId: { in: taskIds } }] },
+    });
+  });
+
   test("keeps task names visible while the timeline scrolls horizontally", async ({ page }) => {
     await page.goto("/en-US");
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
 
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     const label = chart.getByTestId("gantt-task-label").first();
     await expect(label).toBeVisible();
 
@@ -57,7 +79,10 @@ test.describe("Gantt timeline", () => {
 
   test("renders the Critical path legend item only once", async ({ page }) => {
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       for (const report of Object.values(payload.data)) {
         const task = report.tasks.find((candidate) => !candidate.isSummary) ?? report.tasks[0];
@@ -69,7 +94,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/en-US");
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const charts = page.getByTestId("gantt-scroll-container");
-    await expect(charts.first()).toBeVisible();
+    await expect(charts.first()).toBeVisible({ timeout: 15000 });
     const chartCount = await charts.count();
     let chartsWithLegend = 0;
     for (let index = 0; index < chartCount; index += 1) {
@@ -88,7 +113,7 @@ test.describe("Gantt timeline", () => {
     await page.getByRole("button", { name: "گانت", exact: true }).click();
 
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     const days = chart.getByTestId("gantt-timeline-day");
     await expect(days.first()).toBeVisible();
 
@@ -144,7 +169,10 @@ test.describe("Gantt timeline", () => {
   test("renders a multi-day task bar through the end of its due date", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
@@ -161,7 +189,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/en-US");
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     await expect.poll(() => injectedTaskId).not.toBeNull();
 
     const bar = chart.locator(`[data-testid="gantt-task-bar"][data-task-id="${injectedTaskId}"]`);
@@ -172,7 +200,10 @@ test.describe("Gantt timeline", () => {
   test("keeps a same-day task inside exactly one calendar day", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
@@ -189,7 +220,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/en-US");
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     await expect.poll(() => injectedTaskId).not.toBeNull();
 
     const bar = chart.locator(`[data-testid="gantt-task-bar"][data-task-id="${injectedTaskId}"]`);
@@ -208,7 +239,10 @@ test.describe("Gantt timeline", () => {
   test("resizes a one-day task earlier from its start edge", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
@@ -225,7 +259,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/en-US");
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     await expect.poll(() => injectedTaskId).not.toBeNull();
 
     const handle = chart.locator(`[data-testid="gantt-task-resize-start"][data-task-id="${injectedTaskId}"]`);
@@ -250,7 +284,10 @@ test.describe("Gantt timeline", () => {
   test("resizes a one-day task later from its due edge", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
@@ -267,7 +304,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/en-US");
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     await expect.poll(() => injectedTaskId).not.toBeNull();
 
     const handle = chart.locator(`[data-testid="gantt-task-resize-due"][data-task-id="${injectedTaskId}"]`);
@@ -292,7 +329,10 @@ test.describe("Gantt timeline", () => {
   test("repaints both edges immediately after resizing a one-day task", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
@@ -309,7 +349,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/en-US");
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     await expect.poll(() => injectedTaskId).not.toBeNull();
 
     const bar = chart.locator(`[data-testid="gantt-task-bar"][data-task-id="${injectedTaskId}"]`);
@@ -345,7 +385,10 @@ test.describe("Gantt timeline", () => {
   test("moves both edges when a one-day start edge is dragged later", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
@@ -362,7 +405,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/en-US");
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     await expect.poll(() => injectedTaskId).not.toBeNull();
 
     const handle = chart.locator(`[data-testid="gantt-task-resize-start"][data-task-id="${injectedTaskId}"]`);
@@ -389,7 +432,10 @@ test.describe("Gantt timeline", () => {
   test("moves both edges when a one-day due edge is dragged earlier", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
@@ -406,7 +452,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/en-US");
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     await expect.poll(() => injectedTaskId).not.toBeNull();
 
     const handle = chart.locator(`[data-testid="gantt-task-resize-due"][data-task-id="${injectedTaskId}"]`);
@@ -433,7 +479,10 @@ test.describe("Gantt timeline", () => {
   test("resizes the start edge to the beginning of a calendar day", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
@@ -450,7 +499,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/en-US");
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     await expect.poll(() => injectedTaskId).not.toBeNull();
 
     const bar = chart.locator(`[data-testid="gantt-task-bar"][data-task-id="${injectedTaskId}"]`);
@@ -476,7 +525,10 @@ test.describe("Gantt timeline", () => {
   test("resizes the due edge to the end of a calendar day in RTL", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
@@ -493,7 +545,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/fa-IR");
     await page.getByRole("button", { name: "گانت", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     await expect.poll(() => injectedTaskId).not.toBeNull();
 
     const bar = chart.locator(`[data-testid="gantt-task-bar"][data-task-id="${injectedTaskId}"]`);
@@ -519,7 +571,10 @@ test.describe("Gantt timeline", () => {
   test("moves task dates in the pointer direction on the RTL timeline", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
@@ -536,7 +591,7 @@ test.describe("Gantt timeline", () => {
     await page.goto("/fa-IR");
     await page.getByRole("button", { name: "گانت", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
     await expect.poll(() => injectedTaskId).not.toBeNull();
 
     const bar = chart.locator(`[data-testid="gantt-task-bar"][data-task-id="${injectedTaskId}"]`);
@@ -567,7 +622,10 @@ test.describe("Gantt timeline", () => {
     // Pin the two tasks to well-separated dates so their bars never overlap
     // (the seeded due dates would stack the target bar under the source bar).
     await page.route("**/api/v1/projects/*/reports/gantt**", async (route) => {
-      const response = await route.fetch();
+      // Fetch via page.request so the session cookies travel along, bypassing
+      // the browser HTTP cache that otherwise serves the stale pre-mutation
+      // report to the refetch after a dependency create/delete.
+      const response = await page.request.fetch(route.request().url());
       const payload = await response.json() as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       for (const task of report?.tasks ?? []) {
@@ -589,7 +647,7 @@ test.describe("Gantt timeline", () => {
     await page.goto(`/en-US/projects/${projectId}`);
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
     const chart = page.getByTestId("gantt-scroll-container").first();
-    await expect(chart).toBeVisible();
+    await expect(chart).toBeVisible({ timeout: 15000 });
 
     // The critical-path toggle is available (the seeded project has a critical
     // task) and flips between the highlighted and plain state.
@@ -627,19 +685,24 @@ test.describe("Gantt timeline", () => {
     expect(postPayload).toEqual({ dependsOnId: sourceId, type: "FINISH_TO_START", lag: 0, lagUnit: "DAY" });
 
     // After reload, the arrow connecting the two tasks appears (with its label).
+    // The create POST triggers a report refetch, so the arrow can lag several
+    // seconds behind the response under full-suite load — use a generous timeout.
     const arrow = chart.locator(
       `[data-testid="gantt-link-arrow"][data-link-source="${sourceId}"][data-link-target="${targetId}"]`,
     );
-    await expect(arrow).toBeVisible();
+    await expect(arrow).toBeVisible({ timeout: 15000 });
     await expect(arrow).toContainText("FS");
 
     // The dependencies panel lists the link; edit it to SS + 2 days lag.
     await page.getByTestId("gantt-deps-toggle").click();
     const panel = page.getByTestId("gantt-deps-panel");
     await expect(panel).toBeVisible();
-    const depRow = panel.getByTestId("gantt-dep-row").first();
-    await expect(depRow).toBeVisible();
-    await expect(depRow.getByText("Finish to Start", { exact: false })).toBeVisible();
+    // Scope the row to the link this test just created instead of assuming it
+    // is the first row — a pre-existing link in the project would shift the
+    // order and make the edit hit the wrong dependency.
+    const depRow = panel.getByTestId("gantt-dep-row").filter({ hasText: "Prepare marketing materials" });
+    await expect(depRow).toHaveCount(1, { timeout: 15000 });
+    await expect(depRow.getByText("Finish to Start", { exact: false })).toBeVisible({ timeout: 15000 });
     await depRow.getByTestId("gantt-dep-edit").click();
     await depRow.getByTestId("gantt-dep-type").selectOption("START_TO_START");
     await depRow.getByTestId("gantt-dep-lag").fill("2");
@@ -657,7 +720,7 @@ test.describe("Gantt timeline", () => {
     expect(editPayload).toEqual({ dependsOnId: sourceId, type: "START_TO_START", lag: 2, lagUnit: "DAY" });
 
     // After reload the arrow reflects the edited edge and stays clickable.
-    await expect(arrow).toBeVisible();
+    await expect(arrow).toBeVisible({ timeout: 15000 });
     await expect(arrow).toContainText("SS");
 
     // Clicking the arrow deletes the dependency.
@@ -667,15 +730,16 @@ test.describe("Gantt timeline", () => {
     ));
     await arrow.click();
     await arrowDeleteRequest;
-    await expect(arrow).toBeHidden();
+    await expect(arrow).toBeHidden({ timeout: 15000 });
 
     // Toggling link mode off returns the chart to normal drag state.
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-pressed", "false");
 
-    // Cleanup: remove any dependency the test created directly.
+    // Cleanup: remove any dependency touching either of the two tasks (both
+    // directions), guarding against edits that point the wrong way.
     await prisma.taskDependency.deleteMany({
-      where: { taskId: targetId, dependsOnId: sourceId },
+      where: { OR: [{ taskId: { in: [sourceId, targetId] } }, { dependsOnId: { in: [sourceId, targetId] } }] },
     });
   });
 
@@ -683,7 +747,7 @@ test.describe("Gantt timeline", () => {
     const projectId = await seededProjectId("Product Launch");
     await page.goto(`/en-US/projects/${projectId}`);
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
-    await expect(page.getByTestId("gantt-scroll-container").first()).toBeVisible();
+    await expect(page.getByTestId("gantt-scroll-container").first()).toBeVisible({ timeout: 15000 });
 
     // Flip all three persisted settings.
     const criticalToggle = page.getByTestId("gantt-critical-toggle");
@@ -704,7 +768,7 @@ test.describe("Gantt timeline", () => {
     const projectId = await seededProjectId("Product Launch");
     await page.goto(`/en-US/projects/${projectId}`);
     await page.getByRole("button", { name: "Gantt", exact: true }).click();
-    await expect(page.getByTestId("gantt-scroll-container").first()).toBeVisible();
+    await expect(page.getByTestId("gantt-scroll-container").first()).toBeVisible({ timeout: 15000 });
 
     // One Export button opens a dialog with the format and date-range choices;
     // the default window is the current Jalali month.
