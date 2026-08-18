@@ -54,6 +54,11 @@ function resetCache() {
 
 export { resetCache };
 
+/** Whether an SMTP transport is available (DB settings or env vars). */
+export async function isMailConfigured(): Promise<boolean> {
+  return (await getSmtpConfig()) !== null;
+}
+
 async function getTransport() {
   if (transporter) return transporter;
 

@@ -30,6 +30,14 @@ export function renderTemplate(template: string, vars: Record<string, string | n
   });
 }
 
+/** Sample values substituted into rendered templates for previews and test sends. */
+export const MAIL_PREVIEW_VARS: Record<string, string> = {
+  link: "https://app.example.com/invite/sample-token",
+  expiryDays: "7",
+  expiryMinutes: "60",
+  email: "member@example.com",
+};
+
 /**
  * Load the effective templates: defaults merged with any admin overrides
  * stored in settings. A blank override falls back to the default.

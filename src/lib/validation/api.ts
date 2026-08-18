@@ -296,6 +296,19 @@ export const emailTemplatesSchema = z.object({
   reset_html: z.string().trim().max(8000).optional(),
 }).strict();
 
+export const sendTestEmailSchema = z.object({
+  key: z.enum(["invite", "reset"]),
+  to: z.string().trim().email().max(320),
+}).strict();
+
+export const customFieldFilterClauseSchema = z.object({
+  key: z.string().min(1).max(255),
+  operator: z.enum(["eq", "neq", "gt", "gte", "lt", "lte", "in", "contains", "array_contains"]),
+  value: z.union([z.string(), z.number(), z.boolean()]),
+}).strict();
+
+export const customFieldFilterListSchema = z.array(customFieldFilterClauseSchema).max(10);
+
 export const inviteAcceptSchema = z.object({
   displayName: z.string().trim().min(1).max(100),
   password: z.string().min(12).max(128),

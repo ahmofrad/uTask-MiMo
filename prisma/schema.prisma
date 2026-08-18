@@ -218,6 +218,7 @@ enum AuditAction {
   group_grant_created
   group_grant_revoked
   session_revoked
+  mail_test_sent
 }
 
 enum SettingsScope {
