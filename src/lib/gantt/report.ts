@@ -23,14 +23,11 @@ export async function buildGanttReport(
     const startDate = dates?.startDate?.toISOString() ?? null;
     const dueDate = dates?.dueDate?.toISOString() ?? null;
     const scheduleEntry = schedule.schedule[node.id];
-    const critical = withCritical && scheduleEntry && !scheduleEntry.unscheduled
-      ? scheduleEntry.critical
-      : undefined;
 
     let summaryStart: string | null = null;
     let summaryEnd: string | null = null;
+    const descendants = node.isSummary ? collectDescendants(node.id, childrenMap) : [];
     if (node.isSummary) {
-      const descendants = collectDescendants(node.id, childrenMap);
       let minimum: number | null = null;
       let maximum: number | null = null;
       for (const descendantId of descendants) {
@@ -50,6 +47,19 @@ export async function buildGanttReport(
       if (maximum == null && scheduleEntry) maximum = schedule.end;
       summaryStart = minimum != null ? new Date(minimum).toISOString() : null;
       summaryEnd = maximum != null ? new Date(maximum).toISOString() : null;
+    }
+
+    // The schedule only spans leaf tasks, so roll criticality up to summary
+    // rows: a parent is on the critical path when any of its descendants is.
+    let critical: boolean | undefined;
+    if (node.isSummary) {
+      critical = withCritical && descendants.some((id) => schedule.schedule[id]?.critical === true)
+        ? true
+        : undefined;
+    } else {
+      critical = withCritical && scheduleEntry && !scheduleEntry.unscheduled
+        ? scheduleEntry.critical
+        : undefined;
     }
 
     const base = {

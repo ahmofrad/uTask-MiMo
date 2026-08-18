@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db";
-import { computeSchedule } from "@/lib/scheduling/cpm";
+import { bumpScheduleVersion, computeSchedule } from "@/lib/scheduling/cpm";
 import { addDependency, DependencyError } from "@/lib/tasks/dependencies";
 
 const hasDb = !!process.env.DATABASE_URL;
@@ -84,6 +84,32 @@ maybe("cpm scheduling engine (integration)", () => {
 
     const result = await computeSchedule(projectId);
     expect(result.schedule[m].es).toBe(result.schedule[m].ef);
+  });
+
+  it("schedules a finish-only task back from its deadline and flags it critical", async () => {
+    const a = await mkTask("D-A", { dueDate: day(3).toISOString(), estimatedHours: 8 });
+    const b = await mkTask("D-B", { dueDate: day(10).toISOString(), estimatedHours: 80 });
+    await bumpScheduleVersion(projectId); // created directly, bypassing mutations
+
+    const result = await computeSchedule(projectId);
+    // a is finish-only: it lands exactly on its due date and the deadline
+    // binds, so it has zero float — critical even though b drives the
+    // project end.
+    expect(result.schedule[a].critical).toBe(true);
+    expect(result.schedule[a].float).toBeLessThanOrEqual(0);
+    expect(result.schedule[a].ef).toBe(new Date(day(3)).getTime());
+    expect(result.schedule[b].critical).toBe(true);
+  });
+
+  it("never flags a completed task as critical", async () => {
+    const a = await mkTask("Done-A", { dueDate: day(3).toISOString(), estimatedHours: 8 });
+    await prisma.task.update({ where: { id: a }, data: { status: "done" } });
+    const b = await mkTask("Done-B", { dueDate: day(10).toISOString(), estimatedHours: 80 });
+    await bumpScheduleVersion(projectId);
+
+    const result = await computeSchedule(projectId);
+    expect(result.schedule[a].critical).toBe(false);
+    expect(result.schedule[a].float).toBeLessThanOrEqual(0);
   });
 
   it("excludes undated tasks from the schedule", async () => {

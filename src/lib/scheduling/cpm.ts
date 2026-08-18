@@ -11,6 +11,7 @@ export type CpmNode = {
   estimatedHours: number | null;
   isMilestone: boolean;
   progress: number;
+  status: "open" | "in_progress" | "done" | "cancelled";
 };
 
 export type CpmScheduleEntry = {
@@ -83,6 +84,7 @@ export async function computeSchedule(projectId: string): Promise<CpmResult> {
       estimatedHours: true,
       isMilestone: true,
       progress: true,
+      status: true,
     },
   });
 
@@ -98,6 +100,7 @@ export async function computeSchedule(projectId: string): Promise<CpmResult> {
       estimatedHours: t.estimatedHours != null ? Number(t.estimatedHours) : null,
       isMilestone: t.isMilestone,
       progress: t.progress,
+      status: t.status,
     });
   }
 
@@ -167,8 +170,14 @@ function runCpm(nodes: Map<string, CpmNode>, edges: Edge[], version: number): Cp
       else if (e.type === "FINISH_TO_FINISH") earliest = Math.max(earliest, aEf + e.lagMs - d);
     }
     const explicitStart = node.startDate ? node.startDate.getTime() : null;
-    let start = earliest === -Infinity ? (explicitStart ?? 0) : earliest;
+    // A finish-only task (due date, no pinned start) is scheduled back from
+    // its deadline so it lands exactly on the due date; a milestone sits on
+    // its due date. Without this, unconstrained sources anchor at day zero
+    // and real due dates never constrain the schedule.
+    const deadlineStart = explicitStart == null && node.dueDate != null ? node.dueDate.getTime() - d : null;
+    let start = earliest === -Infinity ? (explicitStart ?? deadlineStart ?? 0) : earliest;
     if (explicitStart !== null) start = Math.max(start, explicitStart);
+    if (deadlineStart !== null) start = Math.max(start, deadlineStart);
     es.set(id, start);
     ef.set(id, start + d);
   }
@@ -184,6 +193,7 @@ function runCpm(nodes: Map<string, CpmNode>, edges: Edge[], version: number): Cp
     const id = topo[i];
     if (id === undefined) continue;
     const d = dur.get(id)!;
+    const node = nodes.get(id)!;
     const hasOut = (outgoing.get(id) ?? []).length > 0;
     let latest = hasOut ? Infinity : projectEnd;
     for (const e of outgoing.get(id) ?? []) {
@@ -192,6 +202,12 @@ function runCpm(nodes: Map<string, CpmNode>, edges: Edge[], version: number): Cp
       if (e.type === "FINISH_TO_START") latest = Math.min(latest, bLs - e.lagMs);
       else if (e.type === "START_TO_START") latest = Math.min(latest, bLs - e.lagMs + d);
       else if (e.type === "FINISH_TO_FINISH") latest = Math.min(latest, bLf - e.lagMs);
+    }
+    // A finish-only task must finish by its due date — the deadline is a
+    // hard latest-finish, so tasks scheduled against a tight deadline get
+    // zero (or negative) float instead of slack against the project end.
+    if (node.dueDate != null && node.startDate == null) {
+      latest = Math.min(latest, node.dueDate.getTime());
     }
     lf.set(id, latest);
     ls.set(id, latest - d);
@@ -203,7 +219,9 @@ function runCpm(nodes: Map<string, CpmNode>, edges: Edge[], version: number): Cp
     const d = dur.get(id)!;
     const float = ls.get(id)! - es.get(id)!;
     const unscheduled = d === 0 && !nodes.get(id)!.startDate && !nodes.get(id)!.dueDate && !nodes.get(id)!.estimatedHours;
-    const critical = !unscheduled && float <= HOUR_MS;
+    // A completed task is history — it no longer drives the schedule, so it
+    // is never flagged critical (matches the chart's overdue indicator).
+    const critical = !unscheduled && nodes.get(id)!.status !== "done" && float <= HOUR_MS;
     schedule[id] = {
       es: es.get(id)!,
       ef: ef.get(id)!,
