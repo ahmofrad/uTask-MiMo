@@ -4,16 +4,29 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useToast } from "@/components/ui/toast";
 import { apiFetch } from "@/lib/api-fetch";
+import { BulkCustomFieldsDialog } from "@/components/task/bulk-custom-fields-dialog";
+
+type CustomFieldDef = {
+  id: string;
+  key: string;
+  name: string;
+  type: "text" | "number" | "date" | "select" | "multi_select" | "user" | "checkbox" | "url";
+  required: boolean;
+  configJson?: Record<string, unknown> | null;
+};
 
 type BulkActionsProps = {
   selectedIds: string[];
   onClear: () => void;
   onRefresh: () => void;
+  projectId?: string;
+  customFieldSchema?: CustomFieldDef[];
 };
 
-export function BulkActionsBar({ selectedIds, onClear, onRefresh }: BulkActionsProps) {
+export function BulkActionsBar({ selectedIds, onClear, onRefresh, projectId, customFieldSchema }: BulkActionsProps) {
   const t = useTranslations();
   const [busy, setBusy] = useState(false);
+  const [cfDialogOpen, setCfDialogOpen] = useState(false);
   const { addToast } = useToast();
 
   if (selectedIds.length === 0) return null;
@@ -128,6 +141,15 @@ export function BulkActionsBar({ selectedIds, onClear, onRefresh }: BulkActionsP
         >
           {t("common.delete")}
         </button>
+        {projectId && customFieldSchema && customFieldSchema.length > 0 && (
+          <button
+            onClick={() => setCfDialogOpen(true)}
+            disabled={busy}
+            className="px-3 py-1 rounded-md bg-bg-secondary border border-border-primary text-fg-secondary text-xs hover:bg-bg-tertiary disabled:opacity-50"
+          >
+            {t("task.customFields")}
+          </button>
+        )}
         <button
           onClick={onClear}
           className="px-3 py-1 rounded-md text-fg-tertiary text-xs hover:text-fg-secondary"
@@ -135,6 +157,16 @@ export function BulkActionsBar({ selectedIds, onClear, onRefresh }: BulkActionsP
           {t("common.close")}
         </button>
       </div>
+      {projectId && customFieldSchema && (
+        <BulkCustomFieldsDialog
+          open={cfDialogOpen}
+          onClose={() => setCfDialogOpen(false)}
+          selectedIds={selectedIds}
+          projectId={projectId}
+          customFieldSchema={customFieldSchema}
+          onApplied={onRefresh}
+        />
+      )}
     </div>
   );
 }

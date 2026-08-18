@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { TaskCard, type TaskCardData } from "@/components/task/task-card";
+import { BulkActionsBar } from "@/components/task/bulk-actions";
 
 export type CustomFieldFilterDef = {
   id: string;
@@ -54,6 +55,7 @@ export function ProjectTaskList({ projectId, initialTasks, fields }: ProjectTask
   const [filters, setFilters] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const activeClauses = useMemo<Clause[]>(() => {
     const clauses: Clause[] = [];
@@ -170,10 +172,38 @@ export function ProjectTaskList({ projectId, initialTasks, fields }: ProjectTask
     }
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function refresh() {
+    window.location.reload();
+  }
+
   const filtered = activeClauses.length > 0;
+  const cfSchemaForBulk = fields.map((f) => ({
+    id: f.id,
+    key: f.key,
+    name: f.name,
+    type: f.type as "text" | "number" | "date" | "select" | "multi_select" | "user" | "checkbox" | "url",
+    required: false,
+    configJson: f.configJson ?? null,
+  }));
 
   return (
     <div className="space-y-3">
+      <BulkActionsBar
+        selectedIds={Array.from(selectedIds)}
+        onClear={() => setSelectedIds(new Set())}
+        onRefresh={refresh}
+        projectId={projectId}
+        customFieldSchema={cfSchemaForBulk}
+      />
       {fields.length > 0 && (
         <div data-testid="task-cf-filters" className="rounded-lg border border-border-primary bg-bg-surface p-3">
           <div className="mb-2 flex items-center justify-between">
@@ -217,7 +247,18 @@ export function ProjectTaskList({ projectId, initialTasks, fields }: ProjectTask
       ) : (
         <div className="space-y-2">
           {tasks.map((task) => (
-            <TaskCard key={task.id} task={task} variant="list" />
+            <div key={task.id} className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={selectedIds.has(task.id)}
+                onChange={() => toggleSelect(task.id)}
+                className="shrink-0 rounded border-border-primary"
+                aria-label={t("task.selectTask", { defaultValue: `Select ${task.title}` })}
+              />
+              <div className="flex-1 min-w-0">
+                <TaskCard task={task} variant="list" />
+              </div>
+            </div>
           ))}
           {tasks.length === 0 && !filtered && (
             <p className="text-sm text-fg-muted text-center py-8">{t("noTasks")}</p>

@@ -309,6 +309,12 @@ export const customFieldFilterClauseSchema = z.object({
 
 export const customFieldFilterListSchema = z.array(customFieldFilterClauseSchema).max(10);
 
+export const bulkCustomFieldUpdateSchema = z.object({
+  taskIds: z.array(z.string().uuid()).min(1).max(200),
+  projectId: z.string().uuid(),
+  customFields: z.record(z.string(), z.unknown()),
+}).strict();
+
 export const inviteAcceptSchema = z.object({
   displayName: z.string().trim().min(1).max(100),
   password: z.string().min(12).max(128),
