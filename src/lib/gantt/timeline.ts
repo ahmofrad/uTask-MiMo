@@ -1,7 +1,14 @@
+import {
+  DAY_MS,
+  isLocalEndOfDay,
+  isLocalStartOfDay,
+  snapToDayBoundary,
+  startOfCalendarDay,
+} from "@/lib/date/day-marker";
+
 export type TimelineDirection = "ltr" | "rtl";
 export type TimelineDateBoundary = "start" | "end";
 
-const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const MINUTES_PER_DAY = 24 * 60;
 
 /**
@@ -34,46 +41,29 @@ export function getTimelineDragDeltaDays(
   return Math.round(getTimelineDragRawDeltaDays(startX, currentX, dayWidth, direction));
 }
 
-function startOfCalendarDay(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-}
-
 function calendarDayOffset(date: Date, rangeStart: Date): number {
-  const dateDay = startOfCalendarDay(date);
-  const rangeDay = startOfCalendarDay(rangeStart);
-  return Math.round((dateDay.getTime() - rangeDay.getTime()) / MILLISECONDS_PER_DAY);
+  return Math.round(
+    (startOfCalendarDay(date).getTime() - startOfCalendarDay(rangeStart).getTime()) / DAY_MS,
+  );
 }
 
 function timeOfDayFraction(date: Date): number {
   const milliseconds = (
     (((date.getHours() * 60) + date.getMinutes()) * 60 + date.getSeconds()) * 1000
   ) + date.getMilliseconds();
-  return milliseconds / MILLISECONDS_PER_DAY;
-}
-
-function isStartOfDay(date: Date): boolean {
-  return timeOfDayFraction(date) === 0;
-}
-
-function isEndOfDay(date: Date): boolean {
-  // Any millisecond: date shifts can leave day markers like 23:59:59.998.
-  return date.getHours() === 23
-    && date.getMinutes() === 59
-    && date.getSeconds() === 59;
+  return milliseconds / DAY_MS;
 }
 
 function timelineStartFraction(date: Date): number {
   // Day-boundary markers (00:00:00 or 23:59:59.999) anchor a task to its own
   // calendar day: an end-of-day start must not push the bar into the next
   // day's cell. Genuine times keep their fractional placement.
-  return isEndOfDay(date) ? 0 : timeOfDayFraction(date);
+  return isLocalEndOfDay(date) ? 0 : timeOfDayFraction(date);
 }
 
 function timelineEndFraction(date: Date): number {
   const fraction = timeOfDayFraction(date);
-  return isStartOfDay(date) || isEndOfDay(date) ? 1 : fraction;
+  return isLocalStartOfDay(date) || isLocalEndOfDay(date) ? 1 : fraction;
 }
 
 /**
@@ -85,16 +75,12 @@ export function getTimelineDateOffset(date: Date, rangeStart: Date): number {
 }
 
 /**
- * Removes clock precision from a dragged timeline value.
+ * Removes clock precision from a dragged timeline value. Delegates to the
+ * shared day-marker convention so drag snaps can never drift from the
+ * date-only storage format.
  */
 export function snapTimelineDate(date: Date, boundary: TimelineDateBoundary): Date {
-  const result = new Date(date);
-  if (boundary === "start") {
-    result.setHours(0, 0, 0, 0);
-  } else {
-    result.setHours(23, 59, 59, 999);
-  }
-  return result;
+  return snapToDayBoundary(date, boundary);
 }
 
 /**
@@ -114,7 +100,7 @@ export function getTimelineItemWidth(
   const startDay = startOfCalendarDay(start);
   const endDay = startOfCalendarDay(end);
   const calendarDayCount = Math.max(0, Math.round(
-    (endDay.getTime() - startDay.getTime()) / MILLISECONDS_PER_DAY,
+    (endDay.getTime() - startDay.getTime()) / DAY_MS,
   ));
   if (calendarDayCount === 0) return dayWidth;
 

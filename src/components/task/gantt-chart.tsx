@@ -5,6 +5,13 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { toJalali, toGregorian, getMonthName, getDaysInMonth } from "@/lib/date/jalali";
 import { formatNumber, type Locale } from "@/lib/date/format";
+import {
+  diffCalendarDays,
+  isSameCalendarDay,
+  parseDateOnly,
+  startOfCalendarDay,
+  toDateOnly,
+} from "@/lib/date/day-marker";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 import { useToast } from "@/components/ui/toast";
@@ -26,15 +33,6 @@ import {
 const BOX_WIDTH = 64;
 const LEFT_WIDTH = 288;
 const ROW_HEIGHT = 52;
-
-function toDateOnly(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-function parseDateOnly(value: string): Date {
-  return new Date(`${value}T00:00:00`);
-}
 
 // First and last day of the current Jalali month — the default export window.
 function currentMonthRange(): { start: string; end: string } {
@@ -89,20 +87,6 @@ const STATUS_COLORS: Record<string, string> = {
 
 const DEP_TYPES = ["FINISH_TO_START", "START_TO_START", "FINISH_TO_FINISH", "RELATES_TO"] as const;
 type LinkType = (typeof DEP_TYPES)[number];
-
-function startOfDay(d: Date): Date {
-  const r = new Date(d);
-  r.setHours(0, 0, 0, 0);
-  return r;
-}
-
-function diffDays(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function isSameCalendarDay(a: Date, b: Date): boolean {
-  return startOfDay(a).getTime() === startOfDay(b).getTime();
-}
 
 type LinkErrorKey =
   | "loadError"
@@ -203,7 +187,7 @@ export function GanttChart({
   const rows = report.tasks;
 
   const { rangeStart, totalDays, dayCount, days, months, todayOffset } = useMemo(() => {
-    const today = startOfDay(new Date());
+    const today = startOfCalendarDay(new Date());
     const withDates = rows.flatMap((r) => {
       const s = r.startDate ?? r.summaryStart;
       const e = r.dueDate ?? r.summaryEnd;
@@ -211,11 +195,11 @@ export function GanttChart({
     });
     let start = withDates.length ? new Date(Math.min(...withDates.map((d) => d.getTime()))) : today;
     let end = withDates.length ? new Date(Math.max(...withDates.map((d) => d.getTime()))) : today;
-    start = startOfDay(start);
-    end = startOfDay(end);
+    start = startOfCalendarDay(start);
+    end = startOfCalendarDay(end);
     start.setDate(start.getDate() - 7);
     end.setDate(end.getDate() + 90);
-    const total = Math.max(diffDays(start, end), 14);
+    const total = Math.max(diffCalendarDays(start, end), 14);
     const dayCount = total + 1;
     const generatedDays: TimelineDay[] = [];
     const generatedMonths: TimelineMonth[] = [];
@@ -252,7 +236,7 @@ export function GanttChart({
       cursor.setDate(cursor.getDate() + 1);
     }
 
-    const currentTodayOffset = diffDays(start, today);
+    const currentTodayOffset = diffCalendarDays(start, today);
     return {
       rangeStart: start,
       totalDays: total,
@@ -267,7 +251,7 @@ export function GanttChart({
 
   const dayOffset = (date: Date | string | null): number | null => {
     if (!date) return null;
-    return Math.max(0, Math.min(totalDays, diffDays(rangeStart, startOfDay(new Date(date)))));
+    return Math.max(0, Math.min(totalDays, diffCalendarDays(rangeStart, startOfCalendarDay(new Date(date)))));
   };
 
   const dayPos = (date: Date | string | null, itemWidth = dayWidth): number => {
@@ -290,7 +274,7 @@ export function GanttChart({
     return { start: startStr ? new Date(startStr) : null, end: endStr ? new Date(endStr) : null };
   };
 
-  const todayStart = startOfDay(new Date());
+  const todayStart = startOfCalendarDay(new Date());
 
   const isDelayed = (r: GanttRow): boolean => {
     if (r.status === "done") return false;
@@ -302,7 +286,7 @@ export function GanttChart({
   const delayedDays = (r: GanttRow): number => {
     const { end } = dateFor(r);
     if (!end) return 0;
-    return Math.max(0, diffDays(todayStart, end));
+    return Math.max(0, diffCalendarDays(todayStart, end));
   };
 
   // A dependency is invalid when the predecessor's end overlaps the successor's start

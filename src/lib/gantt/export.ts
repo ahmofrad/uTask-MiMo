@@ -1,6 +1,7 @@
 import type { GanttReport } from "@/lib/gantt-types";
 import { getMonthName, toJalali, formatJalaliShort } from "@/lib/date/jalali";
 import { formatNumber, type Locale } from "@/lib/date/format";
+import { diffCalendarDays, startOfCalendarDay } from "@/lib/date/day-marker";
 import { getTimelineItemGeometry, getTimelinePosition, type TimelineDirection } from "@/lib/gantt/timeline";
 import { linkShortLabel } from "@/lib/gantt/links";
 import { buildJpegPdf } from "@/lib/pdf/simple";
@@ -83,16 +84,6 @@ const STATUS_FILL: Record<string, keyof ExportPalette> = {
   cancelled: "fgSubtle",
 };
 
-function startOfDay(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-}
-
-function diffDays(a: Date, b: Date): number {
-  return Math.round((b.getTime() - a.getTime()) / (1000 * 60 * 60 * 24));
-}
-
 function escapeXml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -132,13 +123,13 @@ export function buildGanttExportSvg(options: {
   const direction: TimelineDirection = locale === "fa-IR" ? "rtl" : "ltr";
   const rows = report.tasks;
 
-  const today = startOfDay(new Date());
+  const today = startOfCalendarDay(new Date());
   let rangeStart: Date;
   let rangeEnd: Date;
   if (options.rangeStart && options.rangeEnd) {
     // Explicit range (e.g. the chosen export month) is honored exactly.
-    rangeStart = startOfDay(options.rangeStart);
-    rangeEnd = startOfDay(options.rangeEnd);
+    rangeStart = startOfCalendarDay(options.rangeStart);
+    rangeEnd = startOfCalendarDay(options.rangeEnd);
   } else {
     const withDates = rows.flatMap((row) => {
       const start = row.startDate ?? row.summaryStart;
@@ -147,12 +138,12 @@ export function buildGanttExportSvg(options: {
     });
     rangeStart = withDates.length ? new Date(Math.min(...withDates.map((d) => d.getTime()))) : today;
     rangeEnd = withDates.length ? new Date(Math.max(...withDates.map((d) => d.getTime()))) : today;
-    rangeStart = startOfDay(rangeStart);
-    rangeEnd = startOfDay(rangeEnd);
+    rangeStart = startOfCalendarDay(rangeStart);
+    rangeEnd = startOfCalendarDay(rangeEnd);
     rangeStart.setDate(rangeStart.getDate() - 7);
     rangeEnd.setDate(rangeEnd.getDate() + 90);
   }
-  const totalDays = Math.max(diffDays(rangeStart, rangeEnd), 14);
+  const totalDays = Math.max(diffCalendarDays(rangeStart, rangeEnd), 14);
   const dayCount = totalDays + 1;
   const totalWidth = dayCount * DAY_WIDTH;
   const rowsHeight = rows.length * ROW_HEIGHT;
@@ -164,7 +155,7 @@ export function buildGanttExportSvg(options: {
 
   const dayOffset = (date: Date | string | null): number | null => {
     if (!date) return null;
-    return Math.max(0, Math.min(totalDays, diffDays(rangeStart, startOfDay(new Date(date)))));
+    return Math.max(0, Math.min(totalDays, diffCalendarDays(rangeStart, startOfCalendarDay(new Date(date)))));
   };
 
   const dayPos = (date: Date | string | null, itemWidth = DAY_WIDTH): number => {
@@ -251,7 +242,7 @@ export function buildGanttExportSvg(options: {
     );
   }
   // Today line.
-  const todayOffset = diffDays(rangeStart, today);
+  const todayOffset = diffCalendarDays(rangeStart, today);
   if (todayOffset >= 0 && todayOffset < dayCount) {
     const x = timelineOrigin + timelineX(todayOffset, DAY_WIDTH) + DAY_WIDTH / 2;
     parts.push(
