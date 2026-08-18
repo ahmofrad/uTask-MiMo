@@ -1,4 +1,19 @@
 import { test, expect } from "@playwright/test";
+import { prisma } from "@/lib/db";
+import { toJalali, getMonthName } from "@/lib/date/jalali";
+
+const TASK = "00000000-0000-4000-8000-000000000100";
+
+// The date picker opens on the field's stored Jalali month (or the current
+// month when the field is empty), so derive the expected month from the task's
+// actual dates rather than hardcoding a month name that drifts with the seed.
+// The sidebar feeds the picker a date-only string parsed as local midnight
+// (task.dueDate?.split("T")[0]), so mirror that truncation exactly — using the
+// raw timestamp could be a different day (and month) in the local timezone.
+function pickerMonth(value: Date | null): string {
+  const dateOnly = value ? value.toISOString().split("T")[0] : undefined;
+  return getMonthName(toJalali(dateOnly ? new Date(dateOnly) : new Date()).jm, "en-US");
+}
 
 test.describe("Tasks", () => {
   test("can view task list", async ({ page }) => {
@@ -13,7 +28,7 @@ test.describe("Tasks", () => {
 
   test("groups start, due, and end dates and saves picker values", async ({ page }) => {
     const patchBodies: Record<string, unknown>[] = [];
-    await page.route("**/api/v1/tasks/00000000-0000-4000-8000-000000000100", async (route) => {
+    await page.route(`**/api/v1/tasks/${TASK}`, async (route) => {
       if (route.request().method() !== "PATCH") {
         await route.continue();
         return;
@@ -27,7 +42,13 @@ test.describe("Tasks", () => {
       });
     });
 
-    await page.goto("/en-US/tasks/00000000-0000-4000-8000-000000000100");
+    const stored = await prisma.task.findUniqueOrThrow({
+      where: { id: TASK },
+      select: { startDate: true, dueDate: true, endDate: true },
+    });
+    const months = [pickerMonth(stored.startDate), pickerMonth(stored.dueDate), pickerMonth(stored.endDate)];
+
+    await page.goto(`/en-US/tasks/${TASK}`);
     const dateCard = page.getByRole("heading", { name: "Date & Duration" }).locator("..");
     await expect(dateCard).toBeVisible();
     await expect(dateCard.locator("label")).toHaveText(["Start Date", "Due date", "End Date", "Duration"]);
@@ -41,9 +62,9 @@ test.describe("Tasks", () => {
 
     const datePickers = dateCard.locator('button[aria-haspopup="dialog"]');
     await expect(datePickers).toHaveCount(3);
-    for (const index of [0, 1, 2]) {
+    for (const [index, expectedMonth] of months.entries()) {
       await datePickers.nth(index).click();
-      await page.getByRole("dialog").locator('button[aria-label*="Mordad"]').first().click();
+      await page.getByRole("dialog").locator(`button[aria-label*="${expectedMonth}"]`).first().click();
     }
 
     await expect.poll(() => patchBodies.length).toBe(3);
