@@ -10,7 +10,7 @@ import { Timeline } from "@/components/task/timeline";
 import { CalendarView } from "@/components/task/calendar-view";
 import { GanttView } from "@/components/task/gantt-view";
 import { WbsEditor } from "@/components/task/wbs-editor";
-import { TaskCard } from "@/components/task/task-card";
+import { ProjectTaskList, type CustomFieldFilterDef } from "@/components/task/project-task-list";
 import { TaskForm } from "@/components/task/task-form";
 import { CustomFieldsManager } from "@/components/custom-field/custom-fields-manager";
 import { MembersModal } from "@/components/project/members-modal";
@@ -72,7 +72,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
   const [showCFModal, setShowCFModal] = useState(false);
   const [showTagsModal, setShowTagsModal] = useState(false);
   const [projectTags, setProjectTags] = useState<{ id: string; name: string; color?: string | null }[]>([]);
-  const [cfFields, setCfFields] = useState<Array<{ id: string; name: string; key: string; type: string; required: boolean }>>([]);
+  const [cfFields, setCfFields] = useState<Array<{ id: string; name: string; key: string; type: string; required: boolean; configJson?: CustomFieldFilterDef["configJson"] }>>([]);
   const [cfLoading, setCfLoading] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>("board");
@@ -168,6 +168,15 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
         if (res.ok) {
           const body = await res.json();
           setProjectTags(body.data ?? []);
+        }
+      })
+      .catch(() => {});
+
+    apiFetch(`/api/v1/projects/${project.id}/custom-fields`)
+      .then(async (res) => {
+        if (res.ok) {
+          const body = await res.json();
+          setCfFields(body.data ?? []);
         }
       })
       .catch(() => {});
@@ -317,18 +326,24 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
       )}
 
       {activeTab === "tasks" && (
-        <div className="space-y-2">
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              variant="list"
-            />
-          ))}
-          {tasks.length === 0 && (
-            <p className="text-sm text-fg-muted text-center py-8">No tasks in this project</p>
-          )}
-        </div>
+        <ProjectTaskList
+          projectId={project.id}
+          initialTasks={tasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            description: task.description ?? null,
+            status: task.status,
+            priority: task.priority,
+            assignees: task.assignees ?? [],
+            dueDate: task.dueDate,
+            startDate: task.startDate,
+            tags: task.tags ?? [],
+            subtaskCount: task.subtaskCount ?? 0,
+            subtaskDone: task.subtaskDone ?? 0,
+            blockedBy: task.blockedBy ?? [],
+          }))}
+          fields={cfFields.map((f) => ({ ...f, configJson: f.configJson ?? null }))}
+        />
       )}
 
       {/* Task Create Modal */}

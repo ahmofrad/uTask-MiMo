@@ -11,7 +11,7 @@ import { WbsGuardError } from "@/lib/tasks/wbs";
 import { mapAssignees } from "@/lib/tasks/serialize";
 import { checkIdempotency, setIdempotencyResult, acquirePending, releasePending, type IdempotencyScope } from "@/lib/idempotency";
 import type { ListTasksParams, CreateTaskData } from "@/lib/tasks";
-import { readJsonBody, taskCreateSchema, validationError } from "@/lib/validation/api";
+import { readJsonBody, taskCreateSchema, customFieldFilterListSchema, validationError } from "@/lib/validation/api";
 import { sha256 } from "@/lib/crypto";
 
 export async function GET(request: Request) {
@@ -30,6 +30,7 @@ export async function GET(request: Request) {
   const search = searchParams.get("search");
   const dueDateGte = searchParams.get("dueDateGte");
   const dueDateLte = searchParams.get("dueDateLte");
+  const customFieldsRaw = searchParams.get("customFields");
 
   const params: ListTasksParams = { limit };
   if (cursor) params.cursor = cursor;
@@ -43,6 +44,22 @@ export async function GET(request: Request) {
   if (search) params.search = search;
   if (dueDateGte) params.dueDateGte = dueDateGte;
   if (dueDateLte) params.dueDateLte = dueDateLte;
+  if (customFieldsRaw) {
+    let clauses: unknown;
+    try {
+      clauses = JSON.parse(customFieldsRaw);
+    } catch {
+      return NextResponse.json(
+        { error: { code: "INVALID_CUSTOM_FIELDS", message: "customFields must be valid JSON" } },
+        { status: 400 },
+      );
+    }
+    const parsed = customFieldFilterListSchema.safeParse(clauses);
+    if (!parsed.success) {
+      return NextResponse.json(validationError(parsed.error), { status: 400 });
+    }
+    params.customFields = parsed.data;
+  }
 
   const readableProjectIds = await getUserReadableProjectIds(userId);
   if (projectId) {

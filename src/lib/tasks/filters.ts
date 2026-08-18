@@ -1,4 +1,5 @@
 import { Prisma } from "@prisma/client";
+import { buildCustomFieldFilter, type CustomFieldFilterClause } from "@/lib/custom-fields/filter";
 
 export type TaskFilterParams = {
   projectId?: string | null;
@@ -10,6 +11,7 @@ export type TaskFilterParams = {
   dueDateGte?: string | null;
   dueDateLte?: string | null;
   search?: string | null;
+  customFields?: CustomFieldFilterClause[] | null;
 };
 
 export function buildTaskFilters(params: TaskFilterParams): Prisma.TaskWhereInput {
@@ -49,6 +51,13 @@ export function buildTaskFilters(params: TaskFilterParams): Prisma.TaskWhereInpu
       { title: { contains: params.search, mode: "insensitive" } },
       { description: { contains: params.search, mode: "insensitive" } },
     ];
+  }
+
+  if (params.customFields && params.customFields.length > 0) {
+    const customFieldFilter = buildCustomFieldFilter(params.customFields);
+    if (customFieldFilter) {
+      where.customFieldValues = customFieldFilter;
+    }
   }
 
   return where;
