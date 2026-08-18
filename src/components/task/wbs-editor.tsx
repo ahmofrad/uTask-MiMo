@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import type { WbsNode } from "@/lib/tasks";
-import { computeWbsStats, filterWbsBySearch } from "@/lib/tasks/wbs";
+import { computeWbsStats, filterWbsBySearch } from "@/lib/tasks/wbs-stats";
 import { AssigneeStack } from "@/components/task/assignee-stack";
 import { PriorityBadge } from "@/components/task/priority-badge";
 import { StatusBadge } from "@/components/task/status-badge";

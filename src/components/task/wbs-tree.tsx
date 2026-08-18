@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { AssigneeStack } from "@/components/task/assignee-stack";
 import { PriorityBadge } from "@/components/task/priority-badge";
 import { StatusBadge } from "@/components/task/status-badge";
-import { computeWbsStats, filterWbsBySearch } from "@/lib/tasks/wbs";
+import { computeWbsStats, filterWbsBySearch } from "@/lib/tasks/wbs-stats";
 
 export type WBSTask = {
   id: string;
