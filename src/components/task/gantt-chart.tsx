@@ -624,6 +624,17 @@ export function GanttChart({
     return t("ganttFloatBehind", { days: formatted });
   };
 
+  // Native tooltip for bars: delayed days plus the float (slack) phrase for
+  // critical rows, so hovering reveals slack without opening the panel.
+  // Milestones and summaries fall back to their title when neither applies.
+  const barTitle = (row: GanttRow): string => {
+    const parts: string[] = [];
+    if (isDelayed(row)) parts.push(t("ganttDelayedDays", { count: delayedDays(row) }));
+    if (row.critical === true && row.floatDays != null) parts.push(floatPhrase(row.floatDays));
+    if (parts.length > 0) return parts.join(" · ");
+    return row.isSummary || row.isMilestone ? row.title : "";
+  };
+
   const criticalIdSet = new Set(criticalRows.map((r) => r.id));
 
   // Why this task is critical, as a short line: its critical predecessors for
@@ -1278,7 +1289,7 @@ export function GanttChart({
                           isCritical && showCritical ? "ring-2 ring-danger" : ""
                         } ${isDelayed(row) ? "ring-2 ring-danger" : ""}`}
                         style={{ left: `${dayPos(start, dayWidth) + dayWidth / 2 - 8}px` }}
-                        title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : row.title}
+                        title={barTitle(row)}
                       />
                     ) : !row.isSummary && start ? (
                       <div
@@ -1305,7 +1316,7 @@ export function GanttChart({
                           linkSourceId === row.id ? "ring-2 ring-accent" : ""
                         }`}
                         style={{ left: `${barLeft}px`, width: `${width}px` }}
-                        title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : undefined}
+                        title={barTitle(row) || undefined}
                       >
                         <div
                           className="h-full rounded-md bg-fg-inverse/20"
@@ -1346,7 +1357,7 @@ export function GanttChart({
                           isCritical && showCritical ? "ring-2 ring-danger" : ""
                         } ${isDelayed(row) ? "ring-2 ring-danger" : ""}`}
                         style={{ left: `${barLeft}px`, width: `${width}px` }}
-                        title={isDelayed(row) ? t("ganttDelayedDays", { count: delayedDays(row) }) : row.title}
+                        title={barTitle(row)}
                       />
                     ) : null}
                   </div>

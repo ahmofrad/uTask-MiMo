@@ -140,6 +140,27 @@ test.describe("Gantt timeline", () => {
     await expect(panel).toHaveCount(0);
   });
 
+  test("shows the float in the bar tooltip without opening the panel", async ({ page }) => {
+    const projectId = await seededProjectId("Product Launch");
+    await page.goto(`/en-US/projects/${projectId}`);
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    const chart = page.getByTestId("gantt-scroll-container").first();
+    await expect(chart).toBeVisible({ timeout: 15000 });
+
+    // The seeded Product Launch tasks are deadline-bound and critical, so at
+    // least one bar carries a float tooltip; the critical-list panel stays
+    // closed.
+    const bars = chart.getByTestId("gantt-task-bar");
+    const barCount = await bars.count();
+    let floatTooltips = 0;
+    for (let index = 0; index < barCount; index += 1) {
+      const title = await bars.nth(index).getAttribute("title");
+      if (title && /on the critical path|days of slack|days behind/i.test(title)) floatTooltips += 1;
+    }
+    expect(floatTooltips).toBeGreaterThan(0);
+    await expect(page.getByTestId("gantt-critical-panel")).toHaveCount(0);
+  });
+
   test("keeps Persian timeline dates chronological from right to left", async ({ page }) => {
     await page.goto("/fa-IR");
     await page.getByRole("button", { name: "گانت", exact: true }).click();
