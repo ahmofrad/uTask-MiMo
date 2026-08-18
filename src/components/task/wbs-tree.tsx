@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { AssigneeStack } from "@/components/task/assignee-stack";
 import { PriorityBadge } from "@/components/task/priority-badge";
 import { StatusBadge } from "@/components/task/status-badge";
+import { computeWbsStats, filterWbsBySearch } from "@/lib/tasks/wbs";
 
 export type WBSTask = {
   id: string;
@@ -98,26 +99,10 @@ export function WBSTree({ tasks }: WBSTreeProps) {
     }
     return map;
   }, [taskById, tasks]);
-  const visibleBySearch = useMemo(() => {
-    const term = search.trim().toLocaleLowerCase();
-    if (!term) return null;
-    const ids = new Set<string>();
-    for (const task of tasks) {
-      const haystack = [task.title, task.status, task.priority, task.projectName ?? "", ...task.assigneeNames].join(" ").toLocaleLowerCase();
-      if (!haystack.includes(term)) continue;
-      let current: WBSTask | undefined = task;
-      while (current) {
-        if (ids.has(current.id)) break;
-        ids.add(current.id);
-        current = current.parentTaskId ? taskById.get(current.parentTaskId) : undefined;
-      }
-    }
-    return ids;
-  }, [search, taskById, tasks]);
+  const visibleBySearch = useMemo(() => filterWbsBySearch(tasks, search), [tasks, search]);
 
-  const leafTasks = tasks.filter((task) => !tasks.some((child) => child.parentTaskId === task.id));
-  const completedCount = leafTasks.filter((task) => task.status === "done").length;
-  const averageProgress = leafTasks.length === 0 ? 0 : Math.round(leafTasks.reduce((sum, task) => sum + (task.progress ?? 0), 0) / leafTasks.length);
+  const parentIdSet = useMemo(() => new Set(tasks.map((task) => task.parentTaskId).filter(Boolean)), [tasks]);
+  const stats = computeWbsStats(tasks, (id) => parentIdSet.has(id));
 
   const isVisible = (task: WBSTask) => {
     if (visibleBySearch) return visibleBySearch.has(task.id);
@@ -174,9 +159,9 @@ export function WBSTree({ tasks }: WBSTreeProps) {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           { label: t("wbsStatItems"), value: tasks.length },
-          { label: t("wbsStatGroups"), value: tasks.length - leafTasks.length },
-          { label: t("wbsStatCompleted"), value: `${completedCount}/${leafTasks.length}` },
-          { label: t("wbsStatProgress"), value: `${averageProgress}%` },
+          { label: t("wbsStatGroups"), value: stats.groupCount },
+          { label: t("wbsStatCompleted"), value: `${stats.completedCount}/${stats.leafCount}` },
+          { label: t("wbsStatProgress"), value: `${stats.averageProgress}%` },
         ].map((stat) => (
           <div key={stat.label} className="rounded-lg border border-border bg-bg-surface px-4 py-3">
             <div className="text-lg font-semibold text-fg-primary">{stat.value}</div>
