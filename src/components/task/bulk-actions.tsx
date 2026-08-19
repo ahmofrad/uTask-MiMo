@@ -23,6 +23,22 @@ type BulkActionsProps = {
   customFieldSchema?: CustomFieldDef[];
 };
 
+type BulkResult = {
+  updated: number;
+  failed: { taskId: string; code: string }[];
+};
+
+async function bulkUpdate(ids: string[], patch: Record<string, unknown>): Promise<BulkResult> {
+  const res = await apiFetch("/api/v1/tasks/bulk", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ taskIds: ids, patch }),
+  });
+  if (!res.ok) throw new Error(`Bulk update failed: ${res.status}`);
+  const json = (await res.json()) as { data: BulkResult };
+  return json.data;
+}
+
 export function BulkActionsBar({ selectedIds, onClear, onRefresh, projectId, customFieldSchema }: BulkActionsProps) {
   const t = useTranslations();
   const [busy, setBusy] = useState(false);
@@ -31,34 +47,18 @@ export function BulkActionsBar({ selectedIds, onClear, onRefresh, projectId, cus
 
   if (selectedIds.length === 0) return null;
 
-  async function bulkAction(action: string, body?: Record<string, unknown>) {
+  async function bulkAction(action: string, patch?: Record<string, unknown>) {
     setBusy(true);
+    const ids = [...selectedIds];
     try {
-      const results = await Promise.allSettled(
-        selectedIds.map((id) =>
-          apiFetch(`/api/v1/tasks/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body ?? { status: action }),
-          }),
-        ),
-      );
-      const succeeded = results.filter((r) => r.status === "fulfilled").length;
-      const ids = [...selectedIds];
+      const result = await bulkUpdate(ids, patch ?? { status: action });
+      const succeeded = result.updated;
       addToast({
         message: t("task.bulkUpdated", { succeeded, total: ids.length }),
         action: {
           label: t("common.undo"),
           onClick: async () => {
-            await Promise.allSettled(
-              ids.map((id) =>
-                apiFetch(`/api/v1/tasks/${id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ status: "open" }),
-                }),
-              ),
-            );
+            await bulkUpdate(ids, { status: "open" }).catch(() => {});
             onRefresh();
           },
         },
@@ -75,16 +75,8 @@ export function BulkActionsBar({ selectedIds, onClear, onRefresh, projectId, cus
     setBusy(true);
     const ids = [...selectedIds];
     try {
-      const results = await Promise.allSettled(
-        ids.map((id) =>
-          apiFetch(`/api/v1/tasks/${id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ deletedAt: new Date().toISOString() }),
-          }),
-        ),
-      );
-      const succeeded = results.filter((r) => r.status === "fulfilled").length;
+      const result = await bulkUpdate(ids, { deletedAt: new Date().toISOString() });
+      const succeeded = result.updated;
       const failed = ids.length - succeeded;
       addToast({
         message: failed > 0
@@ -93,15 +85,7 @@ export function BulkActionsBar({ selectedIds, onClear, onRefresh, projectId, cus
         action: {
           label: t("common.undo"),
           onClick: async () => {
-            await Promise.allSettled(
-              ids.map((id) =>
-                apiFetch(`/api/v1/tasks/${id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ deletedAt: null }),
-                }),
-              ),
-            );
+            await bulkUpdate(ids, { deletedAt: null }).catch(() => {});
             onRefresh();
           },
         },
