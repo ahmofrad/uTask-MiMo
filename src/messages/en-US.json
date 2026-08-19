@@ -924,7 +924,8 @@
     "egressDownloading": "Downloading…",
     "egressDisabled": "Downloads are disabled. Enable them in the download section first.",
     "downloadFailed": "The download failed. Check that outbound HTTPS is allowed to the provider.",
-    "downloadResult": "Downloaded and added {imported} holidays ({skipped} duplicates skipped)."
+    "downloadResult": "Downloaded and added {imported} holidays ({skipped} duplicates skipped).",
+    "egressCountryNote": "Iran is not available for download — use the bundled Iranian calendar instead."
   },
   "audit": {
     "title": "Audit Log",

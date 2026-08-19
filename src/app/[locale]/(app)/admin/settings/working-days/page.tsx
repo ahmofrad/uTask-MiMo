@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
+import { SUPPORTED_HOLIDAY_COUNTRIES } from "@/lib/date/holidays/countries";
 
 type HolidayRow = { date: string; name: string };
 type WorkingDayConfig = { weekendDays: number[]; holidays: HolidayRow[] };
@@ -44,7 +45,7 @@ export default function WorkingDaysPage() {
   const [egress, setEgress] = useState<EgressConfig>({
     enabled: false,
     baseUrl: "https://date.nager.at",
-    countryCode: "IR",
+    countryCode: "US",
   });
   const [egressLoaded, setEgressLoaded] = useState(false);
   const [savingEgress, setSavingEgress] = useState(false);
@@ -388,6 +389,7 @@ export default function WorkingDaysPage() {
             <div className="space-y-3 bg-bg-surface border border-border-primary rounded-lg p-4">
               <h3 className="text-sm font-semibold text-fg-primary">{t("egressTitle")}</h3>
               <p className="text-xs text-fg-tertiary">{t("egressHint")}</p>
+              <p className="text-xs text-fg-tertiary">{t("egressCountryNote")}</p>
               {!egressLoaded ? (
                 <p className="text-xs text-fg-tertiary">{t("loading")}</p>
               ) : (
@@ -404,14 +406,18 @@ export default function WorkingDaysPage() {
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-fg-secondary">
                     {t("egressCountry")}
-                    <input
-                      type="text"
+                    <select
                       data-testid="wd-egress-country"
                       value={egress.countryCode}
                       onChange={(e) => setEgress((prev) => ({ ...prev, countryCode: e.target.value }))}
-                      maxLength={3}
-                      className={`${inputClass} w-20 uppercase`}
-                    />
+                      className={inputClass}
+                    >
+                      {SUPPORTED_HOLIDAY_COUNTRIES.map(([code, name]) => (
+                        <option key={code} value={code}>
+                          {name} ({code})
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <button
                     type="button"

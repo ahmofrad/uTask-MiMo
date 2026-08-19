@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { HolidayEntry } from "@/lib/date/working-day-calendar";
+import { SUPPORTED_HOLIDAY_COUNTRIES } from "./countries";
 
 /**
  * Opt-in egress download of official holidays. The default install is
@@ -22,11 +23,20 @@ export type HolidayEgressConfig = {
   countryCode: string;
 };
 
+// The provider does not serve Iran; the bundled Iranian calendar is the
+// offline way to get it. Default to a country the provider actually covers.
 export const DEFAULT_HOLIDAY_EGRESS: HolidayEgressConfig = {
   enabled: false,
   baseUrl: "https://date.nager.at",
-  countryCode: "IR",
+  countryCode: "US",
 };
+
+const SUPPORTED_CODES = new Set(SUPPORTED_HOLIDAY_COUNTRIES.map(([code]) => code));
+
+/** True when the provider serves public holidays for this country code. */
+export function isSupportedHolidayCountry(countryCode: string): boolean {
+  return SUPPORTED_CODES.has(countryCode.trim().toUpperCase());
+}
 
 export const holidayEgressConfigSchema = z
   .object({
@@ -42,9 +52,22 @@ export const holidayEgressConfigSchema = z
           return false;
         }
       }, "The provider URL must be HTTPS and use an allowlisted host"),
-    countryCode: z.string().trim().toUpperCase().min(2).max(3),
+    countryCode: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .refine(isSupportedHolidayCountry, "The provider does not serve this country"),
   })
   .strict();
+
+/**
+ * Returns the config when valid, otherwise the defaults — so a stale stored
+ * value (e.g. a country the provider dropped) never bricks the section.
+ */
+export function normalizeHolidayEgress(value: unknown): HolidayEgressConfig {
+  const parsed = holidayEgressConfigSchema.safeParse(value);
+  return parsed.success ? parsed.data : DEFAULT_HOLIDAY_EGRESS;
+}
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -72,6 +95,11 @@ export async function downloadPublicHolidays(
     redirect: "error",
     headers: { Accept: "application/json" },
   });
+  // 204 means the provider has no data for this country/year — an empty set,
+  // not an error.
+  if (response.status === 204) {
+    return [];
+  }
   if (!response.ok) {
     throw new Error(`holiday provider returned HTTP ${response.status}`);
   }

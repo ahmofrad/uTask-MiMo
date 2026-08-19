@@ -4,9 +4,9 @@ import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { readJsonBody, validationError } from "@/lib/validation/api";
 import { getInstanceSetting } from "@/lib/settings/instance";
 import {
-  DEFAULT_HOLIDAY_EGRESS,
   downloadPublicHolidays,
   HOLIDAY_EGRESS_SETTING_KEY,
+  normalizeHolidayEgress,
 } from "@/lib/date/holidays/download";
 import { applyHolidayImport } from "@/lib/date/holidays/import";
 
@@ -30,7 +30,9 @@ export async function POST(request: Request) {
     return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
 
-  const egress = await getInstanceSetting(HOLIDAY_EGRESS_SETTING_KEY, DEFAULT_HOLIDAY_EGRESS);
+  const egress = normalizeHolidayEgress(
+    await getInstanceSetting(HOLIDAY_EGRESS_SETTING_KEY, undefined),
+  );
   if (!egress.enabled) {
     return NextResponse.json(
       {
