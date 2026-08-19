@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
-import { countriesForProvider, type HolidayProvider } from "@/lib/date/holidays/countries";
+import {
+  countriesForProvider,
+  PROVIDER_DEFAULT_BASE_URLS,
+  type HolidayProvider,
+} from "@/lib/date/holidays/countries";
 
 type HolidayRow = { date: string; name: string };
 type WorkingDayConfig = { weekendDays: number[]; holidays: HolidayRow[] };
@@ -219,10 +223,15 @@ export default function WorkingDaysPage() {
         });
         await refresh();
       } else {
-        const body = (await res.json()) as { error?: { code?: string } };
+        const body = (await res.json()) as { error?: { code?: string; message?: string } };
+        // Surface the server's reason (invalid key, provider 404, ...) so the
+        // admin can act on it instead of guessing.
+        const reason = body.error?.message;
         setImportMsg({
           ok: false,
-          text: body.error?.code === "egress_disabled" ? t("egressDisabled") : t("downloadFailed"),
+          text: body.error?.code === "egress_disabled"
+            ? t("egressDisabled")
+            : reason || t("downloadFailed"),
         });
       }
     } catch {
@@ -421,6 +430,9 @@ export default function WorkingDaysPage() {
                         setEgress((prev) => ({
                           ...prev,
                           provider,
+                          // Each provider has its own allowlisted host; never
+                          // keep the previous provider's base URL.
+                          baseUrl: PROVIDER_DEFAULT_BASE_URLS[provider],
                           countryCode: stillSupported ? prev.countryCode : "US",
                         }));
                       }}

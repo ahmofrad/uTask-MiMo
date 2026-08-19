@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { decrypt, encrypt } from "@/lib/crypto/encrypt";
 import type { HolidayEntry } from "@/lib/date/working-day-calendar";
-import { countriesForProvider, type HolidayProvider } from "./countries";
+import {
+  countriesForProvider,
+  PROVIDER_DEFAULT_BASE_URLS,
+  type HolidayProvider,
+} from "./countries";
 
 /**
  * Opt-in egress download of official holidays. The default install is
@@ -90,7 +94,11 @@ export const holidayEgressConfigSchema = z
  */
 export function normalizeHolidayEgress(value: unknown): HolidayEgressConfig {
   const parsed = holidayEgressConfigSchema.safeParse(value);
-  return parsed.success ? parsed.data : DEFAULT_HOLIDAY_EGRESS;
+  if (!parsed.success) return DEFAULT_HOLIDAY_EGRESS;
+  // The base URL is provider-scoped: a stale or mismatched stored value (e.g.
+  // the Nager host left behind after switching to Calendarific) must never
+  // survive, or downloads would hit the wrong provider.
+  return { ...parsed.data, baseUrl: PROVIDER_DEFAULT_BASE_URLS[parsed.data.provider] };
 }
 
 // Secrets are stored as `iv:ciphertext:tag`, the same envelope as webhook
@@ -189,11 +197,14 @@ async function downloadFromCalendarific(
   const base = config.baseUrl.replace(/\/$/, "");
   const params = new URLSearchParams({ api_key: key, country: config.countryCode, year: String(year) });
   const response = await fetchJson(`${base}/api/v2/holidays?${params.toString()}`, config.baseUrl);
+  if (response.status === 401) {
+    throw new Error("invalid Calendarific API key");
+  }
   if (!response.ok) {
     throw new Error(`holiday provider returned HTTP ${response.status}`);
   }
   const body = (await response.json()) as CalendarificResponse;
-  if (body.meta?.code === 401) {
+  if (body.meta?.code === 401 || body.meta?.code === 601) {
     throw new Error("invalid Calendarific API key");
   }
   if (body.meta?.code != null && body.meta.code !== 200) {

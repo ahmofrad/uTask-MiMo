@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { prisma } from "@/lib/db";
 import { WORKING_DAYS_SETTING_KEY } from "@/lib/date/working-day";
+import { HOLIDAY_EGRESS_SETTING_KEY } from "@/lib/date/holidays/download";
 
 // NOTE: with `fullyParallel: true`, tests in this file can run in different
 // workers, and a file-level afterAll would fire as soon as the fast test
@@ -171,6 +172,32 @@ test.describe("Working days admin page", () => {
     } finally {
       // Restore the default calendar so other suites stay deterministic.
       await prisma.instanceSetting.deleteMany({ where: { key: WORKING_DAYS_SETTING_KEY } });
+    }
+  });
+
+  test("switching the egress provider switches its base URL", async ({ page }) => {
+    try {
+      await page.goto("/en-US/admin/settings/working-days");
+      await expect(page.getByRole("heading", { name: "Working days & holidays" })).toBeVisible();
+
+      // Regression: switching to Calendarific used to leave the Nager host in
+      // place, so downloads hit the wrong provider and 404'd.
+      await page.getByTestId("wd-egress-provider").selectOption("calendarific");
+      await page.getByTestId("wd-egress-enabled").check();
+      await page.getByTestId("wd-egress-save").click();
+      await expect(page.getByTestId("wd-import-msg")).toContainText("saved");
+
+      const res = await page.request.get("/api/v1/admin/settings/working-days/egress");
+      expect(res.ok()).toBeTruthy();
+      const body = (await res.json()) as {
+        data?: { provider?: string; baseUrl?: string; apiKey?: string };
+      };
+      expect(body.data?.provider).toBe("calendarific");
+      expect(body.data?.baseUrl).toBe("https://calendarific.com");
+      // The API key is never returned; without one entered it is empty.
+      expect(body.data?.apiKey).toBe("");
+    } finally {
+      await prisma.instanceSetting.deleteMany({ where: { key: HOLIDAY_EGRESS_SETTING_KEY } });
     }
   });
 

@@ -159,4 +159,20 @@ describe("holiday egress downloader", () => {
       apiKey: "",
     });
   });
+
+  it("heals a provider/base-url mismatch from a stale stored config", () => {
+    // Regression: switching to Calendarific used to leave the Nager host in
+    // place, so downloads hit date.nager.at/api/v2 and 404'd.
+    const healed = normalizeHolidayEgress({
+      enabled: true,
+      provider: "calendarific",
+      baseUrl: "https://date.nager.at",
+      countryCode: "IR",
+      apiKey: encryptApiKey("k"),
+    });
+    expect(healed.baseUrl).toBe("https://calendarific.com");
+    expect(healed.provider).toBe("calendarific");
+    expect(healed.countryCode).toBe("IR");
+    expect(healed.enabled).toBe(true);
+  });
 });

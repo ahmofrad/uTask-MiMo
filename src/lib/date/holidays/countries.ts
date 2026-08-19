@@ -462,3 +462,9 @@ export const CALENDARIFIC_COUNTRIES: ReadonlyArray<readonly [string, string]> = 
 export function countriesForProvider(provider: HolidayProvider): ReadonlyArray<readonly [string, string]> {
   return provider === "calendarific" ? CALENDARIFIC_COUNTRIES : SUPPORTED_HOLIDAY_COUNTRIES;
 }
+
+/** The allowlisted base URL each provider must use — never stored mixed. */
+export const PROVIDER_DEFAULT_BASE_URLS: Record<HolidayProvider, string> = {
+  nager: "https://date.nager.at",
+  calendarific: "https://calendarific.com",
+};

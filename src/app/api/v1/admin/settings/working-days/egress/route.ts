@@ -3,6 +3,7 @@ import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { getInstanceSetting, setInstanceSetting } from "@/lib/settings/instance";
 import { logAudit } from "@/lib/audit/log";
 import { readJsonBody, validationError } from "@/lib/validation/api";
+import { PROVIDER_DEFAULT_BASE_URLS } from "@/lib/date/holidays/countries";
 import {
   API_KEY_MASK,
   encryptApiKey,
@@ -52,7 +53,13 @@ export async function PUT(request: Request) {
       ? encryptApiKey(incoming.apiKey)
       : before.apiKey;
 
-  const toStore = { ...incoming, apiKey };
+  // The base URL is derived from the provider, never taken from the client
+  // (a switched provider must not keep the old host).
+  const toStore = {
+    ...incoming,
+    baseUrl: PROVIDER_DEFAULT_BASE_URLS[incoming.provider],
+    apiKey,
+  };
   await setInstanceSetting(HOLIDAY_EGRESS_SETTING_KEY, toStore, userId);
 
   await logAudit({
