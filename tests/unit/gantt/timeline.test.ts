@@ -49,9 +49,10 @@ describe("timeline item geometry", () => {
   });
 
   it("positions multi-day time ranges at their actual time of day", () => {
+    // Local-noon components so the fractional placement is 0.5 in any zone.
     expect(getTimelineItemGeometry(
-      new Date("2026-08-19T12:00:00.000Z"),
-      new Date("2026-08-21T12:00:00.000Z"),
+      new Date(2026, 7, 19, 12, 0, 0, 0),
+      new Date(2026, 7, 21, 12, 0, 0, 0),
       rangeStart,
       52,
     )).toEqual({ startOffset: 0.5, width: 104 });
@@ -76,9 +77,21 @@ describe("timeline item geometry", () => {
   });
 
   it("snaps start and due values to their respective day boundaries", () => {
-    const timestamp = new Date("2026-08-19T12:34:56.789Z");
-    expect(snapTimelineDate(timestamp, "start").toISOString()).toBe("2026-08-19T00:00:00.000Z");
-    expect(snapTimelineDate(timestamp, "end").toISOString()).toBe("2026-08-19T23:59:59.999Z");
+    // snapTimelineDate delegates to the local-clock snap, so assert the local
+    // wall clock rather than a UTC ISO string.
+    const timestamp = new Date(2026, 7, 19, 12, 34, 56, 789);
+    const start = snapTimelineDate(timestamp, "start");
+    expect(start.getHours()).toBe(0);
+    expect(start.getMinutes()).toBe(0);
+    expect(start.getSeconds()).toBe(0);
+    expect(start.getMilliseconds()).toBe(0);
+    expect(start.getDate()).toBe(19);
+    const end = snapTimelineDate(timestamp, "end");
+    expect(end.getHours()).toBe(23);
+    expect(end.getMinutes()).toBe(59);
+    expect(end.getSeconds()).toBe(59);
+    expect(end.getMilliseconds()).toBe(999);
+    expect(end.getDate()).toBe(19);
   });
 
   it("shifts dates by fractional timeline days", () => {

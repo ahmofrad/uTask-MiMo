@@ -99,12 +99,22 @@ test.describe("Realtime cross-user events", () => {
       data: { projectId, title: "Realtime Cross-User Task" },
     });
     expect(taskRes.status()).toBe(201);
+    const taskId = ((await taskRes.json()).data.id) as string;
 
     // Member should receive the event within 1 second
     await expect(memberReceived).resolves.toBeUndefined();
 
     adminSocket.close();
     memberSocket.close();
+
+    // Cleanup: delete the scratch project and its task so repeated runs never
+    // accumulate projects/rows in the seed DB.
+    await adminPage.request.delete(`/api/v1/tasks/${taskId}`, {
+      headers: { "x-csrf-token": adminCsrf },
+    });
+    await adminPage.request.delete(`/api/v1/projects/${projectId}`, {
+      headers: { "x-csrf-token": adminCsrf },
+    });
     await adminCtx.close();
     await memberCtx.close();
   });

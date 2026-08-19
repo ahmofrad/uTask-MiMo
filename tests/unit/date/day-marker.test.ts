@@ -39,66 +39,86 @@ describe("UTC day-boundary markers", () => {
   });
 });
 
+// The helpers under test are local-wall-clock semantics: they operate on the
+// runtime zone's calendar day, so inputs are built from local calendar
+// components and expectations assert local properties. This keeps the tests
+// green in any TZ (UTC, Asia/Tehran, ...) — never hardcode UTC ISO strings
+// against a local-semantics helper.
 describe("local wall-clock checks", () => {
   it("detects local midnight", () => {
-    const midnight = new Date("2026-08-21T00:00:00.000Z");
-    // When the runtime is UTC, the local wall clock matches the UTC clock.
-    expect(isLocalStartOfDay(midnight)).toBe(new Date(midnight).getHours() === 0);
+    expect(isLocalStartOfDay(new Date(2026, 7, 21, 0, 0, 0, 0))).toBe(true);
+    expect(isLocalStartOfDay(new Date(2026, 7, 21, 0, 0, 0, 1))).toBe(false);
   });
 
   it("detects local 23:59:59 regardless of milliseconds", () => {
-    expect(isLocalEndOfDay(new Date("2026-08-21T23:59:59.000Z"))).toBe(true);
-    expect(isLocalEndOfDay(new Date("2026-08-21T23:59:59.999Z"))).toBe(true);
-    expect(isLocalEndOfDay(new Date("2026-08-21T23:59:58.999Z"))).toBe(false);
+    expect(isLocalEndOfDay(new Date(2026, 7, 21, 23, 59, 59, 0))).toBe(true);
+    expect(isLocalEndOfDay(new Date(2026, 7, 21, 23, 59, 59, 999))).toBe(true);
+    expect(isLocalEndOfDay(new Date(2026, 7, 21, 23, 59, 58, 999))).toBe(false);
   });
 });
 
 describe("calendar day helpers", () => {
   it("zeroes the local clock", () => {
-    const result = startOfCalendarDay(new Date("2026-08-21T14:30:00.000Z"));
+    const input = new Date(2026, 7, 21, 14, 30, 0, 0);
+    const result = startOfCalendarDay(input);
     expect(result.getHours()).toBe(0);
     expect(result.getMinutes()).toBe(0);
     expect(result.getSeconds()).toBe(0);
     expect(result.getMilliseconds()).toBe(0);
-    // Same UTC instant day as the input in a UTC runtime.
-    expect(result.getUTCDate()).toBe(21);
+    // Same local calendar day as the input, never later than it.
+    expect(result.getFullYear()).toBe(2026);
+    expect(result.getMonth()).toBe(7);
+    expect(result.getDate()).toBe(21);
+    expect(result.getTime()).toBeLessThanOrEqual(input.getTime());
   });
 
   it("counts whole calendar days between dates", () => {
     expect(diffCalendarDays(
-      new Date("2026-08-19T00:00:00.000Z"),
-      new Date("2026-08-21T00:00:00.000Z"),
+      new Date(2026, 7, 19, 0, 0, 0, 0),
+      new Date(2026, 7, 21, 0, 0, 0, 0),
     )).toBe(2);
     expect(diffCalendarDays(
-      new Date("2026-08-21T23:00:00.000Z"),
-      new Date("2026-08-19T01:00:00.000Z"),
+      new Date(2026, 7, 21, 23, 0, 0, 0),
+      new Date(2026, 7, 19, 1, 0, 0, 0),
     )).toBe(-2);
   });
 
   it("compares calendar days, ignoring time of day", () => {
     expect(isSameCalendarDay(
-      new Date("2026-08-21T08:00:00.000Z"),
-      new Date("2026-08-21T23:59:00.000Z"),
+      new Date(2026, 7, 21, 8, 0, 0, 0),
+      new Date(2026, 7, 21, 23, 59, 0, 0),
     )).toBe(true);
     expect(isSameCalendarDay(
-      new Date("2026-08-21T23:59:00.000Z"),
-      new Date("2026-08-22T00:01:00.000Z"),
+      new Date(2026, 7, 21, 23, 59, 0, 0),
+      new Date(2026, 7, 22, 0, 1, 0, 0),
     )).toBe(false);
   });
 });
 
 describe("snapToDayBoundary", () => {
   it("snaps a start to local midnight and a due to local 23:59:59.999", () => {
-    const timestamp = new Date("2026-08-19T12:34:56.789Z");
-    expect(snapToDayBoundary(timestamp, "start").toISOString()).toBe("2026-08-19T00:00:00.000Z");
-    expect(snapToDayBoundary(timestamp, "end").toISOString()).toBe("2026-08-19T23:59:59.999Z");
+    const timestamp = new Date(2026, 7, 19, 12, 34, 56, 789);
+    const start = snapToDayBoundary(timestamp, "start");
+    expect(start.getHours()).toBe(0);
+    expect(start.getMinutes()).toBe(0);
+    expect(start.getSeconds()).toBe(0);
+    expect(start.getMilliseconds()).toBe(0);
+    expect(start.getDate()).toBe(19);
+    const end = snapToDayBoundary(timestamp, "end");
+    expect(end.getHours()).toBe(23);
+    expect(end.getMinutes()).toBe(59);
+    expect(end.getSeconds()).toBe(59);
+    expect(end.getMilliseconds()).toBe(999);
+    expect(end.getDate()).toBe(19);
   });
 });
 
 describe("date-only round trips", () => {
   it("formats a date as yyyy-MM-dd", () => {
-    expect(toDateOnly(new Date("2026-08-05T00:00:00.000Z"))).toBe("2026-08-05");
-    expect(toDateOnly(new Date("2026-11-30T00:00:00.000Z"))).toBe("2026-11-30");
+    // Local noon components: toDateOnly formats the local calendar day, so
+    // hardcoding a UTC ISO string would flip the day in negative-offset zones.
+    expect(toDateOnly(new Date(2026, 7, 5, 12, 0, 0, 0))).toBe("2026-08-05");
+    expect(toDateOnly(new Date(2026, 10, 30, 12, 0, 0, 0))).toBe("2026-11-30");
   });
 
   it("parses yyyy-MM-dd back into a local midnight timestamp", () => {
@@ -109,7 +129,7 @@ describe("date-only round trips", () => {
   });
 
   it("round-trips through toDateOnly and parseDateOnly", () => {
-    const original = new Date("2026-08-05T00:00:00.000Z");
+    const original = new Date(2026, 7, 5, 12, 0, 0, 0);
     expect(toDateOnly(parseDateOnly(toDateOnly(original)))).toBe("2026-08-05");
   });
 });
