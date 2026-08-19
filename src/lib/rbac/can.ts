@@ -34,11 +34,12 @@ export const can = cache(
   },
 );
 
-export async function canProject(
-  userId: string,
-  permission: Permission,
-  projectId: string,
-): Promise<boolean> {
+export const canProject = cache(
+  async function canProject(
+    userId: string,
+    permission: Permission,
+    projectId: string,
+  ): Promise<boolean> {
   // Global admin/owner override all project restrictions
   const globalRole = await prisma.role.findFirst({
     where: { userId, scopeType: "global", scopeId: null },
@@ -92,7 +93,8 @@ export async function canProject(
   }
 
   return false;
-}
+  },
+);
 
 const PROJECT_ROLE_RANK: Record<ProjectMemberRole, number> = {
   viewer: 1,
@@ -105,10 +107,11 @@ const PROJECT_ROLE_RANK: Record<ProjectMemberRole, number> = {
  * project. Grants are computed live from `ProjectGroupGrant` + current
  * memberships, so membership changes propagate immediately.
  */
-async function getUserProjectGroupRole(
-  userId: string,
-  projectId: string,
-): Promise<ProjectMemberRole | null> {
+const getUserProjectGroupRole = cache(
+  async function getUserProjectGroupRole(
+    userId: string,
+    projectId: string,
+  ): Promise<ProjectMemberRole | null> {
   const grants = await prisma.projectGroupGrant.findMany({
     where: {
       projectId,
@@ -127,17 +130,19 @@ async function getUserProjectGroupRole(
     }
   }
   return best;
-}
+  },
+);
 
 /**
  * Whether a user can manage a group. Owner/admin override. Managers are
  * scoped: the group's owning department (or its linked department, for LDAP
  * groups) must be inside the user's managed department subtree.
  */
-export async function canManageGroup(
-  userId: string,
-  groupId: string,
-): Promise<boolean> {
+export const canManageGroup = cache(
+  async function canManageGroup(
+    userId: string,
+    groupId: string,
+  ): Promise<boolean> {
   const globalRole = await prisma.role.findFirst({
     where: { userId, scopeType: "global", scopeId: null },
     select: { type: true },
@@ -160,16 +165,19 @@ export async function canManageGroup(
 
   const managedDepartmentIds = await getManagedDepartmentIds(userId);
   return managedDepartmentIds.includes(departmentId);
-}
+  },
+);
 
-export async function canCreateProject(userId: string, departmentId?: string | null): Promise<boolean> {
+export const canCreateProject = cache(
+  async function canCreateProject(userId: string, departmentId?: string | null): Promise<boolean> {
   const { globalRole } = await getUserRole(userId);
   if (globalRole === "owner" || globalRole === "admin") return true;
   if (!departmentId) return false;
 
   const managedDepartmentIds = await getManagedDepartmentIds(userId);
   return managedDepartmentIds.includes(departmentId);
-}
+  },
+);
 
 /**
  * Read access is membership-based. Mutation permissions are intentionally not
@@ -218,16 +226,19 @@ export const canReadProject = cache(async (userId: string, projectId: string): P
   return false;
 });
 
-export async function canReadTask(userId: string, taskId: string): Promise<boolean> {
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    select: { projectId: true, deletedAt: true },
-  });
-  if (!task || task.deletedAt) return false;
-  return canReadProject(userId, task.projectId);
-}
+export const canReadTask = cache(
+  async function canReadTask(userId: string, taskId: string): Promise<boolean> {
+    const task = await prisma.task.findUnique({
+      where: { id: taskId },
+      select: { projectId: true, deletedAt: true },
+    });
+    if (!task || task.deletedAt) return false;
+    return canReadProject(userId, task.projectId);
+  },
+);
 
-export async function canEditTask(userId: string, taskId: string): Promise<boolean> {
+export const canEditTask = cache(
+  async function canEditTask(userId: string, taskId: string): Promise<boolean> {
   const task = await prisma.task.findUnique({
     where: { id: taskId },
     select: {
@@ -242,15 +253,18 @@ export async function canEditTask(userId: string, taskId: string): Promise<boole
   if (await canProject(userId, "task:edit_any", task.projectId)) return true;
   if (!(await canProject(userId, "task:edit_own", task.projectId))) return false;
   return task.createdById === userId || task.reporterId === userId || task.assignees.some((assignee) => assignee.userId === userId);
-}
+  },
+);
 
-export async function isProjectOwner(
-  userId: string,
-  projectId: string,
-): Promise<boolean> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { ownerId: true },
-  });
-  return project?.ownerId === userId;
-}
+export const isProjectOwner = cache(
+  async function isProjectOwner(
+    userId: string,
+    projectId: string,
+  ): Promise<boolean> {
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { ownerId: true },
+    });
+    return project?.ownerId === userId;
+  },
+);
