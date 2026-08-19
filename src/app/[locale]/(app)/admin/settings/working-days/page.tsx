@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
-import { SUPPORTED_HOLIDAY_COUNTRIES } from "@/lib/date/holidays/countries";
+import { countriesForProvider, type HolidayProvider } from "@/lib/date/holidays/countries";
 
 type HolidayRow = { date: string; name: string };
 type WorkingDayConfig = { weekendDays: number[]; holidays: HolidayRow[] };
-type EgressConfig = { enabled: boolean; baseUrl: string; countryCode: string };
+type EgressConfig = { enabled: boolean; provider: HolidayProvider; baseUrl: string; countryCode: string; apiKey: string };
+
+const EGRESS_API_KEY_MASK = "********";
 
 const WEEKDAY_KEYS = [
   "daySun",
@@ -44,8 +46,10 @@ export default function WorkingDaysPage() {
   // Egress download state.
   const [egress, setEgress] = useState<EgressConfig>({
     enabled: false,
+    provider: "nager",
     baseUrl: "https://date.nager.at",
     countryCode: "US",
+    apiKey: "",
   });
   const [egressLoaded, setEgressLoaded] = useState(false);
   const [savingEgress, setSavingEgress] = useState(false);
@@ -389,7 +393,6 @@ export default function WorkingDaysPage() {
             <div className="space-y-3 bg-bg-surface border border-border-primary rounded-lg p-4">
               <h3 className="text-sm font-semibold text-fg-primary">{t("egressTitle")}</h3>
               <p className="text-xs text-fg-tertiary">{t("egressHint")}</p>
-              <p className="text-xs text-fg-tertiary">{t("egressCountryNote")}</p>
               {!egressLoaded ? (
                 <p className="text-xs text-fg-tertiary">{t("loading")}</p>
               ) : (
@@ -405,6 +408,29 @@ export default function WorkingDaysPage() {
                     {t("egressEnabled")}
                   </label>
                   <label className="flex flex-col gap-1 text-xs text-fg-secondary">
+                    {t("egressProvider")}
+                    <select
+                      data-testid="wd-egress-provider"
+                      value={egress.provider}
+                      onChange={(e) => {
+                        const provider = e.target.value as HolidayProvider;
+                        // Switching providers may leave an unsupported country;
+                        // fall back to the provider's default.
+                        const available = countriesForProvider(provider);
+                        const stillSupported = available.some(([code]) => code === egress.countryCode);
+                        setEgress((prev) => ({
+                          ...prev,
+                          provider,
+                          countryCode: stillSupported ? prev.countryCode : "US",
+                        }));
+                      }}
+                      className={inputClass}
+                    >
+                      <option value="nager">{t("providerNager")}</option>
+                      <option value="calendarific">{t("providerCalendarific")}</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1 text-xs text-fg-secondary">
                     {t("egressCountry")}
                     <select
                       data-testid="wd-egress-country"
@@ -412,13 +438,27 @@ export default function WorkingDaysPage() {
                       onChange={(e) => setEgress((prev) => ({ ...prev, countryCode: e.target.value }))}
                       className={inputClass}
                     >
-                      {SUPPORTED_HOLIDAY_COUNTRIES.map(([code, name]) => (
+                      {countriesForProvider(egress.provider).map(([code, name]) => (
                         <option key={code} value={code}>
                           {name} ({code})
                         </option>
                       ))}
                     </select>
                   </label>
+                  {egress.provider === "calendarific" && (
+                    <label className="flex flex-col gap-1 text-xs text-fg-secondary">
+                      {t("egressApiKey")}
+                      <input
+                        type="password"
+                        data-testid="wd-egress-api-key"
+                        value={egress.apiKey === EGRESS_API_KEY_MASK ? "" : egress.apiKey}
+                        placeholder={egress.apiKey === EGRESS_API_KEY_MASK ? EGRESS_API_KEY_MASK : ""}
+                        onChange={(e) => setEgress((prev) => ({ ...prev, apiKey: e.target.value }))}
+                        autoComplete="off"
+                        className={`${inputClass} w-56`}
+                      />
+                    </label>
+                  )}
                   <button
                     type="button"
                     data-testid="wd-egress-save"

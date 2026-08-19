@@ -44,6 +44,17 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   }
+  if (egress.provider === "calendarific" && !egress.apiKey) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "api_key_required",
+          message: "A Calendarific API key is required before downloading.",
+        },
+      },
+      { status: 400 },
+    );
+  }
 
   const year = parsed.data.year ?? new Date().getFullYear();
   try {
@@ -52,9 +63,9 @@ export async function POST(request: Request) {
       actorUserId: userId,
       source: "download",
       incoming,
-      detail: { year, countryCode: egress.countryCode },
+      detail: { year, provider: egress.provider, countryCode: egress.countryCode },
     });
-    return NextResponse.json({ data: { ...result, year, countryCode: egress.countryCode } });
+    return NextResponse.json({ data: { ...result, year, provider: egress.provider, countryCode: egress.countryCode } });
   } catch (error) {
     return NextResponse.json(
       {

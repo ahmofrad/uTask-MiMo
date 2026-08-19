@@ -4,6 +4,8 @@ import { getInstanceSetting, setInstanceSetting } from "@/lib/settings/instance"
 import { logAudit } from "@/lib/audit/log";
 import { readJsonBody, validationError } from "@/lib/validation/api";
 import {
+  API_KEY_MASK,
+  encryptApiKey,
   HOLIDAY_EGRESS_SETTING_KEY,
   holidayEgressConfigSchema,
   normalizeHolidayEgress,
@@ -18,7 +20,10 @@ export async function GET() {
   if (guardResult) return guardResult;
 
   const stored = await getInstanceSetting(HOLIDAY_EGRESS_SETTING_KEY, undefined);
-  return NextResponse.json({ data: normalizeHolidayEgress(stored) });
+  const egress = normalizeHolidayEgress(stored);
+  return NextResponse.json({
+    data: { ...egress, apiKey: egress.apiKey ? API_KEY_MASK : "" },
+  });
 }
 
 export async function PUT(request: Request) {
@@ -38,16 +43,26 @@ export async function PUT(request: Request) {
   const before = normalizeHolidayEgress(
     await getInstanceSetting(HOLIDAY_EGRESS_SETTING_KEY, undefined),
   );
-  await setInstanceSetting(HOLIDAY_EGRESS_SETTING_KEY, parsed.data, userId);
+
+  // Keep the stored key when the client submits the mask (unchanged) or an
+  // empty value for the keyless Nager provider.
+  const incoming = parsed.data;
+  const apiKey =
+    incoming.apiKey && incoming.apiKey !== API_KEY_MASK
+      ? encryptApiKey(incoming.apiKey)
+      : before.apiKey;
+
+  const toStore = { ...incoming, apiKey };
+  await setInstanceSetting(HOLIDAY_EGRESS_SETTING_KEY, toStore, userId);
 
   await logAudit({
     actorUserId: userId,
     action: "settings_updated",
     entityType: "settings",
     entityId: "holiday-egress",
-    before: { enabled: before.enabled, countryCode: before.countryCode },
-    after: { enabled: parsed.data.enabled, countryCode: parsed.data.countryCode },
+    before: { enabled: before.enabled, provider: before.provider, countryCode: before.countryCode },
+    after: { enabled: toStore.enabled, provider: toStore.provider, countryCode: toStore.countryCode },
   });
 
-  return NextResponse.json({ data: parsed.data });
+  return NextResponse.json({ data: { ...toStore, apiKey: apiKey ? API_KEY_MASK : "" } });
 }

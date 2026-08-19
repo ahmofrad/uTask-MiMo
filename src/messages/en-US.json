@@ -925,7 +925,10 @@
     "egressDisabled": "Downloads are disabled. Enable them in the download section first.",
     "downloadFailed": "The download failed. Check that outbound HTTPS is allowed to the provider.",
     "downloadResult": "Downloaded and added {imported} holidays ({skipped} duplicates skipped).",
-    "egressCountryNote": "Iran is not available for download — use the bundled Iranian calendar instead."
+    "egressProvider": "Provider",
+    "providerNager": "Nager (no key)",
+    "providerCalendarific": "Calendarific (API key, incl. Iran)",
+    "egressApiKey": "API key"
   },
   "audit": {
     "title": "Audit Log",
