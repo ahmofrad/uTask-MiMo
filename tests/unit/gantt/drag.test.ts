@@ -40,12 +40,24 @@ describe("applyDragDelta — move", () => {
     expect(snapped.lastDeltaDays).toBe(2);
   });
 
-  it("follows the pointer continuously without snapping mid-drag", () => {
+  it("moves a marker task cell-to-cell mid-drag, matching the release snap", () => {
     const state = createDragState("t1", "move", 100, start, end);
     const live = applyDragDelta(state, 1.5, false);
-    // Preserves time-of-day so the bar follows the pointer within a day.
-    expect(live.currentStart.getTime()).toBe(start.getTime() + 1.5 * 24 * 60 * 60 * 1000);
-    expect(live.currentEnd.getTime()).toBe(end.getTime() + 1.5 * 24 * 60 * 60 * 1000);
+    // Stored day markers round the pointer delta to whole days even mid-drag,
+    // so the live bar never drifts into fractional sub-day positions (which
+    // oscillated the span at whole-day boundaries) and the live position
+    // equals the released position.
+    expect(live.currentStart.toISOString()).toBe("2026-08-21T00:00:00.000Z");
+    expect(live.currentEnd.toISOString()).toBe("2026-08-23T23:59:59.999Z");
+  });
+
+  it("keeps a sub-half-day movement at the original position", () => {
+    const state = createDragState("t1", "move", 100, start, end);
+    const live = applyDragDelta(state, 0.4, false);
+    expect(live.currentStart.toISOString()).toBe("2026-08-19T00:00:00.000Z");
+    // The end is snapped to its day's end marker; with a real due marker
+    // (23:59:59.999Z) this is a no-op, so the bar never visually moves.
+    expect(live.currentEnd.toISOString()).toBe("2026-08-21T23:59:59.999Z");
   });
 
   it("keeps the original bounds untouched", () => {

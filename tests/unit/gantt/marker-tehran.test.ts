@@ -109,21 +109,23 @@ describe("drag in Asia/Tehran", () => {
     expect(dragPatchBody(snapped)).toEqual({ dueDate: "2026-08-21T23:59:59.999Z" });
   });
 
-  it("follows the pointer at the marker's timeline position mid-drag", () => {
-    // The live intermediate is anchored in the runtime zone: anchor day Aug 19
-    // + 1.5 cells = local Aug 20 12:00, so the bar tracks the pointer exactly
-    // instead of drifting by the zone offset.
+  it("moves a marker task cell-to-cell mid-drag with a stable span", () => {
+    // The live intermediate is a canonical marker pair (whole-day rounding),
+    // so the bar never renders at fractional sub-day positions — which
+    // oscillated the width between N and N+1 cells at whole-day boundaries
+    // and made the bar leap in RTL. The live span equals the released span.
     const state = createDragState("t1", "move", 100, start, dueLater);
     const live = applyDragDelta(state, 1.5, false);
-    expect(live.currentStart.toISOString()).toBe("2026-08-20T08:30:00.000Z");
-    expect(live.currentEnd.toISOString()).toBe("2026-08-22T08:30:00.000Z");
+    expect(live.currentStart.toISOString()).toBe("2026-08-21T00:00:00.000Z");
+    expect(live.currentEnd.toISOString()).toBe("2026-08-23T23:59:59.999Z");
     const geometry = getTimelineItemGeometry(
       live.currentStart,
       live.currentEnd,
       rangeStart,
       DAY_WIDTH,
     );
-    expect(geometry.startOffset).toBeCloseTo(1.5, 4);
+    expect(geometry.startOffset).toBe(2);
+    expect(geometry.width).toBe(3 * DAY_WIDTH);
   });
 
   it("renders a single-day live drag on its cell, snapping cell-to-cell", () => {
@@ -137,7 +139,7 @@ describe("drag in Asia/Tehran", () => {
       rangeStart,
       DAY_WIDTH,
     );
-    expect(geometry.startOffset).toBe(1);
+    expect(geometry.startOffset).toBe(2);
     expect(geometry.width).toBe(DAY_WIDTH);
   });
 

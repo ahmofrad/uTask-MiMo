@@ -53,14 +53,19 @@ export function createDragState(
  * timeline cells.
  */
 /**
- * Shift a timestamp by the drag delta. Stored day markers shift on their
- * anchor calendar day and snap back to the marker convention (`00:00:00.000Z`
- * / `23:59:59.999Z`); genuine instants keep their local clock time.
+ * Shift a timestamp by the drag delta. Stored day markers move cell-to-cell:
+ * the pointer delta is rounded to whole days and the result snapped to the
+ * marker convention (`00:00:00.000Z` / `23:59:59.999Z`) even mid-drag, so the
+ * live bar sits exactly on the released cells. That keeps the span stable
+ * (fractional sub-day intermediates made the width oscillate between N and
+ * N+1 cells at whole-day boundaries, visibly leaping in RTL) and guarantees
+ * the value can never be mistaken for a legacy zone-local marker. Genuine
+ * instants keep their local clock time and fractional follow.
  */
 function shiftDate(date: Date, boundary: "start" | "end", deltaDays: number, snap: boolean): Date {
   if (isUtcDayMarker(date)) {
-    const shifted = shiftDayMarker(date, deltaDays);
-    return snap ? snapDayMarker(shifted, boundary) : shifted;
+    const shifted = shiftDayMarker(date, Math.round(deltaDays));
+    return snapDayMarker(shifted, boundary);
   }
   const shifted = shiftTimelineDateByDays(date, deltaDays);
   return snap ? snapTimelineDate(shifted, boundary) : shifted;
