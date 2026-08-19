@@ -336,10 +336,7 @@ export function GanttChart({
     }));
   };
 
-  const onPointerUp = async () => {
-    const d = dragRef.current;
-    dragRef.current = null;
-    if (!d) return;
+  const finalizeDrag = async (d: DragState) => {
     // The pointer moved less than half a day — the bar did not actually
     // move. Drop the optimistic override so a stray jitter cannot pin
     // snapped values (e.g. a start stored at 23:59:59.999 snapping to
@@ -355,12 +352,11 @@ export function GanttChart({
       return;
     }
     // Re-snap from the original dates with the rounded whole-day delta so
-    // the saved dates land exactly on calendar days (the live drag followed
-    // the pointer continuously with the raw delta). Keep the override in sync
-    // with the values being saved, otherwise the bar would keep the mid-drag
-    // fractional position until the next report refetch.
+    // the saved dates land exactly on calendar days. The override is synced
+    // with the values being saved; the drag itself is over, so dragRef stays
+    // cleared — otherwise later pointermoves (with no button held) would keep
+    // dragging the bar.
     const snapped = applyDragDelta(d, deltaDays, true);
-    dragRef.current = snapped;
     setOverrides((prev) => ({
       ...prev,
       [snapped.id]: {
@@ -406,6 +402,24 @@ export function GanttChart({
         return next;
       });
     }
+  };
+
+  const onPointerUp = () => {
+    const d = dragRef.current;
+    dragRef.current = null;
+    if (!d) return;
+    void finalizeDrag(d);
+  };
+
+  const onLostPointerCapture = () => {
+    // The browser dropped pointer capture mid-drag (e.g. the node was
+    // re-created) before a pointerup arrived. Finalize immediately so the bar
+    // can never keep following the pointer without a held button. In the
+    // normal flow pointerup already cleared dragRef, so this is a no-op.
+    const d = dragRef.current;
+    if (!d) return;
+    dragRef.current = null;
+    void finalizeDrag(d);
   };
 
   const toggleLinkMode = () => {
@@ -1282,6 +1296,7 @@ export function GanttChart({
                         onPointerDown={linkMode ? undefined : (e) => onPointerDown(e, row)}
                         onPointerMove={linkMode ? undefined : onPointerMove}
                         onPointerUp={linkMode ? undefined : onPointerUp}
+                        onLostPointerCapture={linkMode ? undefined : onLostPointerCapture}
                         onClick={linkMode ? () => startLink(row) : undefined}
                         onKeyDown={linkMode ? (e) => {
                           if (e.key === "Enter" || e.key === " ") {
