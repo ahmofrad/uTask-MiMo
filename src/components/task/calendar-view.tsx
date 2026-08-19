@@ -79,6 +79,13 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
 
   const isHolidayDay = (day: number) => workingDayCalendar.isHoliday(cellDate(day));
 
+  // Weekday header columns that host a holiday this month get a red label.
+  // The grid's first column is Saturday, so column index = (jsDay + 1) % 7.
+  const holidayWeekdays = new Set<number>();
+  for (let day = 1; day <= daysInMonth; day++) {
+    if (isHolidayDay(day)) holidayWeekdays.add((cellDate(day).getDay() + 1) % 7);
+  }
+
   function cellDate(day: number): Date {
     if (isJalali) {
       return atMidnight(toGregorian(year, month, day));
@@ -159,8 +166,16 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
           if (onMove) e.preventDefault();
         }}
       >
-        {weekdays.map((d) => (
-          <div key={d} className="text-center text-xs text-fg-muted py-1 font-medium">{d}</div>
+        {weekdays.map((d, i) => (
+          <div
+            key={d}
+            className={cn(
+              "text-center text-xs py-1 font-medium",
+              holidayWeekdays.has(i) ? "text-danger font-semibold" : "text-fg-muted",
+            )}
+          >
+            {d}
+          </div>
         ))}
         {Array.from({ length: startOffset }).map((_, i) => <div key={`e${i}`} />)}
         {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -177,7 +192,7 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                 "min-h-[60px] p-1 rounded-lg border text-xs transition-colors",
                 dayTasks.length > 0 ? "border-accent/30 bg-accent-bg/30" : "border-border-primary",
                 isWeekendDay(day) ? "bg-secondary/40" : "",
-                isHolidayDay(day) ? "bg-warning-bg/50 border-warning/40" : "",
+                isHolidayDay(day) ? "bg-danger-bg/50 border-danger/40" : "",
                 isToday(day) ? "ring-2 ring-accent" : "",
                 onMove ? "hover:border-accent/60" : "",
               )}
@@ -188,9 +203,9 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                 if (id) void handleDrop(id, day);
               }}
             >
-              <div className={cn("text-start mb-1", isToday(day) ? "font-semibold text-accent" : isHolidayDay(day) ? "font-semibold text-warning" : "text-fg-muted")}>
+              <div className={cn("text-start mb-1", isToday(day) ? "font-semibold text-accent" : isHolidayDay(day) ? "font-semibold text-danger" : "text-fg-muted")}>
                 {day}
-                {isHolidayDay(day) && <span className="ms-1 inline-block h-1.5 w-1.5 rounded-full bg-warning align-middle" />}
+                {isHolidayDay(day) && <span className="ms-1 inline-block h-1.5 w-1.5 rounded-full bg-danger align-middle" />}
               </div>
               {dayTasks.slice(0, 3).map((task) => {
                 const draggable = !!onMove && !!task.dueDate;
@@ -251,7 +266,7 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
           {t("todayLabel")}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block w-3 h-3 rounded bg-warning-bg border border-warning/40" />
+          <span className="inline-block w-3 h-3 rounded bg-danger-bg border border-danger/40" />
           {t("holiday")}
         </span>
         <span className="inline-flex items-center gap-1.5">

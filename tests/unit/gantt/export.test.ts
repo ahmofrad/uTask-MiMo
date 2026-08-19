@@ -118,10 +118,10 @@ describe("buildGanttExportSvg", () => {
         holidays: [{ date: "2026-08-14", name: "Independence Day" }],
       },
     });
-    // The holiday's header cell uses the warning background; the Saturday
+    // The holiday's header cell uses the red danger background; the Saturday
     // cells use the surface-2 tint. Row shading also references both fills.
-    expect(svg).toContain(`fill="${FALLBACK_PALETTE.warningBg}"`);
-    expect(svg.match(new RegExp(`fill="${FALLBACK_PALETTE.warningBg}"`, "g"))?.length ?? 0).toBeGreaterThan(1);
+    expect(svg).toContain(`fill="${FALLBACK_PALETTE.dangerBg}"`);
+    expect(svg.match(new RegExp(`fill="${FALLBACK_PALETTE.dangerBg}"`, "g"))?.length ?? 0).toBeGreaterThan(1);
     expect(svg).toContain(`fill="${FALLBACK_PALETTE.bgSurface2}"`);
   });
 

@@ -33,6 +33,7 @@ export type ExportPalette = {
   warningBg: string;
   success: string;
   danger: string;
+  dangerBg: string;
   fontSans: string;
   fontMono: string;
 };
@@ -53,6 +54,7 @@ export const FALLBACK_PALETTE: ExportPalette = {
   warningBg: "#fef3c7",
   success: "#15803d",
   danger: "#b91c1c",
+  dangerBg: "#fee2e2",
   fontSans: "system-ui, sans-serif",
   fontMono: "ui-monospace, monospace",
 };
@@ -229,10 +231,10 @@ export function buildGanttExportSvg(options: {
       ? palette.accentBg
       : isNonWorking
         ? holidayName !== null
-          ? palette.warningBg
+          ? palette.dangerBg
           : palette.bgSurface2
         : palette.bgSurface;
-    const labelFill = day.isToday ? palette.accent : isNonWorking && holidayName ? palette.warning : palette.fgMuted;
+    const labelFill = day.isToday ? palette.accent : isNonWorking && holidayName ? palette.danger : palette.fgMuted;
     parts.push(
       `<rect x="${x}" y="36" width="${DAY_WIDTH}" height="44" fill="${dayFill}" stroke="${palette.border}" />`,
     );
@@ -268,7 +270,7 @@ export function buildGanttExportSvg(options: {
       if (!day.isToday && !workingDayCalendar.isNonWorking(day.date)) continue;
       const x = timelineOrigin + timelineX(day.offset, DAY_WIDTH);
       const cellFill = holidayName !== null
-        ? palette.warningBg
+        ? palette.dangerBg
         : day.isToday
           ? palette.accentBg
           : palette.bgSurface2;

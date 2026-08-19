@@ -32,6 +32,7 @@ export function resolveExportPalette(): ExportPalette {
     warningBg: value("--warning-bg", FALLBACK_PALETTE.warningBg),
     success: value("--success", FALLBACK_PALETTE.success),
     danger: value("--danger", FALLBACK_PALETTE.danger),
+    dangerBg: value("--danger-bg", FALLBACK_PALETTE.dangerBg),
     fontSans: value("--font-sans", FALLBACK_PALETTE.fontSans),
     fontMono: value("--font-mono", FALLBACK_PALETTE.fontMono),
   };

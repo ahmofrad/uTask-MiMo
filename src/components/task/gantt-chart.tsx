@@ -1166,7 +1166,7 @@ export function GanttChart({
                     dir={locale === "fa-IR" ? "rtl" : "ltr"}
                     className={`absolute top-0 flex h-11 items-center justify-center border-e border-border-secondary/70 text-[15px] font-semibold leading-none text-fg-secondary ${
                       day.isMonthStart ? "border-s-2 border-s-border-strong" : ""
-                    } ${day.isToday ? "bg-accent-bg text-accent" : day.isNonWorking ? (day.holidayName ? "bg-warning-bg/60 text-warning" : "bg-bg-surface-2/70") : ""}`}
+                    } ${day.isToday ? "bg-accent-bg text-accent" : day.isNonWorking ? (day.holidayName ? "bg-danger-bg/60 text-danger" : "bg-bg-surface-2/70") : ""}`}
                     title={day.holidayName || undefined}
                     style={{
                       left: `${timelineXForOffset(day.offset, dayWidth)}px`,
@@ -1311,7 +1311,7 @@ export function GanttChart({
                         key={day.offset}
                         title={day.holidayName || undefined}
                         className={`absolute top-0 h-full border-e border-border-secondary/40 ${
-                          day.isToday ? "bg-accent-bg/30" : day.isNonWorking ? (day.holidayName ? "bg-warning-bg/40" : "bg-bg-surface-2/50") : ""
+                          day.isToday ? "bg-accent-bg/30" : day.isNonWorking ? (day.holidayName ? "bg-danger-bg/40" : "bg-bg-surface-2/50") : ""
                         }`}
                         style={{
                           left: `${timelineXForOffset(day.offset, dayWidth)}px`,
@@ -1442,7 +1442,7 @@ export function GanttChart({
           {t("ganttInvalidDeps")}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded-sm bg-warning-bg border border-warning/40" />
+          <span className="w-3 h-3 rounded-sm bg-danger-bg border border-danger/40" />
           {t("holiday")}
         </span>
         <span className="flex items-center gap-1.5">
