@@ -204,6 +204,7 @@ enum AuditAction {
   watcher_added
   watcher_removed
   settings_updated
+  holidays_imported
   user_updated
   user_suspended
   user_unsuspended

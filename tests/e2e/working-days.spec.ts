@@ -135,6 +135,45 @@ test.describe("Working days admin page", () => {
     }
   });
 
+  test("official and CSV imports add holidays", async ({ page }) => {
+    const today = await page.evaluate(() => {
+      const d = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    });
+    const tomorrow = await page.evaluate(() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    });
+    try {
+      await page.goto("/en-US/admin/settings/working-days");
+      await expect(page.getByRole("heading", { name: "Working days & holidays" })).toBeVisible();
+
+      // Bundled official import: defaults are Iran + current/next year.
+      await page.getByTestId("wd-import-official-btn").click();
+      await expect(page.getByTestId("wd-import-msg")).toContainText("Added");
+      await expect(page.getByTestId("wd-no-holidays")).toBeHidden();
+
+      // CSV import: two rows with computed dates, both must land.
+      const csv = `${today},Test CSV Holiday\n${tomorrow},Test CSV Holiday 2`;
+      await page.getByTestId("wd-import-csv-text").fill(csv);
+      await page.getByTestId("wd-import-csv-btn").click();
+      await expect(page.getByTestId("wd-import-msg")).toContainText("Added 2 holidays");
+
+      // The imported CSV dates are persisted through the API.
+      const res = await page.request.get("/api/v1/admin/settings/working-days");
+      const body = (await res.json()) as { data?: { holidays: { date: string; name: string }[] } };
+      const dates = body.data?.holidays.map((holiday) => holiday.date) ?? [];
+      expect(dates).toContain(today);
+      expect(dates).toContain(tomorrow);
+    } finally {
+      // Restore the default calendar so other suites stay deterministic.
+      await prisma.instanceSetting.deleteMany({ where: { key: WORKING_DAYS_SETTING_KEY } });
+    }
+  });
+
   test("a non-admin is redirected away from the page", async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: ".auth/member.json" });
     const page = await ctx.newPage();
