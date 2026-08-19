@@ -9,6 +9,10 @@ import { WORKING_DAYS_SETTING_KEY } from "@/lib/date/working-day";
 // afterAll hook.
 
 test.describe("Working days admin page", () => {
+  // All tests share the single InstanceSetting row, so concurrent workers
+  // would race each other's writes and cleanups. Run serially.
+  test.describe.configure({ mode: "serial" });
+
   test("admin can configure weekend days and holidays, and they persist", async ({ page }) => {
     try {
       await page.goto("/en-US/admin/settings/working-days");
@@ -64,6 +68,69 @@ test.describe("Working days admin page", () => {
     } finally {
       // Restore the default calendar (every day working) so other suites that
       // assume no working-day config stay deterministic.
+      await prisma.instanceSetting.deleteMany({ where: { key: WORKING_DAYS_SETTING_KEY } });
+    }
+  });
+
+  test("configured holidays are marked on the calendar and Gantt views", async ({ page }) => {
+    // Use today as the holiday so it is guaranteed to be inside the calendar
+    // month and the Gantt timeline (which spans the task dates ± padding).
+    const today = await page.evaluate(() => {
+      const d = new Date();
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    });
+    try {
+      await prisma.instanceSetting.upsert({
+        where: { key: WORKING_DAYS_SETTING_KEY },
+        create: {
+          key: WORKING_DAYS_SETTING_KEY,
+          value: {
+            weekendDays: [6], // Saturday
+            holidays: [{ date: today, name: "Test holiday" }],
+          },
+        },
+        update: {
+          value: {
+            weekendDays: [6],
+            holidays: [{ date: today, name: "Test holiday" }],
+          },
+        },
+      });
+
+      // Calendar view: today's cell is marked as a holiday with its name.
+      await page.goto("/en-US/calendar");
+      const cell = page.locator(`[data-testid="calendar-holiday"][data-date="${today}"]`);
+      await expect(cell).toBeVisible({ timeout: 10000 });
+      await expect(cell).toHaveAttribute("title", "Test holiday");
+      // The legend explains the holiday marker.
+      await expect(page.getByText("Holiday", { exact: true })).toBeVisible();
+      // Saturday is the configured weekend — it renders the weekend tint.
+      const saturday = await page.evaluate(() => {
+        const d = new Date();
+        const day = d.getDay();
+        const delta = (6 - day + 7) % 7;
+        const target = new Date(d);
+        target.setDate(d.getDate() + delta);
+        const pad = (n: number) => String(n).padStart(2, "0");
+        return `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}`;
+      });
+      await expect(page.locator(`[data-testid="calendar-day"][data-date="${saturday}"]`)).toBeVisible();
+
+      // Gantt view: the timeline day for the holiday shows its name as a tooltip.
+      const project = await prisma.project.findFirstOrThrow({
+        where: { name: "Product Launch" },
+        select: { id: true },
+      });
+      await page.goto(`/en-US/projects/${project.id}`);
+      await page.getByRole("button", { name: "Gantt", exact: true }).click();
+      const chart = page.getByTestId("gantt-scroll-container").first();
+      await expect(chart).toBeVisible({ timeout: 15000 });
+      await expect(chart.locator(`[data-testid="gantt-timeline-day"][title="Test holiday"]`)).toBeVisible({
+        timeout: 15000,
+      });
+    } finally {
+      // Restore the default calendar so other suites stay deterministic.
       await prisma.instanceSetting.deleteMany({ where: { key: WORKING_DAYS_SETTING_KEY } });
     }
   });

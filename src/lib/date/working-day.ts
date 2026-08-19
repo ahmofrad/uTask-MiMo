@@ -1,6 +1,16 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { isUtcEndMarker, isUtcStartMarker, normalizeStoredDayMarker, snapDayMarker, timelineDayStart, toDateOnly } from "@/lib/date/day-marker";
+import {
+  DEFAULT_WORKING_DAYS,
+  type HolidayEntry,
+  type WorkingDayConfig,
+} from "@/lib/date/working-day-calendar";
+
+// Re-export the shared types/default from the pure module so server-side
+// imports of `@/lib/date/working-day` keep working unchanged.
+export type { HolidayEntry, WorkingDayConfig };
+export { DEFAULT_WORKING_DAYS };
 
 /**
  * Working-day calendar: which days of the week are non-working (the weekend)
@@ -15,19 +25,7 @@ import { isUtcEndMarker, isUtcStartMarker, normalizeStoredDayMarker, snapDayMark
  * across weekends until an admin configures the calendar.
  */
 
-export type HolidayEntry = { date: string; name: string };
-
-export type WorkingDayConfig = {
-  weekendDays: number[];
-  holidays: HolidayEntry[];
-};
-
 export const WORKING_DAYS_SETTING_KEY = "workingDays";
-
-export const DEFAULT_WORKING_DAYS: WorkingDayConfig = {
-  weekendDays: [],
-  holidays: [],
-};
 
 export const workingDayConfigSchema = z.object({
   weekendDays: z.array(z.number().int().min(0).max(6)).max(7),

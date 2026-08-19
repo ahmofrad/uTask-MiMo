@@ -463,6 +463,8 @@
     "unassigned": "Unassigned",
     "watchingCount": "Watching",
     "todayLabel": "Today",
+    "holiday": "Holiday",
+    "nonWorkingDay": "Non-working day",
     "board": "Board",
     "timeline": "Timeline",
     "calendar": "Calendar",

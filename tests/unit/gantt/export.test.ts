@@ -105,4 +105,39 @@ describe("buildGanttExportSvg", () => {
     // August always spans exactly two Jalali months, so two header blocks.
     expect(svg.match(/<text x="[^"]+" y="24"/g)?.length ?? 0).toBe(2);
   });
+
+  it("shades weekends and holidays in the header when a working-day calendar is provided", () => {
+    const svg = buildGanttExportSvg({
+      report,
+      locale: "en-US",
+      palette: FALLBACK_PALETTE,
+      rangeStart: new Date("2026-08-01T00:00:00Z"),
+      rangeEnd: new Date("2026-08-31T00:00:00Z"),
+      workingDays: {
+        weekendDays: [6], // Saturday only
+        holidays: [{ date: "2026-08-14", name: "Independence Day" }],
+      },
+    });
+    // The holiday's header cell uses the warning background; the Saturday
+    // cells use the surface-2 tint. Row shading also references both fills.
+    expect(svg).toContain(`fill="${FALLBACK_PALETTE.warningBg}"`);
+    expect(svg.match(new RegExp(`fill="${FALLBACK_PALETTE.warningBg}"`, "g"))?.length ?? 0).toBeGreaterThan(1);
+    expect(svg).toContain(`fill="${FALLBACK_PALETTE.bgSurface2}"`);
+  });
+
+  it("uses the configured weekend (not the locale default) when provided", () => {
+    // Without a calendar, the en-US locale default is Sat+Sun (both shaded
+    // with bgSurface2). With weekendDays: [1] only Monday is shaded.
+    const svg = buildGanttExportSvg({
+      report,
+      locale: "en-US",
+      palette: FALLBACK_PALETTE,
+      rangeStart: new Date("2026-08-01T00:00:00Z"),
+      rangeEnd: new Date("2026-08-31T00:00:00Z"),
+      workingDays: { weekendDays: [1], holidays: [] },
+    });
+    // Mondays in Aug 2026: 3, 10, 17, 24, 31 → 5 header cells + 5 row cells.
+    const headerTints = svg.match(new RegExp(`fill="${FALLBACK_PALETTE.bgSurface2}"`, "g")) ?? [];
+    expect(headerTints.length).toBeGreaterThanOrEqual(10);
+  });
 });

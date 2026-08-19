@@ -1,5 +1,6 @@
 import type { GanttReport } from "@/lib/gantt-types";
 import type { Locale } from "@/lib/date/format";
+import type { WorkingDayConfig } from "@/lib/date/working-day";
 import {
   buildGanttExportSvg,
   FALLBACK_PALETTE,
@@ -28,6 +29,7 @@ export function resolveExportPalette(): ExportPalette {
     accentBg: value("--accent-bg", FALLBACK_PALETTE.accentBg),
     info: value("--info", FALLBACK_PALETTE.info),
     warning: value("--warning", FALLBACK_PALETTE.warning),
+    warningBg: value("--warning-bg", FALLBACK_PALETTE.warningBg),
     success: value("--success", FALLBACK_PALETTE.success),
     danger: value("--danger", FALLBACK_PALETTE.danger),
     fontSans: value("--font-sans", FALLBACK_PALETTE.fontSans),
@@ -87,6 +89,7 @@ export async function exportGanttAsPng(options: {
   filename?: string;
   rangeStart?: Date;
   rangeEnd?: Date;
+  workingDays?: WorkingDayConfig;
 }): Promise<void> {
   const svg = buildGanttExportSvg({
     report: options.report,
@@ -95,6 +98,7 @@ export async function exportGanttAsPng(options: {
     ...(options.rangeStart && options.rangeEnd
       ? { rangeStart: options.rangeStart, rangeEnd: options.rangeEnd }
       : {}),
+    ...(options.workingDays ? { workingDays: options.workingDays } : {}),
   });
   const canvas = await rasterize(svg);
   const blob = await new Promise<Blob>((resolve, reject) => {
@@ -110,6 +114,7 @@ export async function exportGanttAsPdf(options: {
   filename?: string;
   rangeStart?: Date;
   rangeEnd?: Date;
+  workingDays?: WorkingDayConfig;
 }): Promise<void> {
   const svg = buildGanttExportSvg({
     report: options.report,
@@ -118,6 +123,7 @@ export async function exportGanttAsPdf(options: {
     ...(options.rangeStart && options.rangeEnd
       ? { rangeStart: options.rangeStart, rangeEnd: options.rangeEnd }
       : {}),
+    ...(options.workingDays ? { workingDays: options.workingDays } : {}),
   });
   const canvas = await rasterize(svg);
   const jpegDataUrl = canvas.toDataURL("image/jpeg", 0.92);

@@ -9,6 +9,8 @@ import {
 } from "@/lib/date/day-marker";
 import { getTimelineItemGeometry, getTimelinePosition, type TimelineDirection } from "@/lib/gantt/timeline";
 import { linkShortLabel } from "@/lib/gantt/links";
+import type { WorkingDayConfig } from "@/lib/date/working-day";
+import { createWorkingDayCalendar } from "@/lib/date/working-day-calendar";
 
 const DAY_WIDTH = 52;
 const BOX_WIDTH = 64;
@@ -28,6 +30,7 @@ export type ExportPalette = {
   accentBg: string;
   info: string;
   warning: string;
+  warningBg: string;
   success: string;
   danger: string;
   fontSans: string;
@@ -47,6 +50,7 @@ export const FALLBACK_PALETTE: ExportPalette = {
   accentBg: "#e0e7ff",
   info: "#0369a1",
   warning: "#854d0e",
+  warningBg: "#fef3c7",
   success: "#15803d",
   danger: "#b91c1c",
   fontSans: "system-ui, sans-serif",
@@ -97,11 +101,14 @@ export function buildGanttExportSvg(options: {
   /** Explicit time window; defaults to the tasks' span padded by 7/90 days. */
   rangeStart?: Date;
   rangeEnd?: Date;
+  /** Working-day calendar; non-working days and holidays are shaded. */
+  workingDays?: WorkingDayConfig;
 }): string {
   const { report, locale } = options;
   const palette = options.palette ?? FALLBACK_PALETTE;
   const direction: TimelineDirection = locale === "fa-IR" ? "rtl" : "ltr";
   const rows = report.tasks;
+  const workingDayCalendar = createWorkingDayCalendar(options.workingDays, locale);
 
   const today = startOfCalendarDay(new Date());
   let rangeStart: Date;
@@ -216,11 +223,21 @@ export function buildGanttExportSvg(options: {
   // Day cells.
   for (const day of days) {
     const x = timelineOrigin + timelineX(day.offset, DAY_WIDTH);
+    const holidayName = workingDayCalendar.holidayName(day.date);
+    const isNonWorking = workingDayCalendar.isNonWorking(day.date);
+    const dayFill = day.isToday
+      ? palette.accentBg
+      : isNonWorking
+        ? holidayName !== null
+          ? palette.warningBg
+          : palette.bgSurface2
+        : palette.bgSurface;
+    const labelFill = day.isToday ? palette.accent : isNonWorking && holidayName ? palette.warning : palette.fgMuted;
     parts.push(
-      `<rect x="${x}" y="36" width="${DAY_WIDTH}" height="44" fill="${day.isToday ? palette.accentBg : palette.bgSurface}" stroke="${palette.border}" />`,
+      `<rect x="${x}" y="36" width="${DAY_WIDTH}" height="44" fill="${dayFill}" stroke="${palette.border}" />`,
     );
     parts.push(
-      `<text x="${x + DAY_WIDTH / 2}" y="63" font-size="12" font-weight="600" fill="${day.isToday ? palette.accent : palette.fgMuted}" text-anchor="middle">${day.label}</text>`,
+      `<text x="${x + DAY_WIDTH / 2}" y="63" font-size="12" font-weight="600" fill="${labelFill}" text-anchor="middle">${day.label}</text>`,
     );
   }
   // Today line.
@@ -235,7 +252,7 @@ export function buildGanttExportSvg(options: {
   const rowIndex = new Map<string, number>();
   rows.forEach((row, i) => rowIndex.set(row.id, i));
 
-  // Rows: label column + bars.
+  // Rows: label column + non-working day shading + bars.
   rows.forEach((row, i) => {
     const y = 80 + i * ROW_HEIGHT;
     const fill = row.isSummary ? palette.bgSurface2 : palette.bgSurface;
@@ -245,6 +262,20 @@ export function buildGanttExportSvg(options: {
     parts.push(
       `<rect x="0" y="${y}" width="${LEFT_WIDTH}" height="${ROW_HEIGHT}" fill="${palette.bgSurface}" stroke="${palette.border}" />`,
     );
+    // Shade today, holidays, and non-working days behind the bars.
+    for (const day of days) {
+      const holidayName = workingDayCalendar.holidayName(day.date);
+      if (!day.isToday && !workingDayCalendar.isNonWorking(day.date)) continue;
+      const x = timelineOrigin + timelineX(day.offset, DAY_WIDTH);
+      const cellFill = holidayName !== null
+        ? palette.warningBg
+        : day.isToday
+          ? palette.accentBg
+          : palette.bgSurface2;
+      parts.push(
+        `<rect x="${x}" y="${y}" width="${DAY_WIDTH}" height="${ROW_HEIGHT}" fill="${cellFill}" opacity="${day.isToday ? 0.4 : 0.55}" />`,
+      );
+    }
     parts.push(
       `<text x="${direction === "rtl" ? svgWidth - 16 : 16}" y="${y + 24}" font-size="10" font-family="${fontMono}" fill="${palette.fgSubtle}">${escapeXml(row.wbsCode)}</text>`,
     );

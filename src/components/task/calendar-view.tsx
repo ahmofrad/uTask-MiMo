@@ -11,6 +11,9 @@ import {
   taskCalendarAnchor,
 } from "@/lib/date/calendar-move";
 import { cn } from "@/lib/cn";
+import { useWorkingDayConfig } from "@/hooks/use-working-day-config";
+import { createWorkingDayCalendar } from "@/lib/date/working-day-calendar";
+import { toDateOnly } from "@/lib/date/day-marker";
 
 export type CalendarTask = {
   id: string;
@@ -29,15 +32,6 @@ const STATUS_CHIP: Record<string, string> = {
   cancelled: "border-s-fg-muted",
 };
 
-// getDayName indexes 0=Sat..6=Fri. Friday (index 6) is the weekend for the
-// Jalali locale; Saturday+Sunday (indices 0 and 1) for the Gregorian locale.
-function isWeekend(date: Date, locale: string): boolean {
-  const jsDay = date.getDay(); // 0=Sun..6=Sat
-  const idx = (jsDay + 1) % 7; // 0=Sat..6=Fri
-  if (locale === "fa-IR") return idx === 6;
-  return idx === 0 || idx === 1;
-}
-
 type CalendarViewProps = {
   tasks: CalendarTask[];
   onMove?: (_taskId: string, _newDueDate: string, _newStartDate: string | null) => Promise<void>;
@@ -55,6 +49,12 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
   const isJalali = locale === "fa-IR";
   const [monthOffset, setMonthOffset] = useState(0);
   const [items, setItems] = useState<CalendarTask[]>(tasks);
+  const workingDays = useWorkingDayConfig();
+  // The default calendar config (never saved) treats every day as working, so
+  // the locale-based weekend tint stays until an admin configures one.
+  const workingDayCalendar = createWorkingDayCalendar(workingDays, locale);
+  const holidayName = (day: number): string | null =>
+    workingDayCalendar.holidayName(cellDate(day));
 
   useEffect(() => {
     setItems(tasks);
@@ -75,10 +75,9 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
     isJalali
       ? todayJ.jy === year && todayJ.jm === month && todayJ.jd === day
       : now.getFullYear() === year && now.getMonth() + 1 === month && now.getDate() === day;
-  const isWeekendDay = (day: number) => {
-    const g = isJalali ? toGregorian(year, month, day) : new Date(year, month - 1, day);
-    return isWeekend(g, locale);
-  };
+  const isWeekendDay = (day: number) => workingDayCalendar.isWeekend(cellDate(day));
+
+  const isHolidayDay = (day: number) => workingDayCalendar.isHoliday(cellDate(day));
 
   function cellDate(day: number): Date {
     if (isJalali) {
@@ -167,13 +166,18 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1;
           const dayTasks = getTasksForDay(day);
+          const holiday = holidayName(day);
           return (
             <div
               key={day}
+              data-testid={isHolidayDay(day) ? "calendar-holiday" : "calendar-day"}
+              data-date={toDateOnly(cellDate(day))}
+              title={holiday || undefined}
               className={cn(
                 "min-h-[60px] p-1 rounded-lg border text-xs transition-colors",
                 dayTasks.length > 0 ? "border-accent/30 bg-accent-bg/30" : "border-border-primary",
                 isWeekendDay(day) ? "bg-secondary/40" : "",
+                isHolidayDay(day) ? "bg-warning-bg/50 border-warning/40" : "",
                 isToday(day) ? "ring-2 ring-accent" : "",
                 onMove ? "hover:border-accent/60" : "",
               )}
@@ -184,7 +188,10 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                 if (id) void handleDrop(id, day);
               }}
             >
-              <div className={cn("text-start mb-1", isToday(day) ? "font-semibold text-accent" : "text-fg-muted")}>{day}</div>
+              <div className={cn("text-start mb-1", isToday(day) ? "font-semibold text-accent" : isHolidayDay(day) ? "font-semibold text-warning" : "text-fg-muted")}>
+                {day}
+                {isHolidayDay(day) && <span className="ms-1 inline-block h-1.5 w-1.5 rounded-full bg-warning align-middle" />}
+              </div>
               {dayTasks.slice(0, 3).map((task) => {
                 const draggable = !!onMove && !!task.dueDate;
                 return (
@@ -242,6 +249,14 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded ring-2 ring-accent" />
           {t("todayLabel")}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded bg-warning-bg border border-warning/40" />
+          {t("holiday")}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block w-3 h-3 rounded bg-secondary/40 border border-border-primary" />
+          {t("nonWorkingDay")}
         </span>
       </div>
       {onMove && <p className="text-xs text-fg-muted">{t("dragHint")}</p>}

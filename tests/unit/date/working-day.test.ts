@@ -5,6 +5,7 @@ import {
   nextWorkingDay,
   type WorkingDayConfig,
 } from "@/lib/date/working-day";
+import { createWorkingDayCalendar } from "@/lib/date/working-day-calendar";
 
 // 2026-08-19 is a Wednesday, so Aug 22 = Saturday, Aug 23 = Sunday,
 // Aug 24 = Monday, Aug 25 = Tuesday. Local calendar components keep these
@@ -35,6 +36,66 @@ describe("isWorkingDay", () => {
     const config: WorkingDayConfig = { weekendDays: [], holidays: [{ date: "2026-08-24", name: "Holiday" }] };
     expect(isWorkingDay(new Date("2026-08-24T00:00:00.000Z"), config)).toBe(false);
     expect(isWorkingDay(new Date("2026-08-23T23:59:59.999Z"), config)).toBe(true);
+  });
+});
+
+describe("createWorkingDayCalendar (display helpers)", () => {
+  it("marks holidays and returns their names", () => {
+    const config: WorkingDayConfig = {
+      weekendDays: [],
+      holidays: [{ date: "2026-08-24", name: "Nowruz" }],
+    };
+    const calendar = createWorkingDayCalendar(config, "en-US");
+    expect(calendar.isHoliday(new Date(2026, 7, 24, 12, 0))).toBe(true);
+    expect(calendar.holidayName(new Date(2026, 7, 24, 12, 0))).toBe("Nowruz");
+    expect(calendar.isHoliday(new Date(2026, 7, 25, 12, 0))).toBe(false);
+    expect(calendar.holidayName(new Date(2026, 7, 25, 12, 0))).toBeNull();
+    // A date-only holiday (empty name) is still marked.
+    const unnamed = createWorkingDayCalendar(
+      { weekendDays: [], holidays: [{ date: "2026-08-24", name: "" }] },
+      "en-US",
+    );
+    expect(unnamed.isHoliday(new Date(2026, 7, 24, 12, 0))).toBe(true);
+    expect(unnamed.holidayName(new Date(2026, 7, 24, 12, 0))).toBe("");
+  });
+
+  it("uses the configured weekend and falls back to the locale default", () => {
+    const configured = createWorkingDayCalendar(
+      { weekendDays: [5], holidays: [] },
+      "en-US",
+    );
+    // 2026-08-21 is a Friday (configured weekend).
+    expect(configured.isWeekend(new Date(2026, 7, 21, 12, 0))).toBe(true);
+    expect(configured.isWeekend(new Date(2026, 7, 22, 12, 0))).toBe(false);
+
+    // No config: en-US defaults to Sat+Sun, fa-IR to Friday.
+    const en = createWorkingDayCalendar(null, "en-US");
+    expect(en.isWeekend(new Date(2026, 7, 22, 12, 0))).toBe(true); // Sat
+    expect(en.isWeekend(new Date(2026, 7, 21, 12, 0))).toBe(false); // Fri
+    const fa = createWorkingDayCalendar(null, "fa-IR");
+    expect(fa.isWeekend(new Date(2026, 7, 21, 12, 0))).toBe(true); // Fri
+    expect(fa.isWeekend(new Date(2026, 7, 22, 12, 0))).toBe(false); // Sat
+  });
+
+  it("isNonWorking covers holidays and weekends together", () => {
+    const calendar = createWorkingDayCalendar(
+      { weekendDays: [0, 6], holidays: [{ date: "2026-08-24", name: "Holiday" }] },
+      "en-US",
+    );
+    expect(calendar.isNonWorking(new Date(2026, 7, 22, 12, 0))).toBe(true); // Sat
+    expect(calendar.isNonWorking(new Date(2026, 7, 24, 12, 0))).toBe(true); // Mon holiday
+    expect(calendar.isNonWorking(new Date(2026, 7, 25, 12, 0))).toBe(false); // Tue
+  });
+
+  it("anchors a UTC day marker to its calendar day", () => {
+    const calendar = createWorkingDayCalendar(
+      { weekendDays: [], holidays: [{ date: "2026-08-24", name: "Holiday" }] },
+      "en-US",
+    );
+    // Canonical start marker for Aug 24 is 00:00:00Z.
+    expect(calendar.isHoliday(new Date("2026-08-24T00:00:00.000Z"))).toBe(true);
+    // Canonical due marker for Aug 23 is 23:59:59.999Z — not the holiday.
+    expect(calendar.isHoliday(new Date("2026-08-23T23:59:59.999Z"))).toBe(false);
   });
 });
 

@@ -13,6 +13,8 @@ import {
   timelineDayStart,
   toDateOnly,
 } from "@/lib/date/day-marker";
+import { useWorkingDayConfig } from "@/hooks/use-working-day-config";
+import { createWorkingDayCalendar } from "@/lib/date/working-day-calendar";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 import { useToast } from "@/components/ui/toast";
@@ -63,6 +65,8 @@ type TimelineDay = {
   label: string;
   isMonthStart: boolean;
   isToday: boolean;
+  isNonWorking: boolean;
+  holidayName: string;
 };
 
 type TimelineMonth = {
@@ -121,6 +125,7 @@ export function GanttChart({
   const locale = useLocale() as Locale;
   const { shortDate } = useFormattedDate();
   const { addToast } = useToast();
+  const workingDays = useWorkingDayConfig();
   const [overrides, setOverrides] = useState<Record<string, { startDate: string | null; dueDate: string | null }>>({});
   const dragRef = useRef<DragState | null>(null);
 
@@ -202,6 +207,10 @@ export function GanttChart({
   const rows = report.tasks;
 
   const { rangeStart, totalDays, dayCount, days, months, todayOffset } = useMemo(() => {
+    // Weekend rule: the configured weekend when an admin set one, otherwise
+    // the locale default (Friday for fa-IR, Sat+Sun otherwise) — matching the
+    // calendar view. Holidays always tint regardless.
+    const calendar = createWorkingDayCalendar(workingDays, locale);
     const today = startOfCalendarDay(new Date());
     const withDates = rows.flatMap((r) => {
       const s = r.startDate ?? r.summaryStart;
@@ -235,6 +244,8 @@ export function GanttChart({
         label: formatNumber(jalali.jd, locale, locale === "fa-IR"),
         isMonthStart,
         isToday: date.getTime() === today.getTime(),
+        isNonWorking: calendar.isNonWorking(date),
+        holidayName: calendar.holidayName(date) ?? "",
       };
       generatedDays.push(day);
 
@@ -263,7 +274,8 @@ export function GanttChart({
       months: generatedMonths,
       todayOffset: currentTodayOffset >= 0 && currentTodayOffset < dayCount ? currentTodayOffset : null,
     };
-  }, [locale, rows]);
+  }, [locale, rows, workingDays]);
+
 
   const direction: TimelineDirection = locale === "fa-IR" ? "rtl" : "ltr";
 
@@ -457,9 +469,9 @@ export function GanttChart({
     try {
       const range = { rangeStart: parseDateOnly(exportStart), rangeEnd: parseDateOnly(exportEnd) };
       if (format === "png") {
-        await exportGanttAsPng({ report, locale, ...range });
+        await exportGanttAsPng({ report, locale, ...range, ...(workingDays ? { workingDays } : {}) });
       } else {
-        await exportGanttAsPdf({ report, locale, ...range });
+        await exportGanttAsPdf({ report, locale, ...range, ...(workingDays ? { workingDays } : {}) });
       }
       setExportOpen(false);
     } catch {
@@ -1154,7 +1166,8 @@ export function GanttChart({
                     dir={locale === "fa-IR" ? "rtl" : "ltr"}
                     className={`absolute top-0 flex h-11 items-center justify-center border-e border-border-secondary/70 text-[15px] font-semibold leading-none text-fg-secondary ${
                       day.isMonthStart ? "border-s-2 border-s-border-strong" : ""
-                    } ${day.isToday ? "bg-accent-bg text-accent" : ""}`}
+                    } ${day.isToday ? "bg-accent-bg text-accent" : day.isNonWorking ? (day.holidayName ? "bg-warning-bg/60 text-warning" : "bg-bg-surface-2/70") : ""}`}
+                    title={day.holidayName || undefined}
                     style={{
                       left: `${timelineXForOffset(day.offset, dayWidth)}px`,
                       width: `${dayWidth}px`,
@@ -1296,7 +1309,10 @@ export function GanttChart({
                     {days.map((day) => (
                       <div
                         key={day.offset}
-                        className={`absolute top-0 h-full border-e border-border-secondary/40 ${day.isToday ? "bg-accent-bg/30" : ""}`}
+                        title={day.holidayName || undefined}
+                        className={`absolute top-0 h-full border-e border-border-secondary/40 ${
+                          day.isToday ? "bg-accent-bg/30" : day.isNonWorking ? (day.holidayName ? "bg-warning-bg/40" : "bg-bg-surface-2/50") : ""
+                        }`}
                         style={{
                           left: `${timelineXForOffset(day.offset, dayWidth)}px`,
                           width: `${dayWidth}px`,
@@ -1424,6 +1440,14 @@ export function GanttChart({
         <span className="flex items-center gap-1.5 text-danger">
           <span className="w-3 h-0.5 bg-danger" />
           {t("ganttInvalidDeps")}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-warning-bg border border-warning/40" />
+          {t("holiday")}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded-sm bg-bg-surface-2 border border-border-primary" />
+          {t("nonWorkingDay")}
         </span>
       </div>
     </div>
