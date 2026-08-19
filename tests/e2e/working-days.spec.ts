@@ -20,26 +20,47 @@ test.describe("Working days admin page", () => {
       await saturday.click();
       await expect(saturday).toHaveAttribute("aria-pressed", "true");
 
-      // Add a holiday row and fill it in.
+      // Add a holiday through the Jalali picker, selecting today via the
+      // picker's shortcut, and give it a name.
       await page.getByTestId("wd-add-holiday").click();
-      await page.getByTestId("wd-holiday-date-0").fill("2026-08-24");
+      const picker = page.getByTestId("wd-holiday-date-0");
+      await picker.click();
+      // Exactly one picker is open, so its footer "Today" is unambiguous.
+      await expect(page.getByRole("button", { name: "Today" })).toHaveCount(1);
+      await page.getByRole("button", { name: "Today" }).click();
       await page.getByTestId("wd-holiday-name-0").fill("Test holiday");
+
+      // A second, date-only holiday (no name) must also be valid.
+      await page.getByTestId("wd-add-holiday").click();
+      await page.getByTestId("wd-holiday-date-1").click();
+      await expect(page.getByRole("button", { name: "Today" })).toHaveCount(1);
+      await page.getByRole("button", { name: "Today" }).click();
 
       // Save and confirm the success message.
       await page.getByTestId("wd-save").click();
       await expect(page.getByTestId("wd-msg")).toContainText("saved");
 
-      // The API persists exactly what the page showed.
+      // The API persists exactly what the page showed; both holidays carry
+      // today's local date and the second one an empty name.
+      const expectedDate = await page.evaluate(() => {
+        const d = new Date();
+        const pad = (n: number) => String(n).padStart(2, "0");
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      });
       const res = await page.request.get("/api/v1/admin/settings/working-days");
       expect(res.ok()).toBeTruthy();
       const body = (await res.json()) as { data?: { weekendDays: number[]; holidays: { date: string; name: string }[] } };
       expect(body.data?.weekendDays).toEqual([6]);
-      expect(body.data?.holidays).toEqual([{ date: "2026-08-24", name: "Test holiday" }]);
+      expect(body.data?.holidays).toEqual([
+        { date: expectedDate, name: "Test holiday" },
+        { date: expectedDate, name: "" },
+      ]);
 
-      // Reload: the saved state is rendered back.
+      // Reload: the saved state is rendered back (weekend toggle stays on and
+      // the picker shows a selected date instead of the placeholder).
       await page.reload();
       await expect(page.getByTestId("wd-weekend-6")).toHaveAttribute("aria-pressed", "true");
-      await expect(page.getByTestId("wd-holiday-date-0")).toHaveValue("2026-08-24");
+      await expect(page.getByTestId("wd-holiday-date-0")).not.toContainText("Select date");
     } finally {
       // Restore the default calendar (every day working) so other suites that
       // assume no working-day config stay deterministic.

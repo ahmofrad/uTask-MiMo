@@ -45,7 +45,8 @@ export const workingDayConfigSchema = z.object({
             && parsed.getUTCDate() === day
           );
         }, "Not a real calendar date"),
-      name: z.string().trim().min(1).max(255),
+      // Name is display-only; a date-only holiday is valid.
+      name: z.string().trim().max(255).default(""),
     }),
   ).max(500),
 }).strict();

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
+import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 
 type HolidayRow = { date: string; name: string };
 type WorkingDayConfig = { weekendDays: number[]; holidays: HolidayRow[] };
@@ -63,7 +64,8 @@ export default function WorkingDaysPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           weekendDays,
-          holidays: holidays.filter((h) => h.date.trim() !== "" || h.name.trim() !== ""),
+          // A holiday must have a date; the name is optional.
+          holidays: holidays.filter((h) => h.date.trim() !== ""),
         }),
       });
       setMsg(res.ok ? { ok: true, text: t("saved") } : { ok: false, text: t("saveFailed") });
@@ -130,12 +132,11 @@ export default function WorkingDaysPage() {
               <div className="space-y-2">
                 {holidays.map((holiday, index) => (
                   <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      data-testid={`wd-holiday-date-${index}`}
-                      value={holiday.date}
-                      onChange={(e) => updateHoliday(index, { date: e.target.value })}
-                      className={`${inputClass} w-44`}
+                    <JalaliDatePicker
+                      value={holiday.date || null}
+                      onChange={(value) => updateHoliday(index, { date: value ?? "" })}
+                      testId={`wd-holiday-date-${index}`}
+                      className="w-44"
                     />
                     <input
                       type="text"
