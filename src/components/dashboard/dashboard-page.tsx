@@ -134,13 +134,21 @@ export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
 
       {/* Tab Content */}
       {activeTab === "board" && (
-        <Board initialTasks={filteredTasks.map((t) => ({
-          id: t.id, title: t.title, description: t.description, status: t.status, priority: t.priority,
-          projectId: "", assignees: t.assignees ?? [], dueDate: t.dueDate,
-          projectName: t.projectName,
-          tags: t.tags, subtaskCount: t.subtaskCount, subtaskDone: t.subtaskDone,
-          blockedBy: t.blockedBy ?? [],
-        }))} projectId="" />
+        <Board
+          initialTasks={filteredTasks.map((t) => ({
+            id: t.id, title: t.title, description: t.description, status: t.status, priority: t.priority,
+            projectId: "", assignees: t.assignees ?? [], dueDate: t.dueDate,
+            projectName: t.projectName,
+            tags: t.tags, subtaskCount: t.subtaskCount, subtaskDone: t.subtaskDone,
+            blockedBy: t.blockedBy ?? [],
+          }))}
+          projectId=""
+          projectIds={ganttGroups.map((group) => group.projectId)}
+          currentUserId={userId}
+          includeTask={(task) =>
+            taskFilter === "all" || (task.assignees ?? []).some((a) => a.id === userId)
+          }
+        />
       )}
 
       {activeTab === "timeline" && (

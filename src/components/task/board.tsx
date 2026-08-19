@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
+import { useProjectRealtime, type TaskEventPayload } from "@/hooks/use-project-realtime";
 import { TaskCard, type TaskCardData } from "@/components/task/task-card";
+import { mapTaskListRow } from "@/lib/tasks/serialize";
 import { Menu } from "@/components/ui/menu";
 import { Icon } from "@/components/icons/icon";
 
@@ -12,7 +14,20 @@ export type BoardTask = TaskCardData;
 type BoardProps = {
   initialTasks: BoardTask[];
   projectId: string;
+  /**
+   * Projects whose realtime rooms to join. Defaults to `[projectId]` when the
+   * board is project-scoped; the dashboard passes the full list so edits in
+   * any visible project repaint live.
+   */
+  projectIds?: string[];
   showProject?: boolean;
+  currentUserId: string | undefined;
+  /**
+   * Optional predicate applied to realtime refetches. The dashboard passes the
+   * "mine" filter so another user's edits never inject tasks the current user
+   * shouldn't see; project boards include everything.
+   */
+  includeTask?: (_task: BoardTask) => boolean;
 };
 
 const COLUMNS = [
@@ -22,15 +37,71 @@ const COLUMNS = [
   { key: "cancelled", color: "bg-bg-surface-2 border-border" },
 ];
 
-export function Board({ initialTasks, projectId: _projectId, showProject }: BoardProps) {
+export function Board({ initialTasks, projectId, projectIds, showProject, currentUserId, includeTask }: BoardProps) {
   const t = useTranslations("task");
   const [tasks, setTasks] = useState(initialTasks);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const includeTaskRef = useRef(includeTask);
+  includeTaskRef.current = includeTask;
 
   useEffect(() => {
     setTasks(initialTasks);
   }, [initialTasks]);
+
+  // Realtime: another user's edit refetches the affected project's tasks and
+  // merges them into the board. The list endpoint returns the fields the card
+  // needs but not dependency status, so merge preserves anything the row lacks
+  // (e.g. blockedBy) rather than replacing whole tasks.
+  const refreshProject = useCallback(async (changedProjectId: string) => {
+    try {
+      const res = await apiFetch(`/api/v1/tasks?projectId=${changedProjectId}&limit=200`);
+      if (!res.ok) return;
+      const body = (await res.json()) as { data?: Record<string, unknown>[] };
+      const rows = body.data ?? [];
+      setTasks((prev) => {
+        const next = new Map(prev.map((task) => [task.id, task]));
+        for (const row of rows) {
+          const mapped = mapTaskListRow(row) as BoardTask;
+          // Dashboard "mine" filter: never add a task the user shouldn't see.
+          if (includeTaskRef.current && !includeTaskRef.current(mapped)) {
+            next.delete(mapped.id);
+            continue;
+          }
+          const existing = next.get(mapped.id);
+          // The list endpoint can't compute subtask progress or dependency
+          // status, so keep those (plus the project label) from the row we
+          // already have; take everything else from the fresh row.
+          next.set(mapped.id, {
+            ...existing,
+            ...mapped,
+            subtaskDone: existing?.subtaskDone ?? 0,
+            blockedBy: existing?.blockedBy ?? [],
+            ...(existing?.projectName ? { projectName: existing.projectName } : {}),
+          });
+        }
+        return Array.from(next.values());
+      });
+    } catch {
+      // Keep the current board on network errors.
+    }
+  }, []);
+
+  useProjectRealtime(
+    projectIds ?? (projectId ? [projectId] : []),
+    (event, data: TaskEventPayload) => {
+      const changedProjectId = data.projectId ?? projectId;
+      if (!changedProjectId) return;
+      if (event === "task.deleted") {
+        if (data.id) {
+          setTasks((prev) => prev.filter((task) => task.id !== data.id));
+        }
+        return;
+      }
+      void refreshProject(changedProjectId);
+    },
+    currentUserId,
+  );
 
   async function moveTask(taskId: string, newStatus: string) {
     setTasks((prev) =>

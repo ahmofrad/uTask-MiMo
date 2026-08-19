@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
+import { useProjectRealtime } from "@/hooks/use-project-realtime";
 import { TaskCard, type TaskCardData } from "@/components/task/task-card";
+import { mapTaskListRow } from "@/lib/tasks/serialize";
 import { BulkActionsBar } from "@/components/task/bulk-actions";
 
 export type CustomFieldFilterDef = {
@@ -24,29 +26,6 @@ type ProjectTaskListProps = {
 
 function optionList(field: CustomFieldFilterDef): { value: string; label: string }[] {
   return (field.configJson?.options ?? []).map((o) => ({ value: o.value, label: o.label ?? o.value }));
-}
-
-/** Map a /api/v1/tasks list row onto the TaskCard shape. */
-function mapTask(raw: Record<string, unknown>): TaskCardData {
-  const assignees =
-    (raw.assignees as { id: string; displayName: string; avatarUrl?: string | null }[] | undefined) ?? [];
-  const tags =
-    (raw.tags as { tag: { id: string; name: string; color?: string | null } }[] | undefined) ?? [];
-  const count = (raw._count as { subtasks?: number } | undefined) ?? {};
-  return {
-    id: String(raw.id),
-    title: String(raw.title),
-    description: (raw.description as string | null) ?? null,
-    status: String(raw.status),
-    priority: String(raw.priority),
-    assignees: assignees.map((a) => ({ id: a.id, displayName: a.displayName, avatarUrl: a.avatarUrl ?? null })),
-    dueDate: (raw.dueDate as string | null) ?? null,
-    startDate: (raw.startDate as string | null) ?? null,
-    tags: tags.map((tt) => ({ id: tt.tag.id, name: tt.tag.name })),
-    subtaskCount: count.subtasks ?? 0,
-    subtaskDone: 0,
-    blockedBy: [],
-  };
 }
 
 export function ProjectTaskList({ projectId, initialTasks, fields }: ProjectTaskListProps) {
@@ -79,32 +58,41 @@ export function ProjectTaskList({ projectId, initialTasks, fields }: ProjectTask
     return clauses;
   }, [fields, filters]);
 
+  const loadTasks = useCallback(async () => {
+    const query = new URLSearchParams({ projectId, limit: "200" });
+    if (activeClauses.length > 0) {
+      query.set("customFields", JSON.stringify(activeClauses));
+    }
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await apiFetch(`/api/v1/tasks?${query.toString()}`);
+      if (!res.ok) throw new Error("load failed");
+      const json = (await res.json()) as { data?: unknown[] };
+      setTasks((json.data ?? []).map((task) => mapTaskListRow(task as Record<string, unknown>) as TaskCardData));
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeClauses, projectId]);
+
   useEffect(() => {
     if (activeClauses.length === 0) {
       setTasks(initialTasks);
       setError(false);
       return;
     }
-    let cancelled = false;
-    setLoading(true);
-    setError(false);
-    const query = new URLSearchParams({ projectId, limit: "200", customFields: JSON.stringify(activeClauses) });
-    apiFetch(`/api/v1/tasks?${query.toString()}`)
-      .then((res) => (res.ok ? res.json() : Promise.reject()))
-      .then((json: { data?: unknown[] }) => {
-        if (cancelled) return;
-        setTasks((json.data ?? []).map((task) => mapTask(task as Record<string, unknown>)));
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [activeClauses, initialTasks, projectId]);
+    void loadTasks();
+  }, [activeClauses, initialTasks, projectId, loadTasks]);
+
+  // Realtime: another user's task edit refetches with the active filters so
+  // status/title changes (and new or deleted tasks) show up without reloading.
+  // The list endpoint excludes deleted tasks, so a plain refetch covers
+  // removals too.
+  useProjectRealtime([projectId], () => {
+    void loadTasks();
+  });
 
   const setFilter = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));

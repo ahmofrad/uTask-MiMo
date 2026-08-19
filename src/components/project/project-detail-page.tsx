@@ -298,7 +298,7 @@ export function ProjectDetailPage({ project, initialTasks, currentUserId }: Proj
       {/* Tab Content */}
       {activeTab === "board" && (
         <div>
-          <Board initialTasks={tasks} projectId={project.id} />
+          <Board initialTasks={tasks} projectId={project.id} currentUserId={currentUserId} />
         </div>
       )}
 

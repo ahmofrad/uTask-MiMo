@@ -41,6 +41,7 @@ export default async function BoardPage(props: { params: Promise<{ projectId: st
           })),
         }))}
         projectId={projectId}
+        currentUserId={session.user.id}
       />
     </div>
   );
