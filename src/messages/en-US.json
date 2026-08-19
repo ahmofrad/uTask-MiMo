@@ -360,7 +360,8 @@
     "algorithm": "Algorithm",
     "hmac": "HMAC-SHA-256",
     "secret": "Secret",
-    "secretMasked": "whsec_••••••••"
+    "secretMasked": "whsec_••••••••",
+    "workingDays": "Working days"
   },
   "task": {
     "title": "Tasks",
@@ -870,6 +871,29 @@
     "testSent": "Test email sent to {to}",
     "testFailed": "Failed to send the test email.",
     "testSmtpUnconfigured": "SMTP is not configured yet — set it up in settings before sending."
+  },
+  "workingDays": {
+    "title": "Working days & holidays",
+    "description": "Configure which days of the week are non-working and add holidays. Auto-scheduling skips non-working days when it pushes tasks to satisfy dependencies.",
+    "weekendTitle": "Non-working days of the week",
+    "weekendHint": "Select the days of the week that are off. Leave all unselected to treat every day as a working day.",
+    "holidayTitle": "Holidays",
+    "holidayHint": "Specific dates that are off even when they fall on a working weekday.",
+    "addHoliday": "Add holiday",
+    "noHolidays": "No holidays yet. Add one and it will be skipped when scheduling.",
+    "holidayNamePlaceholder": "e.g. Nowruz",
+    "daySun": "Sun",
+    "dayMon": "Mon",
+    "dayTue": "Tue",
+    "dayWed": "Wed",
+    "dayThu": "Thu",
+    "dayFri": "Fri",
+    "daySat": "Sat",
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "saved": "Working-day calendar saved. It applies to future auto-scheduling.",
+    "saveFailed": "Failed to save the working-day calendar.",
+    "networkError": "Network error."
   },
   "audit": {
     "title": "Audit Log",

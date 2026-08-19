@@ -3,6 +3,7 @@ import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { emitToProject, emitToTask } from "@/lib/realtime/server";
 import { computeSchedule } from "@/lib/scheduling/cpm";
+import { getWorkingDayConfig, nextWorkingDay } from "@/lib/date/working-day";
 
 /**
  * Schedule guard: after a task's dates change, push its transitive dependents
@@ -84,6 +85,7 @@ export async function autoScheduleDependents(
 
   const schedule = await computeSchedule(projectId);
   const rowById = new Map(tasks.map((task) => [task.id, task]));
+  const workingDayConfig = await getWorkingDayConfig();
 
   // Apply in earliest-start order so a chain settles in one pass (each `es`
   // already accounts for every incoming constraint, so the order only makes
@@ -100,14 +102,18 @@ export async function autoScheduleDependents(
     const currentStart = row.startDate;
     if (currentStart && currentStart.getTime() >= earliestStart.getTime()) continue; // already valid
 
-    const data: { startDate: Date; dueDate?: Date } = { startDate: earliestStart };
+    // Never land a pushed task on a non-working day: resolve the earliest
+    // start (and the shifted due) onto the working-day calendar.
+    const resolvedStart = nextWorkingDay(earliestStart, workingDayConfig);
+    const data: { startDate: Date; dueDate?: Date } = { startDate: resolvedStart };
     if (currentStart && row.dueDate) {
-      // Preserve the duration: shift the due date by the same amount.
+      // Preserve the duration: shift the due date by the same amount, then
+      // snap it to a working day too.
       const duration = row.dueDate.getTime() - currentStart.getTime();
-      data.dueDate = new Date(earliestStart.getTime() + duration);
+      data.dueDate = nextWorkingDay(new Date(resolvedStart.getTime() + duration), workingDayConfig);
     } else if (row.dueDate && row.dueDate.getTime() < earliestStart.getTime()) {
       // Due-only task whose due would precede the constraint — clamp to it.
-      data.dueDate = earliestStart;
+      data.dueDate = resolvedStart;
     }
     updates.push({
       id,

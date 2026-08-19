@@ -30,11 +30,13 @@ export default async function AdminLayout({
     { href: "/admin/active-directory", label: t("activeDirectory"), visible: isAdmin },
     { href: "/admin/ldap-sync", label: t("ldapSyncDashboard"), visible: isAdmin },
     { href: "/admin/webhooks", label: t("webhooks"), visible: isAdmin },
-    { href: "/admin/webhook-deliveries", label: t("auditLog"), visible: isAdmin },
+    { href: "/admin/webhook-deliveries", label: t("webhookDeliveries"), visible: isAdmin },
+    { href: "/admin/audit-log", label: t("auditLog"), visible: isAdmin },
     { href: "/admin/sso", label: t("sso"), visible: isAdmin },
     { href: "/admin/backups", label: t("backups"), visible: isAdmin },
     { href: "/admin/templates", label: t("templates"), visible: isAdmin },
     { href: "/admin/settings/email-templates", label: t("emailTemplates"), visible: isAdmin },
+    { href: "/admin/settings/working-days", label: t("workingDays"), visible: isAdmin },
   ].filter((link) => link.visible);
 
   return (
