@@ -118,7 +118,8 @@ test.describe("Working days admin page", () => {
       });
       await expect(page.locator(`[data-testid="calendar-day"][data-date="${saturday}"]`)).toBeVisible();
 
-      // Gantt view: the timeline day for the holiday shows its name as a tooltip.
+      // Gantt view: the timeline day for the holiday shows its name in the
+      // styled tooltip when hovered (replacing the native title attribute).
       const project = await prisma.project.findFirstOrThrow({
         where: { name: "Product Launch" },
         select: { id: true },
@@ -127,9 +128,12 @@ test.describe("Working days admin page", () => {
       await page.getByRole("button", { name: "Gantt", exact: true }).click();
       const chart = page.getByTestId("gantt-scroll-container").first();
       await expect(chart).toBeVisible({ timeout: 15000 });
-      await expect(chart.locator(`[data-testid="gantt-timeline-day"][title="Test holiday"]`)).toBeVisible({
-        timeout: 15000,
-      });
+      const holidayCell = chart.locator(`[data-testid="gantt-timeline-day"][data-holiday-name="Test holiday"]`);
+      await expect(holidayCell).toBeVisible({ timeout: 15000 });
+      await holidayCell.hover();
+      const tooltip = page.getByTestId("gantt-holiday-tooltip");
+      await expect(tooltip).toBeVisible();
+      await expect(tooltip).toContainText("Test holiday");
     } finally {
       // Restore the default calendar so other suites stay deterministic.
       await prisma.instanceSetting.deleteMany({ where: { key: WORKING_DAYS_SETTING_KEY } });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { toJalali, toGregorian, getMonthName, getDaysInMonth } from "@/lib/date/jalali";
@@ -18,6 +18,7 @@ import { createWorkingDayCalendar } from "@/lib/date/working-day-calendar";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 import { useToast } from "@/components/ui/toast";
+import { Tooltip } from "@/components/ui/tooltip";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
 import { linkShortLabel, linkLagSuffix } from "@/lib/gantt/links";
@@ -1158,32 +1159,49 @@ export function GanttChart({
                 ))}
               </div>
               <div className="absolute inset-x-0 top-9 h-11 bg-bg-primary">
-                {days.map((day) => (
-                  <div
-                    key={day.offset}
-                    data-testid="gantt-timeline-day"
-                    data-day-offset={day.offset}
-                    dir={locale === "fa-IR" ? "rtl" : "ltr"}
-                    className={`absolute top-0 flex h-11 items-center justify-center border-e border-border-secondary/70 text-[15px] font-semibold leading-none ${
-                      day.isMonthStart ? "border-s-2 border-s-border-strong" : ""
-                    } ${
-                      day.isToday
-                        ? "bg-accent-bg text-accent"
-                        : day.holidayName
-                          ? "bg-danger-bg/60 text-danger"
-                          : day.isNonWorking
-                            ? "bg-bg-surface-2/70"
-                            : "text-fg-secondary"
-                    }`}
-                    title={day.holidayName || undefined}
-                    style={{
-                      left: `${timelineXForOffset(day.offset, dayWidth)}px`,
-                      width: `${dayWidth}px`,
-                    }}
-                  >
-                    {day.label}
-                  </div>
-                ))}
+                {days.map((day) => {
+                  const cell = (
+                    <div
+                      data-testid="gantt-timeline-day"
+                      data-day-offset={day.offset}
+                      data-holiday-name={day.holidayName || undefined}
+                      dir={locale === "fa-IR" ? "rtl" : "ltr"}
+                      className={`absolute top-0 flex h-11 items-center justify-center border-e border-border-secondary/70 text-[15px] font-semibold leading-none ${
+                        day.isMonthStart ? "border-s-2 border-s-border-strong" : ""
+                      } ${
+                        day.isToday
+                          ? "bg-accent-bg text-accent"
+                          : day.holidayName
+                            ? "bg-danger-bg/60 text-danger"
+                            : day.isNonWorking
+                              ? "bg-bg-surface-2/70"
+                              : "text-fg-secondary"
+                      }`}
+                      style={{
+                        left: `${timelineXForOffset(day.offset, dayWidth)}px`,
+                        width: `${dayWidth}px`,
+                      }}
+                    >
+                      {day.label}
+                    </div>
+                  );
+                  return day.holidayName ? (
+                    <Tooltip
+                      key={day.offset}
+                      data-testid="gantt-holiday-tooltip"
+                      content={
+                        <span dir={locale === "fa-IR" ? "rtl" : "ltr"} className="flex flex-col gap-0.5">
+                          <span className="font-semibold text-danger">{day.holidayName}</span>
+                          <span className="text-fg-muted">{shortDate(day.date)}</span>
+                        </span>
+                      }
+                    >
+                      {cell}
+                    </Tooltip>
+                  ) : (
+                    <Fragment key={day.offset}>{cell}</Fragment>
+                  );
+                })}
               </div>
               {todayOffset != null ? (
                 <div
