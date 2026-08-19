@@ -8,6 +8,7 @@ import { CalendarView } from "@/components/task/calendar-view";
 import { DashboardGanttView } from "@/components/task/dashboard-gantt-view";
 import { WBSTree } from "@/components/task/wbs-tree";
 import { TaskCard } from "@/components/task/task-card";
+import { apiFetch } from "@/lib/api-fetch";
 import { cn } from "@/lib/cn";
 
 type DashboardStat = {
@@ -50,6 +51,13 @@ export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
   function handleFilterChange(value: "all" | "mine") {
     setTaskFilter(value);
     localStorage.setItem("dashboardTaskFilter", value);
+  }
+
+  async function handleCalendarMove(taskId: string, dueDate: string, startDate: string | null) {
+    await apiFetch(`/api/v1/tasks/${taskId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ dueDate, startDate }),
+    });
   }
 
   const filteredTasks = taskFilter === "mine"
@@ -145,11 +153,14 @@ export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
       )}
 
       {activeTab === "calendar" && (
-        <CalendarView tasks={filteredTasks.map((t) => ({
-          id: t.id, title: t.title, status: t.status, priority: t.priority,
-          dueDate: t.dueDate,
-          progress: t.progress ?? null,
-        }        ))} />
+        <CalendarView
+          onMove={handleCalendarMove}
+          tasks={filteredTasks.map((t) => ({
+            id: t.id, title: t.title, status: t.status, priority: t.priority,
+            dueDate: t.dueDate,
+            progress: t.progress ?? null,
+          }))}
+        />
       )}
 
       {activeTab === "gantt" && (
