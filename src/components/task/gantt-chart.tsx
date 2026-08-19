@@ -123,6 +123,27 @@ export function GanttChart({
   const { addToast } = useToast();
   const [overrides, setOverrides] = useState<Record<string, { startDate: string | null; dueDate: string | null }>>({});
   const dragRef = useRef<DragState | null>(null);
+
+  // Optimistic drag overrides are bridges to the server: once a refreshed
+  // report carries the same dates, the override is redundant and is dropped,
+  // so it can never shadow fresher data (or a later undo) forever.
+  useEffect(() => {
+    setOverrides((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const [id, override] of Object.entries(prev)) {
+        const row = report.tasks.find((candidate) => candidate.id === id);
+        if (!row) continue;
+        const rowStart = row.startDate ?? row.summaryStart ?? null;
+        const rowEnd = row.dueDate ?? row.summaryEnd ?? null;
+        if (override.startDate === rowStart && override.dueDate === rowEnd) {
+          delete next[id];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [report]);
   const [linkMode, setLinkMode] = useState(false);
   const [linkSourceId, setLinkSourceId] = useState<string | null>(null);
   const [linkBusy, setLinkBusy] = useState(false);
@@ -337,20 +358,14 @@ export function GanttChart({
   };
 
   const finalizeDrag = async (d: DragState) => {
-    // The pointer moved less than half a day — the bar did not actually
-    // move. Drop the optimistic override so a stray jitter cannot pin
-    // snapped values (e.g. a start stored at 23:59:59.999 snapping to
-    // 00:00:00) onto the bar for the rest of the session.
+    // The pointer moved less than half a day — nothing was persisted. Keep
+    // any existing override: cell-to-cell drags never set a divergent value
+    // for sub-half-day movement (the delta rounds to zero), and clearing it
+    // here would expose the stale pre-drag report after a real drag, making
+    // the bar snap back on a later plain click. Overrides that match a
+    // refreshed report are pruned by the report-sync effect below.
     const deltaDays = roundedDragDelta(d);
-    if (deltaDays === 0) {
-      setOverrides((prev) => {
-        if (!(d.id in prev)) return prev;
-        const next = { ...prev };
-        delete next[d.id];
-        return next;
-      });
-      return;
-    }
+    if (deltaDays === 0) return;
     // Re-snap from the original dates with the rounded whole-day delta so
     // the saved dates land exactly on calendar days. The override is synced
     // with the values being saved; the drag itself is over, so dragRef stays
@@ -377,21 +392,28 @@ export function GanttChart({
         const autoScheduled = json?.data?.autoScheduled ?? [];
         if (autoScheduled.length > 0) {
           addToast({
-            message: t("autoScheduledToast", { count: autoScheduled.length }),
-            action: {
-              label: tc("common.undo"),
-              onClick: async () => {
-                await Promise.allSettled(
-                  autoScheduled.map((item) =>
-                    apiFetch(`/api/v1/tasks/${item.id}`, {
-                      method: "PATCH",
-                      body: JSON.stringify({ startDate: item.startDate, dueDate: item.dueDate }),
-                    }),
-                  ),
-                );
-                onReload?.();
+            message: t("autoScheduledToast", { count: autoScheduled.length }),              action: {
+                label: tc("common.undo"),
+                onClick: async () => {
+                  await Promise.allSettled(
+                    autoScheduled.map((item) =>
+                      apiFetch(`/api/v1/tasks/${item.id}`, {
+                        method: "PATCH",
+                        body: JSON.stringify({ startDate: item.startDate, dueDate: item.dueDate }),
+                      }),
+                    ),
+                  );
+                  // Drop the dragged task's optimistic override so the
+                  // refreshed report (with the undone dates) is what renders.
+                  setOverrides((prev) => {
+                    if (!(d.id in prev)) return prev;
+                    const next = { ...prev };
+                    delete next[d.id];
+                    return next;
+                  });
+                  onReload?.();
+                },
               },
-            },
           });
         }
       }
