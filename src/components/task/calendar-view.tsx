@@ -4,6 +4,12 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { toJalali, toGregorian, getDaysInMonth, getMonthName, getDayName } from "@/lib/date/jalali";
+import {
+  calendarDeltaDays,
+  calendarDueMarker,
+  shiftCalendarStart,
+  taskCalendarAnchor,
+} from "@/lib/date/calendar-move";
 import { cn } from "@/lib/cn";
 
 export type CalendarTask = {
@@ -84,12 +90,15 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
   function getTasksForDay(day: number): CalendarTask[] {
     return items.filter((task) => {
       if (!task.dueDate) return false;
-      const d = new Date(task.dueDate);
+      // Anchor to the due date's calendar day (marker-aware): a canonical due
+      // marker (23:59:59.999Z) belongs to its UTC day, never the next local
+      // day in zones east of UTC.
+      const anchor = taskCalendarAnchor(task.dueDate);
       if (isJalali) {
-        const j = toJalali(d);
+        const j = toJalali(anchor);
         return j.jy === year && j.jm === month && j.jd === day;
       }
-      return d.getFullYear() === year && d.getMonth() + 1 === month && d.getDate() === day;
+      return anchor.getFullYear() === year && anchor.getMonth() + 1 === month && anchor.getDate() === day;
     });
   }
 
@@ -98,14 +107,13 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
     const task = items.find((tk) => tk.id === taskId);
     if (!task || !task.dueDate) return;
 
-    const oldDue = atMidnight(new Date(task.dueDate));
-    const newDue = cellDate(day);
-    const deltaDays = Math.round((newDue.getTime() - oldDue.getTime()) / 86400000);
-    const newStartIso =
-      task.startDate != null
-        ? atMidnight(new Date(new Date(task.startDate).getTime() + deltaDays * 86400000)).toISOString()
-        : null;
-    const newDueIso = newDue.toISOString();
+    const targetDay = cellDate(day);
+    const deltaDays = calendarDeltaDays(task.dueDate, targetDay);
+    // Persist canonical day markers, never local midnights: the due lands on
+    // the target day's `23:59:59.999Z` and the start shifts day-for-day onto
+    // `00:00:00.000Z`, so the stored dates stay zone-independent.
+    const newStartIso = task.startDate != null ? shiftCalendarStart(task.startDate, deltaDays) : null;
+    const newDueIso = calendarDueMarker(targetDay);
 
     const snapshot = items;
     setItems((prev) =>
