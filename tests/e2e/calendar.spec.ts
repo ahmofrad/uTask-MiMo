@@ -53,21 +53,30 @@ test.describe("calendar drag-to-reschedule", () => {
       return 7 + startOffset + targetDay;
     });
 
-    const barBox = await bar.boundingBox();
-    expect(barBox).not.toBeNull();
-
-    // Track the PATCH so we know the drag actually rescheduled.
-    const patchBody = page.waitForResponse(
-      (res) => res.url().includes(`/api/v1/tasks/${taskId}`) && res.request().method() === "PATCH",
-    );
-
-    await page.dragAndDrop(`a[href="/tasks/${taskId}"]`, `.grid.grid-cols-7 > div:nth-child(${targetCell})`, {
-      sourcePosition: { x: (barBox as { width: number }).width / 2, y: (barBox as { width: number }).height / 2 },
-    });
-
-    const response = await patchBody;
-    expect(response.status()).toBe(200);
-    const body = (await response.json()) as { data?: { dueDate: string | null } };
+    // Track the PATCH so we know the drag actually rescheduled. The calendar
+    // repaints on realtime task events, so under full-suite load another test's
+    // mutation can shift the bar mid-drag and swallow the drop — retry until a
+    // PATCH actually lands (afterAll restores the seed dates regardless).
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 3 && !response; attempt++) {
+      const barBox = await bar.boundingBox();
+      if (!barBox) break;
+      const pending = page.waitForResponse(
+        (res) => res.url().includes(`/api/v1/tasks/${taskId}`) && res.request().method() === "PATCH",
+        { timeout: 10_000 },
+      );
+      await page.dragAndDrop(`a[href="/tasks/${taskId}"]`, `.grid.grid-cols-7 > div:nth-child(${targetCell})`, {
+        sourcePosition: { x: barBox.width / 2, y: barBox.height / 2 },
+      });
+      try {
+        response = await pending;
+      } catch {
+        // The drag was interrupted; retry.
+      }
+    }
+    expect(response).not.toBeNull();
+    expect((response as Response).status()).toBe(200);
+    const body = (await (response as Response).json()) as { data?: { dueDate: string | null } };
     expect(body.data?.dueDate).not.toBe(originalDue);
   });
 });
