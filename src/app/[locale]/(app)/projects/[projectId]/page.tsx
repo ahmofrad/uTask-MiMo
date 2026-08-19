@@ -77,6 +77,7 @@ export default async function ProjectDetail(props: {
   return (
     <div className="px-6 py-6">
        <ProjectDetailPage
+        currentUserId={userId}
         project={{
           id: project.id,
           name: project.name,

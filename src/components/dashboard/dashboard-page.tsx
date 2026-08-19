@@ -153,7 +153,7 @@ export function DashboardPage({ stats, allTasks, userId }: DashboardPageProps) {
       )}
 
       {activeTab === "gantt" && (
-        <DashboardGanttView groups={ganttGroups} />
+        <DashboardGanttView groups={ganttGroups} currentUserId={userId} />
       )}
 
       {activeTab === "wbs" && (

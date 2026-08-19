@@ -125,7 +125,7 @@ export async function POST(request: Request) {
 
     await logAudit({ actorUserId: userId, action: "task_created", entityType: "task", entityId: task.id, after: task as never });
     await emitTaskEvent("task.created", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
-    emitToProject(task.projectId, "task.created", { id: task.id, title: task.title, projectId: task.projectId });
+    emitToProject(task.projectId, "task.created", { id: task.id, title: task.title, projectId: task.projectId, actorUserId: userId });
 
     const body = { data: task };
     await setIdempotencyResult(idempotencyKey, 201, body, idempotencyScope);

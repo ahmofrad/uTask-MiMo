@@ -60,11 +60,12 @@ type TaskItem = {
 type ProjectDetailPageProps = {
   project: ProjectInfo;
   initialTasks: TaskItem[];
+  currentUserId: string | undefined;
 };
 
 type Tab = "board" | "timeline" | "calendar" | "gantt" | "wbs" | "tasks";
 
-export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPageProps) {
+export function ProjectDetailPage({ project, initialTasks, currentUserId }: ProjectDetailPageProps) {
   const t = useTranslations("project");
   const taskT = useTranslations("task");
   const [tasks, setTasks] = useState(initialTasks);
@@ -315,7 +316,7 @@ export function ProjectDetailPage({ project, initialTasks }: ProjectDetailPagePr
 
       {activeTab === "gantt" && (
         <div>
-          <GanttView projectId={project.id} />
+          <GanttView projectId={project.id} currentUserId={currentUserId} />
         </div>
       )}
 

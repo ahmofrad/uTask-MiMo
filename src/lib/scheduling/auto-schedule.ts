@@ -146,7 +146,7 @@ export async function autoScheduleDependents(
       after: { id: after.id, title: after.title, startDate: after.startDate, dueDate: after.dueDate } as never,
     });
     await emitTaskEvent("task.updated", after.id, { id: after.id, title: after.title, projectId: after.projectId }, actorId ?? "");
-    emitToProject(after.projectId, "task.updated", { id: after.id, title: after.title, projectId: after.projectId });
+    emitToProject(after.projectId, "task.updated", { id: after.id, title: after.title, projectId: after.projectId, actorUserId: actorId ?? "" });
     emitToTask(after.id, "task.updated", { id: after.id, title: after.title, projectId: after.projectId });
   }
 

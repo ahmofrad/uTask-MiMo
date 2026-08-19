@@ -132,7 +132,7 @@ export async function PATCH(
   }
 
   await emitTaskEvent("task.updated", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
-  emitToProject(task.projectId, "task.updated", { id: task.id, title: task.title, projectId: task.projectId });
+  emitToProject(task.projectId, "task.updated", { id: task.id, title: task.title, projectId: task.projectId, actorUserId: userId });
   emitToTask(task.id, "task.updated", { id: task.id, title: task.title, projectId: task.projectId });
 
   // Include custom field values in response so client can update immediately
@@ -163,7 +163,7 @@ export async function DELETE(
 
   await emitTaskEvent("task.deleted", resolvedParams.id, { id: resolvedParams.id }, userId);
   if (before?.projectId) {
-    emitToProject(before.projectId, "task.deleted", { id: resolvedParams.id, projectId: before.projectId });
+    emitToProject(before.projectId, "task.deleted", { id: resolvedParams.id, projectId: before.projectId, actorUserId: userId });
   }
 
   return NextResponse.json({ data: { success: true } });

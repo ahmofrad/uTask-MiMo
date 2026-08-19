@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { GanttChart } from "@/components/task/gantt-chart";
+import { useProjectRealtime } from "@/hooks/use-project-realtime";
 import type { GanttReport } from "@/lib/gantt-types";
 
 type GanttDashboardGroup = {
@@ -26,7 +27,7 @@ class GanttLoadError extends Error {
 
 const PROJECT_BATCH_SIZE = 200;
 
-export function DashboardGanttView({ groups }: { groups: GanttDashboardGroup[] }) {
+export function DashboardGanttView({ groups, currentUserId }: { groups: GanttDashboardGroup[]; currentUserId: string | undefined }) {
   const t = useTranslations("task");
   const [reports, setReports] = useState<Record<string, GanttReport>>({});
   const [loading, setLoading] = useState(true);
@@ -37,6 +38,8 @@ export function DashboardGanttView({ groups }: { groups: GanttDashboardGroup[] }
     [projectIdsKey],
   );
   const [version, setVersion] = useState(0);
+
+  useProjectRealtime(projectIds, () => setVersion((v) => v + 1), currentUserId);
 
   useEffect(() => {
     const controller = new AbortController();

@@ -4,9 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { GanttChart } from "@/components/task/gantt-chart";
+import { useProjectRealtime } from "@/hooks/use-project-realtime";
 import type { GanttReport } from "@/lib/gantt-types";
 
-export function GanttView({ projectId }: { projectId: string }) {
+export function GanttView({ projectId, currentUserId }: { projectId: string; currentUserId: string | undefined }) {
   const t = useTranslations("task");
   const [report, setReport] = useState<GanttReport | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +29,8 @@ export function GanttView({ projectId }: { projectId: string }) {
   useEffect(() => {
     void load();
   }, [load, version]);
+
+  useProjectRealtime([projectId], () => setVersion((v) => v + 1), currentUserId);
 
   if (error) return <div className="text-sm text-destructive">{error}</div>;
   if (!report) return <div className="text-sm text-fg-muted py-8 text-center">{t("wbsTotal")}…</div>;

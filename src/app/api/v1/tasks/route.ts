@@ -191,7 +191,7 @@ export async function POST(request: Request) {
     }
 
     await emitTaskEvent("task.created", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
-    emitToProject(task.projectId, "task.created", { id: task.id, title: task.title, projectId: task.projectId });
+    emitToProject(task.projectId, "task.created", { id: task.id, title: task.title, projectId: task.projectId, actorUserId: userId });
 
     const responseBody = { data: task };
 

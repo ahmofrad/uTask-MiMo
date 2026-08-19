@@ -91,7 +91,7 @@ export async function PATCH(
     after: task as never,
   });
   await emitTaskEvent("task.updated", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
-  emitToProject(task.projectId, "task.updated", { id: task.id, title: task.title, projectId: task.projectId });
+  emitToProject(task.projectId, "task.updated", { id: task.id, title: task.title, projectId: task.projectId, actorUserId: userId });
 
   return NextResponse.json({ data: { ...task, autoScheduled } });
 }
@@ -121,7 +121,7 @@ export async function DELETE(
     before: before as never,
   });
   await emitTaskEvent("task.deleted", resolvedParams.id, { id: resolvedParams.id, projectId: existing.projectId }, userId);
-  emitToProject(existing.projectId, "task.deleted", { id: resolvedParams.id, projectId: existing.projectId });
+  emitToProject(existing.projectId, "task.deleted", { id: resolvedParams.id, projectId: existing.projectId, actorUserId: userId });
 
   return NextResponse.json({ data: { success: true } });
 }
