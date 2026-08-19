@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
+import { timelineDayStart, isSameTimelineDay } from "@/lib/date/day-marker";
 
 export default async function MyTasksPage() {
   const session = await auth();
@@ -23,17 +24,20 @@ export default async function MyTasksPage() {
     },
   });
 
+  // Day markers (stored date-only values) anchor to their UTC calendar day, so
+  // grouping must use the same timeline-day math the Gantt/calendar use — a
+  // `23:59:59.999Z` due marker is *today* in every timezone, not tomorrow.
+  const todayStart = timelineDayStart(new Date());
+
   const groups = {
-    overdue: tasks.filter((t) => t.dueDate && t.dueDate < new Date() && t.status !== "done"),
+    overdue: tasks.filter((t) => t.dueDate && timelineDayStart(t.dueDate) < todayStart && t.status !== "done"),
     today: tasks.filter((t) => {
       if (!t.dueDate || t.status === "done") return false;
-      const today = new Date();
-      return t.dueDate.toDateString() === today.toDateString();
+      return isSameTimelineDay(t.dueDate, todayStart);
     }),
     upcoming: tasks.filter((t) => {
       if (!t.dueDate || t.status === "done") return false;
-      const today = new Date();
-      return t.dueDate > today;
+      return timelineDayStart(t.dueDate) > todayStart;
     }),
     noDate: tasks.filter((t) => !t.dueDate && t.status !== "done"),
   };
