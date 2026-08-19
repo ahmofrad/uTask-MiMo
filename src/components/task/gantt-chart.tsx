@@ -1164,9 +1164,17 @@ export function GanttChart({
                     data-testid="gantt-timeline-day"
                     data-day-offset={day.offset}
                     dir={locale === "fa-IR" ? "rtl" : "ltr"}
-                    className={`absolute top-0 flex h-11 items-center justify-center border-e border-border-secondary/70 text-[15px] font-semibold leading-none text-fg-secondary ${
+                    className={`absolute top-0 flex h-11 items-center justify-center border-e border-border-secondary/70 text-[15px] font-semibold leading-none ${
                       day.isMonthStart ? "border-s-2 border-s-border-strong" : ""
-                    } ${day.isToday ? "bg-accent-bg text-accent" : day.isNonWorking ? (day.holidayName ? "bg-danger-bg/60 text-danger" : "bg-bg-surface-2/70") : ""}`}
+                    } ${
+                      day.isToday
+                        ? "bg-accent-bg text-accent"
+                        : day.holidayName
+                          ? "bg-danger-bg/60 text-danger"
+                          : day.isNonWorking
+                            ? "bg-bg-surface-2/70"
+                            : "text-fg-secondary"
+                    }`}
                     title={day.holidayName || undefined}
                     style={{
                       left: `${timelineXForOffset(day.offset, dayWidth)}px`,
