@@ -79,13 +79,6 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
 
   const isHolidayDay = (day: number) => workingDayCalendar.isHoliday(cellDate(day));
 
-  // Weekday header columns that host a holiday this month get a red label.
-  // The grid's first column is Saturday, so column index = (jsDay + 1) % 7.
-  const holidayWeekdays = new Set<number>();
-  for (let day = 1; day <= daysInMonth; day++) {
-    if (isHolidayDay(day)) holidayWeekdays.add((cellDate(day).getDay() + 1) % 7);
-  }
-
   function cellDate(day: number): Date {
     if (isJalali) {
       return atMidnight(toGregorian(year, month, day));
@@ -166,16 +159,8 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
           if (onMove) e.preventDefault();
         }}
       >
-        {weekdays.map((d, i) => (
-          <div
-            key={d}
-            className={cn(
-              "text-center text-xs py-1 font-medium",
-              holidayWeekdays.has(i) ? "text-danger font-semibold" : "text-fg-muted",
-            )}
-          >
-            {d}
-          </div>
+        {weekdays.map((d) => (
+          <div key={d} className="text-center text-xs text-fg-muted py-1 font-medium">{d}</div>
         ))}
         {Array.from({ length: startOffset }).map((_, i) => <div key={`e${i}`} />)}
         {Array.from({ length: daysInMonth }).map((_, i) => {

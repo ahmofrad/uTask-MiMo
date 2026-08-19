@@ -177,6 +177,10 @@ test.describe("Working days admin page", () => {
 
   test("switching the egress provider switches its base URL", async ({ page }) => {
     try {
+      // Start from a clean slate: a real saved key (e.g. the admin's own
+      // Calendarific key in the dev DB) would otherwise make the API return
+      // the masked placeholder and trip the apiKey assertion.
+      await prisma.instanceSetting.deleteMany({ where: { key: HOLIDAY_EGRESS_SETTING_KEY } });
       await page.goto("/en-US/admin/settings/working-days");
       await expect(page.getByRole("heading", { name: "Working days & holidays" })).toBeVisible();
 
