@@ -113,7 +113,7 @@ export function ActivityTimeline({ events, onLoadMore, hasMore, members }: Activ
   }
 
   return (
-    <div className="space-y-0">
+    <div className="space-y-0" data-testid="activity-timeline">
       {events.map((event, i) => (
         <div key={event.id} className="relative flex gap-4 pb-4">
           {/* Timeline line */}

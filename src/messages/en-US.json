@@ -952,7 +952,10 @@
       "group_member_added": "added group member",
       "group_member_removed": "removed group member",
       "group_grant_created": "granted group access",
-      "group_grant_revoked": "revoked group access"
+      "group_grant_revoked": "revoked group access",
+      "task_dependency_created": "added a dependency",
+      "task_dependency_deleted": "removed a dependency",
+      "task_moved": "moved task"
     },
     "diff": {
       "before": "Before",

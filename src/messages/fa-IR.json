@@ -952,7 +952,10 @@
       "group_member_added": "عضو به گروه اضافه کرد",
       "group_member_removed": "عضو را از گروه حذف کرد",
       "group_grant_created": "دسترسی گروه اعطا کرد",
-      "group_grant_revoked": "دسترسی گروه را ابطال کرد"
+      "group_grant_revoked": "دسترسی گروه را ابطال کرد",
+      "task_dependency_created": "وابستگی اضافه کرد",
+      "task_dependency_deleted": "وابستگی را حذف کرد",
+      "task_moved": "وظیفه را جابه‌جا کرد"
     },
     "diff": {
       "before": "قبل",
