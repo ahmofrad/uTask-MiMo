@@ -33,6 +33,29 @@ test.describe("Gantt timeline", () => {
   // afterEach ever touches its dependencies.
   test.describe.configure({ mode: "serial" });
 
+  // The drag/resize tests perform real drags that PATCH the seeded tasks, and
+  // the mocked-report tests inject fixed dates that those drags persist.
+  // Snapshot the Product Launch task dates before the suite and restore them
+  // after, so running this spec never mutates the dev database.
+  let dateSnapshot: { id: string; startDate: Date | null; dueDate: Date | null }[] = [];
+
+  test.beforeAll(async () => {
+    const project = await prisma.project.findFirstOrThrow({ where: { name: "Product Launch" }, select: { id: true } });
+    dateSnapshot = await prisma.task.findMany({
+      where: { projectId: project.id },
+      select: { id: true, startDate: true, dueDate: true },
+    });
+  });
+
+  test.afterAll(async () => {
+    for (const row of dateSnapshot) {
+      await prisma.task.update({
+        where: { id: row.id },
+        data: { startDate: row.startDate, dueDate: row.dueDate },
+      });
+    }
+  });
+
   // The link test mutates dependencies in the seeded Product Launch project.
   // Wipe every dependency touching that project after each test so a failed or
   // interrupted run can never leave a stale link behind — a leftover link would
