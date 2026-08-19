@@ -1,6 +1,7 @@
 import {
   isSameTimelineDay,
   isUtcDayMarker,
+  normalizeStoredDayMarker,
   shiftDayMarker,
   snapDayMarker,
 } from "@/lib/date/day-marker";
@@ -27,14 +28,18 @@ export function createDragState(
   origStart: Date,
   origEnd: Date | null,
 ): DragState {
-  const end = origEnd ?? origStart;
+  // Normalize legacy non-canonical markers (e.g. Asia/Tehran local midnights
+  // from seeded data) so shift/snap math anchors on the intended calendar day
+  // in every timezone and the persisted payload is always canonical.
+  const start = normalizeStoredDayMarker(origStart);
+  const end = origEnd ? normalizeStoredDayMarker(origEnd) : start;
   return {
     id,
     mode,
     startX,
-    origStart,
+    origStart: start,
     origEnd: end,
-    currentStart: origStart,
+    currentStart: start,
     currentEnd: end,
     lastDeltaDays: 0,
   };

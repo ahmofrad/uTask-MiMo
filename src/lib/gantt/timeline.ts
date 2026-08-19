@@ -4,6 +4,7 @@ import {
   isLocalStartOfDay,
   isUtcDayMarker,
   isUtcEndMarker,
+  normalizeStoredDayMarker,
   snapToDayBoundary,
   timelineDayStart,
 } from "@/lib/date/day-marker";
@@ -64,16 +65,18 @@ function timelineStartFraction(date: Date): number {
   // Stored day markers (00:00:00Z or 23:59:59.999Z) anchor the bar to its own
   // calendar day: a marker start sits at the day's start edge in every zone.
   // Genuine times keep their fractional placement.
-  if (isUtcDayMarker(date)) return 0;
-  return isLocalEndOfDay(date) ? 0 : timeOfDayFraction(date);
+  const normalized = normalizeStoredDayMarker(date);
+  if (isUtcDayMarker(normalized)) return 0;
+  return isLocalEndOfDay(normalized) ? 0 : timeOfDayFraction(normalized);
 }
 
 function timelineEndFraction(date: Date): number {
   // Stored day markers finish at the end edge of their calendar day, so a
   // single-day task covers exactly one cell in every zone.
-  if (isUtcDayMarker(date)) return 1;
-  const fraction = timeOfDayFraction(date);
-  return isLocalStartOfDay(date) || isLocalEndOfDay(date) ? 1 : fraction;
+  const normalized = normalizeStoredDayMarker(date);
+  if (isUtcDayMarker(normalized)) return 1;
+  const fraction = timeOfDayFraction(normalized);
+  return isLocalStartOfDay(normalized) || isLocalEndOfDay(normalized) ? 1 : fraction;
 }
 
 /**
@@ -81,10 +84,11 @@ function timelineEndFraction(date: Date): number {
  * The offset includes the local time within its calendar day.
  */
 export function getTimelineDateOffset(date: Date, rangeStart: Date): number {
-  const fraction = isUtcDayMarker(date)
-    ? isUtcEndMarker(date) ? 1 : 0
-    : timeOfDayFraction(date);
-  return calendarDayOffset(date, rangeStart) + fraction;
+  const normalized = normalizeStoredDayMarker(date);
+  const fraction = isUtcDayMarker(normalized)
+    ? isUtcEndMarker(normalized) ? 1 : 0
+    : timeOfDayFraction(normalized);
+  return calendarDayOffset(normalized, rangeStart) + fraction;
 }
 
 /**
@@ -110,14 +114,16 @@ export function getTimelineItemWidth(
 ): number {
   if (!start || !end) return dayWidth;
 
-  const startDay = timelineDayStart(start);
-  const endDay = timelineDayStart(end);
+  const normalizedStart = normalizeStoredDayMarker(start);
+  const normalizedEnd = normalizeStoredDayMarker(end);
+  const startDay = timelineDayStart(normalizedStart);
+  const endDay = timelineDayStart(normalizedEnd);
   const calendarDayCount = Math.max(0, Math.round(
     (endDay.getTime() - startDay.getTime()) / DAY_MS,
   ));
   if (calendarDayCount === 0) return dayWidth;
 
-  const spanDays = calendarDayCount + timelineEndFraction(end) - timelineStartFraction(start);
+  const spanDays = calendarDayCount + timelineEndFraction(normalizedEnd) - timelineStartFraction(normalizedStart);
   return Math.max(dayWidth, spanDays * dayWidth);
 }
 
@@ -134,9 +140,11 @@ export function getTimelineItemGeometry(
   rangeStart: Date,
   dayWidth: number,
 ): { startOffset: number; width: number } {
-  const resolvedStart = start ?? end;
-  const resolvedEnd = end ?? start;
-  if (!resolvedStart || !resolvedEnd) return { startOffset: 0, width: dayWidth };
+  const rawStart = start ?? end;
+  const rawEnd = end ?? start;
+  if (!rawStart || !rawEnd) return { startOffset: 0, width: dayWidth };
+  const resolvedStart = normalizeStoredDayMarker(rawStart);
+  const resolvedEnd = normalizeStoredDayMarker(rawEnd);
 
   const startDayOffset = calendarDayOffset(resolvedStart, rangeStart);
   if (calendarDayOffset(resolvedEnd, resolvedStart) === 0) {

@@ -36,6 +36,28 @@ describe("geometry in Asia/Tehran", () => {
     expect(geometry).toEqual({ startOffset: 0, width: DAY_WIDTH });
   });
 
+  it("renders a legacy Tehran-midnight marker on its intended calendar day", () => {
+    // Legacy data stored day markers as Asia/Tehran local midnights:
+    // 2026-08-24T20:30:00Z is midnight Aug 25 in Tehran, and
+    // 2026-08-27T20:29:59.999Z is 23:59:59.999 local on Aug 27. The bar must
+    // sit on cells 6..8 (Aug 25..27), three cells wide — never on the raw UTC
+    // day (Aug 24) nor spanning the wrong count.
+    const legacyStart = new Date("2026-08-24T20:30:00.000Z");
+    const legacyDue = new Date("2026-08-27T20:29:59.999Z");
+    const geometry = getTimelineItemGeometry(legacyStart, legacyDue, rangeStart, DAY_WIDTH);
+    expect(geometry.startOffset).toBe(6);
+    expect(geometry.width).toBe(3 * DAY_WIDTH);
+  });
+
+  it("renders a legacy single-day task as exactly one cell", () => {
+    // Midnight Aug 25 (start) through 23:59:59.999 local Aug 25 (due).
+    const legacyStart = new Date("2026-08-24T20:30:00.000Z");
+    const legacyDue = new Date("2026-08-25T20:29:59.999Z");
+    const geometry = getTimelineItemGeometry(legacyStart, legacyDue, rangeStart, DAY_WIDTH);
+    expect(geometry.startOffset).toBe(6);
+    expect(geometry.width).toBe(DAY_WIDTH);
+  });
+
   it("spans exactly the marker days for a multi-day task", () => {
     const geometry = getTimelineItemGeometry(start, dueLater, rangeStart, DAY_WIDTH);
     expect(geometry.startOffset).toBe(0);
@@ -117,5 +139,21 @@ describe("drag in Asia/Tehran", () => {
     );
     expect(geometry.startOffset).toBe(1);
     expect(geometry.width).toBe(DAY_WIDTH);
+  });
+
+  it("drags a legacy Tehran-midnight task onto canonical markers one day later", () => {
+    // The regression the user hit: dragging a legacy task anchored on its raw
+    // UTC day, saving a date one day short of the intended day. The drag must
+    // anchor on the normalized (intended) day and persist canonical markers.
+    const legacyStart = new Date("2026-08-24T20:30:00.000Z"); // Aug 25 in Tehran
+    const legacyDue = new Date("2026-08-27T20:29:59.999Z"); // Aug 27 in Tehran
+    const state = createDragState("t1", "move", 100, legacyStart, legacyDue);
+    const snapped = applyDragDelta(state, 1, true);
+    expect(snapped.currentStart.toISOString()).toBe("2026-08-26T00:00:00.000Z");
+    expect(snapped.currentEnd.toISOString()).toBe("2026-08-28T23:59:59.999Z");
+    expect(dragPatchBody(snapped)).toEqual({
+      startDate: "2026-08-26T00:00:00.000Z",
+      dueDate: "2026-08-28T23:59:59.999Z",
+    });
   });
 });

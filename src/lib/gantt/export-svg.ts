@@ -1,7 +1,12 @@
 import type { GanttReport } from "@/lib/gantt-types";
 import { getMonthName, toJalali, formatJalaliShort } from "@/lib/date/jalali";
 import { formatNumber, type Locale } from "@/lib/date/format";
-import { diffCalendarDays, startOfCalendarDay, timelineDayStart } from "@/lib/date/day-marker";
+import {
+  diffCalendarDays,
+  normalizeStoredDayMarker,
+  startOfCalendarDay,
+  timelineDayStart,
+} from "@/lib/date/day-marker";
 import { getTimelineItemGeometry, getTimelinePosition, type TimelineDirection } from "@/lib/gantt/timeline";
 import { linkShortLabel } from "@/lib/gantt/links";
 
@@ -251,8 +256,12 @@ export function buildGanttExportSvg(options: {
     const startLabel = rowStart ?? rowEnd;
     const endLabel = rowEnd ?? rowStart;
     if (startLabel && endLabel) {
+      // Normalize legacy non-canonical markers so the label shows the intended
+      // calendar day in every timezone, matching the bar's cell position.
+      const startLabelDate = normalizeStoredDayMarker(new Date(startLabel));
+      const endLabelDate = normalizeStoredDayMarker(new Date(endLabel));
       parts.push(
-        `<text x="${direction === "rtl" ? svgWidth - 16 : 16}" y="${y + 40}" font-size="10" fill="${palette.fgMuted}">${escapeXml(shortDateFor(new Date(startLabel), locale))} – ${escapeXml(shortDateFor(new Date(endLabel), locale))}</text>`,
+        `<text x="${direction === "rtl" ? svgWidth - 16 : 16}" y="${y + 40}" font-size="10" fill="${palette.fgMuted}">${escapeXml(shortDateFor(startLabelDate, locale))} – ${escapeXml(shortDateFor(endLabelDate, locale))}</text>`,
       );
     }
 

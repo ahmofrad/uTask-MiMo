@@ -7,6 +7,7 @@ import { toJalali, toGregorian, getMonthName, getDaysInMonth } from "@/lib/date/
 import { formatNumber, type Locale } from "@/lib/date/format";
 import {
   diffCalendarDays,
+  normalizeStoredDayMarker,
   parseDateOnly,
   startOfCalendarDay,
   timelineDayStart,
@@ -267,7 +268,13 @@ export function GanttChart({
     // Ensure a bar is visible even when only one bound exists.
     if (!startStr && endStr) startStr = endStr;
     if (!endStr && startStr) endStr = startStr;
-    return { start: startStr ? new Date(startStr) : null, end: endStr ? new Date(endStr) : null };
+    // Normalize legacy non-canonical markers (e.g. Asia/Tehran local
+    // midnights from pre-marker-aware drags) so bars, labels, geometry, and
+    // drag all anchor on the same calendar day in every timezone.
+    return {
+      start: startStr ? normalizeStoredDayMarker(new Date(startStr)) : null,
+      end: endStr ? normalizeStoredDayMarker(new Date(endStr)) : null,
+    };
   };
 
   const todayStart = startOfCalendarDay(new Date());

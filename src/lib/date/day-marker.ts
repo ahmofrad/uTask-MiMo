@@ -20,6 +20,41 @@ export function isUtcStartMarker(date: Date): boolean {
     && date.getUTCMilliseconds() === 0;
 }
 
+/** Asia/Tehran is UTC+03:30; its local midnight is `20:30:00.000Z` the day before. */
+const TEHRAN_OFFSET_MS = 3.5 * 60 * 60 * 1000;
+
+/** True for the legacy Asia/Tehran local-midnight start marker (`20:30:00.000Z`). */
+function isTehranStartMarker(date: Date): boolean {
+  return date.getUTCHours() === 20
+    && date.getUTCMinutes() === 30
+    && date.getUTCSeconds() === 0
+    && date.getUTCMilliseconds() === 0;
+}
+
+/** True for the legacy Asia/Tehran local-end marker (`20:29:59.xZ`). */
+function isTehranEndMarker(date: Date): boolean {
+  return date.getUTCHours() === 20
+    && date.getUTCMinutes() === 29
+    && date.getUTCSeconds() === 59;
+}
+
+/**
+ * Normalizes a stored task date to the canonical UTC day-marker convention.
+ *
+ * Historical data (seeded projects and pre-marker-aware drags) stored
+ * date-only values as Asia/Tehran local midnights: starts at `20:30:00.000Z`,
+ * dues at `20:29:59.999Z` — the same calendar day as the canonical marker one
+ * UTC day later. Those are shifted by +03:30 to the canonical shape so
+ * calendar-day math is identical in every timezone. Canonical markers and
+ * genuine instants pass through unchanged.
+ */
+export function normalizeStoredDayMarker(date: Date): Date {
+  if (isTehranStartMarker(date) || isTehranEndMarker(date)) {
+    return new Date(date.getTime() + TEHRAN_OFFSET_MS);
+  }
+  return date;
+}
+
 /** True when the UTC components are 23:59:59 (any millisecond) — a stored date-only due. */
 export function isUtcEndMarker(date: Date): boolean {
   return date.getUTCHours() === 23
@@ -86,10 +121,11 @@ export function snapToDayBoundary(date: Date, boundary: "start" | "end"): Date {
  * whole days regardless of the runtime zone.
  */
 export function timelineDayStart(date: Date): Date {
-  if (isUtcDayMarker(date)) {
-    return new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  const normalized = normalizeStoredDayMarker(date);
+  if (isUtcDayMarker(normalized)) {
+    return new Date(normalized.getUTCFullYear(), normalized.getUTCMonth(), normalized.getUTCDate());
   }
-  return startOfCalendarDay(date);
+  return startOfCalendarDay(normalized);
 }
 
 /** True when two timestamps anchor to the same timeline day. */
@@ -105,7 +141,8 @@ export function isSameTimelineDay(a: Date, b: Date): boolean {
  * renders at exactly `anchorDay + deltaDays` on the timeline in every zone.
  */
 export function shiftDayMarker(date: Date, deltaDays: number): Date {
-  const anchor = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  const normalized = normalizeStoredDayMarker(date);
+  const anchor = new Date(normalized.getUTCFullYear(), normalized.getUTCMonth(), normalized.getUTCDate());
   const whole = Math.trunc(deltaDays);
   const fractional = deltaDays - whole;
   anchor.setDate(anchor.getDate() + whole);
