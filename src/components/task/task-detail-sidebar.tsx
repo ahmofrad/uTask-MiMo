@@ -12,7 +12,7 @@ import { CustomFieldInput } from "@/components/custom-field/custom-field-input";
 import { AssigneeSelect } from "@/components/task/assignee-select";
 import { Avatar } from "@/components/ui/avatar";
 
-type TaskStatus = "open" | "in_progress" | "done" | "cancelled";
+type TaskStatus = "open" | "in_progress" | "pending_approval" | "done" | "cancelled";
 type TaskPriority = "low" | "med" | "high" | "urgent";
 
 type Member = { id: string; displayName: string; avatarUrl?: string | null };
@@ -39,6 +39,8 @@ type TaskDetailSidebarProps = {
     dueDate: string | null;
     estimatedHours?: number | null;
     spentHours?: number | null;
+    requiresApproval?: boolean;
+    approverId?: string | null;
     assignees: { id: string }[];
     assigneeGroup: { id: string; name: string } | null;
     reporter: { id: string; displayName: string } | null;
@@ -58,6 +60,8 @@ type TaskDetailSidebarProps = {
   onGroupChange: (_groupId: string | null) => void;
   onEstimatedChange: (_value: number | null) => void;
   onSpentChange: (_value: number | null) => void;
+  onRequiresApprovalChange: (_value: boolean) => void;
+  onApproverChange: (_userId: string | null) => void;
   onStartDateChange: (_value: string | null) => void;
   onDueDateChange: (_value: string | null) => void;
   onEndDateChange: (_value: string | null) => void;
@@ -84,6 +88,8 @@ export function TaskDetailSidebar({
   onGroupChange,
   onEstimatedChange,
   onSpentChange,
+  onRequiresApprovalChange,
+  onApproverChange,
   onStartDateChange,
   onDueDateChange,
   onEndDateChange,
@@ -124,7 +130,9 @@ export function TaskDetailSidebar({
     <div className="space-y-4">
       {/* Details card */}
       <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-4">
-        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.fields.assignees")}</h4>
+        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">
+          {t("task.fields.assignees")}
+        </h4>
         <AssigneeSelect
           members={projectMembers}
           value={task.assignees.map((a) => a.id)}
@@ -134,18 +142,26 @@ export function TaskDetailSidebar({
 
         {groups !== null && (
           <div className="border-t border-border-secondary pt-3">
-            <h4 className="text-xs text-fg-muted font-medium mb-1">{t("task.fields.assigneeGroup")}</h4>
+            <h4 className="text-xs text-fg-muted font-medium mb-1">
+              {t("task.fields.assigneeGroup")}
+            </h4>
             <select
               value={task.assigneeGroup?.id ?? ""}
               onChange={(e) => onGroupChange(e.target.value || null)}
               className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
             >
               <option value="">{t("task.noAssigneeGroup")}</option>
-              {groups.some((group) => group.id === task.assigneeGroup?.id) ? null : task.assigneeGroup ? (
-                <option key={task.assigneeGroup.id} value={task.assigneeGroup.id}>{task.assigneeGroup.name}</option>
+              {groups.some(
+                (group) => group.id === task.assigneeGroup?.id,
+              ) ? null : task.assigneeGroup ? (
+                <option key={task.assigneeGroup.id} value={task.assigneeGroup.id}>
+                  {task.assigneeGroup.name}
+                </option>
               ) : null}
               {groups.map((group) => (
-                <option key={group.id} value={group.id}>{group.name}</option>
+                <option key={group.id} value={group.id}>
+                  {group.name}
+                </option>
               ))}
             </select>
           </div>
@@ -176,9 +192,44 @@ export function TaskDetailSidebar({
         )}
       </div>
 
+      {/* Approval card */}
+      <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-3">
+        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">
+          {t("approval.title")}
+        </h4>
+        <label className="flex items-center gap-2 text-sm text-fg cursor-pointer">
+          <input
+            type="checkbox"
+            checked={task.requiresApproval ?? false}
+            onChange={(e) => onRequiresApprovalChange(e.target.checked)}
+            className="w-4 h-4 accent-[var(--accent)]"
+          />
+          {t("approval.requiresApproval")}
+        </label>
+        {task.requiresApproval && (
+          <div>
+            <label className="text-xs text-fg-muted block mb-1">{t("approval.approver")}</label>
+            <select
+              value={task.approverId ?? ""}
+              onChange={(e) => onApproverChange(e.target.value || null)}
+              className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1 text-fg"
+            >
+              <option value="">{t("approval.anyFinalizer")}</option>
+              {projectMembers.map((member) => (
+                <option key={member.id} value={member.id}>
+                  {member.displayName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
       {/* Date & Duration card */}
       <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-3">
-        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.dateAndDuration")}</h4>
+        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">
+          {t("task.dateAndDuration")}
+        </h4>
         <div className="space-y-2">
           <div>
             <label className="text-xs text-fg-muted block mb-1">{t("task.startDate")}</label>
@@ -261,25 +312,29 @@ export function TaskDetailSidebar({
           </div>
         )}
         <div className="border-t border-border-secondary pt-3 text-xs text-fg-muted space-y-1">
-          <p>{t("task.createdAt")}: {formatDateTime(new Date(task.createdAt), locale)}</p>
-          <p>{t("task.updatedAt")}: {formatDateTime(new Date(task.updatedAt), locale)}</p>
+          <p>
+            {t("task.createdAt")}: {formatDateTime(new Date(task.createdAt), locale)}
+          </p>
+          <p>
+            {t("task.updatedAt")}: {formatDateTime(new Date(task.updatedAt), locale)}
+          </p>
         </div>
       </div>
 
       {/* Tags card */}
       <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
-        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">{t("task.tags")}</h4>
-        <TagPicker
-          projectId={task.projectId}
-          value={taskTagIds}
-          onChange={onTagsChange}
-        />
+        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">
+          {t("task.tags")}
+        </h4>
+        <TagPicker projectId={task.projectId} value={taskTagIds} onChange={onTagsChange} />
       </div>
 
       {/* Custom Fields card */}
       {customFieldSchema.length > 0 && (
         <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
-          <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-3">{t("task.customFields")}</h4>
+          <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-3">
+            {t("task.customFields")}
+          </h4>
           <div className="space-y-3">
             {customFieldSchema.map((field) => (
               <CustomFieldInput
@@ -296,7 +351,9 @@ export function TaskDetailSidebar({
       {/* Watchers card */}
       <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
         <div className="flex items-center justify-between mb-3">
-          <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.watchers")}</h4>
+          <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">
+            {t("task.watchers")}
+          </h4>
           <div className="flex items-center gap-2">
             <select
               onChange={(e) => {
@@ -310,7 +367,9 @@ export function TaskDetailSidebar({
               {projectMembers
                 .filter((m) => !watchers.some((w) => w.id === m.id))
                 .map((m) => (
-                  <option key={m.id} value={m.id}>{m.displayName}</option>
+                  <option key={m.id} value={m.id}>
+                    {m.displayName}
+                  </option>
                 ))}
             </select>
             <button

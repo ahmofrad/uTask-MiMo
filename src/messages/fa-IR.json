@@ -372,7 +372,8 @@
       "open": "باز",
       "in_progress": "در حال انجام",
       "done": "انجام شده",
-      "cancelled": "لغو شده"
+      "cancelled": "لغو شده",
+      "pending_approval": "در انتظار تأیید"
     },
     "priority": {
       "none": "بدون اولویت",
@@ -1118,5 +1119,17 @@
     "delete": "حذف",
     "confirmDelete": "حذف فیلد سفارشی «{name}»؟ این فیلد از همه تسک‌ها مخفی می‌شود.",
     "includeTime": "شامل زمان"
+  },
+  "approval": {
+    "title": "تأیید",
+    "requiresApproval": "نیاز به تأیید",
+    "approver": "تأییدکننده",
+    "anyFinalizer": "هر تأییدکنندهای",
+    "awaitingApproval": "در انتظار تأیید",
+    "approve": "تأیید",
+    "reject": "رد",
+    "rejectionReason": "دلیل رد",
+    "reasonRequired": "برای رد کردن، دلیل الزامی است",
+    "decisionFailed": "بهروزرسانی وضعیت تأیید ممکن نشد"
   }
 }

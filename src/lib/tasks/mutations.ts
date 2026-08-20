@@ -10,6 +10,7 @@ import {
 } from "@/lib/tasks/wbs";
 import { evaluateStatusChange, notifyUnblocked, DependencyBlockedError } from "@/lib/tasks/dependencies";
 import { bumpScheduleVersion } from "@/lib/scheduling/cpm";
+import { isTaskFinalizer, shouldRouteToApproval, TaskNotPendingApprovalError } from "@/lib/tasks/approval";
 
 export type CreateTaskData = {
   title: string;
@@ -26,6 +27,8 @@ export type CreateTaskData = {
   dueDate?: string | null;
   estimatedHours?: number | null;
   progress?: number;
+  requiresApproval?: boolean;
+  approverId?: string | null;
   tagIds?: string[];
   customFields?: Record<string, unknown>;
 };
@@ -133,6 +136,8 @@ export async function createTask(data: CreateTaskData) {
       dueDate: data.dueDate ? new Date(data.dueDate) : null,
       estimatedHours: data.estimatedHours ?? null,
       progress: clampProgress(data.progress),
+      requiresApproval: data.requiresApproval ?? false,
+      approverId: data.approverId ?? null,
       orderIndex,
     },
   });
@@ -167,6 +172,8 @@ export type UpdateTaskData = {
   parentTaskId?: string | null;
   progress?: number;
   deletedAt?: string | null;
+  requiresApproval?: boolean;
+  approverId?: string | null;
   tagIds?: string[];
   customFields?: Record<string, unknown>;
 };
@@ -176,8 +183,9 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
 
   if (data.title !== undefined) updateData.title = data.title;
   if (data.description !== undefined) updateData.description = data.description;
-  if (data.status !== undefined) updateData.status = data.status;
   if (data.priority !== undefined) updateData.priority = data.priority;
+  if (data.requiresApproval !== undefined) updateData.requiresApproval = data.requiresApproval;
+  if (data.approverId !== undefined) updateData.approverId = data.approverId;
   if (data.startDate !== undefined) updateData.startDate = data.startDate ? new Date(data.startDate) : null;
   if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
   if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
@@ -189,13 +197,44 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
 
   if (data.progress !== undefined) updateData.progress = clampProgress(data.progress);
 
-  if (data.status === "done") {
+  const before = await prisma.task.findUnique({ where: { id } });
+
+  // Approval gate: a DONE transition on a task that requires approval reroutes
+  // to PENDING_APPROVAL unless the actor is a finalizer (the designated
+  // approver or anyone with project task:edit_any).
+  let effectiveStatus = data.status;
+  if (
+    data.status !== undefined &&
+    before &&
+    before.status !== data.status &&
+    before.requiresApproval
+  ) {
+    const actorIsFinalizer =
+      typeof actorId === "string" &&
+      (await isTaskFinalizer(actorId, {
+        projectId: before.projectId,
+        approverId: before.approverId,
+      }));
+    if (shouldRouteToApproval({
+      requiresApproval: true,
+      requestedStatus: data.status,
+      actorIsFinalizer,
+    })) {
+      effectiveStatus = "pending_approval";
+      // The task was previously completed or rejected; reset those stamps so
+      // the approval decision can set them again.
+      updateData.completedAt = null;
+      updateData.approvalNote = null;
+    }
+  }
+
+  if (data.status !== undefined) updateData.status = effectiveStatus;
+
+  if (effectiveStatus === "done") {
     updateData.completedAt = new Date();
     // Mark fully complete unless the caller set an explicit progress.
     if (data.progress === undefined) updateData.progress = 100;
   }
-
-  const before = await prisma.task.findUnique({ where: { id } });
 
   if (data.status !== undefined && before && before.status !== data.status) {
     const evaluation = await evaluateStatusChange(id, data.status);
@@ -379,4 +418,41 @@ export async function moveTask(id: string, data: MoveTaskData) {
   });
 
   return { before, task: updated };
+}
+
+export async function approveTask(id: string, _actorId: string) {
+  const before = await prisma.task.findUnique({ where: { id } });
+  if (!before || before.deletedAt || before.status !== "pending_approval") {
+    throw new TaskNotPendingApprovalError();
+  }
+
+  const task = await prisma.task.update({
+    where: { id },
+    data: {
+      status: "done",
+      completedAt: new Date(),
+      progress: 100,
+      approvalNote: null,
+    },
+  });
+
+  return { before, task };
+}
+
+export async function rejectTask(id: string, _actorId: string, reason: string) {
+  const before = await prisma.task.findUnique({ where: { id } });
+  if (!before || before.deletedAt || before.status !== "pending_approval") {
+    throw new TaskNotPendingApprovalError();
+  }
+
+  const task = await prisma.task.update({
+    where: { id },
+    data: {
+      status: "in_progress",
+      completedAt: null,
+      approvalNote: reason,
+    },
+  });
+
+  return { before, task };
 }

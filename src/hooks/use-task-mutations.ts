@@ -10,13 +10,16 @@ export type TaskData = {
   id: string;
   title: string;
   description?: string | null;
-  status: "open" | "in_progress" | "done" | "cancelled";
+  status: "open" | "in_progress" | "pending_approval" | "done" | "cancelled";
   priority: "low" | "med" | "high" | "urgent";
   startDate: string | null;
   endDate: string | null;
   dueDate: string | null;
   estimatedHours?: number | null;
   spentHours?: number | null;
+  requiresApproval?: boolean;
+  approverId?: string | null;
+  approvalNote?: string | null;
   projectId: string;
   projectName: string;
   assignees: { id: string; displayName: string; avatarUrl?: string | null }[];
@@ -217,6 +220,45 @@ export function useTaskMutations({
     setTask((prev) => ({ ...prev, priority: priority as TaskData["priority"] }));
     void updateTask({ priority });
   }, [updateTask]);
+
+  const handleApprovalConfigChange = useCallback(
+    (updates: { requiresApproval?: boolean; approverId?: string | null }) => {
+      setTask((prev) => ({ ...prev, ...updates }));
+      void updateTask(updates);
+    },
+    [updateTask],
+  );
+
+  const handleApprove = useCallback(async () => {
+    const res = await apiFetch(`/api/v1/tasks/${task.id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      addToast({ message: t("approval.decisionFailed") });
+      return;
+    }
+    const body = await res.json();
+    if (body.data) setTask((prev) => ({ ...prev, ...body.data }));
+    void onAuditRefresh();
+  }, [addToast, onAuditRefresh, task.id, t]);
+
+  const handleReject = useCallback(
+    async (reason: string) => {
+      const res = await apiFetch(`/api/v1/tasks/${task.id}/reject`, {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) {
+        addToast({ message: t("approval.decisionFailed") });
+        return;
+      }
+      const body = await res.json();
+      if (body.data) setTask((prev) => ({ ...prev, ...body.data }));
+      void onAuditRefresh();
+    },
+    [addToast, onAuditRefresh, task.id, t],
+  );
 
   const addComment = useCallback(async (body: string) => {
     const res = await apiFetch(`/api/v1/tasks/${task.id}/comments`, {
@@ -479,6 +521,9 @@ export function useTaskMutations({
     handleGroupChange,
     handleEstimatedChange,
     handleSpentChange,
+    handleApprovalConfigChange,
+    handleApprove,
+    handleReject,
     handleCustomFieldChange,
     handleAddWatcher,
     handleRemoveWatcher,

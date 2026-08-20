@@ -33,11 +33,19 @@ type BoardProps = {
 const COLUMNS = [
   { key: "open", color: "bg-info-bg border-info/30" },
   { key: "in_progress", color: "bg-warning-bg border-warning/30" },
+  { key: "pending_approval", color: "bg-tone-violet-bg border-tone-violet/30" },
   { key: "done", color: "bg-success-bg border-success/30" },
   { key: "cancelled", color: "bg-bg-surface-2 border-border" },
 ];
 
-export function Board({ initialTasks, projectId, projectIds, showProject, currentUserId, includeTask }: BoardProps) {
+export function Board({
+  initialTasks,
+  projectId,
+  projectIds,
+  showProject,
+  currentUserId,
+  includeTask,
+}: BoardProps) {
   const t = useTranslations("task");
   const [tasks, setTasks] = useState(initialTasks);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -105,7 +113,7 @@ export function Board({ initialTasks, projectId, projectIds, showProject, curren
 
   async function moveTask(taskId: string, newStatus: string) {
     setTasks((prev) =>
-      prev.map((task) => (task.id === taskId ? { ...task, status: newStatus } : task))
+      prev.map((task) => (task.id === taskId ? { ...task, status: newStatus } : task)),
     );
 
     try {
@@ -167,8 +175,12 @@ export function Board({ initialTasks, projectId, projectIds, showProject, curren
               }
             }}
           >
-            <div className={`flex items-center justify-between px-3 py-2 rounded-t-xl ${col.color}`}>
-              <span className="text-sm font-semibold text-fg-primary">{t(`status.${col.key}`)}</span>
+            <div
+              className={`flex items-center justify-between px-3 py-2 rounded-t-xl ${col.color}`}
+            >
+              <span className="text-sm font-semibold text-fg-primary">
+                {t(`status.${col.key}`)}
+              </span>
               <span className="text-xs font-medium text-fg-muted bg-fg-inverse/20 px-2 py-0.5 rounded-full">
                 {colTasks.length}
               </span>
@@ -181,12 +193,17 @@ export function Board({ initialTasks, projectId, projectIds, showProject, curren
                   onDragStart={(e) => handleDragStart(e, task.id)}
                   onDragEnd={handleDragEnd}
                   className={`relative p-3 bg-bg-primary border border-border-primary rounded-lg cursor-grab active:cursor-grabbing transition-[opacity,transform,box-shadow] group ${
-                    draggedId === task.id ? "opacity-50 rotate-2 shadow-lg" : "hover:border-border-strong hover:shadow-sm"
+                    draggedId === task.id
+                      ? "opacity-50 rotate-2 shadow-lg"
+                      : "hover:border-border-strong hover:shadow-sm"
                   }`}
                 >
                   <div
                     className="absolute top-1.5 end-1.5 z-10"
-                    onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDragStart={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
                   >
                     <Menu
                       label={t("move")}
@@ -201,11 +218,7 @@ export function Board({ initialTasks, projectId, projectIds, showProject, curren
                       <span className="sr-only">{t("move")}</span>
                     </Menu>
                   </div>
-                  <TaskCard
-                    task={task}
-                    variant="compact"
-                    showProject={showProject}
-                  />
+                  <TaskCard task={task} variant="compact" showProject={showProject} />
                 </div>
               ))}
               {colTasks.length === 0 && (

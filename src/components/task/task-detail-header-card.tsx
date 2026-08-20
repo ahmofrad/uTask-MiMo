@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { renderMarkdown } from "@/lib/markdown/render";
 
-type TaskStatus = "open" | "in_progress" | "done" | "cancelled";
+type TaskStatus = "open" | "in_progress" | "pending_approval" | "done" | "cancelled";
 type TaskPriority = "low" | "med" | "high" | "urgent";
 
 type TaskDetailHeaderCardProps = {
@@ -53,13 +53,19 @@ export function TaskDetailHeaderCard({
             onBlur={() => onSaveTitle(titleDraft.trim())}
             onKeyDown={(e) => {
               if (e.key === "Enter") onSaveTitle(titleDraft.trim());
-              if (e.key === "Escape") { setEditingTitle(false); setTitleDraft(title); }
+              if (e.key === "Escape") {
+                setEditingTitle(false);
+                setTitleDraft(title);
+              }
             }}
           />
         ) : (
           <h1
             className="text-2xl font-bold text-fg cursor-pointer hover:text-accent transition-colors rounded-lg p-1 -m-1 hover:bg-bg-surface-2"
-            onClick={() => { setEditingTitle(true); setTitleDraft(title); }}
+            onClick={() => {
+              setEditingTitle(true);
+              setTitleDraft(title);
+            }}
           >
             {title}
           </h1>
@@ -70,16 +76,19 @@ export function TaskDetailHeaderCard({
       <div className="flex flex-wrap items-center gap-3">
         <select
           value={status}
+          aria-label={t("task.fields.status")}
           onChange={(e) => onStatusChange(e.target.value as TaskStatus)}
           className="text-sm bg-bg-primary border border-border rounded-lg px-3 py-1.5 text-fg"
         >
           <option value="open">{t("task.status.open")}</option>
           <option value="in_progress">{t("task.status.in_progress")}</option>
+          <option value="pending_approval">{t("task.status.pending_approval")}</option>
           <option value="done">{t("task.status.done")}</option>
           <option value="cancelled">{t("task.status.cancelled")}</option>
         </select>
         <select
           value={priority}
+          aria-label={t("task.fields.priority")}
           onChange={(e) => onPriorityChange(e.target.value as TaskPriority)}
           className="text-sm bg-bg-primary border border-border rounded-lg px-3 py-1.5 text-fg"
         >
@@ -95,15 +104,23 @@ export function TaskDetailHeaderCard({
 
       {/* Description */}
       <div className="pt-2 border-t border-border-secondary">
-        <h3 className="text-xs font-medium text-fg-muted mb-2 uppercase tracking-wide">{t("task.fields.description")}</h3>
+        <h3 className="text-xs font-medium text-fg-muted mb-2 uppercase tracking-wide">
+          {t("task.fields.description")}
+        </h3>
         {editingDescription ? (
           <textarea
             value={descDraft}
             onChange={(e) => setDescDraft(e.target.value)}
             onBlur={() => onSaveDescription(descDraft.trim() || null)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSaveDescription(descDraft.trim() || null); }
-              if (e.key === "Escape") { setEditingDescription(false); setDescDraft(description ?? ""); }
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                onSaveDescription(descDraft.trim() || null);
+              }
+              if (e.key === "Escape") {
+                setEditingDescription(false);
+                setDescDraft(description ?? "");
+              }
             }}
             rows={4}
             className="w-full text-sm bg-transparent border border-accent rounded-lg p-2 text-fg outline-none resize-none"
@@ -113,10 +130,16 @@ export function TaskDetailHeaderCard({
         ) : (
           <div
             className="text-sm text-fg-secondary cursor-pointer hover:text-accent transition-colors min-h-[2rem] rounded-lg p-1 -m-1 hover:bg-bg-surface-2"
-            onClick={() => { setEditingDescription(true); setDescDraft(description ?? ""); }}
+            onClick={() => {
+              setEditingDescription(true);
+              setDescDraft(description ?? "");
+            }}
           >
             {description ? (
-              <div className="prose prose-sm max-w-none" dangerouslySetInnerHTML={{ __html: renderedDescription }} />
+              <div
+                className="prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: renderedDescription }}
+              />
             ) : (
               <span className="text-fg-subtle italic">{t("task.fields.description")}</span>
             )}

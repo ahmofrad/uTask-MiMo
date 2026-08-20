@@ -372,7 +372,8 @@
       "open": "Open",
       "in_progress": "In progress",
       "done": "Done",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "pending_approval": "Pending approval"
     },
     "priority": {
       "none": "No Priority",
@@ -1118,5 +1119,17 @@
     "delete": "Delete",
     "confirmDelete": "Delete custom field \"{name}\"? This will hide it from all tasks.",
     "includeTime": "Include time"
+  },
+  "approval": {
+    "title": "Approval",
+    "requiresApproval": "Requires approval",
+    "approver": "Approver",
+    "anyFinalizer": "Any approver",
+    "awaitingApproval": "Awaiting approval",
+    "approve": "Approve",
+    "reject": "Reject",
+    "rejectionReason": "Reason for rejection",
+    "reasonRequired": "A reason is required to reject",
+    "decisionFailed": "Could not update approval status"
   }
 }

@@ -28,7 +28,7 @@ export const publicTaskCreateSchema = z.object({
   projectId: uuid,
   title: z.string().trim().min(1).max(500),
   description: z.string().max(100_000).nullable().optional(),
-  status: z.enum(["open", "in_progress", "done", "cancelled"]).optional(),
+  status: z.enum(["open", "in_progress", "pending_approval", "done", "cancelled"]).optional(),
   priority: z.enum(["low", "med", "high", "urgent"]).optional(),
   startDate: isoDate.nullable().optional(),
   dueDate: isoDate.nullable().optional(),
@@ -39,7 +39,7 @@ export const publicTaskCreateSchema = z.object({
 export const publicTaskUpdateSchema = z.object({
   title: z.string().trim().min(1).max(500).optional(),
   description: z.string().max(100_000).nullable().optional(),
-  status: z.enum(["open", "in_progress", "done", "cancelled"]).optional(),
+  status: z.enum(["open", "in_progress", "pending_approval", "done", "cancelled"]).optional(),
   priority: z.enum(["low", "med", "high", "urgent"]).optional(),
   startDate: isoDate.nullable().optional(),
   dueDate: isoDate.nullable().optional(),
@@ -52,6 +52,8 @@ export const taskCreateSchema = publicTaskCreateSchema.extend({
   assigneeGroupId: uuid.nullable().optional(),
   estimatedHours: z.number().finite().min(0).max(100_000).nullable().optional(),
   progress: z.number().finite().min(0).max(100).optional(),
+  requiresApproval: z.boolean().optional(),
+  approverId: uuid.nullable().optional(),
   tagIds: z.array(uuid).max(100).optional(),
   customFields: z.record(z.string(), z.unknown()).optional(),
 }).strict();
@@ -63,10 +65,20 @@ export const taskUpdateSchema = publicTaskUpdateSchema.extend({
   estimatedHours: z.number().finite().min(0).max(100_000).nullable().optional(),
   spentHours: z.number().finite().min(0).max(100_000).nullable().optional(),
   progress: z.number().finite().min(0).max(100).optional(),
+  requiresApproval: z.boolean().optional(),
+  approverId: uuid.nullable().optional(),
   deletedAt: isoDate.nullable().optional(),
   tagIds: z.array(uuid).max(100).optional(),
   customFields: z.record(z.string(), z.unknown()).optional(),
 }).strict();
+
+export const approvalDecisionSchema = z
+  .object({
+    // `reason` is optional on approve, required on reject (enforced by the
+    // reject route so the two keep distinct error codes).
+    reason: z.string().trim().max(10_000).optional(),
+  })
+  .strict();
 
 export const publicCommentCreateSchema = z.object({
   bodyMarkdown: z.string().trim().min(1).max(100_000),
@@ -128,7 +140,7 @@ export const subtaskCreateSchema = z.object({
 }).strict();
 
 export const subtaskUpdateSchema = z.object({
-  status: z.enum(["open", "in_progress", "done", "cancelled"]).optional(),
+  status: z.enum(["open", "in_progress", "pending_approval", "done", "cancelled"]).optional(),
   title: z.string().trim().min(1).max(500).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "At least one field is required");
 

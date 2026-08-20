@@ -392,4 +392,103 @@ test.describe("Authenticated visual regression @visual", () => {
       maxDiffPixelRatio: 0.02,
     });
   });
+
+  test("task detail page renders correctly in RTL", async ({ page }) => {
+    // The activity timeline renders relative timestamps from the client clock,
+    // so pin it; the seeded task itself is stable.
+    await page.clock.setFixedTime(new Date("2026-08-19T12:00:00Z"));
+
+    const task = await prisma.task.findFirstOrThrow({
+      where: { title: "Finalize launch checklist" },
+      select: { id: true },
+    });
+    await page.goto(`/fa-IR/tasks/${task.id}`);
+    await expect(page.getByRole("heading", { name: "Finalize launch checklist" })).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page).toHaveScreenshot("task-detail-rtl.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+
+  // The mirrored views get en-US/LTR baselines too: the sticky label column,
+  // dependency arrows, and column flow also have a left side that can regress.
+  test("gantt chart renders correctly in LTR", async ({ page }) => {
+    await mockGanttReport(page);
+
+    const projectId = await seededProductLaunchId();
+    await page.goto(`/en-US/projects/${projectId}`);
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    const chart = page.getByTestId("gantt-scroll-container").first();
+    await expect(chart).toBeVisible({ timeout: 15000 });
+    await expect(chart.getByTestId("gantt-task-bar").first()).toBeVisible();
+    await expect(page).toHaveScreenshot("gantt-ltr.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+
+  test("gantt dependency panel renders correctly in LTR", async ({ page }) => {
+    await mockGanttReport(page);
+
+    const projectId = await seededProductLaunchId();
+    await page.goto(`/en-US/projects/${projectId}`);
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    const chart = page.getByTestId("gantt-scroll-container").first();
+    await expect(chart).toBeVisible({ timeout: 15000 });
+
+    await page.getByTestId("gantt-deps-toggle").click();
+    const panel = page.getByTestId("gantt-deps-panel").first();
+    await expect(panel).toBeVisible();
+    await expect(panel.getByTestId("gantt-dep-row")).toHaveCount(1);
+    await expect(page).toHaveScreenshot("gantt-deps-ltr.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+
+  test("wbs tree renders correctly in LTR", async ({ page }) => {
+    await page.route("**/api/v1/projects/*/wbs**", async (route) => {
+      await route.fulfill({ json: { data: WBS_RTL_TREE } });
+    });
+
+    const projectId = await seededProductLaunchId();
+    await page.goto(`/en-US/projects/${projectId}`);
+    await page.getByRole("button", { name: "WBS", exact: true }).click();
+    const editor = page.getByTestId("wbs-editor").first();
+    await expect(editor).toBeVisible({ timeout: 15000 });
+    await expect(editor.getByTestId("wbs-row")).toHaveCount(4);
+    await expect(page).toHaveScreenshot("wbs-ltr.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+
+  test("calendar view renders correctly in LTR", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-08-19T12:00:00Z"));
+    await page.route("**/api/v1/tasks**", async (route) => {
+      await route.fulfill({ json: { data: CALENDAR_RTL_TASKS } });
+    });
+    await page.route("**/api/v1/working-days**", async (route) => {
+      await route.fulfill({ json: { data: { weekendDays: [], holidays: [] } } });
+    });
+
+    await page.goto("/en-US/calendar");
+    const firstCell = page.getByTestId("calendar-day").first();
+    await expect(firstCell).toBeVisible({ timeout: 15000 });
+    await expect(page.getByText("Design new dashboard layout")).toBeVisible();
+    await expect(page).toHaveScreenshot("calendar-ltr.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+
+  test("board view renders correctly in LTR", async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-08-19T12:00:00Z"));
+
+    const projectId = await seededProductLaunchId();
+    await page.goto(`/en-US/projects/${projectId}`);
+    await expect(page.getByText("Finalize launch checklist").first()).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page).toHaveScreenshot("board-ltr.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
 });

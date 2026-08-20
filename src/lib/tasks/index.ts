@@ -1,8 +1,25 @@
 export { getTaskById, listTasks, getInboxTasks, getTaskStats, getUpcomingTasks } from "./queries";
-export type { ListTasksParams, ListTasksResult, GetInboxTasksResult, TaskStats, UpcomingTask } from "./queries";
+export type {
+  ListTasksParams,
+  ListTasksResult,
+  GetInboxTasksResult,
+  TaskStats,
+  UpcomingTask,
+} from "./queries";
 
-export { createTask, updateTask, deleteTask, reorderTasks, moveTask } from "./mutations";
+export {
+  createTask,
+  updateTask,
+  deleteTask,
+  reorderTasks,
+  moveTask,
+  approveTask,
+  rejectTask,
+} from "./mutations";
 export type { CreateTaskData, UpdateTaskData, MoveTaskData } from "./mutations";
+
+export { isTaskFinalizer, shouldRouteToApproval, TaskNotPendingApprovalError } from "./approval";
+export type { ApprovalSubject } from "./approval";
 
 export { buildTaskFilters } from "./filters";
 export type { TaskFilterParams } from "./filters";

@@ -11,7 +11,7 @@ export type CpmNode = {
   estimatedHours: number | null;
   isMilestone: boolean;
   progress: number;
-  status: "open" | "in_progress" | "done" | "cancelled";
+  status: string;
 };
 
 export type CpmScheduleEntry = {
@@ -105,13 +105,22 @@ export async function computeSchedule(projectId: string): Promise<CpmResult> {
   }
 
   const deps = await prisma.taskDependency.findMany({
-    where: { deletedAt: null, taskId: { in: leaves.map((l) => l.id) }, dependsOnId: { in: leaves.map((l) => l.id) } },
+    where: {
+      deletedAt: null,
+      taskId: { in: leaves.map((l) => l.id) },
+      dependsOnId: { in: leaves.map((l) => l.id) },
+    },
     select: { taskId: true, dependsOnId: true, type: true, lag: true, lagUnit: true },
   });
 
   const edges: Edge[] = deps
     .filter((d) => d.type !== "RELATES_TO")
-    .map((d) => ({ from: d.dependsOnId, to: d.taskId, type: d.type, lagMs: lagToMs(d.lag, d.lagUnit) }));
+    .map((d) => ({
+      from: d.dependsOnId,
+      to: d.taskId,
+      type: d.type,
+      lagMs: lagToMs(d.lag, d.lagUnit),
+    }));
 
   const result = runCpm(nodeById, edges, version);
   cache.set(projectId, { version, result });
@@ -174,7 +183,8 @@ function runCpm(nodes: Map<string, CpmNode>, edges: Edge[], version: number): Cp
     // its deadline so it lands exactly on the due date; a milestone sits on
     // its due date. Without this, unconstrained sources anchor at day zero
     // and real due dates never constrain the schedule.
-    const deadlineStart = explicitStart == null && node.dueDate != null ? node.dueDate.getTime() - d : null;
+    const deadlineStart =
+      explicitStart == null && node.dueDate != null ? node.dueDate.getTime() - d : null;
     let start = earliest === -Infinity ? (explicitStart ?? deadlineStart ?? 0) : earliest;
     if (explicitStart !== null) start = Math.max(start, explicitStart);
     if (deadlineStart !== null) start = Math.max(start, deadlineStart);
@@ -218,7 +228,11 @@ function runCpm(nodes: Map<string, CpmNode>, edges: Edge[], version: number): Cp
   for (const id of topo) {
     const d = dur.get(id)!;
     const float = ls.get(id)! - es.get(id)!;
-    const unscheduled = d === 0 && !nodes.get(id)!.startDate && !nodes.get(id)!.dueDate && !nodes.get(id)!.estimatedHours;
+    const unscheduled =
+      d === 0 &&
+      !nodes.get(id)!.startDate &&
+      !nodes.get(id)!.dueDate &&
+      !nodes.get(id)!.estimatedHours;
     // A completed task is history — it no longer drives the schedule, so it
     // is never flagged critical (matches the chart's overdue indicator).
     const critical = !unscheduled && nodes.get(id)!.status !== "done" && float <= HOUR_MS;

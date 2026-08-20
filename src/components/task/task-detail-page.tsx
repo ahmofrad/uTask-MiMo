@@ -10,6 +10,7 @@ import { CommentThread } from "@/components/comment/comment-thread";
 import { ActivityTimeline } from "@/components/task/activity-timeline";
 import { TaskDetailHeaderCard } from "@/components/task/task-detail-header-card";
 import { TaskDetailSidebar } from "@/components/task/task-detail-sidebar";
+import { TaskApprovalBanner } from "@/components/task/task-approval-banner";
 import { useToast } from "@/components/ui/toast";
 import type { ActivityEvent } from "@/lib/activity/types";
 import { apiFetch } from "@/lib/api-fetch";
@@ -34,6 +35,8 @@ type Props = {
   auditNextCursor?: string | null;
   projectMembers: { id: string; displayName: string; avatarUrl?: string | null }[];
   currentUserId: string;
+  canApprove: boolean;
+  approverName?: string | null;
 };
 
 export function TaskDetailPage({
@@ -48,6 +51,8 @@ export function TaskDetailPage({
   auditNextCursor: initialAuditCursor,
   projectMembers,
   currentUserId,
+  canApprove,
+  approverName,
 }: Props) {
   const t = useTranslations();
   const { addToast } = useToast();
@@ -111,6 +116,9 @@ export function TaskDetailPage({
     handleGroupChange,
     handleEstimatedChange,
     handleSpentChange,
+    handleApprovalConfigChange,
+    handleApprove,
+    handleReject,
     handleCustomFieldChange,
     handleAddWatcher,
     handleRemoveWatcher,
@@ -161,6 +169,15 @@ export function TaskDetailPage({
           {t("task.deleteTask")}
         </button>
       </div>
+
+      {task.status === "pending_approval" && (
+        <TaskApprovalBanner
+          canApprove={canApprove}
+          approverName={approverName ?? null}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
+      )}
 
       <TaskDetailHeaderCard
         title={task.title}
@@ -277,6 +294,8 @@ export function TaskDetailPage({
           onToggleWatch={toggleWatch}
           onAddWatcher={handleAddWatcher}
           onRemoveWatcher={handleRemoveWatcher}
+          onRequiresApprovalChange={(value) => handleApprovalConfigChange({ requiresApproval: value })}
+          onApproverChange={(userId) => handleApprovalConfigChange({ approverId: userId })}
         />
       </div>
     </div>

@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { prisma } from "@/lib/db";
 
 const AUTH_PAGES = [
   { name: "dashboard", path: "/" },
@@ -36,4 +37,32 @@ test.describe("Accessibility", () => {
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });
+
+  // The newest project views live inside the project detail page, which the
+  // AUTH_PAGES sweep above does not cover. Check the board (default tab), the
+  // Gantt chart, and the WBS tree explicitly.
+  // These navigate without a locale prefix, so tabs render in the default
+  // (en-US) locale — match the English tab labels.
+  for (const { name, tab, containerId } of [
+    { name: "project board", tab: null, containerId: null },
+    { name: "project gantt", tab: "Gantt", containerId: "gantt-scroll-container" },
+    { name: "project wbs", tab: "WBS", containerId: "wbs-editor" },
+  ] as const) {
+    test(`@a11y ${name} view has no auto-detected violations`, async ({ page }) => {
+      const project = await prisma.project.findFirstOrThrow({
+        where: { name: "Product Launch" },
+        select: { id: true },
+      });
+      await page.goto(`/projects/${project.id}`);
+      if (tab) {
+        await page.getByRole("button", { name: tab, exact: true }).click();
+      }
+      const container = containerId
+        ? page.getByTestId(containerId).first()
+        : page.locator("main").first();
+      await expect(container).toBeVisible({ timeout: 15000 });
+      const results = await new AxeBuilder({ page }).analyze();
+      expect(results.violations).toEqual([]);
+    });
+  }
 });

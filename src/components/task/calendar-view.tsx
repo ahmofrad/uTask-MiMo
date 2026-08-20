@@ -28,6 +28,7 @@ export type CalendarTask = {
 const STATUS_CHIP: Record<string, string> = {
   open: "border-s-info",
   in_progress: "border-s-warning",
+  pending_approval: "border-s-tone-violet",
   done: "border-s-success",
   cancelled: "border-s-fg-muted",
 };
@@ -53,8 +54,7 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
   // The default calendar config (never saved) treats every day as working, so
   // the locale-based weekend tint stays until an admin configures one.
   const workingDayCalendar = createWorkingDayCalendar(workingDays, locale);
-  const holidayName = (day: number): string | null =>
-    workingDayCalendar.holidayName(cellDate(day));
+  const holidayName = (day: number): string | null => workingDayCalendar.holidayName(cellDate(day));
 
   useEffect(() => {
     setItems(tasks);
@@ -97,7 +97,9 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
         const j = toJalali(anchor);
         return j.jy === year && j.jm === month && j.jd === day;
       }
-      return anchor.getFullYear() === year && anchor.getMonth() + 1 === month && anchor.getDate() === day;
+      return (
+        anchor.getFullYear() === year && anchor.getMonth() + 1 === month && anchor.getDate() === day
+      );
     });
   }
 
@@ -111,7 +113,8 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
     // Persist canonical day markers, never local midnights: the due lands on
     // the target day's `23:59:59.999Z` and the start shifts day-for-day onto
     // `00:00:00.000Z`, so the stored dates stay zone-independent.
-    const newStartIso = task.startDate != null ? shiftCalendarStart(task.startDate, deltaDays) : null;
+    const newStartIso =
+      task.startDate != null ? shiftCalendarStart(task.startDate, deltaDays) : null;
     const newDueIso = calendarDueMarker(targetDay);
 
     const snapshot = items;
@@ -141,15 +144,36 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
           className="p-2 hover:bg-bg-surface rounded-lg transition-colors"
           aria-label={t("prevMonth")}
         >
-          <svg className="w-5 h-5 text-fg-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          <svg
+            className="w-5 h-5 text-fg-muted"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
+          </svg>
         </button>
-        <h2 className="text-lg font-semibold text-fg-primary">{monthName} {year}</h2>
+        <h2 className="text-lg font-semibold text-fg-primary">
+          {monthName} {year}
+        </h2>
         <button
           onClick={() => setMonthOffset(monthOffset + 1)}
           className="p-2 hover:bg-bg-surface rounded-lg transition-colors"
           aria-label={t("nextMonth")}
         >
-          <svg className="w-5 h-5 text-fg-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          <svg
+            className="w-5 h-5 text-fg-muted"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </button>
       </div>
 
@@ -160,9 +184,13 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
         }}
       >
         {weekdays.map((d) => (
-          <div key={d} className="text-center text-xs text-fg-muted py-1 font-medium">{d}</div>
+          <div key={d} className="text-center text-xs text-fg-muted py-1 font-medium">
+            {d}
+          </div>
         ))}
-        {Array.from({ length: startOffset }).map((_, i) => <div key={`e${i}`} />)}
+        {Array.from({ length: startOffset }).map((_, i) => (
+          <div key={`e${i}`} />
+        ))}
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1;
           const dayTasks = getTasksForDay(day);
@@ -188,9 +216,20 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                 if (id) void handleDrop(id, day);
               }}
             >
-              <div className={cn("text-start mb-1", isToday(day) ? "font-semibold text-accent" : isHolidayDay(day) ? "font-semibold text-danger" : "text-fg-muted")}>
+              <div
+                className={cn(
+                  "text-start mb-1",
+                  isToday(day)
+                    ? "font-semibold text-accent"
+                    : isHolidayDay(day)
+                      ? "font-semibold text-danger"
+                      : "text-fg-muted",
+                )}
+              >
                 {day}
-                {isHolidayDay(day) && <span className="ms-1 inline-block h-1.5 w-1.5 rounded-full bg-danger align-middle" />}
+                {isHolidayDay(day) && (
+                  <span className="ms-1 inline-block h-1.5 w-1.5 rounded-full bg-danger align-middle" />
+                )}
               </div>
               {dayTasks.slice(0, 3).map((task) => {
                 const draggable = !!onMove && !!task.dueDate;
@@ -214,7 +253,9 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                     title={draggable ? t("dragToReschedule") : undefined}
                   >
                     <span className="flex items-center gap-1">
-                      {task.priority === "high" && <span className="inline-block w-1.5 h-1.5 rounded-full bg-danger shrink-0" />}
+                      {task.priority === "high" && (
+                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-danger shrink-0" />
+                      )}
                       <span className="truncate">{task.title}</span>
                     </span>
                     {task.progress != null && task.status !== "done" && (
@@ -238,7 +279,9 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-fg-muted">
         {(["open", "in_progress", "done", "cancelled"] as const).map((s) => (
           <span key={s} className="inline-flex items-center gap-1.5">
-            <span className={cn("inline-block w-2.5 h-2.5 rounded-full border-s-2", STATUS_CHIP[s])} />
+            <span
+              className={cn("inline-block w-2.5 h-2.5 rounded-full border-s-2", STATUS_CHIP[s])}
+            />
             {t(`status.${s}`)}
           </span>
         ))}

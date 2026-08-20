@@ -1,14 +1,13 @@
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth/config";
 import { redirect, notFound } from "next/navigation";
+import { isTaskFinalizer } from "@/lib/tasks";
 import { TaskDetailPage } from "@/components/task/task-detail-page";
 import { getTaskActivity } from "@/lib/activity";
 
 export const dynamic = "force-dynamic";
 
-export default async function TaskDetailRoute(props: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function TaskDetailRoute(props: { params: Promise<{ id: string }> }) {
   const { id } = await props.params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
@@ -17,7 +16,11 @@ export default async function TaskDetailRoute(props: {
     where: { id: id },
     include: {
       project: { select: { id: true, name: true } },
-      assignees: { include: { user: { select: { id: true, displayName: true, email: true, avatarUrl: true } } } },
+      assignees: {
+        include: {
+          user: { select: { id: true, displayName: true, email: true, avatarUrl: true } },
+        },
+      },
       assigneeGroup: { select: { id: true, name: true } },
       reporter: { select: { id: true, displayName: true, email: true } },
       createdBy: { select: { id: true, displayName: true } },
@@ -30,7 +33,9 @@ export default async function TaskDetailRoute(props: {
           title: true,
           status: true,
           priority: true,
-          assignees: { include: { user: { select: { id: true, displayName: true, avatarUrl: true } } } },
+          assignees: {
+            include: { user: { select: { id: true, displayName: true, avatarUrl: true } } },
+          },
         },
       },
       tags: { include: { tag: true } },
@@ -40,7 +45,26 @@ export default async function TaskDetailRoute(props: {
 
   if (!task || task.deletedAt) notFound();
 
-  const [customFields, customFieldValues, comments, watchers, attachments, activityResult, projectMembers] = await Promise.all([
+  const canApprove = await isTaskFinalizer(session.user.id, {
+    projectId: task.projectId,
+    approverId: task.approverId,
+  });
+  const approver = task.approverId
+    ? await prisma.user.findUnique({
+        where: { id: task.approverId },
+        select: { displayName: true },
+      })
+    : null;
+
+  const [
+    customFields,
+    customFieldValues,
+    comments,
+    watchers,
+    attachments,
+    activityResult,
+    projectMembers,
+  ] = await Promise.all([
     prisma.customField.findMany({
       where: { projectId: task.projectId, archivedAt: null },
       orderBy: { orderIndex: "asc" },
@@ -99,7 +123,8 @@ export default async function TaskDetailRoute(props: {
       id: cf.id,
       key: cf.key,
       name: cf.name,
-      type: cf.type as "text" | "number" | "date" | "select" | "multi_select" | "user" | "checkbox" | "url",
+      type: cf.type as
+        "text" | "number" | "date" | "select" | "multi_select" | "user" | "checkbox" | "url",
       required: cf.required,
       config,
     };
@@ -111,7 +136,10 @@ export default async function TaskDetailRoute(props: {
         id: task.id,
         title: task.title,
         description: task.description,
-        status: task.status as "open" | "in_progress" | "done" | "cancelled",
+        status: task.status as "open" | "in_progress" | "pending_approval" | "done" | "cancelled",
+        requiresApproval: task.requiresApproval,
+        approverId: task.approverId,
+        approvalNote: task.approvalNote,
         priority: task.priority as "low" | "med" | "high" | "urgent",
         startDate: task.startDate?.toISOString() ?? null,
         endDate: task.endDate?.toISOString() ?? null,
@@ -181,6 +209,8 @@ export default async function TaskDetailRoute(props: {
         avatarUrl: pm.user.avatarUrl,
       }))}
       currentUserId={session.user.id}
+      canApprove={canApprove}
+      approverName={approver?.displayName ?? null}
     />
   );
 }

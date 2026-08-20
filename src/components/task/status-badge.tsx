@@ -6,9 +6,22 @@ import { useTranslations } from "next-intl";
 
 const statusConfig = {
   open: { labelKey: "status.open" as const, className: "!bg-info-bg !text-info !border-info/20" },
-  in_progress: { labelKey: "status.in_progress" as const, className: "!bg-warning-bg !text-warning !border-warning/20" },
-  done: { labelKey: "status.done" as const, className: "!bg-success-bg !text-success !border-success/20" },
-  cancelled: { labelKey: "status.cancelled" as const, className: "!bg-bg-surface-2 !text-fg-subtle !border-border" },
+  in_progress: {
+    labelKey: "status.in_progress" as const,
+    className: "!bg-warning-bg !text-warning !border-warning/20",
+  },
+  pending_approval: {
+    labelKey: "status.pending_approval" as const,
+    className: "!bg-tone-violet-bg !text-tone-violet !border-tone-violet/30",
+  },
+  done: {
+    labelKey: "status.done" as const,
+    className: "!bg-success-bg !text-success !border-success/20",
+  },
+  cancelled: {
+    labelKey: "status.cancelled" as const,
+    className: "!bg-bg-surface-2 !text-fg-subtle !border-border",
+  },
 };
 
 type StatusBadgeProps = {
@@ -19,5 +32,9 @@ type StatusBadgeProps = {
 export function StatusBadge({ status, className }: StatusBadgeProps) {
   const t = useTranslations("task");
   const cfg = statusConfig[status] ?? statusConfig.open;
-  return <Badge variant="outline" className={cn(cfg.className, "border", className)}>{t(cfg.labelKey)}</Badge>;
+  return (
+    <Badge variant="outline" className={cn(cfg.className, "border", className)}>
+      {t(cfg.labelKey)}
+    </Badge>
+  );
 }

@@ -105,6 +105,7 @@ enum CustomFieldType {
 enum TaskStatus {
   open
   in_progress
+  pending_approval
   done
   cancelled
 }
@@ -186,6 +187,8 @@ enum AuditAction {
   task_moved
   task_dependency_created
   task_dependency_deleted
+  task_approved
+  task_rejected
   comment_created
   comment_updated
   comment_deleted
@@ -489,6 +492,9 @@ model Task {
   progress       Int          @default(0)
   isMilestone    Boolean      @default(false)
   milestoneKind  String?
+  requiresApproval Boolean   @default(false)
+  approverId     String?      @db.Uuid
+  approvalNote   String?      @db.Text
   completedAt    DateTime?    @db.Timestamptz
   deletedAt      DateTime?    @db.Timestamptz
   createdAt      DateTime     @default(now()) @db.Timestamptz

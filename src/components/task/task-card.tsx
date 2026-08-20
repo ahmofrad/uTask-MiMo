@@ -34,6 +34,7 @@ type TaskCardProps = {
 const STATUS_BORDER: Record<string, string> = {
   open: "border-s-info",
   in_progress: "border-s-warning",
+  pending_approval: "border-s-tone-violet",
   done: "border-s-success",
   cancelled: "border-s-fg-subtle",
 };
@@ -95,7 +96,7 @@ export function TaskCard({ task, variant, showProject }: TaskCardProps) {
 
         {/* Status + Priority row */}
         <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
-          <StatusBadge status={task.status as "open" | "in_progress" | "done" | "cancelled"} />
+          <StatusBadge status={task.status as "open" | "in_progress" | "pending_approval" | "done" | "cancelled"} />
           <PriorityBadge priority={task.priority as "low" | "med" | "high" | "urgent"} />
           <DueDateChip dueDate={task.dueDate} isCompleted={task.status === "done"} />
           {blockedBy.length > 0 && <BlockedBadge blockedBy={blockedBy} />}
@@ -155,7 +156,7 @@ export function TaskCard({ task, variant, showProject }: TaskCardProps) {
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <StatusBadge status={task.status as "open" | "in_progress" | "done" | "cancelled"} />
+          <StatusBadge status={task.status as "open" | "in_progress" | "pending_approval" | "done" | "cancelled"} />
           <span className="text-sm font-medium text-fg-primary truncate">{task.title}</span>
           {blockedBy.length > 0 && <BlockedBadge blockedBy={blockedBy} />}
         </div>
