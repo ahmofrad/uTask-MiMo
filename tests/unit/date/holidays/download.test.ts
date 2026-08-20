@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   API_KEY_MASK,
+  apiKeyState,
   decryptApiKey,
   downloadPublicHolidays,
   encryptApiKey,
@@ -174,5 +175,30 @@ describe("holiday egress downloader", () => {
     expect(healed.provider).toBe("calendarific");
     expect(healed.countryCode).toBe("IR");
     expect(healed.enabled).toBe(true);
+  });
+});
+
+describe("apiKeyState", () => {
+  it("classifies unset and masked keys as none", () => {
+    expect(apiKeyState("")).toBe("none");
+    expect(apiKeyState(API_KEY_MASK)).toBe("none");
+  });
+
+  it("classifies a key encrypted under the current key as ok", () => {
+    const blob = encryptApiKey("test-key-123");
+    expect(apiKeyState(blob)).toBe("ok");
+  });
+
+  it("classifies a key encrypted under a different key as broken", () => {
+    // Regression: WEBHOOK_SECRET_ENCRYPTION_KEY differs between .env (dev) and
+    // .env.prod (docker). A key saved under one env must be reported as
+    // "broken" under the other, not silently masked as configured.
+    const blob = encryptApiKey("test-key-123");
+    process.env.WEBHOOK_SECRET_ENCRYPTION_KEY = "a-different-encryption-key";
+    try {
+      expect(apiKeyState(blob)).toBe("broken");
+    } finally {
+      process.env.WEBHOOK_SECRET_ENCRYPTION_KEY = "test-only-encryption-key";
+    }
   });
 });

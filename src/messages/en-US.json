@@ -924,6 +924,7 @@
     "egressDownloadBtn": "Download",
     "egressDownloading": "Downloading…",
     "egressDisabled": "Downloads are disabled. Enable them in the download section first.",
+    "egressKeyBroken": "The stored Calendarific API key can't be decrypted — the server's encryption key may have changed between restarts. Re-enter the key to restore downloads.",
     "downloadFailed": "The download failed. Check that outbound HTTPS is allowed to the provider.",
     "downloadResult": "Downloaded and added {imported} holidays ({skipped} duplicates skipped).",
     "egressProvider": "Provider",

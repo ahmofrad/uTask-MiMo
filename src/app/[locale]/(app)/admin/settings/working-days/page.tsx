@@ -12,7 +12,15 @@ import {
 
 type HolidayRow = { date: string; name: string };
 type WorkingDayConfig = { weekendDays: number[]; holidays: HolidayRow[] };
-type EgressConfig = { enabled: boolean; provider: HolidayProvider; baseUrl: string; countryCode: string; apiKey: string };
+type EgressConfig = {
+  enabled: boolean;
+  provider: HolidayProvider;
+  baseUrl: string;
+  countryCode: string;
+  apiKey: string;
+  /** "ok" when the stored key decrypts, "broken" when it exists but cannot be decrypted. */
+  keyState?: "none" | "ok" | "broken";
+};
 
 const EGRESS_API_KEY_MASK = "********";
 
@@ -185,10 +193,14 @@ export default function WorkingDaysPage() {
     setSavingEgress(true);
     setImportMsg(null);
     try {
+      // keyState is client-side display metadata; the strict API schema
+      // rejects unknown fields, so strip it before sending.
+      const egressBody = { ...egress };
+      delete egressBody.keyState;
       const res = await apiFetch("/api/v1/admin/settings/working-days/egress", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(egress),
+        body: JSON.stringify(egressBody),
       });
       setImportMsg(res.ok ? { ok: true, text: t("egressSaved") } : { ok: false, text: t("egressSaveFailed") });
       if (res.ok) {
@@ -405,6 +417,15 @@ export default function WorkingDaysPage() {
               {!egressLoaded ? (
                 <p className="text-xs text-fg-tertiary">{t("loading")}</p>
               ) : (
+                <div className="space-y-3">
+                {egress.keyState === "broken" && (
+                  <p
+                    data-testid="wd-egress-key-broken"
+                    className="text-sm text-destructive bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2"
+                  >
+                    {t("egressKeyBroken")}
+                  </p>
+                )}
                 <div className="flex flex-wrap items-end gap-3">
                   <label className="flex items-center gap-2 text-sm text-fg-primary">
                     <input
@@ -499,6 +520,7 @@ export default function WorkingDaysPage() {
                   >
                     {downloading ? t("egressDownloading") : t("egressDownloadBtn")}
                   </button>
+                </div>
                 </div>
               )}
             </div>

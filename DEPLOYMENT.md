@@ -543,7 +543,7 @@ The platform uses the following secret material that must be protected by the cu
 
 - `DB_PASSWORD` — Postgres user password.
 - `AUTH_SECRET` — JWT signing secret (32+ bytes, random).
-- `WEBHOOK_SECRET_ENCRYPTION_KEY` — AES-256-GCM key for encrypting webhook signing secrets at rest (32 bytes, random). **If this key is lost, all registered webhook secrets become unrecoverable.** Rotating this key requires re-issuing every webhook.
+- `WEBHOOK_SECRET_ENCRYPTION_KEY` — AES-256-GCM key for encrypting webhook signing secrets at rest (32 bytes, random). It also encrypts the Calendarific egress API key saved in the holiday-download settings. **If this key is lost, all registered webhook secrets become unrecoverable.** Rotating this key requires re-issuing every webhook; a changed key also silently breaks holiday downloads (the settings page warns and asks you to re-enter the API key).
 - `LDAP_BIND_PASSWORD`, `SAML_IDP_CERTIFICATE`, `SMTP_PASSWORD` — sensitive credentials.
 - `MINIO_ROOT_PASSWORD`, `REDIS_PASSWORD` (if used).
 

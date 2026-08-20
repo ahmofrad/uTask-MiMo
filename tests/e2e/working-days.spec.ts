@@ -54,7 +54,9 @@ test.describe("Working days admin page", () => {
       });
       const res = await page.request.get("/api/v1/admin/settings/working-days");
       expect(res.ok()).toBeTruthy();
-      const body = (await res.json()) as { data?: { weekendDays: number[]; holidays: { date: string; name: string }[] } };
+      const body = (await res.json()) as {
+        data?: { weekendDays: number[]; holidays: { date: string; name: string }[] };
+      };
       expect(body.data?.weekendDays).toEqual([6]);
       expect(body.data?.holidays).toEqual([
         { date: expectedDate, name: "Test holiday" },
@@ -116,7 +118,9 @@ test.describe("Working days admin page", () => {
         const pad = (n: number) => String(n).padStart(2, "0");
         return `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}`;
       });
-      await expect(page.locator(`[data-testid="calendar-day"][data-date="${saturday}"]`)).toBeVisible();
+      await expect(
+        page.locator(`[data-testid="calendar-day"][data-date="${saturday}"]`),
+      ).toBeVisible();
 
       // Gantt view: the timeline day for the holiday shows its name in the
       // styled tooltip when hovered (replacing the native title attribute).
@@ -128,7 +132,9 @@ test.describe("Working days admin page", () => {
       await page.getByRole("button", { name: "Gantt", exact: true }).click();
       const chart = page.getByTestId("gantt-scroll-container").first();
       await expect(chart).toBeVisible({ timeout: 15000 });
-      const holidayCell = chart.locator(`[data-testid="gantt-timeline-day"][data-holiday-name="Test holiday"]`);
+      const holidayCell = chart.locator(
+        `[data-testid="gantt-timeline-day"][data-holiday-name="Test holiday"]`,
+      );
       await expect(holidayCell).toBeVisible({ timeout: 15000 });
       await holidayCell.hover();
       const tooltip = page.getByTestId("gantt-holiday-tooltip");
@@ -214,7 +220,56 @@ test.describe("Working days admin page", () => {
     const page = await ctx.newPage();
     await page.goto("/en-US/admin/settings/working-days");
     // Members lack org:settings; the page guard redirects to the home route.
-    await page.waitForURL((url) => !url.pathname.includes("/admin/settings/working-days"), { timeout: 10000 });
+    await page.waitForURL((url) => !url.pathname.includes("/admin/settings/working-days"), {
+      timeout: 10000,
+    });
     await ctx.close();
   });
 });
+
+test("an undecryptable stored API key is surfaced, not masked as configured", async ({ page }) => {
+    // Regression: WEBHOOK_SECRET_ENCRYPTION_KEY differs between .env and
+    // .env.prod. A Calendarific key saved under one env was reported as
+    // configured (masked) after a restart under the other, while downloads
+    // failed with a misleading "API key is required". The UI must warn and
+    // the download must explain that the stored key cannot be decrypted.
+    const oldKey = process.env.WEBHOOK_SECRET_ENCRYPTION_KEY;
+    try {
+      // Encrypt a key with a DIFFERENT key than the server holds, then store
+      // it directly — the exact state a cross-env restart leaves behind.
+      process.env.WEBHOOK_SECRET_ENCRYPTION_KEY = "definitely-not-the-server-key-123";
+      const { encryptApiKey } = await import("@/lib/date/holidays/download");
+      const foreignBlob = encryptApiKey("cross-env-key-999");
+
+      // value is a Json column; the app stores the object directly (see
+      // setInstanceSetting) — stringifying would double-encode and the strict
+      // schema would reject it, falling back to defaults.
+      const egressValue = { enabled: true, provider: "calendarific", baseUrl: "https://calendarific.com", countryCode: "IR", apiKey: foreignBlob };
+      await prisma.instanceSetting.upsert({
+        where: { key: HOLIDAY_EGRESS_SETTING_KEY },
+        update: { value: egressValue },
+        create: { key: HOLIDAY_EGRESS_SETTING_KEY, value: egressValue },
+      });
+
+      await page.goto("/en-US/admin/settings/working-days");
+      await expect(page.getByTestId("wd-egress-key-broken")).toBeVisible();
+
+      const res = await page.request.get("/api/v1/admin/settings/working-days/egress");
+      const body = (await res.json()) as { data?: { apiKey?: string; keyState?: string } };
+      expect(body.data?.apiKey).toBe("");
+      expect(body.data?.keyState).toBe("broken");
+
+      const csrf = (await page.context().cookies()).find((c) => c.name === "csrf_token")?.value ?? "";
+      const dl = await page.request.post("/api/v1/admin/settings/working-days/download", {
+        data: { year: 2026 },
+        headers: { "x-csrf-token": csrf, "content-type": "application/json" },
+      });
+      expect(dl.status()).toBe(409);
+      const dlBody = (await dl.json()) as { error?: { code?: string } };
+      expect(dlBody.error?.code).toBe("api_key_undecryptable");
+    } finally {
+      if (oldKey === undefined) delete process.env.WEBHOOK_SECRET_ENCRYPTION_KEY;
+      else process.env.WEBHOOK_SECRET_ENCRYPTION_KEY = oldKey;
+      await prisma.instanceSetting.deleteMany({ where: { key: HOLIDAY_EGRESS_SETTING_KEY } });
+    }
+  });

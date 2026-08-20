@@ -120,6 +120,22 @@ export function decryptApiKey(stored: string): string {
   }
 }
 
+export type ApiKeyState = "none" | "ok" | "broken";
+
+/**
+ * Classifies the stored API key: `none` when unset or masked, `ok` when it
+ * decrypts under the current encryption key, `broken` when a stored blob
+ * exists but fails to decrypt — e.g. WEBHOOK_SECRET_ENCRYPTION_KEY changed
+ * between restarts or deployments. The UI must surface `broken` instead of
+ * pretending the key is configured, and the download guard must reject it
+ * with a clear reason rather than a misleading "key required" error.
+ */
+export function apiKeyState(stored: string): ApiKeyState {
+  if (stored === "" || stored === API_KEY_MASK) return "none";
+  // decryptApiKey returns "" exactly when the stored value fails to decrypt.
+  return decryptApiKey(stored) === "" ? "broken" : "ok";
+}
+
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 type NagerHoliday = {

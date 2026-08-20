@@ -6,6 +6,7 @@ import { readJsonBody, validationError } from "@/lib/validation/api";
 import { PROVIDER_DEFAULT_BASE_URLS } from "@/lib/date/holidays/countries";
 import {
   API_KEY_MASK,
+  apiKeyState,
   encryptApiKey,
   HOLIDAY_EGRESS_SETTING_KEY,
   holidayEgressConfigSchema,
@@ -22,8 +23,13 @@ export async function GET() {
 
   const stored = await getInstanceSetting(HOLIDAY_EGRESS_SETTING_KEY, undefined);
   const egress = normalizeHolidayEgress(stored);
+  // Report the key truthfully: only mask it when it actually decrypts. A
+  // stored blob that fails to decrypt (encryption key changed between
+  // restarts/deployments) must come back as `keyState: "broken"` with an
+  // empty apiKey, so the admin re-enters it instead of seeing a phantom key.
+  const keyState = apiKeyState(egress.apiKey);
   return NextResponse.json({
-    data: { ...egress, apiKey: egress.apiKey ? API_KEY_MASK : "" },
+    data: { ...egress, apiKey: keyState === "ok" ? API_KEY_MASK : "", keyState },
   });
 }
 
@@ -45,13 +51,17 @@ export async function PUT(request: Request) {
     await getInstanceSetting(HOLIDAY_EGRESS_SETTING_KEY, undefined),
   );
 
-  // Keep the stored key when the client submits the mask (unchanged) or an
-  // empty value for the keyless Nager provider.
+  // Keep the stored key only when the client submits the mask (unchanged)
+  // AND the stored key is still decryptable. An undecryptable blob is
+  // useless — drop it so the admin is forced to re-enter a working key.
+  const storedKeyState = apiKeyState(before.apiKey);
   const incoming = parsed.data;
   const apiKey =
     incoming.apiKey && incoming.apiKey !== API_KEY_MASK
       ? encryptApiKey(incoming.apiKey)
-      : before.apiKey;
+      : storedKeyState === "ok"
+        ? before.apiKey
+        : "";
 
   // The base URL is derived from the provider, never taken from the client
   // (a switched provider must not keep the old host).
@@ -71,5 +81,7 @@ export async function PUT(request: Request) {
     after: { enabled: toStore.enabled, provider: toStore.provider, countryCode: toStore.countryCode },
   });
 
-  return NextResponse.json({ data: { ...toStore, apiKey: apiKey ? API_KEY_MASK : "" } });
+  return NextResponse.json({
+    data: { ...toStore, apiKey: apiKey ? API_KEY_MASK : "", keyState: apiKeyState(apiKey) },
+  });
 }

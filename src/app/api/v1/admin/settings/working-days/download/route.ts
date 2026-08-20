@@ -4,6 +4,7 @@ import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { readJsonBody, validationError } from "@/lib/validation/api";
 import { getInstanceSetting } from "@/lib/settings/instance";
 import {
+  apiKeyState,
   downloadPublicHolidays,
   HOLIDAY_EGRESS_SETTING_KEY,
   normalizeHolidayEgress,
@@ -44,16 +45,31 @@ export async function POST(request: Request) {
       { status: 409 },
     );
   }
-  if (egress.provider === "calendarific" && !egress.apiKey) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "api_key_required",
-          message: "A Calendarific API key is required before downloading.",
+  if (egress.provider === "calendarific") {
+    const keyState = apiKeyState(egress.apiKey);
+    if (keyState === "none") {
+      return NextResponse.json(
+        {
+          error: {
+            code: "api_key_required",
+            message: "A Calendarific API key is required before downloading.",
+          },
         },
-      },
-      { status: 400 },
-    );
+        { status: 400 },
+      );
+    }
+    if (keyState === "broken") {
+      return NextResponse.json(
+        {
+          error: {
+            code: "api_key_undecryptable",
+            message:
+              "The stored Calendarific API key cannot be decrypted with the current encryption key (it may have changed since the key was saved). Re-enter the key in the download settings.",
+          },
+        },
+        { status: 409 },
+      );
+    }
   }
 
   const year = parsed.data.year ?? new Date().getFullYear();
