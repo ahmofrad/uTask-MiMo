@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-fetch";
 import { normalizeTaskDate } from "@/lib/date/task-date";
+import { encodeRecurrenceRule, type RecurrenceRule } from "@/lib/tasks/recurrence";
 import type { ActivityEvent } from "@/lib/activity/types";
 
 export type TaskData = {
@@ -20,6 +21,8 @@ export type TaskData = {
   requiresApproval?: boolean;
   approverId?: string | null;
   approvalNote?: string | null;
+  recurrenceRule?: string | null;
+  recurrenceParentId?: string | null;
   projectId: string;
   projectName: string;
   assignees: { id: string; displayName: string; avatarUrl?: string | null }[];
@@ -228,6 +231,11 @@ export function useTaskMutations({
     },
     [updateTask],
   );
+
+  const handleRecurrenceChange = useCallback((rule: RecurrenceRule | null) => {
+    setTask((prev) => ({ ...prev, recurrenceRule: rule ? encodeRecurrenceRule(rule) : null }));
+    void updateTask({ recurrence: rule });
+  }, [updateTask]);
 
   const handleApprove = useCallback(async () => {
     const res = await apiFetch(`/api/v1/tasks/${task.id}/approve`, {
@@ -522,6 +530,7 @@ export function useTaskMutations({
     handleEstimatedChange,
     handleSpentChange,
     handleApprovalConfigChange,
+    handleRecurrenceChange,
     handleApprove,
     handleReject,
     handleCustomFieldChange,

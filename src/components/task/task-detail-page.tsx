@@ -117,6 +117,7 @@ export function TaskDetailPage({
     handleEstimatedChange,
     handleSpentChange,
     handleApprovalConfigChange,
+    handleRecurrenceChange,
     handleApprove,
     handleReject,
     handleCustomFieldChange,
@@ -296,6 +297,7 @@ export function TaskDetailPage({
           onRemoveWatcher={handleRemoveWatcher}
           onRequiresApprovalChange={(value) => handleApprovalConfigChange({ requiresApproval: value })}
           onApproverChange={(userId) => handleApprovalConfigChange({ approverId: userId })}
+          onRecurrenceChange={handleRecurrenceChange}
         />
       </div>
     </div>

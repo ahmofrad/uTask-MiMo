@@ -144,6 +144,8 @@ export default async function TaskDetailRoute(props: { params: Promise<{ id: str
         requiresApproval: task.requiresApproval,
         approverId: task.approverId,
         approvalNote: task.approvalNote,
+        recurrenceRule: task.recurrenceRule,
+        recurrenceParentId: task.recurrenceParentId,
         priority: task.priority as "low" | "med" | "high" | "urgent",
         startDate: task.startDate?.toISOString() ?? null,
         endDate: task.endDate?.toISOString() ?? null,

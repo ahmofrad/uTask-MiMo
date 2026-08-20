@@ -444,6 +444,18 @@
     "duration": "Duration",
     "days": "Days",
     "hours": "Hours",
+    "recurrence": {
+      "title": "Recurrence",
+      "none": "Does not repeat",
+      "daily": "Daily",
+      "weekly": "Weekly",
+      "monthly": "Monthly",
+      "every": "Every",
+      "days": "days",
+      "weeks": "weeks",
+      "months": "months",
+      "partOfSeries": "Part of a recurring series"
+    },
     "selectDate": "Select date",
     "clearDate": "Clear date",
     "updateFailed": "Update failed",

@@ -445,6 +445,18 @@
     "duration": "مدت",
     "days": "روز",
     "hours": "ساعت",
+    "recurrence": {
+      "title": "تکرار",
+      "none": "تکرار نمی‌شود",
+      "daily": "روزانه",
+      "weekly": "هفتگی",
+      "monthly": "ماهانه",
+      "every": "هر",
+      "days": "روز",
+      "weeks": "هفته",
+      "months": "ماه",
+      "partOfSeries": "بخشی از یک سری تکرارشونده"
+    },
     "selectDate": "انتخاب تاریخ",
     "clearDate": "پاک کردن تاریخ",
     "commentFailed": "ارسال نظر ناموفق بود",

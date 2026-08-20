@@ -194,4 +194,25 @@ describe("useTaskMutations", () => {
 
     expect(api.cfValues).toEqual({});
   });
+
+  it("encodes and patches a recurrence rule, and clears it on null", async () => {
+    apiFetch.mockResolvedValue({ ok: true, json: async () => ({ data: {} }) });
+    const { api } = setup();
+
+    await act(async () => {
+      await api.handleRecurrenceChange({ freq: "WEEKLY", interval: 2, anchor: "dueDate" });
+    });
+
+    expect(api.task.recurrenceRule).toBe(JSON.stringify({ freq: "WEEKLY", interval: 2, anchor: "dueDate" }));
+    expect(JSON.parse(String(apiFetch.mock.calls[0]?.[1]?.body))).toEqual({
+      recurrence: { freq: "WEEKLY", interval: 2, anchor: "dueDate" },
+    });
+
+    await act(async () => {
+      await api.handleRecurrenceChange(null);
+    });
+
+    expect(api.task.recurrenceRule).toBeNull();
+    expect(JSON.parse(String(apiFetch.mock.calls[1]?.[1]?.body))).toEqual({ recurrence: null });
+  });
 });

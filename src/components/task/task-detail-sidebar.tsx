@@ -10,6 +10,8 @@ import { TagPicker } from "@/components/tags/tag-picker";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { CustomFieldInput } from "@/components/custom-field/custom-field-input";
 import { AssigneeSelect } from "@/components/task/assignee-select";
+import { TaskRecurrenceEditor } from "@/components/task/task-recurrence-editor";
+import type { RecurrenceRule } from "@/lib/tasks/recurrence";
 import { Avatar } from "@/components/ui/avatar";
 
 type TaskStatus = "open" | "in_progress" | "pending_approval" | "done" | "cancelled";
@@ -41,6 +43,8 @@ type TaskDetailSidebarProps = {
     spentHours?: number | null;
     requiresApproval?: boolean;
     approverId?: string | null;
+    recurrenceRule?: string | null;
+    recurrenceParentId?: string | null;
     assignees: { id: string }[];
     assigneeGroup: { id: string; name: string } | null;
     reporter: { id: string; displayName: string } | null;
@@ -62,6 +66,7 @@ type TaskDetailSidebarProps = {
   onSpentChange: (_value: number | null) => void;
   onRequiresApprovalChange: (_value: boolean) => void;
   onApproverChange: (_userId: string | null) => void;
+  onRecurrenceChange: (_rule: RecurrenceRule | null) => void;
   onStartDateChange: (_value: string | null) => void;
   onDueDateChange: (_value: string | null) => void;
   onEndDateChange: (_value: string | null) => void;
@@ -90,6 +95,7 @@ export function TaskDetailSidebar({
   onSpentChange,
   onRequiresApprovalChange,
   onApproverChange,
+  onRecurrenceChange,
   onStartDateChange,
   onDueDateChange,
   onEndDateChange,
@@ -319,6 +325,18 @@ export function TaskDetailSidebar({
             {t("task.updatedAt")}: {formatDateTime(new Date(task.updatedAt), locale)}
           </p>
         </div>
+      </div>
+
+      {/* Recurrence card */}
+      <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
+        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">
+          {t("task.recurrence.title")}
+        </h4>
+        <TaskRecurrenceEditor
+          recurrenceRule={task.recurrenceRule ?? null}
+          recurrenceParentId={task.recurrenceParentId ?? null}
+          onRecurrenceChange={onRecurrenceChange}
+        />
       </div>
 
       {/* Tags card */}
