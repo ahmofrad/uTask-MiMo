@@ -15,8 +15,16 @@ export function mergeHolidays(
   let imported = 0;
   let skipped = 0;
   for (const entry of incoming) {
-    if (existing.has(entry.date)) {
+    const index = holidays.findIndex((holiday) => holiday.date === entry.date);
+    if (index >= 0) {
       skipped++;
+      // Re-downloading heals misclassified entries: the provider's day-off
+      // verdict wins for a date we already carry (e.g. an observance imported
+      // before the dayOff flag existed gets corrected to dayOff: false).
+      if (entry.dayOff !== undefined) {
+        const current = holidays[index];
+        if (current) holidays[index] = { ...current, dayOff: entry.dayOff };
+      }
       continue;
     }
     existing.add(entry.date);

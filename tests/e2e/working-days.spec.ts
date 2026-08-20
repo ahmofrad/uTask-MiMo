@@ -41,6 +41,11 @@ test.describe("Working days admin page", () => {
       await expect(page.getByRole("button", { name: "Today" })).toHaveCount(1);
       await page.getByRole("button", { name: "Today" }).click();
 
+      // The second holiday is an occasion, not a day off: unchecking the
+      // toggle must persist and keep the day working.
+      await expect(page.getByTestId("wd-holiday-dayoff-0")).toBeChecked();
+      await page.getByTestId("wd-holiday-dayoff-1").uncheck();
+
       // Save and confirm the success message.
       await page.getByTestId("wd-save").click();
       await expect(page.getByTestId("wd-msg")).toContainText("saved");
@@ -55,19 +60,21 @@ test.describe("Working days admin page", () => {
       const res = await page.request.get("/api/v1/admin/settings/working-days");
       expect(res.ok()).toBeTruthy();
       const body = (await res.json()) as {
-        data?: { weekendDays: number[]; holidays: { date: string; name: string }[] };
+        data?: { weekendDays: number[]; holidays: { date: string; name: string; dayOff: boolean }[] };
       };
       expect(body.data?.weekendDays).toEqual([6]);
       expect(body.data?.holidays).toEqual([
-        { date: expectedDate, name: "Test holiday" },
-        { date: expectedDate, name: "" },
+        { date: expectedDate, name: "Test holiday", dayOff: true },
+        { date: expectedDate, name: "", dayOff: false },
       ]);
 
-      // Reload: the saved state is rendered back (weekend toggle stays on and
-      // the picker shows a selected date instead of the placeholder).
+      // Reload: the saved state is rendered back (weekend toggle stays on,
+      // the picker shows a selected date, and the day-off state round-trips).
       await page.reload();
       await expect(page.getByTestId("wd-weekend-6")).toHaveAttribute("aria-pressed", "true");
       await expect(page.getByTestId("wd-holiday-date-0")).not.toContainText("Select date");
+      await expect(page.getByTestId("wd-holiday-dayoff-0")).toBeChecked();
+      await expect(page.getByTestId("wd-holiday-dayoff-1")).not.toBeChecked();
     } finally {
       // Restore the default calendar (every day working) so other suites that
       // assume no working-day config stay deterministic.

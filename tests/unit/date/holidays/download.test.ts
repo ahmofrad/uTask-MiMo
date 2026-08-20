@@ -72,8 +72,22 @@ describe("holiday egress downloader", () => {
     ]);
     const holidays = await downloadPublicHolidays(nager, 2026);
     expect(holidays).toEqual([
-      { date: "2026-03-20", name: "عید نوروز" },
-      { date: "2026-04-10", name: "Eid al-Fitr" },
+      { date: "2026-03-20", name: "عید نوروز", dayOff: false },
+      { date: "2026-04-10", name: "Eid al-Fitr", dayOff: false },
+    ]);
+  });
+
+  it("classifies Nager types: only Public holidays are day offs", async () => {
+    stubFetch([
+      { date: "2026-03-20", name: "Nowruz", types: ["Public holiday"] },
+      { date: "2026-03-21", name: "Occasion", types: ["Observance"] },
+      { date: "2026-03-22", name: "Untyped" },
+    ]);
+    const holidays = await downloadPublicHolidays(nager, 2026);
+    expect(holidays).toEqual([
+      { date: "2026-03-20", name: "Nowruz", dayOff: true },
+      { date: "2026-03-21", name: "Occasion", dayOff: false },
+      { date: "2026-03-22", name: "Untyped", dayOff: false },
     ]);
   });
 
@@ -116,8 +130,30 @@ describe("holiday egress downloader", () => {
     });
     const holidays = await downloadPublicHolidays(calendarific, 2026);
     expect(holidays).toEqual([
-      { date: "2026-03-20", name: "Nowruz" },
-      { date: "2026-04-10", name: "Eid al-Fitr" },
+      { date: "2026-03-20", name: "Nowruz", dayOff: false },
+      { date: "2026-04-10", name: "Eid al-Fitr", dayOff: false },
+    ]);
+  });
+
+  it("classifies Calendarific types: only National holidays are day offs", async () => {
+    // Regression: Iran's list mixes real تعطیلات ("National holiday") with
+    // non-off observances (imam birthdays, etc.) — the latter must not count
+    // as days off.
+    stubFetch({
+      meta: { code: 200 },
+      response: {
+        holidays: [
+          { name: "Nowruz", date: { iso: "2026-03-20" }, type: ["National holiday"] },
+          { name: "Birth of Imam Ali", date: { iso: "2026-01-18" }, type: ["Observance"] },
+          { name: "Father's Day", date: { iso: "2026-03-05" }, type: ["Observance", "Season"] },
+        ],
+      },
+    });
+    const holidays = await downloadPublicHolidays(calendarific, 2026);
+    expect(holidays).toEqual([
+      { date: "2026-03-20", name: "Nowruz", dayOff: true },
+      { date: "2026-01-18", name: "Birth of Imam Ali", dayOff: false },
+      { date: "2026-03-05", name: "Father's Day", dayOff: false },
     ]);
   });
 

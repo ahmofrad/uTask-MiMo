@@ -37,6 +37,25 @@ describe("isWorkingDay", () => {
     expect(isWorkingDay(new Date("2026-08-24T00:00:00.000Z"), config)).toBe(false);
     expect(isWorkingDay(new Date("2026-08-23T23:59:59.999Z"), config)).toBe(true);
   });
+
+  it("treats a non-day-off observance as a working day", () => {
+    // Regression: Calendarific downloads mixed non-off observances (imam
+    // birthdays) into the holiday list; only real day offs may block work.
+    const config: WorkingDayConfig = {
+      weekendDays: [],
+      holidays: [
+        { date: "2026-08-24", name: "Nowruz", dayOff: true },
+        { date: "2026-08-25", name: "Birth of Imam Ali", dayOff: false },
+      ],
+    };
+    expect(isWorkingDay(new Date(2026, 7, 24, 12, 0), config)).toBe(false); // day off
+    expect(isWorkingDay(new Date(2026, 7, 25, 12, 0), config)).toBe(true); // observance
+  });
+
+  it("treats a legacy holiday without the flag as a day off", () => {
+    const config: WorkingDayConfig = { weekendDays: [], holidays: [{ date: "2026-08-24", name: "Holiday" }] };
+    expect(isWorkingDay(new Date(2026, 7, 24, 12, 0), config)).toBe(false);
+  });
 });
 
 describe("createWorkingDayCalendar (display helpers)", () => {
@@ -77,14 +96,24 @@ describe("createWorkingDayCalendar (display helpers)", () => {
     expect(fa.isWeekend(new Date(2026, 7, 22, 12, 0))).toBe(false); // Sat
   });
 
-  it("isNonWorking covers holidays and weekends together", () => {
+  it("isNonWorking covers day-off holidays and weekends together", () => {
     const calendar = createWorkingDayCalendar(
-      { weekendDays: [0, 6], holidays: [{ date: "2026-08-24", name: "Holiday" }] },
+      {
+        weekendDays: [0, 6],
+        holidays: [
+          { date: "2026-08-24", name: "Holiday", dayOff: true },
+          { date: "2026-08-25", name: "Occasion", dayOff: false },
+        ],
+      },
       "en-US",
     );
     expect(calendar.isNonWorking(new Date(2026, 7, 22, 12, 0))).toBe(true); // Sat
-    expect(calendar.isNonWorking(new Date(2026, 7, 24, 12, 0))).toBe(true); // Mon holiday
-    expect(calendar.isNonWorking(new Date(2026, 7, 25, 12, 0))).toBe(false); // Tue
+    expect(calendar.isNonWorking(new Date(2026, 7, 24, 12, 0))).toBe(true); // Mon day off
+    expect(calendar.isNonWorking(new Date(2026, 7, 25, 12, 0))).toBe(false); // Tue observance
+    // The observance is still a holiday (marked), just not a day off.
+    expect(calendar.isHoliday(new Date(2026, 7, 25, 12, 0))).toBe(true);
+    expect(calendar.isDayOff(new Date(2026, 7, 25, 12, 0))).toBe(false);
+    expect(calendar.isDayOff(new Date(2026, 7, 24, 12, 0))).toBe(true);
   });
 
   it("anchors a UTC day marker to its calendar day", () => {

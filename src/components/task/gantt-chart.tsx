@@ -67,6 +67,7 @@ type TimelineDay = {
   isMonthStart: boolean;
   isToday: boolean;
   isNonWorking: boolean;
+  isDayOff: boolean;
   holidayName: string;
 };
 
@@ -246,6 +247,7 @@ export function GanttChart({
         isMonthStart,
         isToday: date.getTime() === today.getTime(),
         isNonWorking: calendar.isNonWorking(date),
+        isDayOff: calendar.isDayOff(date),
         holidayName: calendar.holidayName(date) ?? "",
       };
       generatedDays.push(day);
@@ -1171,7 +1173,7 @@ export function GanttChart({
                       } ${
                         day.isToday
                           ? "bg-accent-bg text-accent"
-                          : day.holidayName
+                          : day.isDayOff
                             ? "bg-danger-bg/60 text-danger"
                             : day.isNonWorking
                               ? "bg-bg-surface-2/70"

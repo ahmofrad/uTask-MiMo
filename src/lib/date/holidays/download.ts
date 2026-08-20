@@ -142,12 +142,24 @@ type NagerHoliday = {
   date?: string;
   localName?: string;
   name?: string;
+  types?: string[];
+};
+
+type CalendarificHoliday = {
+  name?: string;
+  date?: { iso?: string };
+  type?: string[];
 };
 
 type CalendarificResponse = {
   meta?: { code?: number };
-  response?: { holidays?: Array<{ name?: string; date?: { iso?: string } }> };
+  response?: { holidays?: CalendarificHoliday[] };
 };
+
+// Calendarific types its day offs as "National holiday"; the rest ("Observance",
+// "Religious", "Season", ...) are occasions that are NOT days off. Nager.Date
+// uses the same convention with the shorter "Public".
+const DAY_OFF_TYPES = new Set(["National holiday", "Public holiday", "Public"]);
 
 /** Fetches official holidays for a year from the configured provider. */
 export async function downloadPublicHolidays(
@@ -199,6 +211,7 @@ async function downloadFromNager(config: HolidayEgressConfig, year: number): Pro
     .map((entry) => ({
       date: entry.date as string,
       name: (entry.localName || entry.name || "").slice(0, 255),
+      dayOff: (entry.types ?? []).some((type) => DAY_OFF_TYPES.has(type)),
     }));
 }
 
@@ -235,5 +248,9 @@ async function downloadFromCalendarific(
     .map((entry) => ({
       date: entry.date!.iso!,
       name: (entry.name ?? "").slice(0, 255),
+      // Not every Calendarific "holiday" is a day off — Iran's list mixes
+      // official تعطیلات ("National holiday") with observances like imam
+      // birthdays that are normal working days.
+      dayOff: (entry.type ?? []).some((type) => DAY_OFF_TYPES.has(type)),
     }));
 }

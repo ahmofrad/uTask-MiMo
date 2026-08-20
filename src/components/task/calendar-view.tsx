@@ -78,6 +78,9 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
   const isWeekendDay = (day: number) => workingDayCalendar.isWeekend(cellDate(day));
 
   const isHolidayDay = (day: number) => workingDayCalendar.isHoliday(cellDate(day));
+  // Only real day offs get the danger treatment; mere observances (e.g. imam
+  // birthdays from provider downloads) stay normal working days.
+  const isDayOffDay = (day: number) => workingDayCalendar.isDayOff(cellDate(day));
 
   function cellDate(day: number): Date {
     if (isJalali) {
@@ -205,7 +208,7 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                 "min-h-[60px] p-1 rounded-lg border text-xs transition-colors",
                 dayTasks.length > 0 ? "border-accent/30 bg-accent-bg/30" : "border-border-primary",
                 isWeekendDay(day) ? "bg-secondary/40" : "",
-                isHolidayDay(day) ? "bg-danger-bg/50 border-danger/40" : "",
+                isDayOffDay(day) ? "bg-danger-bg/50 border-danger/40" : "",
                 isToday(day) ? "ring-2 ring-accent" : "",
                 onMove ? "hover:border-accent/60" : "",
               )}
@@ -221,14 +224,19 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
                   "text-start mb-1",
                   isToday(day)
                     ? "font-semibold text-accent"
-                    : isHolidayDay(day)
+                    : isDayOffDay(day)
                       ? "font-semibold text-danger"
                       : "text-fg-muted",
                 )}
               >
                 {day}
                 {isHolidayDay(day) && (
-                  <span className="ms-1 inline-block h-1.5 w-1.5 rounded-full bg-danger align-middle" />
+                  <span
+                    className={cn(
+                      "ms-1 inline-block h-1.5 w-1.5 rounded-full align-middle",
+                      isDayOffDay(day) ? "bg-danger" : "bg-fg-subtle",
+                    )}
+                  />
                 )}
               </div>
               {dayTasks.slice(0, 3).map((task) => {

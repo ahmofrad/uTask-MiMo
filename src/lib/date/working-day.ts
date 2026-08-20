@@ -45,6 +45,10 @@ export const workingDayConfigSchema = z.object({
         }, "Not a real calendar date"),
       // Name is display-only; a date-only holiday is valid.
       name: z.string().trim().max(255).default(""),
+      // Absent means day off (backward compatible); only provider imports
+      // set it to false for non-off observances. Default keeps the stored
+      // config explicit after any read/write cycle.
+      dayOff: z.boolean().default(true),
     }),
   ).max(500),
 }).strict();
@@ -72,7 +76,8 @@ export function isWorkingDay(date: Date, config: WorkingDayConfig): boolean {
   const anchor = timelineDayStart(date);
   if (config.weekendDays.includes(anchor.getDay())) return false;
   const dayKey = toDateOnly(anchor);
-  return !config.holidays.some((holiday) => holiday.date === dayKey);
+  // Only actual day offs (not mere observances) block the working calendar.
+  return !config.holidays.some((holiday) => holiday.date === dayKey && holiday.dayOff !== false);
 }
 
 /**

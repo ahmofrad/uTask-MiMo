@@ -10,7 +10,7 @@ import {
   type HolidayProvider,
 } from "@/lib/date/holidays/countries";
 
-type HolidayRow = { date: string; name: string };
+type HolidayRow = { date: string; name: string; dayOff: boolean };
 type WorkingDayConfig = { weekendDays: number[]; holidays: HolidayRow[] };
 type EgressConfig = {
   enabled: boolean;
@@ -73,7 +73,9 @@ export default function WorkingDaysPage() {
     const data = (await res.json()) as { data?: WorkingDayConfig };
     if (data.data) {
       setWeekendDays(data.data.weekendDays ?? []);
-      setHolidays(data.data.holidays ?? []);
+      // Legacy rows (and bundled/CSV imports) have no dayOff flag — they are
+      // real day offs. Provider downloads set it explicitly.
+      setHolidays((data.data.holidays ?? []).map((h) => ({ ...h, dayOff: h.dayOff !== false })));
     }
   }
 
@@ -293,7 +295,7 @@ export default function WorkingDaysPage() {
               <button
                 type="button"
                 data-testid="wd-add-holiday"
-                onClick={() => setHolidays((prev) => [...prev, { date: "", name: "" }])}
+                onClick={() => setHolidays((prev) => [...prev, { date: "", name: "", dayOff: true }])}
                 className="text-sm font-medium text-accent hover:underline"
               >
                 {t("addHoliday")}
@@ -323,6 +325,16 @@ export default function WorkingDaysPage() {
                       placeholder={t("holidayNamePlaceholder")}
                       className={`${inputClass} flex-1`}
                     />
+                    <label className="flex items-center gap-1.5 text-xs text-fg-secondary whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        data-testid={`wd-holiday-dayoff-${index}`}
+                        checked={holiday.dayOff}
+                        onChange={(e) => updateHoliday(index, { dayOff: e.target.checked })}
+                        className="w-3.5 h-3.5 accent-accent"
+                      />
+                      {t("dayOff")}
+                    </label>
                     <button
                       type="button"
                       data-testid={`wd-holiday-remove-${index}`}

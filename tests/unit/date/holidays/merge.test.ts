@@ -38,3 +38,35 @@ describe("mergeHolidays", () => {
     ]);
   });
 });
+
+describe("mergeHolidays dayOff reconciliation", () => {
+  it("updates dayOff for dates already in the config (re-download heals)", () => {
+    const base: WorkingDayConfig = {
+      weekendDays: [],
+      holidays: [{ date: "2026-01-18", name: "Birth of Imam Ali" }],
+    };
+    const { config, imported, skipped } = mergeHolidays(base, [
+      { date: "2026-01-18", name: "Birth of Imam Ali", dayOff: false },
+    ]);
+    expect(imported).toBe(0);
+    expect(skipped).toBe(1);
+    expect(config.holidays).toEqual([
+      { date: "2026-01-18", name: "Birth of Imam Ali", dayOff: false },
+    ]);
+  });
+
+  it("keeps dayOff untouched when the incoming entry has no flag", () => {
+    const base: WorkingDayConfig = {
+      weekendDays: [],
+      holidays: [{ date: "2026-03-20", name: "Nowruz", dayOff: true }],
+    };
+    const { config } = mergeHolidays(base, [{ date: "2026-03-20", name: "Nowruz" }]);
+    expect(config.holidays[0]).toEqual({ date: "2026-03-20", name: "Nowruz", dayOff: true });
+  });
+
+  it("preserves the flag on freshly imported entries", () => {
+    const base: WorkingDayConfig = { weekendDays: [], holidays: [] };
+    const { config } = mergeHolidays(base, [{ date: "2026-01-18", name: "Occasion", dayOff: false }]);
+    expect(config.holidays[0]).toEqual({ date: "2026-01-18", name: "Occasion", dayOff: false });
+  });
+});
