@@ -1010,6 +1010,7 @@
       "project_created": "created project",
       "project_updated": "updated project",
       "project_archived": "archived project",
+      "project_health_updated": "updated project health",
       "custom_field_created": "created custom field",
       "custom_field_updated": "updated custom field",
       "custom_field_archived": "archived custom field",
@@ -1055,6 +1056,8 @@
     "create": "Create webhook",
     "empty": "No webhooks configured.",
     "noPermission": "You do not have permission to manage webhooks.",
+    "secretBroken": "This webhook's signing secret cannot be decrypted — the server's encryption key (WEBHOOK_SECRET_ENCRYPTION_KEY) may have changed. Deliveries will fail until you delete and re-create this webhook to issue a new secret.",
+    "secretBrokenShort": "Secret undecryptable",
     "fields": {
       "name": "Name",
       "url": "URL",
@@ -1151,5 +1154,16 @@
     "rejectionReason": "Reason for rejection",
     "reasonRequired": "A reason is required to reject",
     "decisionFailed": "Could not update approval status"
+  },
+  "rag": {
+    "green": "On track",
+    "amber": "At risk",
+    "red": "Off track",
+    "status": "Health",
+    "reason": "Reason",
+    "reasonPlaceholder": "Optional note shown next to the badge",
+    "save": "Save",
+    "saving": "Saving…",
+    "cancel": "Cancel"
   }
 }

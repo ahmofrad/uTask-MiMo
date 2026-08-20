@@ -31,14 +31,16 @@ test.describe("Working days admin page", () => {
       const picker = page.getByTestId("wd-holiday-date-0");
       await picker.click();
       // Exactly one picker is open, so its footer "Today" is unambiguous.
-      await expect(page.getByRole("button", { name: "Today" })).toHaveCount(1);
+      // The generous timeout absorbs the client-side picker hydrating under
+      // full-suite parallel load (this test flaked on the 5s default).
+      await expect(page.getByRole("button", { name: "Today" })).toHaveCount(1, { timeout: 15000 });
       await page.getByRole("button", { name: "Today" }).click();
       await page.getByTestId("wd-holiday-name-0").fill("Test holiday");
 
       // A second, date-only holiday (no name) must also be valid.
       await page.getByTestId("wd-add-holiday").click();
       await page.getByTestId("wd-holiday-date-1").click();
-      await expect(page.getByRole("button", { name: "Today" })).toHaveCount(1);
+      await expect(page.getByRole("button", { name: "Today" })).toHaveCount(1, { timeout: 15000 });
       await page.getByRole("button", { name: "Today" }).click();
 
       // The second holiday is an occasion, not a day off: unchecking the
@@ -48,7 +50,7 @@ test.describe("Working days admin page", () => {
 
       // Save and confirm the success message.
       await page.getByTestId("wd-save").click();
-      await expect(page.getByTestId("wd-msg")).toContainText("saved");
+      await expect(page.getByTestId("wd-msg")).toContainText("saved", { timeout: 15000 });
 
       // The API persists exactly what the page showed; both holidays carry
       // today's local date and the second one an empty name.

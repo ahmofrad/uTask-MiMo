@@ -25,7 +25,7 @@ vi.mock("@/lib/crypto", () => ({
   hmacVerify: () => true,
 }));
 
-vi.mock("@/lib/crypto/encrypt", () => ({ decrypt: () => "secret" }));
+vi.mock("@/lib/crypto/encrypt", () => ({ decrypt: vi.fn(() => "secret") }));
 vi.mock("@/lib/logging", () => ({ logger: { error: mocks.loggerError } }));
 vi.mock("node:dns/promises", () => ({
   lookup: vi.fn().mockResolvedValue([{ address: "93.184.216.34", family: 4 }]),
@@ -34,7 +34,7 @@ vi.mock("node:https", () => ({
   request: mocks.httpsRequest,
 }));
 
-import { dispatchWebhook } from "@/lib/webhook";
+import { dispatchWebhook, WebhookSecretUndecryptableError } from "@/lib/webhook";
 
 describe("dispatchWebhook", () => {
   beforeEach(() => {
@@ -86,5 +86,49 @@ describe("dispatchWebhook", () => {
       where: { id: "delivery-1" },
       data: expect.objectContaining({ responseStatus: 202, responseBody: "accepted", deliveredAt: expect.any(Date) }),
     }));
+  });
+
+  it("throws a clear error when the stored secret cannot be decrypted (no delivery record)", async () => {
+    // Regression: WEBHOOK_SECRET_ENCRYPTION_KEY differs between .env and
+    // .env.prod. An encrypted secret saved under one key throws on decrypt
+    // under the other — the test endpoint must surface it, not crash cryptically.
+    mocks.webhookFindUnique.mockResolvedValue({
+      id: "webhook-1",
+      active: true,
+      url: "https://example.com/webhook",
+      secret: "iv:ciphertext:tag",
+    });
+    const { decrypt } = await import("@/lib/crypto/encrypt");
+    vi.mocked(decrypt).mockImplementationOnce(() => {
+      throw new Error("unable to decrypt data");
+    });
+
+    await expect(
+      dispatchWebhook("webhook-1", "task.created", "33333333-3333-4333-8333-333333333333", { id: "task-3" }),
+    ).rejects.toBeInstanceOf(WebhookSecretUndecryptableError);
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({ webhookId: "webhook-1" }),
+      expect.stringContaining("cannot be decrypted"),
+    );
+  });
+
+  it("records the failure and stops retrying when a delivery record exists", async () => {
+    mocks.webhookFindUnique.mockResolvedValue({
+      id: "webhook-1",
+      active: true,
+      url: "https://example.com/webhook",
+      secret: "iv:ciphertext:tag",
+    });
+    const { decrypt } = await import("@/lib/crypto/encrypt");
+    vi.mocked(decrypt).mockImplementationOnce(() => {
+      throw new Error("unable to decrypt data");
+    });
+
+    await dispatchWebhook("webhook-1", "task.created", "44444444-4444-4444-8444-444444444444", { id: "task-4" }, "delivery-9");
+
+    expect(mocks.deliveryUpdate).toHaveBeenCalledWith({
+      where: { id: "delivery-9" },
+      data: { error: expect.stringContaining("cannot be decrypted"), nextRetryAt: null },
+    });
   });
 });

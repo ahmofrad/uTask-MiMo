@@ -36,6 +36,8 @@ type ProjectInfo = {
   members: { id: string; displayName: string; avatarUrl?: string | null }[];
   projectRole: string | null;
   canAssignRoles: boolean;
+  ragStatus: "GREEN" | "AMBER" | "RED";
+  ragReason: string | null;
 };
 
 type TaskItem = {
@@ -68,6 +70,10 @@ type Tab = "board" | "timeline" | "calendar" | "gantt" | "wbs" | "tasks";
 export function ProjectDetailPage({ project, initialTasks, currentUserId }: ProjectDetailPageProps) {
   const t = useTranslations("project");
   const taskT = useTranslations("task");
+  // RAG health is editable in the header; keep it in state so a save updates
+  // the badge without a full page reload.
+  const [ragStatus, setRagStatus] = useState<"GREEN" | "AMBER" | "RED">(project.ragStatus);
+  const [ragReason, setRagReason] = useState<string | null>(project.ragReason);
   const [tasks, setTasks] = useState(initialTasks);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showCFModal, setShowCFModal] = useState(false);
@@ -249,7 +255,7 @@ export function ProjectDetailPage({ project, initialTasks, currentUserId }: Proj
       </Link>
 
       <ProjectDetailHeader
-        project={project}
+        project={{ ...project, ragStatus, ragReason }}
         name={name}
         desc={desc}
         canEdit={canEdit}
@@ -264,6 +270,18 @@ export function ProjectDetailPage({ project, initialTasks, currentUserId }: Proj
         onOpenCF={() => void openCFModal()}
         onOpenTags={() => setShowTagsModal(true)}
         onOpenMembers={() => setShowMembersModal(true)}
+        onSaveHealth={async (status, reason) => {
+          const res = await apiFetch(`/api/v1/projects/${project.id}/health`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ragStatus: status, ragReason: reason }),
+          });
+          if (res.ok) {
+            setRagStatus(status);
+            setRagReason(reason);
+          }
+          return res;
+        }}
       />
 
       <ProjectDepartmentLinks projectId={project.id} canManage={canManage} />

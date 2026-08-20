@@ -98,6 +98,8 @@ export default async function ProjectDetail(props: {
           })),
           projectRole: project.members.find((m) => m.user.id === userId)?.projectRole ?? null,
           canAssignRoles: canAssignRoles,
+          ragStatus: project.ragStatus as "GREEN" | "AMBER" | "RED",
+          ragReason: project.ragReason,
         }}
         initialTasks={tasks.map((t) => ({
           id: t.id,

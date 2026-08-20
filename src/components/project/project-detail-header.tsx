@@ -9,6 +9,8 @@ type ProjectHeaderTag = {
   color?: string | null;
 };
 
+export type RagStatus = "GREEN" | "AMBER" | "RED";
+
 type ProjectHeaderProps = {
   project: {
     id: string;
@@ -16,6 +18,8 @@ type ProjectHeaderProps = {
     ownerName: string;
     taskCount: number;
     memberCount: number;
+    ragStatus: RagStatus;
+    ragReason: string | null;
   };
   name: string;
   desc: string;
@@ -28,6 +32,19 @@ type ProjectHeaderProps = {
   onOpenCF: () => void;
   onOpenTags: () => void;
   onOpenMembers: () => void;
+  onSaveHealth: (_status: RagStatus, _reason: string | null) => Promise<Response>;
+};
+
+const RAG_DOT: Record<RagStatus, string> = {
+  GREEN: "bg-success",
+  AMBER: "bg-warning",
+  RED: "bg-destructive",
+};
+
+const RAG_BADGE: Record<RagStatus, string> = {
+  GREEN: "bg-success-bg text-success border-success/40",
+  AMBER: "bg-warning-bg text-warning border-warning/40",
+  RED: "bg-destructive-bg text-destructive border-destructive/40",
 };
 
 export function ProjectDetailHeader({
@@ -43,12 +60,18 @@ export function ProjectDetailHeader({
   onOpenCF,
   onOpenTags,
   onOpenMembers,
+  onSaveHealth,
 }: ProjectHeaderProps) {
   const t = useTranslations("project");
+  const tRag = useTranslations("rag");
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(name);
   const [editingDesc, setEditingDesc] = useState(false);
   const [descDraft, setDescDraft] = useState(desc);
+  const [editingHealth, setEditingHealth] = useState(false);
+  const [healthStatus, setHealthStatus] = useState<RagStatus>(project.ragStatus);
+  const [healthReason, setHealthReason] = useState(project.ragReason ?? "");
+  const [savingHealth, setSavingHealth] = useState(false);
 
   return (
     <div className="bg-bg-surface border border-border rounded-xl p-6 mb-6">
@@ -151,7 +174,79 @@ export function ProjectDetailHeader({
         <button onClick={onOpenMembers} className="hover:text-accent transition-colors underline underline-offset-2">
           {t("membersCount", { count: project.memberCount })}
         </button>
+        <button
+          type="button"
+          data-testid="project-rag-badge"
+          title={project.ragReason || undefined}
+          onClick={() => {
+            if (!canManage) return;
+            setHealthStatus(project.ragStatus);
+            setHealthReason(project.ragReason ?? "");
+            setEditingHealth(true);
+          }}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium ${RAG_BADGE[project.ragStatus]} ${canManage ? "hover:opacity-90 cursor-pointer" : "cursor-default"}`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${RAG_DOT[project.ragStatus]}`} />
+          {tRag(project.ragStatus.toLowerCase())}
+        </button>
       </div>
+      {editingHealth && canManage && (
+        <div
+          data-testid="project-rag-editor"
+          className="mt-3 flex flex-wrap items-center gap-2 border border-border-primary rounded-lg bg-bg-surface-2 p-3"
+        >
+          <label className="flex flex-col gap-1 text-xs text-fg-secondary">
+            {tRag("status")}
+            <select
+              data-testid="project-rag-status"
+              value={healthStatus}
+              onChange={(e) => setHealthStatus(e.target.value as RagStatus)}
+              className="px-2 py-1.5 border border-border-primary rounded-md bg-bg-primary text-sm text-fg-primary"
+            >
+              <option value="GREEN">{tRag("green")}</option>
+              <option value="AMBER">{tRag("amber")}</option>
+              <option value="RED">{tRag("red")}</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-fg-secondary flex-1 min-w-48">
+            {tRag("reason")}
+            <input
+              type="text"
+              data-testid="project-rag-reason"
+              value={healthReason}
+              maxLength={500}
+              onChange={(e) => setHealthReason(e.target.value)}
+              placeholder={tRag("reasonPlaceholder")}
+              className="px-2 py-1.5 border border-border-primary rounded-md bg-bg-primary text-sm text-fg-primary placeholder:text-fg-tertiary"
+            />
+          </label>
+          <button
+            type="button"
+            data-testid="project-rag-save"
+            disabled={savingHealth}
+            onClick={async () => {
+              setSavingHealth(true);
+              try {
+                await onSaveHealth(healthStatus, healthReason.trim() || null);
+                setEditingHealth(false);
+              } finally {
+                setSavingHealth(false);
+              }
+            }}
+            className="px-3 py-1.5 bg-accent text-fg-inverse rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50"
+          >
+            {savingHealth ? tRag("saving") : tRag("save")}
+          </button>
+          <button
+            type="button"
+            data-testid="project-rag-cancel"
+            onClick={() => setEditingHealth(false)}
+            className="px-3 py-1.5 border border-border-primary rounded-md text-sm text-fg-secondary hover:bg-bg-surface"
+          >
+            {tRag("cancel")}
+          </button>
+        </div>
+      )}
       {projectTags.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 mt-3">
           {projectTags.map((tag) => (

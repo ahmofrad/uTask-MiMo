@@ -81,6 +81,12 @@ enum ProjectStatus {
   archived
 }
 
+enum RagStatus {
+  GREEN
+  AMBER
+  RED
+}
+
 enum ProjectMemberRole {
   lead
   contributor
@@ -195,6 +201,7 @@ enum AuditAction {
   project_created
   project_updated
   project_archived
+  project_health_updated
   project_department_link_requested
   project_department_link_approved
   project_department_link_rejected
@@ -341,6 +348,9 @@ model Project {
   scheduleVersion Int               @default(0)
   visibility      ProjectVisibility @default(private)
   status          ProjectStatus     @default(active)
+  ragStatus       RagStatus         @default(GREEN)
+  ragReason       String?           @db.VarChar(500)
+  healthUpdatedAt DateTime?         @db.Timestamptz
   archivedAt      DateTime?         @db.Timestamptz
   createdAt       DateTime          @default(now()) @db.Timestamptz
   updatedAt       DateTime          @updatedAt @db.Timestamptz

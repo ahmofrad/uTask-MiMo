@@ -3,6 +3,7 @@ import { can } from "@/lib/rbac/can";
 import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
 import { formatDateTime } from "@/lib/date/format";
+import { webhookSecretState } from "@/lib/webhook";
 
 export default async function AdminWebhooksPage() {
   const session = await auth();
@@ -37,7 +38,18 @@ export default async function AdminWebhooksPage() {
             <tbody>
               {webhooks.map((wh) => (
                 <tr key={wh.id} className="border-b border-border-secondary last:border-b-0 hover:bg-bg-secondary/50 transition-colors">
-                  <td className="p-3 text-fg-primary font-medium">{wh.name}</td>
+                  <td className="p-3 text-fg-primary font-medium">
+                    {wh.name}
+                    {webhookSecretState(wh.secret) === "broken" && (
+                      <span
+                        data-testid={`webhook-secret-broken-${wh.id}`}
+                        title={t("secretBroken")}
+                        className="ms-2 inline-block align-middle rounded-full bg-destructive/10 text-destructive border border-destructive/30 px-2 py-0.5 text-xs"
+                      >
+                        {t("secretBrokenShort")}
+                      </span>
+                    )}
+                  </td>
                   <td className="p-3 font-mono text-xs text-fg-muted">{wh.url}</td>
                   <td className="p-3 text-fg-secondary">{wh.events.join(", ")}</td>
                   <td className="p-3">

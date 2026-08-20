@@ -3,7 +3,7 @@ import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { randomHex } from "@/lib/crypto";
 import { encrypt } from "@/lib/crypto/encrypt";
-import { validateWebhookUrlResolved } from "@/lib/webhook";
+import { validateWebhookUrlResolved, webhookSecretState } from "@/lib/webhook";
 import { logAudit } from "@/lib/audit/log";
 import { publicWebhookCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
@@ -18,10 +18,13 @@ export async function GET(request: Request) {
   const webhooks = await prisma.webhook.findMany({
     where: { deletedAt: null },
     orderBy: { createdAt: "desc" },
-    select: { id: true, name: true, url: true, events: true, active: true, createdAt: true },
+    select: { id: true, name: true, url: true, events: true, active: true, createdAt: true, secret: true },
   });
 
-  return NextResponse.json({ data: webhooks });
+  // Report the secret state (ok/broken) but never the secret itself.
+  const data = webhooks.map(({ secret, ...rest }) => ({ ...rest, secretState: webhookSecretState(secret) }));
+
+  return NextResponse.json({ data });
 }
 
 export async function POST(request: Request) {

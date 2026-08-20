@@ -1010,6 +1010,7 @@
       "project_created": "پروژه ایجاد کرد",
       "project_updated": "پروژه را ویرایش کرد",
       "project_archived": "پروژه را بایگانی کرد",
+      "project_health_updated": "سلامت پروژه را به‌روزرسانی کرد",
       "custom_field_created": "فیلد سفارشی ایجاد کرد",
       "custom_field_updated": "فیلد سفارشی را ویرایش کرد",
       "custom_field_archived": "فیلد سفارشی را بایگانی کرد",
@@ -1055,6 +1056,8 @@
     "create": "ایجاد Webhook",
     "empty": "هیچ Webhookی پیکربندی نشده است.",
     "noPermission": "شما مجوز مدیریت Webhookها را ندارید.",
+    "secretBroken": "کلید امضای این Webhook قابل رمزگشایی نیست — احتمالاً کلید رمزنگاری سرور (WEBHOOK_SECRET_ENCRYPTION_KEY) تغییر کرده است. تا زمانی که این Webhook را حذف و دوباره ایجاد نکنید تا کلید جدید صادر شود، تحویل رویدادها ناموفق خواهد بود.",
+    "secretBrokenShort": "کلید قابل رمزگشایی نیست",
     "fields": {
       "name": "نام",
       "url": "URL",
@@ -1151,5 +1154,18 @@
     "rejectionReason": "دلیل رد",
     "reasonRequired": "برای رد کردن، دلیل الزامی است",
     "decisionFailed": "بهروزرسانی وضعیت تأیید ممکن نشد"
+  },
+
+  "rag": {
+    "green": "در مسیر",
+    "amber": "در خطر",
+    "red": "خارج از مسیر",
+    "status": "سلامت",
+    "reason": "دلیل",
+    "reasonPlaceholder": "یادداشت اختیاری که کنار نشان سلامت نمایش داده می‌شود",
+    "save": "ذخیره",
+    "saving": "در حال ذخیره…",
+    "cancel": "انصراف"
   }
+
 }

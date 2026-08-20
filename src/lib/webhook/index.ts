@@ -260,6 +260,24 @@ export function decryptSecret(encryptedSecret: string): string {
   return encryptedSecret;
 }
 
+/** Thrown when a stored webhook secret cannot be decrypted (encryption key changed). */
+export class WebhookSecretUndecryptableError extends Error {}
+
+/**
+ * Classifies the stored signing secret: `ok` when it decrypts (or is a legacy
+ * plaintext secret), `broken` when the blob exists but fails to decrypt — e.g.
+ * WEBHOOK_SECRET_ENCRYPTION_KEY changed between restarts/deployments. The
+ * admin list must surface `broken` instead of pretending deliveries work.
+ */
+export function webhookSecretState(stored: string): "ok" | "broken" {
+  try {
+    decryptSecret(stored);
+    return "ok";
+  } catch {
+    return "broken";
+  }
+}
+
 export async function dispatchWebhook(
   webhookId: string,
   eventType: string,
@@ -274,7 +292,23 @@ export async function dispatchWebhook(
   if (!webhook || !webhook.active) return;
 
   const body = JSON.stringify(payload);
-  const secret = decryptSecret(webhook.secret);
+
+  let secret: string;
+  try {
+    secret = decryptSecret(webhook.secret);
+  } catch {
+    const message =
+      "Webhook signing secret cannot be decrypted — WEBHOOK_SECRET_ENCRYPTION_KEY may have changed. Delete and re-create the webhook to issue a new secret.";
+    logger.error({ webhookId, eventType }, message);
+    if (deliveryId) {
+      await prisma.webhookDelivery.update({
+        where: { id: deliveryId },
+        data: { error: message, nextRetryAt: null },
+      });
+      return;
+    }
+    throw new WebhookSecretUndecryptableError(message);
+  }
   const signature = signPayload(body, secret);
 
   // Resolve and pin a public address at dispatch time. Connecting by IP avoids

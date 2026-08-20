@@ -7,8 +7,8 @@ vi.mock("@/lib/crypto", () => ({
 }));
 
 vi.mock("@/lib/crypto/encrypt", () => ({
-  decrypt: (payload: { iv: string; ciphertext: string; tag: string }) =>
-    `decrypted:${payload.iv}:${payload.ciphertext}:${payload.tag}`,
+  decrypt: vi.fn((payload: { iv: string; ciphertext: string; tag: string }) =>
+    `decrypted:${payload.iv}:${payload.ciphertext}:${payload.tag}`),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: {} }));
@@ -38,6 +38,7 @@ import {
   signPayload,
   verifySignature,
   decryptSecret,
+  webhookSecretState,
 } from "@/lib/webhook";
 
 describe("validateWebhookUrl", () => {
@@ -132,5 +133,20 @@ describe("decryptSecret", () => {
     const plaintext = "plain-webhook-secret";
     const result = decryptSecret(plaintext);
     expect(result).toBe(plaintext);
+  });
+});
+
+describe("webhookSecretState", () => {
+  it("classifies decryptable and legacy plaintext secrets as ok", () => {
+    expect(webhookSecretState("base64iv:base64ct:base64tag")).toBe("ok");
+    expect(webhookSecretState("plain-webhook-secret")).toBe("ok");
+  });
+
+  it("classifies a secret that fails to decrypt as broken", async () => {
+    const { decrypt } = await import("@/lib/crypto/encrypt");
+    vi.mocked(decrypt).mockImplementationOnce(() => {
+      throw new Error("unable to decrypt data");
+    });
+    expect(webhookSecretState("base64iv:base64ct:base64tag")).toBe("broken");
   });
 });
