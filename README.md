@@ -96,7 +96,7 @@ cp .env.example .env
 # Edit .env if you need non-default local endpoints
 
 # 4. Initialize the database
-pnpm prisma:deploy  # Apply tracked migrations without an interactive prompt
+pnpm db:baseline    # Sync schema (db push) + baseline migration history
 pnpm db:seed        # Creates admin@utask.local (password: password; local only)
 pnpm db:sample      # Optional: adds sample users, projects, tasks
 
@@ -201,6 +201,7 @@ pnpm dev
 | `pnpm prisma migrate dev` | Create/apply a new development migration |
 | `pnpm prisma:deploy` | Apply tracked migrations non-interactively |
 | `pnpm db:seed` | Seed sample data |
+| `pnpm db:baseline` | Sync dev schema via `db push` and record migration history |
 | `pnpm i18n:extract` | Extract i18n keys from code |
 | `pnpm i18n:check` | Fail CI if `fa-IR` has missing keys |
 | `pnpm design:check` | Lint for hardcoded colors / physical CSS properties |

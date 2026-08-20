@@ -529,16 +529,9 @@ The local dev DB (`pnpm docker:up`) is kept in sync with `prisma db push`, not `
 baselined against the existing migration history so `prisma migrate deploy` is a no-op there instead of
 re-applying every migration onto already-present tables.
 
-If you recreate the dev database from scratch, re-baseline it with:
-
-```bash
-for d in $(ls prisma/migrations | grep -v migration_lock | sort); do
-  npx prisma migrate resolve --applied "$d"
-done
-```
-
-(Only do this after `prisma db push` has brought the empty dev DB to the current schema — `migrate resolve`
-records history without executing SQL.)
+If you recreate the dev database from scratch, run `pnpm db:baseline` (see `scripts/db-baseline.ts`) to
+create the required Postgres extensions, sync the schema with `prisma db push`, and record the migration
+history — all in one idempotent step (`migrate resolve` records history without executing SQL).
 
 **Known divergence:** several migrations contain raw SQL that Prisma does not model in `schema.prisma`
 (pg_partman partitioning of `AuditLog`/`WebhookDelivery`, FTS indexes, materialized views). A fresh
