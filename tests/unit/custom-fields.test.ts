@@ -1,6 +1,9 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { validateFieldValue } from "@/lib/custom-fields/validators";
 import { CreateCustomFieldSchema } from "@/lib/custom-fields/schemas";
+import { toPlainCustomFieldValue } from "@/lib/custom-fields/values";
+
+vi.mock("@/lib/db", () => ({ prisma: {} }));
 
 describe("validateFieldValue", () => {
   it("validates text values", () => {
@@ -84,5 +87,20 @@ describe("CreateCustomFieldSchema", () => {
       type: "text",
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("toPlainCustomFieldValue", () => {
+  it("normalizes Prisma Decimal objects to plain numbers", () => {
+    const decimal = { toNumber: () => 8.5 };
+    expect(toPlainCustomFieldValue(decimal)).toBe(8.5);
+  });
+
+  it("passes non-Decimal values through unchanged", () => {
+    expect(toPlainCustomFieldValue("text")).toBe("text");
+    expect(toPlainCustomFieldValue(42)).toBe(42);
+    expect(toPlainCustomFieldValue(null)).toBeNull();
+    expect(toPlainCustomFieldValue(undefined)).toBeUndefined();
+    expect(toPlainCustomFieldValue({ key: "a" })).toEqual({ key: "a" });
   });
 });

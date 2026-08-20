@@ -1,5 +1,17 @@
 import { prisma } from "@/lib/db";
 
+/**
+ * Custom field values cross Server Component → Client Component boundaries,
+ * where Next.js requires plain data. Prisma returns `valueNumber` as a
+ * `Decimal` object (not serializable), so normalize anything that looks like
+ * one to a plain JS number.
+ */
+export function toPlainCustomFieldValue(raw: unknown): unknown {
+  return raw !== null && typeof raw === "object" && "toNumber" in raw
+    ? Number((raw as { toNumber(): number }).toNumber())
+    : raw;
+}
+
 export async function getCustomFieldsForProject(projectId: string) {
   return prisma.customField.findMany({
     where: { projectId, archivedAt: null },
@@ -15,13 +27,14 @@ export async function getCustomFieldValuesForTask(taskId: string) {
 
   const map: Record<string, unknown> = {};
   for (const v of values) {
-    map[v.customField.key] =
+    map[v.customField.key] = toPlainCustomFieldValue(
       v.valueText ??
-      v.valueNumber ??
-      v.valueDate ??
-      v.valueBool ??
-      v.valueJson ??
-      null;
+        v.valueNumber ??
+        v.valueDate ??
+        v.valueBool ??
+        v.valueJson ??
+        null,
+    );
   }
   return map;
 }

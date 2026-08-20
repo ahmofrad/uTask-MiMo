@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { toPlainCustomFieldValue } from "@/lib/custom-fields/values";
 import { auth } from "@/lib/auth/config";
 import { redirect, notFound } from "next/navigation";
 import { isTaskFinalizer } from "@/lib/tasks";
@@ -105,8 +106,11 @@ export default async function TaskDetailRoute(props: { params: Promise<{ id: str
   for (const cfv of customFieldValues) {
     const fieldKey = customFields.find((cf) => cf.id === cfv.customFieldId)?.key;
     if (fieldKey) {
-      cfValuesMap[fieldKey] =
-        cfv.valueText ?? cfv.valueNumber ?? cfv.valueDate ?? cfv.valueBool ?? cfv.valueJson ?? null;
+      // Prisma returns valueNumber as a Decimal object, which Next.js rejects
+      // across the Server → Client boundary — normalize it to a plain number.
+      cfValuesMap[fieldKey] = toPlainCustomFieldValue(
+        cfv.valueText ?? cfv.valueNumber ?? cfv.valueDate ?? cfv.valueBool ?? cfv.valueJson ?? null,
+      );
     }
   }
 

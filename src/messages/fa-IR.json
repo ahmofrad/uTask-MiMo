@@ -988,6 +988,8 @@
       "task_deleted": "وظیفه را حذف کرد",
       "task_group_assigned": "وظیفه را به گروه اختصاص داد",
       "task_reordered": "وظایف را مرتب کرد",
+      "task_approved": "وظیفه را تأیید کرد",
+      "task_rejected": "وظیفه را رد کرد",
       "comment_created": "نظر داد",
       "comment_updated": "نظر را ویرایش کرد",
       "comment_deleted": "نظر را حذف کرد",

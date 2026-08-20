@@ -988,6 +988,8 @@
       "task_deleted": "deleted task",
       "task_group_assigned": "assigned task to a group",
       "task_reordered": "reordered tasks",
+      "task_approved": "approved task",
+      "task_rejected": "rejected task",
       "comment_created": "commented",
       "comment_updated": "edited comment",
       "comment_deleted": "deleted comment",
