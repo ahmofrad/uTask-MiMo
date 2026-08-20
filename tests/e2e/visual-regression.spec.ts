@@ -472,6 +472,14 @@ test.describe("Authenticated visual regression @visual", () => {
       await expect(banner).toHaveScreenshot("approval-banner-reject-rtl.png", {
         maxDiffPixelRatio: 0.02,
       });
+
+      // Submitting the reject with an empty reason surfaces the error line,
+      // which sits under the mirrored control row.
+      await banner.getByRole("button", { name: "رد", exact: true }).click();
+      await expect(banner.getByText("برای رد کردن، دلیل الزامی است")).toBeVisible();
+      await expect(banner).toHaveScreenshot("approval-banner-error-rtl.png", {
+        maxDiffPixelRatio: 0.02,
+      });
     } finally {
       await cleanupApprovalBannerFixture(projectId);
     }
@@ -490,6 +498,12 @@ test.describe("Authenticated visual regression @visual", () => {
       await banner.getByRole("button", { name: "Reject", exact: true }).click();
       await expect(banner.getByPlaceholder("Reason for rejection")).toBeVisible();
       await expect(banner).toHaveScreenshot("approval-banner-reject-ltr.png", {
+        maxDiffPixelRatio: 0.02,
+      });
+
+      await banner.getByRole("button", { name: "Reject", exact: true }).click();
+      await expect(banner.getByText("A reason is required to reject")).toBeVisible();
+      await expect(banner).toHaveScreenshot("approval-banner-error-ltr.png", {
         maxDiffPixelRatio: 0.02,
       });
     } finally {
