@@ -279,6 +279,47 @@ async function seededProductLaunchId() {
   ).id;
 }
 
+// The approval banner only renders for tasks awaiting approval, so the visual
+// check creates a throwaway project + task in that state (admin is both the
+// project owner and the designated approver, so the Approve/Reject controls
+// show for the logged-in admin) and screenshots the banner element itself.
+// Cropping to the element keeps the baseline independent of the page's
+// date-dependent activity timeline; fixed timestamps keep any relative labels
+// stable regardless of when the suite runs.
+async function createApprovalBannerFixture() {
+  const admin = await prisma.user.findUniqueOrThrow({
+    where: { email: "admin@utask.local" },
+    select: { id: true },
+  });
+  const project = await prisma.project.create({
+    data: {
+      name: "Approval Banner Visual Fixture",
+      ownerId: admin.id,
+      visibility: "org",
+    },
+  });
+  const task = await prisma.task.create({
+    data: {
+      projectId: project.id,
+      title: "Approval banner visual fixture task",
+      description: "A task awaiting approval.",
+      status: "pending_approval",
+      requiresApproval: true,
+      approverId: admin.id,
+      createdById: admin.id,
+      reporterId: admin.id,
+      createdAt: new Date("2026-08-10T09:00:00.000Z"),
+      updatedAt: new Date("2026-08-10T09:00:00.000Z"),
+    },
+  });
+  return { projectId: project.id, taskId: task.id };
+}
+
+async function cleanupApprovalBannerFixture(projectId: string) {
+  await prisma.task.deleteMany({ where: { projectId } });
+  await prisma.project.deleteMany({ where: { id: projectId } });
+}
+
 test.describe("Authenticated visual regression @visual", () => {
   test("admin page renders correctly", async ({ page, context }) => {
     // Must be logged in as admin — stub session cookie
@@ -409,6 +450,51 @@ test.describe("Authenticated visual regression @visual", () => {
     await expect(page).toHaveScreenshot("task-detail-rtl.png", {
       maxDiffPixelRatio: 0.02,
     });
+  });
+
+  // The approval banner is a mirrored flex row (approver note on one side,
+  // Approve/Reject controls on the other), so it gets both directions. The
+  // reject-expanded state adds the mirrored reason input + buttons.
+  test("task approval banner renders correctly in RTL", async ({ page }) => {
+    const { projectId, taskId } = await createApprovalBannerFixture();
+    try {
+      await page.goto(`/fa-IR/tasks/${taskId}`);
+      const banner = page.getByTestId("task-approval-banner").first();
+      await expect(banner).toBeVisible({ timeout: 15000 });
+      await expect(banner).toHaveScreenshot("approval-banner-rtl.png", {
+        maxDiffPixelRatio: 0.02,
+      });
+
+      // Expand the reject input — the mirrored input + buttons are the most
+      // RTL-sensitive part of the banner.
+      await banner.getByRole("button", { name: "رد", exact: true }).click();
+      await expect(banner.getByPlaceholder("دلیل رد")).toBeVisible();
+      await expect(banner).toHaveScreenshot("approval-banner-reject-rtl.png", {
+        maxDiffPixelRatio: 0.02,
+      });
+    } finally {
+      await cleanupApprovalBannerFixture(projectId);
+    }
+  });
+
+  test("task approval banner renders correctly in LTR", async ({ page }) => {
+    const { projectId, taskId } = await createApprovalBannerFixture();
+    try {
+      await page.goto(`/en-US/tasks/${taskId}`);
+      const banner = page.getByTestId("task-approval-banner").first();
+      await expect(banner).toBeVisible({ timeout: 15000 });
+      await expect(banner).toHaveScreenshot("approval-banner-ltr.png", {
+        maxDiffPixelRatio: 0.02,
+      });
+
+      await banner.getByRole("button", { name: "Reject", exact: true }).click();
+      await expect(banner.getByPlaceholder("Reason for rejection")).toBeVisible();
+      await expect(banner).toHaveScreenshot("approval-banner-reject-ltr.png", {
+        maxDiffPixelRatio: 0.02,
+      });
+    } finally {
+      await cleanupApprovalBannerFixture(projectId);
+    }
   });
 
   // The mirrored views get en-US/LTR baselines too: the sticky label column,
