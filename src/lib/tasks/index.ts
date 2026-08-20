@@ -1,4 +1,4 @@
-export { getTaskById, listTasks, getInboxTasks, getTaskStats, getUpcomingTasks } from "./queries";
+export { getTaskById, listTasks, getInboxTasks, getTaskStats, getUpcomingTasks, toPlainTaskRow } from "./queries";
 export type {
   ListTasksParams,
   ListTasksResult,

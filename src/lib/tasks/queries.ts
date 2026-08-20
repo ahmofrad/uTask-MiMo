@@ -60,6 +60,30 @@ const INBOX_WATCHING_INCLUDE = {
   tags: { include: { tag: true } },
 } as const;
 
+function toPlainNumber(value: unknown): number | null {
+  if (value == null) return null;
+  const maybeDecimal = value as { toNumber?: () => number };
+  return typeof maybeDecimal.toNumber === "function" ? maybeDecimal.toNumber() : (value as number);
+}
+
+/**
+ * Normalize Prisma Decimal fields to plain numbers at the query boundary.
+ * Decimal objects serialize to *strings* via toJSON, so a raw row leaks
+ * `estimatedHours: "4"` into JSON responses while the API schema and client
+ * types declare `number` — a silent contract violation (and a hard crash if
+ * a row ever crosses a Server → Client component boundary).
+ */
+export function toPlainTaskRow<T extends { estimatedHours?: unknown; spentHours?: unknown; orderIndex?: unknown }>(
+  row: T,
+): T {
+  return {
+    ...row,
+    ...(row.estimatedHours !== undefined ? { estimatedHours: toPlainNumber(row.estimatedHours) } : {}),
+    ...(row.spentHours !== undefined ? { spentHours: toPlainNumber(row.spentHours) } : {}),
+    ...(row.orderIndex !== undefined ? { orderIndex: toPlainNumber(row.orderIndex) } : {}),
+  };
+}
+
 export type GetTaskByIdResult = Awaited<ReturnType<typeof getTaskById>>;
 
 export async function getTaskById(id: string) {
@@ -72,7 +96,7 @@ export async function getTaskById(id: string) {
 
   const customFields = await getCustomFieldValuesForTask(id);
 
-  return { ...task, customFields };
+  return { ...toPlainTaskRow(task), customFields };
 }
 
 export type ListTasksParams = CursorPaginationParams & TaskFilterParams;
@@ -97,7 +121,7 @@ export async function listTasks(params: ListTasksParams) {
 
   const meta = buildPaginatedMeta(tasks, limit);
 
-  return { data: tasks, meta };
+  return { data: tasks.map(toPlainTaskRow), meta };
 }
 
 export type GetInboxTasksResult = {
@@ -131,7 +155,7 @@ export async function getInboxTasks(userId: string) {
     }),
   ]);
 
-  return { unassigned, watching };
+  return { unassigned: unassigned.map(toPlainTaskRow), watching: watching.map(toPlainTaskRow) };
 }
 
 export type TaskStats = {

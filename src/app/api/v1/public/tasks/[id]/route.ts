@@ -4,7 +4,7 @@ import { canEditTask, canReadTask } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { mapAssignees } from "@/lib/tasks/serialize";
-import { updateTask, deleteTask, DependencyBlockedError } from "@/lib/tasks";
+import { updateTask, deleteTask, toPlainTaskRow, DependencyBlockedError } from "@/lib/tasks";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { emitToProject } from "@/lib/realtime/server";
 import { publicTaskUpdateSchema, readJsonBody, validationError } from "@/lib/validation/api";
@@ -42,7 +42,7 @@ export async function GET(
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
-  return NextResponse.json({ data: { ...task, assignees: mapAssignees(task.assignees) } });
+  return NextResponse.json({ data: { ...toPlainTaskRow(task), assignees: mapAssignees(task.assignees) } });
 }
 
 export async function PATCH(
@@ -93,7 +93,7 @@ export async function PATCH(
   await emitTaskEvent("task.updated", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
   emitToProject(task.projectId, "task.updated", { id: task.id, title: task.title, projectId: task.projectId, actorUserId: userId });
 
-  return NextResponse.json({ data: { ...task, autoScheduled } });
+  return NextResponse.json({ data: { ...toPlainTaskRow(task), autoScheduled } });
 }
 
 export async function DELETE(

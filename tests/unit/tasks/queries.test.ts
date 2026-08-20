@@ -34,7 +34,7 @@ vi.mock("@/lib/tasks/filters", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { getTaskById, listTasks, getInboxTasks } from "@/lib/tasks/queries";
+import { getTaskById, listTasks, getInboxTasks, toPlainTaskRow } from "@/lib/tasks/queries";
 
 const mockTask = {
   id: "task-1",
@@ -150,5 +150,34 @@ describe("getInboxTasks", () => {
         status: { not: "done" },
       }),
     );
+  });
+
+  describe("toPlainTaskRow", () => {
+    it("converts Decimal hours and orderIndex to plain numbers", () => {
+      const row = {
+        id: "t-1",
+        title: "Task",
+        estimatedHours: { toNumber: () => 12.5 },
+        spentHours: null,
+        orderIndex: { toNumber: () => 3 },
+      };
+      expect(toPlainTaskRow(row)).toEqual({
+        id: "t-1",
+        title: "Task",
+        estimatedHours: 12.5,
+        spentHours: null,
+        orderIndex: 3,
+      });
+    });
+
+    it("leaves already-plain values untouched", () => {
+      const row = { id: "t-2", estimatedHours: 8, spentHours: 0, orderIndex: 1000 };
+      expect(toPlainTaskRow(row)).toEqual(row);
+    });
+
+    it("normalizes rows that did not select the fields", () => {
+      const row = { id: "t-3", title: "No hours" };
+      expect(toPlainTaskRow(row)).toEqual({ id: "t-3", title: "No hours" });
+    });
   });
 });

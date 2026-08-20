@@ -3,7 +3,7 @@ import { requireAuth } from "@/lib/rbac/middleware";
 import { canProject } from "@/lib/rbac";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
-import { moveTask } from "@/lib/tasks";
+import { moveTask, toPlainTaskRow } from "@/lib/tasks";
 import type { MoveTaskData } from "@/lib/tasks";
 import { WbsGuardError } from "@/lib/tasks/wbs";
 import { prisma } from "@/lib/db";
@@ -63,7 +63,7 @@ export async function POST(
       userId,
     );
 
-    return NextResponse.json({ data: updated });
+    return NextResponse.json({ data: toPlainTaskRow(updated) });
   } catch (err) {
     if (err instanceof WbsGuardError) {
       const status = err.code === "CYCLE" ? 409 : 400;

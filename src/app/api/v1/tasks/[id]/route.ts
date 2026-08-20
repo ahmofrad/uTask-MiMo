@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { emitToProject, emitToTask } from "@/lib/realtime/server";
-import { getTaskById, updateTask, deleteTask, DependencyBlockedError } from "@/lib/tasks";
+import { getTaskById, updateTask, deleteTask, toPlainTaskRow, DependencyBlockedError } from "@/lib/tasks";
 import { mapAssignees } from "@/lib/tasks/serialize";
 import { getCustomFieldValuesForTask as getFieldValues } from "@/lib/custom-fields/values";
 import type { UpdateTaskData } from "@/lib/tasks";
@@ -194,7 +194,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     "PATCH task with custom fields",
   );
 
-  return NextResponse.json({ data: { ...task, customFields: customFieldValues, autoScheduled } });
+  return NextResponse.json({ data: { ...toPlainTaskRow(task), customFields: customFieldValues, autoScheduled } });
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {

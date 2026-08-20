@@ -6,6 +6,7 @@ import { getUserReadableProjectIds } from "@/lib/projects/queries";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import { mapAssignees } from "@/lib/tasks/serialize";
+import { toPlainTaskRow } from "@/lib/tasks";
 import { createTask } from "@/lib/tasks";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { emitToProject } from "@/lib/realtime/server";
@@ -54,7 +55,7 @@ export async function GET(request: Request) {
     },
   });
 
-  const data = tasks.map((t) => ({ ...t, assignees: mapAssignees(t.assignees) }));
+  const data = tasks.map((t) => ({ ...toPlainTaskRow(t), assignees: mapAssignees(t.assignees) }));
 
   const hasMore = tasks.length > limit;
   if (hasMore) tasks.pop();

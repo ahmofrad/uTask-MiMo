@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
-import { isTaskFinalizer, TaskNotPendingApprovalError, approveTask } from "@/lib/tasks";
+import { isTaskFinalizer, TaskNotPendingApprovalError, approveTask, toPlainTaskRow } from "@/lib/tasks";
 import { logAudit } from "@/lib/audit/log";
 import { emitTaskEvent } from "@/lib/webhook/emit";
 import { emitToProject, emitToTask } from "@/lib/realtime/server";
@@ -85,5 +85,5 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     projectId: updated.projectId,
   });
 
-  return NextResponse.json({ data: updated });
+  return NextResponse.json({ data: toPlainTaskRow(updated) });
 }
