@@ -150,7 +150,7 @@ export function TaskDetailSidebar({
               onChange={(e) => onGroupChange(e.target.value || null)}
               className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
             >
-              <option value="">{t("task.noAssigneeGroup")}</option>
+              <option value="">{t("task.fields.noAssigneeGroup")}</option>
               {groups.some(
                 (group) => group.id === task.assigneeGroup?.id,
               ) ? null : task.assigneeGroup ? (

@@ -326,7 +326,7 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
             onChange={(e) => setAssigneeGroupId(e.target.value || null)}
             className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm"
           >
-            <option value="">{t("noAssigneeGroup")}</option>
+            <option value="">{t("fields.noAssigneeGroup")}</option>
             {groups.map((group) => (
               <option key={group.id} value={group.id}>{group.name}</option>
             ))}
