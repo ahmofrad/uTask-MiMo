@@ -99,6 +99,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     deletedAt,
     customFields,
     tagIds,
+    recurrence,
   } = body;
 
   const data: UpdateTaskData = {};
@@ -127,6 +128,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (customFields && typeof customFields === "object")
     data.customFields = customFields as Record<string, unknown>;
   if (tagIds && Array.isArray(tagIds)) data.tagIds = tagIds as string[];
+  if (recurrence !== undefined) data.recurrence = recurrence;
 
   let before: Awaited<ReturnType<typeof updateTask>>["before"];
   let task: Awaited<ReturnType<typeof updateTask>>["task"];

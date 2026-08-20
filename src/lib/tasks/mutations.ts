@@ -11,6 +11,16 @@ import {
 import { evaluateStatusChange, notifyUnblocked, DependencyBlockedError } from "@/lib/tasks/dependencies";
 import { bumpScheduleVersion } from "@/lib/scheduling/cpm";
 import { isTaskFinalizer, shouldRouteToApproval, TaskNotPendingApprovalError } from "@/lib/tasks/approval";
+import {
+  childRule,
+  decodeRecurrenceRule,
+  encodeRecurrenceRule,
+  nextOccurrenceDate,
+  shouldSpawnNext,
+  type RecurrenceRule,
+} from "@/lib/tasks/recurrence";
+import { diffCalendarDays, snapDayMarker, shiftDayMarker, timelineDayStart } from "@/lib/date/day-marker";
+import type { Task } from "@prisma/client";
 
 export type CreateTaskData = {
   title: string;
@@ -31,6 +41,7 @@ export type CreateTaskData = {
   approverId?: string | null;
   tagIds?: string[];
   customFields?: Record<string, unknown>;
+  recurrence?: RecurrenceRule | null;
 };
 
 /**
@@ -50,6 +61,64 @@ function clampProgress(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+/**
+ * Spawn the next occurrence of a recurring task after its current occurrence
+ * is completed. The series carries the rule forward (with `count` decremented)
+ * and references the series root via `recurrenceParentId`.
+ */
+async function spawnNextRecurrence(task: Task, actorId: string): Promise<void> {
+  const rule = decodeRecurrenceRule(task.recurrenceRule);
+  if (!rule) return;
+
+  const anchor = rule.anchor === "startDate" ? task.startDate : task.dueDate;
+  if (!anchor) return;
+
+  const next = nextOccurrenceDate(rule, anchor);
+  if (!shouldSpawnNext(rule, next)) return;
+  const nextRule = childRule(rule);
+  if (!nextRule) return;
+
+  const deltaDays = diffCalendarDays(timelineDayStart(anchor), timelineDayStart(next));
+  const shift = (d: Date, boundary: "start" | "end") =>
+    snapDayMarker(shiftDayMarker(d, deltaDays), boundary);
+
+  const rootId = task.recurrenceParentId ?? task.id;
+  const spawned = await prisma.task.create({
+    data: {
+      projectId: task.projectId,
+      title: task.title,
+      description: task.description,
+      status: "open",
+      priority: task.priority,
+      startDate: task.startDate ? shift(task.startDate, "start") : null,
+      endDate: task.endDate ? shift(task.endDate, "end") : null,
+      dueDate: task.dueDate ? shift(task.dueDate, "end") : null,
+      recurrenceRule: encodeRecurrenceRule(nextRule),
+      recurrenceParentId: rootId,
+      reporterId: task.reporterId,
+      createdById: actorId || task.createdById,
+      assigneeGroupId: task.assigneeGroupId,
+      estimatedHours: task.estimatedHours,
+      isMilestone: task.isMilestone,
+      requiresApproval: task.requiresApproval,
+      approverId: task.approverId,
+    },
+  });
+
+  const { logAudit } = await import("@/lib/audit/log");
+  await logAudit({
+    actorUserId: actorId || null,
+    action: "task_recurrence_spawned",
+    entityType: "task",
+    entityId: spawned.id,
+    after: {
+      parentTaskId: task.id,
+      recurrenceRootId: rootId,
+      recurrenceRule: encodeRecurrenceRule(nextRule),
+    },
+  });
 }
 
 async function notifyNewAssignees(taskId: string, title: string, userIds: string[]) {
@@ -138,6 +207,7 @@ export async function createTask(data: CreateTaskData) {
       progress: clampProgress(data.progress),
       requiresApproval: data.requiresApproval ?? false,
       approverId: data.approverId ?? null,
+      recurrenceRule: data.recurrence ? encodeRecurrenceRule(data.recurrence) : null,
       orderIndex,
     },
   });
@@ -176,6 +246,7 @@ export type UpdateTaskData = {
   approverId?: string | null;
   tagIds?: string[];
   customFields?: Record<string, unknown>;
+  recurrence?: RecurrenceRule | null;
 };
 
 export async function updateTask(id: string, data: UpdateTaskData, actorId?: string) {
@@ -186,6 +257,8 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
   if (data.priority !== undefined) updateData.priority = data.priority;
   if (data.requiresApproval !== undefined) updateData.requiresApproval = data.requiresApproval;
   if (data.approverId !== undefined) updateData.approverId = data.approverId;
+  if (data.recurrence !== undefined)
+    updateData.recurrenceRule = data.recurrence === null ? null : encodeRecurrenceRule(data.recurrence);
   if (data.startDate !== undefined) updateData.startDate = data.startDate ? new Date(data.startDate) : null;
   if (data.endDate !== undefined) updateData.endDate = data.endDate ? new Date(data.endDate) : null;
   if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
@@ -323,6 +396,13 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
     await notifyUnblocked(task.id, actorId ?? task.createdById);
   }
 
+  // Recurring tasks: completing the current occurrence spawns the next one
+  // (the approval gate may have rerouted a `done` request, so only spawn when
+  // the task actually landed on `done`).
+  if (task.status === "done" && before && before.status !== "done" && task.recurrenceRule) {
+    await spawnNextRecurrence(task, actorId ?? task.createdById);
+  }
+
   return { before, task, autoScheduled };
 }
 
@@ -435,6 +515,10 @@ export async function approveTask(id: string, _actorId: string) {
       approvalNote: null,
     },
   });
+
+  if (task.recurrenceRule) {
+    await spawnNextRecurrence(task, _actorId);
+  }
 
   return { before, task };
 }

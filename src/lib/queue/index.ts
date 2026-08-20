@@ -141,6 +141,22 @@ export async function startWorkers(): Promise<void> {
     );
     webhookWorker.on("failed", (job, err) => {
       logger.error({ jobId: job?.id, err }, "Webhook job failed");
+      if (!job) return;
+      // BullMQ emits `failed` on every attempt. Only alert once the job has
+      // exhausted its retries (dead-lettered), when attemptsMade === attempts.
+      const attempts = job.opts.attempts ?? 1;
+      if (job.attemptsMade < attempts) return;
+      const data = job.data as WebhookJobData;
+      void import("@/lib/mail/send")
+        .then(({ notifyWebhookDeadLetter }) =>
+          notifyWebhookDeadLetter({
+            webhookId: data.webhookId,
+            eventType: data.eventType,
+            eventId: data.eventId,
+            error: err?.message,
+          }),
+        )
+        .catch((mailErr) => logger.error({ mailErr }, "Failed to send webhook dead-letter alert"));
     });
     _workers.push(webhookWorker);
 

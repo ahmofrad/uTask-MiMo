@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     projectId, title, description, parentTaskId,
     status: taskStatus, priority: taskPriority,
     startDate, dueDate, assigneeId, assigneeIds, assigneeGroupId, estimatedHours, progress,
-    customFields, tagIds,
+    customFields, tagIds, recurrence,
   } = body;
 
   const projectPermitted = await canProject(userId, "task:create", String(projectId));
@@ -163,6 +163,7 @@ export async function POST(request: Request) {
     if (progress !== undefined) data.progress = Number(progress);
     if (customFields && typeof customFields === "object") data.customFields = customFields as Record<string, unknown>;
     if (tagIds && Array.isArray(tagIds)) data.tagIds = tagIds as string[];
+    if (recurrence !== undefined) data.recurrence = recurrence;
 
     let task: Awaited<ReturnType<typeof createTask>>;
     try {

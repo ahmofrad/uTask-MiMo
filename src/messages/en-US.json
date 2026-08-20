@@ -999,6 +999,7 @@
       "task_reordered": "reordered tasks",
       "task_approved": "approved task",
       "task_rejected": "rejected task",
+      "task_recurrence_spawned": "spawned a recurring task occurrence",
       "project_department_link_requested": "requested project department link",
       "project_department_link_approved": "approved project department link",
       "project_department_link_rejected": "rejected project department link",

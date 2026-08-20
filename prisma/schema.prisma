@@ -195,6 +195,7 @@ enum AuditAction {
   task_dependency_deleted
   task_approved
   task_rejected
+  task_recurrence_spawned
   comment_created
   comment_updated
   comment_deleted
@@ -493,6 +494,7 @@ model Task {
   endDate        DateTime?    @db.Timestamptz
   dueDate        DateTime?    @db.Timestamptz
   recurrenceRule String?      @db.VarChar(500)
+  recurrenceParentId String?  @db.Uuid
   reporterId     String?      @db.Uuid
   createdById    String       @db.Uuid
   assigneeGroupId String?     @db.Uuid

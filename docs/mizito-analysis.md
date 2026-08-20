@@ -149,11 +149,11 @@ Legend for `uTask`: `has` · `partial` · `planned` (in TASKS/roadmap) · `lacks
 | M4 | Meeting minutes (external invite, decisions, signatures) | lacks (G12 records planned) | PMIS-fit | High |
 | M5 | Personal notes + checklists (images, color, tags) | lacks | PMIS-fit | High |
 | M6 | Team monitoring dashboards (members/CRM/minutes) | partial (admin insights/reports) | PMIS-fit | High |
-| M7 | Recurring tasks | lacks | PMIS-fit | High |
+| M7 | Recurring tasks | partial (spawn-on-completion; no UI/cron) | PMIS-fit | High |
 | M8 | Task approver (approval gate on completion) | planned (G15) | PMIS-fit | High |
 | M9 | Task weight + per-person KPI output report | lacks (has priority/estHours/progress) | PMIS-fit | High |
-| M10 | Calendar drag-and-drop reschedule + `/calendar` route | partial (read-only component) | PMIS-fit | High |
-| M11 | Gantt delay-red + dependency-validity-red coloring | partial (has today line/arrows) | PMIS-fit | High |
+| M10 | Calendar drag-and-drop reschedule + `/calendar` route | has | PMIS-fit | High |
+| M11 | Gantt delay-red + dependency-validity-red coloring | has | PMIS-fit | High |
 | M12 | Native mobile apps (Android/iOS) | partial (PWA G16b) | Platform | High |
 | M13 | AI smart assistant | lacks (AI in backlog) | Separate product | High |
 | M14 | In-app video meetings | lacks | Separate product | High |

@@ -999,6 +999,7 @@
       "task_reordered": "وظایف را مرتب کرد",
       "task_approved": "وظیفه را تأیید کرد",
       "task_rejected": "وظیفه را رد کرد",
+      "task_recurrence_spawned": "یک نمونه از وظیفه تکراری ایجاد کرد",
       "project_department_link_requested": "ارتباط پروژه و دپارتمان را درخواست کرد",
       "project_department_link_approved": "ارتباط پروژه و دپارتمان را تأیید کرد",
       "project_department_link_rejected": "ارتباط پروژه و دپارتمان را رد کرد",

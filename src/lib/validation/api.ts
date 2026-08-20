@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { recurrenceRuleSchema } from "@/lib/tasks/recurrence";
 
 const uuid = z.string().uuid();
 const isoDate = z.string().datetime({ offset: true });
@@ -56,6 +57,7 @@ export const taskCreateSchema = publicTaskCreateSchema.extend({
   approverId: uuid.nullable().optional(),
   tagIds: z.array(uuid).max(100).optional(),
   customFields: z.record(z.string(), z.unknown()).optional(),
+  recurrence: recurrenceRuleSchema.nullable().optional(),
 }).strict();
 
 export const taskUpdateSchema = publicTaskUpdateSchema.extend({
@@ -70,6 +72,7 @@ export const taskUpdateSchema = publicTaskUpdateSchema.extend({
   deletedAt: isoDate.nullable().optional(),
   tagIds: z.array(uuid).max(100).optional(),
   customFields: z.record(z.string(), z.unknown()).optional(),
+  recurrence: recurrenceRuleSchema.nullable().optional(),
 }).strict();
 
 export const approvalDecisionSchema = z

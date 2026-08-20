@@ -131,3 +131,64 @@ export async function notifyMentioned(to: string, byName: string, taskTitle: str
     html: `<p>${safeName} mentioned you in <strong>${safeTitle}</strong>.</p><p><a href="${taskUrl}">View task</a></p>`,
   });
 }
+
+/**
+ * Alert every global admin/owner that a webhook delivery exhausted all its
+ * retries (dead-lettered). Enqueued as a normal email job, so it inherits the
+ * SMTP/no-SMTP handling and retry behaviour of the email queue.
+ */
+export async function notifyWebhookDeadLetter(params: {
+  webhookId: string;
+  eventType: string;
+  eventId: string;
+  error?: string;
+}): Promise<void> {
+  const { prisma } = await import("@/lib/db");
+  const { enqueueEmail } = await import("@/lib/queue");
+
+  const webhook = await prisma.webhook.findUnique({
+    where: { id: params.webhookId },
+    select: { name: true, url: true },
+  });
+  const admins = await prisma.user.findMany({
+    where: { roles: { some: { type: { in: ["owner", "admin"] }, scopeType: "global" } } },
+    select: { email: true },
+  });
+
+  if (admins.length === 0) {
+    logger.debug({ webhookId: params.webhookId }, "Webhook dead-letter alert skipped (no global admins)");
+    return;
+  }
+
+  const name = webhook?.name ?? params.webhookId;
+  const url = webhook?.url ?? "";
+  const safeName = escapeHtml(name);
+  const safeUrl = escapeHtml(url);
+  const subject = `Webhook delivery permanently failed: ${name}`;
+  const text = [
+    `A webhook delivery exhausted all retry attempts and was not delivered.`,
+    ``,
+    `Webhook: ${name}`,
+    `URL: ${url}`,
+    `Event: ${params.eventType}`,
+    `Event ID: ${params.eventId}`,
+    params.error ? `Last error: ${params.error}` : null,
+    ``,
+    `Review the webhook under Admin → Webhooks and check the delivery log.`,
+  ]
+    .filter((line) => line !== null)
+    .join("\n");
+  const html = [
+    `<p>A webhook delivery exhausted all retry attempts and was not delivered.</p>`,
+    `<p>Webhook: <strong>${safeName}</strong><br>URL: ${safeUrl}<br>`,
+    `Event: ${escapeHtml(params.eventType)}<br>Event ID: ${escapeHtml(params.eventId)}</p>`,
+    params.error ? `<p>Last error: ${escapeHtml(params.error)}</p>` : null,
+    `<p>Review the webhook under Admin → Webhooks and check the delivery log.</p>`,
+  ]
+    .filter((line) => line !== null)
+    .join("");
+
+  for (const admin of admins) {
+    await enqueueEmail({ to: admin.email, subject, text, html });
+  }
+}
