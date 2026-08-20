@@ -523,6 +523,30 @@ Runs nightly via cron / CronJob:
 - Multi-step migrations for breaking changes (deprecate old column in V1.1, drop in V1.2).
 - Never run a destructive migration without an explicit `--confirm-destructive` flag and a tested backup.
 
+#### Local development database
+
+The local dev DB (`pnpm docker:up`) is kept in sync with `prisma db push`, not `migrate dev`, and has been
+baselined against the existing migration history so `prisma migrate deploy` is a no-op there instead of
+re-applying every migration onto already-present tables.
+
+If you recreate the dev database from scratch, re-baseline it with:
+
+```bash
+for d in $(ls prisma/migrations | grep -v migration_lock | sort); do
+  npx prisma migrate resolve --applied "$d"
+done
+```
+
+(Only do this after `prisma db push` has brought the empty dev DB to the current schema — `migrate resolve`
+records history without executing SQL.)
+
+**Known divergence:** several migrations contain raw SQL that Prisma does not model in `schema.prisma`
+(pg_partman partitioning of `AuditLog`/`WebhookDelivery`, FTS indexes, materialized views). A fresh
+`prisma migrate deploy` therefore produces a schema that `prisma migrate diff` reports as drifted from
+`schema.prisma` (e.g. partitioned tables have no single-column primary key). This is intentional — new
+migrations should be created with `prisma migrate dev --create-only` and hand-edited to preserve that
+raw DDL, as done historically.
+
 ---
 
 ### 7.4 Webhook egress requirements
