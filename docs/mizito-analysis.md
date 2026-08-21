@@ -149,8 +149,8 @@ Legend for `uTask`: `has` · `partial` · `planned` (in TASKS/roadmap) · `lacks
 | M4 | Meeting minutes (external invite, decisions, signatures) | lacks (G12 records planned) | PMIS-fit | High |
 | M5 | Personal notes + checklists (images, color, tags) | lacks | PMIS-fit | High |
 | M6 | Team monitoring dashboards (members/CRM/minutes) | partial (admin insights/reports) | PMIS-fit | High |
-| M7 | Recurring tasks | partial (spawn-on-completion; no UI/cron) | PMIS-fit | High |
-| M8 | Task approver (approval gate on completion) | planned (G15) | PMIS-fit | High |
+| M7 | Recurring tasks | has (spawn-on-completion; editor UI) | PMIS-fit | High |
+| M8 | Task approver (approval gate on completion) | has | PMIS-fit | High |
 | M9 | Task weight + per-person KPI output report | lacks (has priority/estHours/progress) | PMIS-fit | High |
 | M10 | Calendar drag-and-drop reschedule + `/calendar` route | has | PMIS-fit | High |
 | M11 | Gantt delay-red + dependency-validity-red coloring | has | PMIS-fit | High |
@@ -159,7 +159,7 @@ Legend for `uTask`: `has` · `partial` · `planned` (in TASKS/roadmap) · `lacks
 | M14 | In-app video meetings | lacks | Separate product | High |
 | M15 | Polls / voice messages / emoji in chat | lacks | Separate product | High |
 | M16 | Guest / external users | partial (Guest role seeded, no guest flow) | PMIS-fit | High |
-| M17 | Unified workspace shell (module tiles) | partial (project-centric nav) | PMIS-fit | High |
+| M17 | Unified workspace shell (module tiles) | has | PMIS-fit | High |
 | M18 | On-prem dedicated-server install | has (uTask is on-prem by design) | — | High |
 
 ### M1 — Team chat / private social network  `Separate product`
@@ -212,22 +212,24 @@ Legend for `uTask`: `has` · `partial` · `planned` (in TASKS/roadmap) · `lacks
 - **Gap:** add a **member monitoring** view (per-member task throughput, on-time %, workload)
   reusing existing report primitives. Likely an extension of `reports/org`. Low new-model cost.
 
-### M7 — Recurring tasks  `PMIS-fit`
+### M7 — Recurring tasks  `PMIS-fit`  (built)
 - **Mizito:** daily/weekly repeating tasks.
-- **uTask:** lacks. `Task` has no recurrence fields.
-- **Design sketch:** add to `Task`: `recurrence RecurrenceRule?` (RRULE-ish or simple
-  {freq: DAILY|WEEKLY|MONTHLY, interval, byDay[], anchor: startDate|dueDate, count?, endDate?}),
-  `recurrenceParentId?`. On completion/advance, a scheduler (BullMQ cron) spawns the next
-  occurrence. Endpoints: recurrence lives in task PATCH/POST. RBAC = task WRITE. Audit on
-  spawn. i18n `task.recurrence.*`. Dependency: scheduler worker (BullMQ exists).
+- **uTask:** **built** — `Task.recurrence` + `recurrenceParentId` (migration
+  `20260820170000`), `lib/tasks/recurrence.ts` (DAILY/WEEKLY/MONTHLY rule schema, interval,
+  count/endDate caps, next-occurrence math), and a sidebar `TaskRecurrenceEditor` UI. Completing
+  an occurrence spawns the next one (dates shifted, count decremented, `recurrenceParentId`
+  anchored to the series root); `recurrence` round-trips through task POST/PATCH and the query
+  serializer. Audit on spawn (`task_recurrence_spawned`).
+- **Remaining:** no date-driven auto-advance — occurrences only advance when the prior one is
+  completed. A daily sweep (advance-the-head vs chain-on-completion) is a deliberate
+  product/architecture decision, not yet built.
 
-### M8 — Task approver (approval gate)  `PMIS-fit`  (planned G15)
+### M8 — Task approver (approval gate)  `PMIS-fit`  (built)
 - **Mizito:** a separate person (تاییدکننده) must approve task completion.
-- **uTask:** planned under G15 (task approval gate); not built. `Task` has `assigneeId` only.
-- **Design sketch:** add `approverId?` to `Task`; status machine gains an `IN_REVIEW`/
-  `PENDING_APPROVAL` state between `IN_PROGRESS` and `DONE`. Completing requires approver
-  action; approver gets a notification. RBAC: approver (project role or named user) can
-  approve. Audit on approval. i18n `task.approval.*`.
+- **uTask:** **built** — `Task.approverId` + `PENDING_APPROVAL` status; a DONE transition on
+  a task that requires approval reroutes to `PENDING_APPROVAL` unless the actor is a finalizer
+  (`lib/tasks/approval.ts`), with `approve`/`reject` routes, the `TaskApprovalBanner` UI, and
+  audit on every decision. i18n `task.approval.*`.
 
 ### M9 — Task weight + per-person KPI output  `PMIS-fit`
 - **Mizito:** abstract `weight/چگالی` per task; per-project enable; report = sum of weights
@@ -277,13 +279,14 @@ Legend for `uTask`: `has` · `partial` · `planned` (in TASKS/roadmap) · `lacks
   a `ProjectMember`/scoped grant; limit Guest to assigned tasks/projects only via RBAC.
   Audit on invite. i18n `guest.*`.
 
-### M17 — Unified workspace shell (module tiles)  `PMIS-fit`
+### M17 — Unified workspace shell (module tiles)  `PMIS-fit`  (built)
 - **Mizito:** home "desktop" with module tiles (chat / tasks / projects / mail / CRM / notes /
   monitoring) the user switches between.
-- **uTask:** project-centric nav; dashboard is task-focused.
-- **Design sketch:** a **workspace/home** landing with app tiles linking to existing sections
-  (projects, my-tasks, calendar, monitoring/insights, settings) and, once built, chat/CRM/
-  notes/correspondence tiles. Pure UI/nav work; no schema change. i18n `workspace.*`.
+- **uTask:** **built** — a `/workspace` landing (`components/workspace/workspace-page.tsx` +
+  `lib/workspace/tiles.ts`) with module tiles linking to the existing sections (dashboard,
+  my-tasks, projects, calendar, all-tasks, settings, and admin-gated insights). Added to the
+  sidebar and mobile nav; i18n `workspace.*`. Pure UI/nav, no schema change. Future modules
+  (chat/CRM/notes/correspondence) add their own tiles once built.
 
 ### M18 — On-prem dedicated-server install  `has`
 - uTask is on-prem by design (Docker/Helm in `ops/`, `DEPLOYMENT.md`). No gap. Listed for completeness.
@@ -325,11 +328,12 @@ Legend for `uTask`: `has` · `partial` · `planned` (in TASKS/roadmap) · `lacks
 
 Order by leverage and low risk; keep each additive and audited.
 
-1. **M11 Gantt delay + dependency-validity coloring** — pure front-end, no schema. Quick win.
-2. **M10 Calendar drag + `/calendar` route** — reuses Gantt drag pattern; promotes existing component.
-3. **M17 Workspace shell (module tiles)** — pure nav/UI; sets up future module entries.
-4. **M7 Recurring tasks** — schema + scheduler job.
-5. **M8 Task approver** — schema (approverId + state) + notification; planned in G15.
+1. ~~**M11 Gantt delay + dependency-validity coloring**~~ — **done** (pure front-end).
+2. ~~**M10 Calendar drag + `/calendar` route**~~ — **done**.
+3. ~~**M7 Recurring tasks**~~ — **done** (schema + spawn-on-completion + editor UI; date-driven
+   auto-advance remains).
+4. ~~**M8 Task approver**~~ — **done** (schema + state + notification + banner UI).
+5. ~~**M17 Workspace shell (module tiles)**~~ — **done** (pure nav/UI).
 6. **M9 Task weight + member-output KPI** — schema + report endpoint.
 7. **M5 Personal notes** — new models, self-scoped.
 8. **M4 Meeting minutes** — under G12 records framework.
