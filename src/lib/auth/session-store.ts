@@ -18,6 +18,34 @@ export type SessionData = {
   revoked: boolean;
 };
 
+/**
+ * Sessions written before the sliding-expiration change carry only
+ * `{ userId, email, role, createdAt }` (no `lastUsedAt`/`revoked`).  Treat a
+ * missing `lastUsedAt` as "never touched since creation" and a missing
+ * `revoked` as `false`, so old records behave consistently with new ones.
+ */
+function normalizeSessionData(raw: string): SessionData | null {
+  try {
+    const data = JSON.parse(raw) as Partial<SessionData> & {
+      userId: string;
+      email: string;
+      role: string | null;
+      createdAt: number;
+    };
+    if (typeof data.userId !== "string" || typeof data.createdAt !== "number") return null;
+    return {
+      userId: data.userId,
+      email: data.email ?? "",
+      role: data.role ?? null,
+      createdAt: data.createdAt,
+      lastUsedAt: typeof data.lastUsedAt === "number" ? data.lastUsedAt : data.createdAt,
+      revoked: data.revoked === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function createSession(userId: string, email: string, role: string | null): Promise<string> {
   const redis = await getRedis();
   const sessionId = randomHex(32);
@@ -46,7 +74,8 @@ export async function getSession(sessionId: string): Promise<SessionData | null>
   const raw = await redis.get(`${SESSION_PREFIX}${sessionId}`);
   if (!raw) return null;
 
-  const data = JSON.parse(raw) as SessionData;
+  const data = normalizeSessionData(raw);
+  if (!data) return null;
 
   if (data.revoked) return null;
 
@@ -72,7 +101,8 @@ export async function revokeSession(sessionId: string): Promise<void> {
   const redis = await getRedis();
   const raw = await redis.get(`${SESSION_PREFIX}${sessionId}`);
   if (!raw) return;
-  const data = JSON.parse(raw) as SessionData;
+  const data = normalizeSessionData(raw);
+  if (!data) return;
   data.revoked = true;
 
   // Keep the revoked record alive for the remaining absolute TTL so
@@ -104,7 +134,8 @@ export async function listUserSessions(userId: string): Promise<Array<SessionDat
     const id = sessionIds[i]!;
     const raw = results[i]?.[1] as string | null;
     if (!raw) continue;
-    const data = JSON.parse(raw) as SessionData;
+    const data = normalizeSessionData(raw);
+    if (!data) continue;
     if (data.revoked) continue;
     if (now - data.lastUsedAt > IDLE_TTL_MS) continue;
     if (now - data.createdAt > ABSOLUTE_TTL_MS) continue;
@@ -137,7 +168,11 @@ export async function revokeAllUserSessions(userId: string): Promise<void> {
       pipeline2.del(`${SESSION_PREFIX}${sessionId}`);
       continue;
     }
-    const data = JSON.parse(raw) as SessionData;
+    const data = normalizeSessionData(raw);
+    if (!data) {
+      pipeline2.del(`${SESSION_PREFIX}${sessionId}`);
+      continue;
+    }
     data.revoked = true;
     const remainingMs = ABSOLUTE_TTL_MS - (now - data.createdAt);
     if (remainingMs <= 0) {

@@ -177,4 +177,25 @@ describe("session-store", () => {
     const list = await listUserSessions("u1");
     expect(list).toHaveLength(0);
   });
+
+  it("normalizes legacy sessions missing lastUsedAt and revoked", async () => {
+    // Legacy format: only { userId, email, role, createdAt }.
+    const id = "legacy-session-id";
+    store.set(
+      `session:${id}`,
+      JSON.stringify({ userId: "u1", email: "a@b.com", role: "admin", createdAt: Date.now() }),
+    );
+    sets.set("user_sessions:u1", new Set([id]));
+
+    const list = await listUserSessions("u1");
+    expect(list).toHaveLength(1);
+    expect(list[0]!.id).toBe(id);
+    expect(list[0]!.lastUsedAt).toBe(list[0]!.createdAt);
+    expect(list[0]!.revoked).toBe(false);
+
+    // getSession must also accept the legacy shape and not throw.
+    const session = await getSession(id);
+    expect(session).not.toBeNull();
+    expect(session!.lastUsedAt).toBeGreaterThanOrEqual(session!.createdAt);
+  });
 });
