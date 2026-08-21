@@ -24,7 +24,7 @@ test.describe("Project members", () => {
 
     try {
       await page.goto("/projects");
-      const link = page.locator(`a[href^='/projects/${project.id}']`);
+      const link = page.locator(`a[href^='/projects/${project.id}']`).first();
       await link.click();
       await expect(page).toHaveURL(new RegExp(`/projects/${project.id}`));
       // The header shows the member-count button for the single member.

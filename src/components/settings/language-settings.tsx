@@ -2,12 +2,20 @@
 
 import { useTranslations } from "next-intl";
 import { useLocale } from "next-intl";
+import { apiFetch } from "@/lib/api-fetch";
 
-export function LanguageSettings() {
+type Props = { userId: string };
+
+export function LanguageSettings({ userId }: Props) {
   const t = useTranslations("settings");
   const currentLocale = useLocale();
 
-  function switchLocale(locale: string) {
+  async function switchLocale(locale: string) {
+    await apiFetch(`/api/v1/users/${userId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ locale: locale.replace("-", "_") }),
+    }).catch(() => {});
     document.cookie = `NEXT_LOCALE=${locale};path=/;max-age=31536000;SameSite=Lax`;
     window.location.reload();
   }

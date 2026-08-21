@@ -830,6 +830,8 @@
     "signOutAll": "Sign out all other sessions",
     "signOut": "Sign out",
     "noSessions": "No active sessions",
+    "lastActive": "Last active",
+    "loading": "Loading…",
     "assigned": "Assigned to me",
     "mentioned": "Mentioned in comment",
     "commented": "Comment on watching task",

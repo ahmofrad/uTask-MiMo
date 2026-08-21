@@ -85,6 +85,36 @@ export async function revokeSession(sessionId: string): Promise<void> {
   await redis.srem(`${USER_SESSIONS_PREFIX}${data.userId}`, sessionId);
 }
 
+/** Return metadata for every active session belonging to a user (no lastUsedAt bump). */
+export async function listUserSessions(userId: string): Promise<Array<SessionData & { id: string }>> {
+  const redis = await getRedis();
+  const sessionIds = await redis.smembers(`${USER_SESSIONS_PREFIX}${userId}`);
+  if (sessionIds.length === 0) return [];
+
+  const pipeline = redis.multi();
+  for (const id of sessionIds) {
+    pipeline.get(`${SESSION_PREFIX}${id}`);
+  }
+  const results = await pipeline.exec();
+  if (!results) return [];
+
+  const now = Date.now();
+  const sessions: Array<SessionData & { id: string }> = [];
+  for (let i = 0; i < sessionIds.length; i++) {
+    const id = sessionIds[i]!;
+    const raw = results[i]?.[1] as string | null;
+    if (!raw) continue;
+    const data = JSON.parse(raw) as SessionData;
+    if (data.revoked) continue;
+    if (now - data.lastUsedAt > IDLE_TTL_MS) continue;
+    if (now - data.createdAt > ABSOLUTE_TTL_MS) continue;
+    sessions.push({ ...data, id });
+  }
+
+  sessions.sort((a, b) => b.lastUsedAt - a.lastUsedAt);
+  return sessions;
+}
+
 export async function revokeAllUserSessions(userId: string): Promise<void> {
   const redis = await getRedis();
   const sessionIds = await redis.smembers(`${USER_SESSIONS_PREFIX}${userId}`);

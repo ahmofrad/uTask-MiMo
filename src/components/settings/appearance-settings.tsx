@@ -1,12 +1,40 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useTheme, ACCENT_COLORS } from "@/components/theme/provider";
+import { useCallback } from "react";
+import { useTheme, ACCENT_COLORS, type Theme, type Accent } from "@/components/theme/provider";
+import { apiFetch } from "@/lib/api-fetch";
 
-export function AppearanceSettings() {
+type Props = { userId: string };
+
+export function AppearanceSettings({ userId }: Props) {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
   const { theme, setTheme, accent, setAccent } = useTheme();
+
+  const handleSetTheme = useCallback(
+    (mode: Theme) => {
+      setTheme(mode);
+      apiFetch(`/api/v1/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: mode }),
+      }).catch(() => {});
+    },
+    [userId, setTheme],
+  );
+
+  const handleSetAccent = useCallback(
+    (color: Accent) => {
+      setAccent(color);
+      apiFetch(`/api/v1/users/${userId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accentColor: color }),
+      }).catch(() => {});
+    },
+    [userId, setAccent],
+  );
 
   const accentColors = [
     { name: tc("accentDefault"), value: "blue" as const },
@@ -27,7 +55,7 @@ export function AppearanceSettings() {
           {(["light", "dark", "system", "midnight", "solarized", "high_contrast", "nord"] as const).map((mode) => (
             <button
               key={mode}
-              onClick={() => setTheme(mode)}
+              onClick={() => handleSetTheme(mode)}
               className={`px-4 py-2 text-sm rounded-md border transition-colors ${
                 theme === mode
                   ? "border-accent bg-accent-bg text-accent"
@@ -46,7 +74,7 @@ export function AppearanceSettings() {
           {accentColors.map((c) => (
             <button
               key={c.value}
-              onClick={() => setAccent(c.value)}
+              onClick={() => handleSetAccent(c.value)}
               className={`w-8 h-8 rounded-full border-2 transition-[transform,border-color] ${
                 accent === c.value ? "border-fg-primary scale-110" : "border-transparent"
               }`}

@@ -43,6 +43,7 @@ async function ensureConnection(): Promise<unknown> {
 
 let _webhookQueue: Queue | null = null;
 let _emailQueue: Queue | null = null;
+let _recurrenceQueue: Queue | null = null;
 
 async function getWebhookQueue(): Promise<Queue> {
   if (_webhookQueue) return _webhookQueue;
@@ -74,6 +75,32 @@ async function getEmailQueue(): Promise<Queue> {
   return _emailQueue;
 }
 
+async function getRecurrenceQueue(): Promise<Queue> {
+  if (_recurrenceQueue) return _recurrenceQueue;
+  const conn = await ensureConnection();
+  _recurrenceQueue = new Queue("recurrence-sweep", {
+    connection: conn as never,
+    defaultJobOptions: {
+      attempts: 3,
+      backoff: { type: "fixed", delay: 60_000 },
+      removeOnComplete: 50,
+      removeOnFail: 20,
+    },
+  });
+  return _recurrenceQueue;
+}
+
+export async function ensureRecurrenceSweepScheduled(): Promise<void> {
+  const q = await getRecurrenceQueue();
+  // BullMQ dedupes repeatable jobs by repeat key, so calling this on every
+  // boot is safe — the existing repeatable is reused.
+  await q.add("daily-sweep", {}, {
+    repeat: { pattern: "0 2 * * *" },
+    jobId: "recurrence-daily-sweep",
+  });
+  logger.info("Recurrence sweep scheduled daily at 02:00 UTC");
+}
+
 export type WebhookJobData = {
   webhookId: string;
   eventType: string;
@@ -81,6 +108,8 @@ export type WebhookJobData = {
   payload: Record<string, unknown>;
   deliveryId?: string;
 };
+
+export type RecurrenceSweepJobData = unknown; // no data — the sweep queries the DB
 
 export type EmailJobData = {
   to: string;
@@ -172,6 +201,27 @@ export async function startWorkers(): Promise<void> {
       logger.error({ jobId: job?.id, err }, "Email job failed");
     });
     _workers.push(emailWorker);
+
+    const recurrenceWorker = new Worker<RecurrenceSweepJobData>(
+      "recurrence-sweep",
+      async () => {
+        const { sweepRecurringTasks } = await import("@/lib/tasks/recurrence");
+        const { prisma } = await import("@/lib/db");
+        const spawned = await sweepRecurringTasks(prisma);
+        if (spawned > 0) {
+          logger.info({ spawned }, "Recurrence sweep spawned new occurrences");
+        }
+      },
+      { connection: conn as never },
+    );
+    recurrenceWorker.on("failed", (job, err) => {
+      logger.error({ jobId: job?.id, err }, "Recurrence sweep failed");
+    });
+    _workers.push(recurrenceWorker);
+
+    // Schedule the daily repeatable. BullMQ deduplicates repeatable jobs
+    // by their repeat key, so this is safe to call on every boot.
+    await ensureRecurrenceSweepScheduled();
 
     logger.info("BullMQ workers started");
   } catch (err) {

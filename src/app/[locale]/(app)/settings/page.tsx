@@ -1,11 +1,11 @@
 import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
 import { ProfileSettings } from "@/components/settings/profile-settings";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { LanguageSettings } from "@/components/settings/language-settings";
 import { TokensSettings } from "@/components/settings/tokens-settings";
+import { SessionsSettings } from "@/components/settings/sessions-settings";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -21,12 +21,6 @@ export default async function SettingsPage() {
   if (!session?.user?.id) redirect("/login");
 
   const t = await getTranslations("settings");
-
-  const sessions = await prisma.session.findMany({
-    where: { userId: session.user.id },
-    orderBy: { expires: "desc" },
-    select: { id: true, expires: true },
-  });
 
   const events = [
     { key: "assigned", label: t("assigned") },
@@ -50,11 +44,11 @@ export default async function SettingsPage() {
         </Section>
 
         <Section title={t("appearance")}>
-          <AppearanceSettings />
+          <AppearanceSettings userId={session.user.id} />
         </Section>
 
         <Section title={t("language")}>
-          <LanguageSettings />
+          <LanguageSettings userId={session.user.id} />
         </Section>
       </div>
 
@@ -91,36 +85,7 @@ export default async function SettingsPage() {
         </Section>
 
         <Section title={t("sessions")}>
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-fg-muted">{t("sessions")}</span>
-            <button className="text-sm text-destructive hover:underline">{t("signOutAll")}</button>
-          </div>
-          <div className="space-y-3">
-            {sessions.map((s, i) => (
-              <div key={s.id} className="flex items-center gap-4 p-4 bg-bg-primary border border-border-secondary rounded-lg">
-                <div className={`w-2 h-2 rounded-full shrink-0 ${i === 0 ? "bg-success" : "bg-fg-subtle"}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-fg-primary">
-                      {i === 0 ? t("thisDevice") : t("session")}
-                    </span>
-                    {i === 0 && (
-                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-success-bg text-success">{t("current")}</span>
-                    )}
-                  </div>
-                  <div className="text-xs text-fg-muted mt-1">
-                    {t("expires")}: {s.expires.toLocaleString()}
-                  </div>
-                </div>
-                {i > 0 && (
-                  <button className="text-xs text-fg-muted hover:text-destructive transition-colors">{t("signOut")}</button>
-                )}
-              </div>
-            ))}
-            {sessions.length === 0 && (
-              <p className="text-sm text-fg-muted text-center py-8">{t("noSessions")}</p>
-            )}
-          </div>
+          <SessionsSettings />
         </Section>
       </div>
     </div>

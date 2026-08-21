@@ -49,6 +49,7 @@ vi.mock("@/lib/redis", () => ({ getRedis: vi.fn(async () => redis) }));
 import {
   createSession,
   getSession,
+  listUserSessions,
   revokeAllUserSessions,
   revokeSession,
 } from "@/lib/auth/session-store";
@@ -142,5 +143,38 @@ describe("session-store", () => {
     expect(await getSession(id1)).toBeNull();
     expect(await getSession(id2)).not.toBeNull();
     expect((await getSession(id2))!.userId).toBe("u2");
+  });
+
+  it("listUserSessions returns active sessions sorted by lastUsedAt", async () => {
+    const id1 = await createSession("u1", "a@b.com", "admin");
+    // backdate id1 so id2 is the most-recently-used
+    const data1 = await getSession(id1);
+    data1!.lastUsedAt = Date.now() - 60_000;
+    store.set(`session:${id1}`, JSON.stringify(data1));
+
+    const id2 = await createSession("u1", "a@b.com", "admin");
+
+    const list = await listUserSessions("u1");
+    expect(list).toHaveLength(2);
+    expect(list[0]!.id).toBe(id2); // most recent first
+    expect(list[1]!.id).toBe(id1);
+  });
+
+  it("listUserSessions excludes revoked sessions", async () => {
+    await createSession("u1", "a@b.com", "admin");
+    const id2 = await createSession("u1", "a@b.com", "admin");
+    await revokeSession(id2);
+    const list = await listUserSessions("u1");
+    expect(list).toHaveLength(1);
+    expect(list[0]!.revoked).toBe(false);
+  });
+
+  it("listUserSessions excludes sessions with expired idle timeout", async () => {
+    const id = await createSession("u1", "a@b.com", "member");
+    const data = await getSession(id);
+    data!.lastUsedAt = Date.now() - 31 * 60 * 1000;
+    store.set(`session:${id}`, JSON.stringify(data));
+    const list = await listUserSessions("u1");
+    expect(list).toHaveLength(0);
   });
 });

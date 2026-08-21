@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { shiftDayMarker, snapDayMarker, timelineDayStart } from "@/lib/date/day-marker";
+import { diffCalendarDays, shiftDayMarker, snapDayMarker, timelineDayStart } from "@/lib/date/day-marker";
 
 /**
  * Recurrence rule for a task, stored JSON-encoded in `Task.recurrenceRule`.
@@ -77,6 +77,108 @@ export function shouldSpawnNext(rule: RecurrenceRule, nextDate: Date): boolean {
     if (timelineDayStart(nextDate).getTime() > end.getTime()) return false;
   }
   return true;
+}
+
+/**
+ * Auto-advance sweep: for every open recurring task whose next occurrence
+ * date is today or earlier, spawn the occurrence if a child for that date
+ * slot does not already exist.  Called daily via a BullMQ repeatable job.
+ */
+export async function sweepRecurringTasks(prisma: { task: { findMany: Function; findFirst: Function; create: Function } }): Promise<number> {
+  const now = new Date();
+  const todayStart = timelineDayStart(now);
+
+  const candidates = await prisma.task.findMany({
+    where: {
+      recurrenceRule: { not: null },
+      status: { notIn: ["done", "cancelled"] },
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      title: true,
+      projectId: true,
+      description: true,
+      priority: true,
+      status: true,
+      startDate: true,
+      endDate: true,
+      dueDate: true,
+      recurrenceRule: true,
+      recurrenceParentId: true,
+      reporterId: true,
+      createdById: true,
+      assigneeGroupId: true,
+      estimatedHours: true,
+      isMilestone: true,
+      requiresApproval: true,
+      approverId: true,
+      parentTaskId: true,
+    },
+  });
+
+  let spawned = 0;
+
+  for (const task of candidates) {
+    const rule = decodeRecurrenceRule(task.recurrenceRule);
+    if (!rule) continue;
+
+    const anchor = rule.anchor === "startDate" ? task.startDate : task.dueDate;
+    if (!anchor) continue;
+
+    const next = nextOccurrenceDate(rule, anchor);
+    if (!shouldSpawnNext(rule, next)) continue;
+
+    // Only spawn when the next date is today or already in the past.
+    if (timelineDayStart(next).getTime() > todayStart.getTime()) continue;
+
+    // Guard: don't duplicate — a child may already have been spawned by the
+    // complete-to-advance path.
+    const deltaDays = diffCalendarDays(timelineDayStart(anchor), timelineDayStart(next));
+    const shift = (d: Date, boundary: "start" | "end") =>
+      snapDayMarker(shiftDayMarker(d, deltaDays), boundary);
+
+    const existing = await prisma.task.findFirst({
+      where: {
+        recurrenceParentId: task.recurrenceParentId ?? task.id,
+        dueDate: task.dueDate ? shift(task.dueDate, "end") : undefined,
+        startDate: task.startDate ? shift(task.startDate, "start") : undefined,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+    if (existing) continue;
+
+    const nextRule = childRule(rule);
+    if (!nextRule) continue;
+
+    const rootId = task.recurrenceParentId ?? task.id;
+    await prisma.task.create({
+      data: {
+        projectId: task.projectId,
+        title: task.title,
+        description: task.description,
+        status: "open",
+        priority: task.priority,
+        startDate: task.startDate ? shift(task.startDate, "start") : null,
+        endDate: task.endDate ? shift(task.endDate, "end") : null,
+        dueDate: task.dueDate ? shift(task.dueDate, "end") : null,
+        recurrenceRule: encodeRecurrenceRule(nextRule),
+        recurrenceParentId: rootId,
+        reporterId: task.reporterId,
+        createdById: task.createdById,
+        assigneeGroupId: task.assigneeGroupId,
+        estimatedHours: task.estimatedHours,
+        isMilestone: task.isMilestone,
+        requiresApproval: task.requiresApproval,
+        approverId: task.approverId,
+      },
+    });
+
+    spawned += 1;
+  }
+
+  return spawned;
 }
 
 /**
