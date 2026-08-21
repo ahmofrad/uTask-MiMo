@@ -389,6 +389,39 @@ export const publicTokenCreateSchema = z.object({
   expiresAt: isoDate.nullable().optional(),
 }).strict();
 
+export const rateCardCreateSchema = z.object({
+  scope: z.enum(["user", "role"]),
+  userId: uuid.nullable().optional(),
+  roleType: z.enum(["owner", "admin", "manager", "member", "guest"]).nullable().optional(),
+  costRateMinor: z.number().int().min(0).max(1_000_000_000),
+  billRateMinor: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
+  currency: z.string().trim().length(3).default("USD"),
+  effectiveFrom: isoDate,
+  effectiveTo: isoDate.nullable().optional(),
+}).strict().superRefine((value, context) => {
+  if (value.scope === "user" && !value.userId) {
+    context.addIssue({ code: "custom", message: "userId is required for user scope", path: ["userId"] });
+  }
+  if (value.scope === "role" && !value.roleType) {
+    context.addIssue({ code: "custom", message: "roleType is required for role scope", path: ["roleType"] });
+  }
+});
+
+export const timesheetPeriodCreateSchema = z.object({
+  periodStart: isoDate,
+  periodEnd: isoDate,
+}).strict().refine((value) => new Date(value.periodStart) < new Date(value.periodEnd), {
+  message: "periodEnd must be after periodStart",
+  path: ["periodEnd"],
+});
+
+export const timeEntryCreateSchema = z.object({
+  projectId: uuid,
+  taskId: uuid.nullable().optional(),
+  minutes: z.number().int().min(1).max(43_200),
+  billable: z.boolean().default(true),
+}).strict();
+
 export function validationError(error: z.ZodError) {
   return {
     error: {

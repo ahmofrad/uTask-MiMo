@@ -43,6 +43,19 @@ enum RoleType {
   guest
 }
 
+enum RateCardScope {
+  user
+  role
+}
+
+enum TimesheetStatus {
+  open
+  submitted
+  approved
+  rejected
+  reopened
+}
+
 enum RoleScope {
   global
   project
@@ -235,6 +248,15 @@ enum AuditAction {
   group_grant_revoked
   session_revoked
   mail_test_sent
+  timesheet_period_created
+  timesheet_period_submitted
+  timesheet_period_approved
+  timesheet_period_rejected
+  timesheet_period_reopened
+  timesheet_entry_created
+  rate_card_created
+  rate_card_updated
+  rate_card_deleted
 }
 
 enum SettingsScope {
@@ -281,10 +303,13 @@ model User {
   webhooks                              Webhook[]
   projectTemplates                      ProjectTemplate[]
   ldapMemberships                       LdapGroupMembership[]
-  groupGrantsGranted                    ProjectGroupGrant[]           @relation("ProjectGroupGrantGrantedBy")
+  groupGrantsGranted                    ProjectGroupGrant[]            @relation("ProjectGroupGrantGrantedBy")
   managedDepartments                    Department[]                   @relation("DepartmentManager")
   projectDepartmentLinkRequestsMade     ProjectDepartmentLinkRequest[] @relation("ProjectDepartmentLinkRequestRequester")
   projectDepartmentLinkRequestsReviewed ProjectDepartmentLinkRequest[] @relation("ProjectDepartmentLinkRequestReviewer")
+  rateCards                             RateCard[]                     @relation("RateCardUser")
+  timesheetPeriods                      TimesheetPeriod[]              @relation("TimesheetPeriodOwner")
+  timeEntries                           TimeEntry[]                    @relation("TimeEntryUser")
 
   @@map("User")
 }
@@ -320,16 +345,16 @@ model Role {
 }
 
 model Department {
-  id              String                  @id @default(uuid()) @db.Uuid
-  name            String                  @db.VarChar(255)
-  parentId        String?                 @db.Uuid
-  managerUserId   String?                 @db.Uuid
+  id              String                   @id @default(uuid()) @db.Uuid
+  name            String                   @db.VarChar(255)
+  parentId        String?                  @db.Uuid
+  managerUserId   String?                  @db.Uuid
   managerSource   DepartmentManagerSource?
-  source          DepartmentSource        @default(manual)
-  ldapSyncGroupId String?                 @unique @db.Uuid
-  deletedAt       DateTime?               @db.Timestamptz
-  createdAt       DateTime                @default(now()) @db.Timestamptz
-  updatedAt       DateTime                @updatedAt @db.Timestamptz
+  source          DepartmentSource         @default(manual)
+  ldapSyncGroupId String?                  @unique @db.Uuid
+  deletedAt       DateTime?                @db.Timestamptz
+  createdAt       DateTime                 @default(now()) @db.Timestamptz
+  updatedAt       DateTime                 @updatedAt @db.Timestamptz
 
   parent                 Department?                    @relation("DepartmentTree", fields: [parentId], references: [id])
   children               Department[]                   @relation("DepartmentTree")
@@ -339,6 +364,7 @@ model Department {
   projects               Project[]
   projectLinks           ProjectDepartment[]
   departmentLinkRequests ProjectDepartmentLinkRequest[]
+  timesheetPeriods       TimesheetPeriod[]
 
   @@map("Department")
 }
@@ -369,6 +395,7 @@ model Project {
   customFields           CustomField[]
   tasks                  Task[]
   tags                   Tag[]
+  timeEntries            TimeEntry[]
 
   @@index([ownerId])
   @@index([departmentId])
@@ -434,9 +461,9 @@ model ProjectGroupGrant {
   grantedBy String            @db.Uuid
   grantedAt DateTime          @default(now()) @db.Timestamptz
 
-  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  group        LdapSyncGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  grantedByUser User         @relation("ProjectGroupGrantGrantedBy", fields: [grantedBy], references: [id])
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  group         LdapSyncGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  grantedByUser User          @relation("ProjectGroupGrantGrantedBy", fields: [grantedBy], references: [id])
 
   @@id([projectId, groupId])
   @@index([groupId, projectId])
@@ -487,42 +514,42 @@ model CustomFieldValue {
 }
 
 model Task {
-  id             String       @id @default(uuid()) @db.Uuid
-  projectId      String       @db.Uuid
-  parentTaskId   String?      @db.Uuid
-  title          String       @db.VarChar(500)
-  description    String?      @db.Text
-  status         TaskStatus   @default(open)
-  priority       TaskPriority @default(med)
-  startDate      DateTime?    @db.Timestamptz
-  endDate        DateTime?    @db.Timestamptz
-  dueDate        DateTime?    @db.Timestamptz
-  recurrenceRule String?      @db.VarChar(500)
-  recurrenceParentId String?  @db.Uuid
-  reporterId     String?      @db.Uuid
-  createdById    String       @db.Uuid
-  assigneeGroupId String?     @db.Uuid
-  estimatedHours Decimal?     @db.Decimal(10, 2)
-  spentHours     Decimal?     @db.Decimal(10, 2)
-  orderIndex     Decimal?     @db.Decimal(30, 10)
-  progress       Int          @default(0)
-  isMilestone    Boolean      @default(false)
-  milestoneKind  String?
-  requiresApproval Boolean   @default(false)
-  approverId     String?      @db.Uuid
-  approvalNote   String?      @db.Text
-  completedAt    DateTime?    @db.Timestamptz
-  deletedAt      DateTime?    @db.Timestamptz
-  createdAt      DateTime     @default(now()) @db.Timestamptz
-  updatedAt      DateTime     @updatedAt @db.Timestamptz
+  id                 String       @id @default(uuid()) @db.Uuid
+  projectId          String       @db.Uuid
+  parentTaskId       String?      @db.Uuid
+  title              String       @db.VarChar(500)
+  description        String?      @db.Text
+  status             TaskStatus   @default(open)
+  priority           TaskPriority @default(med)
+  startDate          DateTime?    @db.Timestamptz
+  endDate            DateTime?    @db.Timestamptz
+  dueDate            DateTime?    @db.Timestamptz
+  recurrenceRule     String?      @db.VarChar(500)
+  recurrenceParentId String?      @db.Uuid
+  reporterId         String?      @db.Uuid
+  createdById        String       @db.Uuid
+  assigneeGroupId    String?      @db.Uuid
+  estimatedHours     Decimal?     @db.Decimal(10, 2)
+  spentHours         Decimal?     @db.Decimal(10, 2)
+  orderIndex         Decimal?     @db.Decimal(30, 10)
+  progress           Int          @default(0)
+  isMilestone        Boolean      @default(false)
+  milestoneKind      String?
+  requiresApproval   Boolean      @default(false)
+  approverId         String?      @db.Uuid
+  approvalNote       String?      @db.Text
+  completedAt        DateTime?    @db.Timestamptz
+  deletedAt          DateTime?    @db.Timestamptz
+  createdAt          DateTime     @default(now()) @db.Timestamptz
+  updatedAt          DateTime     @updatedAt @db.Timestamptz
 
-  project         Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  parentTask      Task?           @relation("Subtask", fields: [parentTaskId], references: [id])
-  subtasks        Task[]          @relation("Subtask")
-  assignees       TaskAssignee[]  @relation("TaskAssignees")
-  assigneeGroup   LdapSyncGroup?  @relation("TaskAssigneeGroup", fields: [assigneeGroupId], references: [id], onDelete: SetNull)
-  reporter        User?           @relation("TaskReporter", fields: [reporterId], references: [id])
-  createdBy       User            @relation("TaskCreator", fields: [createdById], references: [id])
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parentTask    Task?          @relation("Subtask", fields: [parentTaskId], references: [id])
+  subtasks      Task[]         @relation("Subtask")
+  assignees     TaskAssignee[] @relation("TaskAssignees")
+  assigneeGroup LdapSyncGroup? @relation("TaskAssigneeGroup", fields: [assigneeGroupId], references: [id], onDelete: SetNull)
+  reporter      User?          @relation("TaskReporter", fields: [reporterId], references: [id])
+  createdBy     User           @relation("TaskCreator", fields: [createdById], references: [id])
 
   customFieldValues CustomFieldValue[]
   comments          Comment[]
@@ -532,6 +559,7 @@ model Task {
 
   dependencies TaskDependency[] @relation("DependencyDependent")
   dependsOn    TaskDependency[] @relation("DependencyPredecessor")
+  timeEntries  TimeEntry[]      @relation("TimeEntryTask")
 
   @@index([projectId, status, dueDate])
   @@index([projectId, orderIndex])
@@ -742,14 +770,14 @@ model Webhook {
 }
 
 model ProjectTemplate {
-  id          String    @id @default(uuid()) @db.Uuid
-  name        String    @db.VarChar(255)
-  description String?   @db.Text
-  color       String    @default("#2563eb") @db.VarChar(7)
-  templateJson Json    @db.Json
-  createdById String    @db.Uuid
-  createdAt   DateTime  @default(now()) @db.Timestamptz
-  updatedAt   DateTime  @updatedAt @db.Timestamptz
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String   @db.VarChar(255)
+  description  String?  @db.Text
+  color        String   @default("#2563eb") @db.VarChar(7)
+  templateJson Json     @db.Json
+  createdById  String   @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
 
   createdBy User @relation(fields: [createdById], references: [id])
 
@@ -796,30 +824,30 @@ model Settings {
 /// suffix, search base, and sync schedule; AD-synced groups point at the
 /// source they came from via `LdapSyncGroup.sourceId`.
 model LdapSource {
-  id               String    @id @default(uuid()) @db.Uuid
-  name             String    @db.VarChar(255)
-  enabled          Boolean   @default(false)
-  url              String    @db.VarChar(512)
+  id                String    @id @default(uuid()) @db.Uuid
+  name              String    @db.VarChar(255)
+  enabled           Boolean   @default(false)
+  url               String    @db.VarChar(512)
   // Service account UPN used to bind and search the directory.
-  bindUpn          String    @db.VarChar(255)
+  bindUpn           String    @db.VarChar(255)
   // Encrypted at rest (iv:ciphertext:tag, AES-256-GCM via lib/crypto).
-  bindPassword     String    @db.VarChar(512)
+  bindPassword      String    @db.VarChar(512)
   // Optional UPN suffix (e.g. "@corp.local") appended when a user logs in
   // with only a samaccountname; end users may also log in with a full UPN.
-  upnSuffix        String?   @db.VarChar(255)
+  upnSuffix         String?   @db.VarChar(255)
   // Base DN for directory searches; falls back to the UPN-derived domain DN.
-  searchBase       String?   @db.VarChar(512)
-  emailAttribute   String    @default("mail") @db.VarChar(64)
-  nameAttribute    String    @default("cn") @db.VarChar(64)
-  defaultRole      String    @default("member") @db.VarChar(64)
+  searchBase        String?   @db.VarChar(512)
+  emailAttribute    String    @default("mail") @db.VarChar(64)
+  nameAttribute     String    @default("cn") @db.VarChar(64)
+  defaultRole       String    @default("member") @db.VarChar(64)
   // Hours between automatic group syncs (per source).
-  syncIntervalHours Int      @default(12)
-  tlsCaCert        String?   @db.Text
-  lastSyncedAt     DateTime? @db.Timestamptz
-  lastSyncError    String?   @db.Text
-  deletedAt        DateTime? @db.Timestamptz
-  createdAt        DateTime  @default(now()) @db.Timestamptz
-  updatedAt        DateTime  @updatedAt @db.Timestamptz
+  syncIntervalHours Int       @default(12)
+  tlsCaCert         String?   @db.Text
+  lastSyncedAt      DateTime? @db.Timestamptz
+  lastSyncError     String?   @db.Text
+  deletedAt         DateTime? @db.Timestamptz
+  createdAt         DateTime  @default(now()) @db.Timestamptz
+  updatedAt         DateTime  @updatedAt @db.Timestamptz
 
   groups LdapSyncGroup[]
 
@@ -841,11 +869,11 @@ model LdapSyncGroup {
   deletedAt         DateTime?   @db.Timestamptz
   createdAt         DateTime    @default(now()) @db.Timestamptz
 
-  ldapSource      LdapSource?            @relation(fields: [sourceId], references: [id], onDelete: SetNull)
-  department      Department?            @relation("LdapSyncGroupDepartment")
-  ownerDepartment Department?            @relation("GroupOwnerDepartment", fields: [ownerDepartmentId], references: [id], onDelete: SetNull)
+  ldapSource      LdapSource?           @relation(fields: [sourceId], references: [id], onDelete: SetNull)
+  department      Department?           @relation("LdapSyncGroupDepartment")
+  ownerDepartment Department?           @relation("GroupOwnerDepartment", fields: [ownerDepartmentId], references: [id], onDelete: SetNull)
   memberships     LdapGroupMembership[]
-  assignedTasks   Task[]                 @relation("TaskAssigneeGroup")
+  assignedTasks   Task[]                @relation("TaskAssigneeGroup")
   projectGrants   ProjectGroupGrant[]
 
   @@index([sourceId])
@@ -909,4 +937,71 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("VerificationToken")
+}
+
+/// A cost/bill rate for a specific user or for everyone holding a global role.
+/// The cost rate is snapshotted onto TimeEntry at log time so historical
+/// actuals never drift when a rate changes later.
+model RateCard {
+  id            String        @id @default(uuid()) @db.Uuid
+  scope         RateCardScope
+  userId        String?       @db.Uuid
+  roleType      RoleType?
+  costRateMinor Int
+  billRateMinor Int?
+  currency      String        @default("USD") @db.VarChar(3)
+  effectiveFrom DateTime      @db.Timestamptz
+  effectiveTo   DateTime?     @db.Timestamptz
+  createdAt     DateTime      @default(now()) @db.Timestamptz
+  updatedAt     DateTime      @updatedAt @db.Timestamptz
+
+  user User? @relation("RateCardUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([scope, userId])
+  @@index([scope, roleType])
+  @@index([effectiveFrom])
+  @@map("RateCard")
+}
+
+model TimesheetPeriod {
+  id           String          @id @default(uuid()) @db.Uuid
+  departmentId String          @db.Uuid
+  ownerId      String          @db.Uuid
+  periodStart  DateTime        @db.Timestamptz
+  periodEnd    DateTime        @db.Timestamptz
+  status       TimesheetStatus @default(open)
+  createdAt    DateTime        @default(now()) @db.Timestamptz
+  updatedAt    DateTime        @updatedAt @db.Timestamptz
+
+  department Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  owner      User        @relation("TimesheetPeriodOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  entries    TimeEntry[]
+
+  @@index([departmentId, periodStart])
+  @@index([ownerId])
+  @@index([status])
+  @@map("TimesheetPeriod")
+}
+
+model TimeEntry {
+  id                    String   @id @default(uuid()) @db.Uuid
+  periodId              String?  @db.Uuid
+  projectId             String   @db.Uuid
+  taskId                String?  @db.Uuid
+  userId                String   @db.Uuid
+  minutes               Int
+  billable              Boolean  @default(true)
+  costRateMinorSnapshot Int
+  currencySnapshot      String   @default("USD") @db.VarChar(3)
+  createdAt             DateTime @default(now()) @db.Timestamptz
+
+  period  TimesheetPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  project Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task    Task?            @relation("TimeEntryTask", fields: [taskId], references: [id], onDelete: SetNull)
+  user    User             @relation("TimeEntryUser", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([periodId])
+  @@index([projectId, userId])
+  @@index([userId, createdAt])
+  @@map("TimeEntry")
 }

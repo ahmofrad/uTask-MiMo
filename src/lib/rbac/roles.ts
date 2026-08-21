@@ -22,7 +22,9 @@ export type Permission =
   | "sso:configure"
   | "org:reports"
   | "settings:update"
-  | "group:manage";
+  | "group:manage"
+  | "timesheet.approve"
+  | "timesheet.manage_rates";
 
 const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
   owner: [
@@ -46,6 +48,8 @@ const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
     "webhook:manage",
     "sso:configure",
     "group:manage",
+    "timesheet.approve",
+    "timesheet.manage_rates",
   ],
   admin: [
     "org:settings",
@@ -67,6 +71,8 @@ const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
     "org:reports",
     "settings:update",
     "group:manage",
+    "timesheet.approve",
+    "timesheet.manage_rates",
   ],
   manager: [
     "project:create",
@@ -81,6 +87,7 @@ const PERMISSION_MATRIX: Record<RoleType, Permission[]> = {
     "api_token:manage",
     "org:reports",
     "settings:update",
+    "timesheet.approve",
   ],
   member: [
     "task:create",
