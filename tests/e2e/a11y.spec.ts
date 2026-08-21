@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 
 const AUTH_PAGES = [
   { name: "dashboard", path: "/" },
+  { name: "workspace", path: "/workspace" },
   { name: "all tasks", path: "/all" },
   { name: "my tasks", path: "/my-tasks" },
   { name: "projects", path: "/projects" },

@@ -135,9 +135,28 @@
     "groups": "Groups",
     "tasks": "Tasks",
     "calendar": "Calendar",
+    "workspace": "Workspace",
     "openMenu": "Open menu",
     "expandSidebar": "Expand sidebar",
     "collapseSidebar": "Collapse sidebar"
+  },
+  "workspace": {
+    "title": "Workspace",
+    "subtitle": "Everything in one place — jump into a module to keep moving.",
+    "dashboard": "Dashboard",
+    "dashboardDesc": "Your overview, Gantt, calendar, and WBS views.",
+    "myTasks": "My Tasks",
+    "myTasksDesc": "Tasks assigned to you, grouped by due date.",
+    "projects": "Projects",
+    "projectsDesc": "Browse, open, and manage your projects.",
+    "calendar": "Calendar",
+    "calendarDesc": "Schedule and reschedule tasks on the calendar.",
+    "allTasks": "All Tasks",
+    "allTasksDesc": "Every task across your projects.",
+    "insights": "Insights",
+    "insightsDesc": "Org-wide activity, reports, and monitoring.",
+    "settings": "Settings",
+    "settingsDesc": "Preferences, profile, and app settings."
   },
   "admin": {
     "title": "Administration",

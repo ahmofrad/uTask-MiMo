@@ -10,7 +10,7 @@ import {
   Star, Heart, Share2, ExternalLink, Link2, Eye,
   EyeOff, MessageSquare, Paperclip, ChevronDown,
   ChevronUp, ChevronsUpDown, GripVertical, List,
-  LayoutGrid, Maximize2, Minimize2, Sun, Moon,
+  LayoutGrid, LayoutDashboard, BarChart3, Maximize2, Minimize2, Sun, Moon,
   Monitor, LogOut, LogIn, PlusCircle,
 } from "lucide-react";
 
@@ -26,7 +26,7 @@ export const icons = {
   Star, Heart, Share2, ExternalLink, Link2, Eye,
   EyeOff, MessageSquare, Paperclip, ChevronDown,
   ChevronUp, ChevronUpDown: ChevronsUpDown, GripVertical, List,
-  LayoutGrid, Maximize2, Minimize2, Sun, Moon,
+  LayoutGrid, LayoutDashboard, BarChart3, Maximize2, Minimize2, Sun, Moon,
   Monitor, LogOut, LogIn, PlusCircle,
 } as const;
 
