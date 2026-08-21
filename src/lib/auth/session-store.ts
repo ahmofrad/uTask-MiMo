@@ -146,6 +146,51 @@ export async function listUserSessions(userId: string): Promise<Array<SessionDat
   return sessions;
 }
 
+/**
+ * Remove session IDs from a user's set whose `session:*` key no longer exists
+ * (its TTL expired without an explicit revoke).  Returns how many were removed.
+ */
+export async function cleanupOrphanedSessionIds(userId: string): Promise<number> {
+  const redis = await getRedis();
+  const sessionIds = await redis.smembers(`${USER_SESSIONS_PREFIX}${userId}`);
+  if (sessionIds.length === 0) return 0;
+
+  const pipeline = redis.multi();
+  for (const id of sessionIds) {
+    pipeline.exists(`${SESSION_PREFIX}${id}`);
+  }
+  const results = await pipeline.exec();
+  if (!results) return 0;
+
+  const orphans: string[] = [];
+  for (let i = 0; i < sessionIds.length; i++) {
+    if (!results[i]?.[1]) orphans.push(sessionIds[i]!);
+  }
+
+  if (orphans.length === 0) return 0;
+  await redis.srem(`${USER_SESSIONS_PREFIX}${userId}`, ...orphans);
+  return orphans.length;
+}
+
+/**
+ * Sweep every `user_sessions:*` set and drop orphaned session IDs (their key
+ * TTL expired).  Bounded and safe to run periodically (daily).
+ */
+export async function cleanupAllStaleSessions(): Promise<number> {
+  const redis = await getRedis();
+  let total = 0;
+  let cursor = "0";
+  do {
+    const [next, keys] = await redis.scan(cursor, "MATCH", `${USER_SESSIONS_PREFIX}*`, "COUNT", 100);
+    cursor = next;
+    for (const setKey of keys) {
+      const userId = setKey.slice(USER_SESSIONS_PREFIX.length);
+      total += await cleanupOrphanedSessionIds(userId);
+    }
+  } while (cursor !== "0");
+  return total;
+}
+
 export async function revokeAllUserSessions(userId: string): Promise<void> {
   const redis = await getRedis();
   const sessionIds = await redis.smembers(`${USER_SESSIONS_PREFIX}${userId}`);

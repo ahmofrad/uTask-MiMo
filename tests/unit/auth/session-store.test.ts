@@ -15,18 +15,25 @@ const redis = {
     if (!sets.has(setKey)) sets.set(setKey, new Set());
     sets.get(setKey)!.add(member);
   }),
-  srem: vi.fn(async (setKey: string, member: string) => {
-    sets.get(setKey)?.delete(member);
+  srem: vi.fn(async (setKey: string, ...members: string[]) => {
+    const set = sets.get(setKey);
+    if (set) for (const m of members) set.delete(m);
   }),
   smembers: vi.fn(async (setKey: string) => [...(sets.get(setKey) ?? [])]),
+  scan: vi.fn(async (_cursor: string, ..._args: string[]) => {
+    const match = _args.includes("MATCH") ? _args[_args.indexOf("MATCH") + 1] : "*";
+    const keys = [...sets.keys()].filter((k) => k.startsWith(match.replace(/\*$/, "")));
+    return ["0", keys];
+  }),
   multi: vi.fn(() => {
     const ops: Array<[string, ...string[]]> = [];
     return {
       get: (k: string) => ops.push(["get", k]),
       set: (k: string, v: string, _mode?: string, _ttl?: number) => ops.push(["set", k, v]),
       del: (k: string) => ops.push(["del", k]),
+      exists: (k: string) => ops.push(["exists", k]),
       exec: async () => {
-        const results: Array<[null, string | null]> = [];
+        const results: Array<[null, unknown]> = [];
         for (const [cmd, ...args] of ops) {
           if (cmd === "get") {
             results.push([null, store.get(args[0]!) ?? null]);
@@ -36,6 +43,8 @@ const redis = {
           } else if (cmd === "del") {
             store.delete(args[0]!);
             results.push([null, 1]);
+          } else if (cmd === "exists") {
+            results.push([null, store.has(args[0]!) ? 1 : 0]);
           }
         }
         return results;
@@ -47,6 +56,8 @@ const redis = {
 vi.mock("@/lib/redis", () => ({ getRedis: vi.fn(async () => redis) }));
 
 import {
+  cleanupAllStaleSessions,
+  cleanupOrphanedSessionIds,
   createSession,
   getSession,
   listUserSessions,
@@ -197,5 +208,33 @@ describe("session-store", () => {
     const session = await getSession(id);
     expect(session).not.toBeNull();
     expect(session!.lastUsedAt).toBeGreaterThanOrEqual(session!.createdAt);
+  });
+
+  it("cleanupOrphanedSessionIds removes IDs whose session key is gone", async () => {
+    const liveId = await createSession("u1", "a@b.com", "admin");
+    // An orphaned ID in the set with no backing session key.
+    sets.set("user_sessions:u1", new Set([liveId, "orphan-1", "orphan-2"]));
+
+    const removed = await cleanupOrphanedSessionIds("u1");
+    expect(removed).toBe(2);
+    expect(sets.get("user_sessions:u1")).toEqual(new Set([liveId]));
+  });
+
+  it("cleanupOrphanedSessionIds returns 0 when all IDs are live", async () => {
+    await createSession("u1", "a@b.com", "admin");
+    const removed = await cleanupOrphanedSessionIds("u1");
+    expect(removed).toBe(0);
+  });
+
+  it("cleanupAllStaleSessions prunes orphaned IDs across users", async () => {
+    await createSession("u1", "a@b.com", "admin");
+    await createSession("u2", "c@d.com", "member");
+    sets.get("user_sessions:u1")!.add("orphan-u1");
+    sets.get("user_sessions:u2")!.add("orphan-u2");
+
+    const removed = await cleanupAllStaleSessions();
+    expect(removed).toBe(2);
+    expect(sets.get("user_sessions:u1")!.has("orphan-u1")).toBe(false);
+    expect(sets.get("user_sessions:u2")!.has("orphan-u2")).toBe(false);
   });
 });

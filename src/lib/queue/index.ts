@@ -206,10 +206,17 @@ export async function startWorkers(): Promise<void> {
       "recurrence-sweep",
       async () => {
         const { sweepRecurringTasks } = await import("@/lib/tasks/recurrence");
+        const { cleanupAllStaleSessions } = await import("@/lib/auth/session-store");
         const { prisma } = await import("@/lib/db");
         const spawned = await sweepRecurringTasks(prisma.task);
         if (spawned > 0) {
           logger.info({ spawned }, "Recurrence sweep spawned new occurrences");
+        }
+        // Daily maintenance: prune orphaned session IDs whose Redis key TTL
+        // expired without an explicit revoke.
+        const pruned = await cleanupAllStaleSessions();
+        if (pruned > 0) {
+          logger.info({ pruned }, "Session cleanup removed orphaned IDs");
         }
       },
       { connection: conn as never },
