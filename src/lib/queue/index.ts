@@ -207,7 +207,7 @@ export async function startWorkers(): Promise<void> {
       async () => {
         const { sweepRecurringTasks } = await import("@/lib/tasks/recurrence");
         const { prisma } = await import("@/lib/db");
-        const spawned = await sweepRecurringTasks(prisma);
+        const spawned = await sweepRecurringTasks(prisma.task);
         if (spawned > 0) {
           logger.info({ spawned }, "Recurrence sweep spawned new occurrences");
         }

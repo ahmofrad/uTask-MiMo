@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { PrismaClient } from "@prisma/client";
 import { diffCalendarDays, shiftDayMarker, snapDayMarker, timelineDayStart } from "@/lib/date/day-marker";
 
 /**
@@ -84,11 +85,11 @@ export function shouldSpawnNext(rule: RecurrenceRule, nextDate: Date): boolean {
  * date is today or earlier, spawn the occurrence if a child for that date
  * slot does not already exist.  Called daily via a BullMQ repeatable job.
  */
-export async function sweepRecurringTasks(prisma: { task: { findMany: Function; findFirst: Function; create: Function } }): Promise<number> {
+export async function sweepRecurringTasks(taskDelegate: PrismaClient["task"]): Promise<number> {
   const now = new Date();
   const todayStart = timelineDayStart(now);
 
-  const candidates = await prisma.task.findMany({
+  const candidates = await taskDelegate.findMany({
     where: {
       recurrenceRule: { not: null },
       status: { notIn: ["done", "cancelled"] },
@@ -138,13 +139,15 @@ export async function sweepRecurringTasks(prisma: { task: { findMany: Function; 
     const shift = (d: Date, boundary: "start" | "end") =>
       snapDayMarker(shiftDayMarker(d, deltaDays), boundary);
 
-    const existing = await prisma.task.findFirst({
-      where: {
-        recurrenceParentId: task.recurrenceParentId ?? task.id,
-        dueDate: task.dueDate ? shift(task.dueDate, "end") : undefined,
-        startDate: task.startDate ? shift(task.startDate, "start") : undefined,
-        deletedAt: null,
-      },
+    const where: { recurrenceParentId: string; deletedAt: null; dueDate?: Date; startDate?: Date } = {
+      recurrenceParentId: task.recurrenceParentId ?? task.id,
+      deletedAt: null,
+    };
+    if (task.dueDate) where.dueDate = shift(task.dueDate, "end");
+    if (task.startDate) where.startDate = shift(task.startDate, "start");
+
+    const existing = await taskDelegate.findFirst({
+      where,
       select: { id: true },
     });
     if (existing) continue;
@@ -153,7 +156,7 @@ export async function sweepRecurringTasks(prisma: { task: { findMany: Function; 
     if (!nextRule) continue;
 
     const rootId = task.recurrenceParentId ?? task.id;
-    await prisma.task.create({
+    await taskDelegate.create({
       data: {
         projectId: task.projectId,
         title: task.title,
