@@ -23,6 +23,10 @@ enum Theme {
   light
   dark
   system
+  midnight
+  solarized
+  high_contrast
+  nord
 }
 
 enum Density {

@@ -173,7 +173,7 @@ export const userUpdateSchema = z.object({
   displayName: z.string().trim().min(1).max(255).optional(),
   locale: z.enum(["fa_IR", "en_US"]).optional(),
   accentColor: z.string().trim().min(1).max(64).optional(),
-  theme: z.enum(["light", "dark", "system"]).optional(),
+  theme: z.enum(["light", "dark", "system", "midnight", "solarized", "high_contrast", "nord"]).optional(),
   density: z.enum(["compact", "comfortable", "spacious"]).optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, "At least one field is required");
 

@@ -3,8 +3,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { buildAccentVars, lighten } from "@/lib/theme/color";
 
-export type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark" | "system" | "midnight" | "solarized" | "high_contrast" | "nord";
 export type Accent = "blue" | "green" | "purple" | "orange" | "red" | "teal" | "pink" | "indigo";
+
+const DARK_THEMES = new Set<Theme>(["dark", "midnight", "high_contrast", "nord"]);
+const NAMED_THEMES = new Set<Theme>(["midnight", "solarized", "high_contrast", "nord"]);
 
 type ThemeContextType = {
   theme: Theme;
@@ -54,9 +57,19 @@ export function ThemeProvider({ children, initialTheme, initialAccent }: {
     if (!mounted) return;
     const root = document.documentElement;
     const isDark =
-      theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    root.classList.toggle("dark", isDark);
-    root.classList.toggle("light", !isDark);
+      DARK_THEMES.has(theme) ||
+      (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+    // Remove all theme classes first, then add the active one.
+    root.classList.remove("light", "dark", ...NAMED_THEMES);
+    if (NAMED_THEMES.has(theme)) {
+      root.classList.add(theme);
+    } else if (theme === "system") {
+      root.classList.add(isDark ? "dark" : "light");
+    } else {
+      root.classList.add(theme);
+    }
+
     root.style.colorScheme = isDark ? "dark" : "light";
     localStorage.setItem("theme", theme);
   }, [theme, mounted]);
@@ -65,7 +78,7 @@ export function ThemeProvider({ children, initialTheme, initialAccent }: {
     if (!mounted) return;
     const root = document.documentElement;
     const isDark =
-      theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      DARK_THEMES.has(theme) || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
     // Lift the accent in dark mode so the hard 600-level hues read softer
     // on dark surfaces (e.g. links, tags, focus rings).
     const base = isDark ? lighten(ACCENT_COLORS[accent], 0.18) : ACCENT_COLORS[accent];

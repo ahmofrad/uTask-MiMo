@@ -24,7 +24,7 @@ export function AppearanceSettings() {
       <div>
         <h3 className="text-sm font-medium text-fg-secondary mb-3">{t("theme")}</h3>
         <div className="flex gap-3">
-          {(["light", "dark", "system"] as const).map((mode) => (
+          {(["light", "dark", "system", "midnight", "solarized", "high_contrast", "nord"] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setTheme(mode)}
@@ -34,7 +34,7 @@ export function AppearanceSettings() {
                   : "border-border-primary text-fg-secondary hover:bg-bg-surface"
               }`}
             >
-              {mode === "light" ? t("lightMode") : mode === "dark" ? t("darkMode") : t("systemMode")}
+              {mode === "light" ? t("lightMode") : mode === "dark" ? t("darkMode") : mode === "system" ? t("systemMode") : mode === "midnight" ? t("midnightMode") : mode === "solarized" ? t("solarizedMode") : mode === "high_contrast" ? t("highContrastMode") : t("nordMode")}
             </button>
           ))}
         </div>
