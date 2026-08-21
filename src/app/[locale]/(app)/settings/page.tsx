@@ -9,7 +9,7 @@ import { TokensSettings } from "@/components/settings/tokens-settings";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="border border-border-primary rounded-xl bg-bg-surface p-5">
+    <section className="border border-border-primary rounded-xl bg-bg-surface p-5 overflow-hidden">
       <h2 className="text-lg font-semibold text-fg-primary mb-4">{title}</h2>
       {children}
     </section>

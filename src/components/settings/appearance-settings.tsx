@@ -42,7 +42,7 @@ export function AppearanceSettings() {
 
       <div>
         <h3 className="text-sm font-medium text-fg-secondary mb-3">{tc("accentColor")}</h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {accentColors.map((c) => (
             <button
               key={c.value}
