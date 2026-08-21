@@ -23,7 +23,7 @@ export function AppearanceSettings() {
     <div className="space-y-8">
       <div>
         <h3 className="text-sm font-medium text-fg-secondary mb-3">{t("theme")}</h3>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2">
           {(["light", "dark", "system", "midnight", "solarized", "high_contrast", "nord"] as const).map((mode) => (
             <button
               key={mode}
