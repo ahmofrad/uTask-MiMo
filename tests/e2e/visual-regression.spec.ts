@@ -591,4 +591,54 @@ test.describe("Authenticated visual regression @visual", () => {
       maxDiffPixelRatio: 0.02,
     });
   });
+
+  // ── Theme visual baselines ──────────────────────────────────────────
+  // Navigate to the settings page with each named theme injected into
+  // localStorage so the ThemeProvider picks it up on mount.  Screenshot
+  // just the appearance section (theme buttons + accent picker) to keep
+  // baselines small and independent of the rest of the settings page.
+
+  test("appearance section renders correctly with Midnight theme", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("theme", "midnight");
+    });
+    await page.goto("/en-US/settings");
+    const heading = page.getByRole("heading", { name: "Appearance" }).first();
+    await expect(heading).toBeVisible({ timeout: 15000 });
+    const section = heading.locator("..");
+    await expect(section).toHaveScreenshot("theme-midnight.png", { maxDiffPixelRatio: 0.02 });
+  });
+
+  test("appearance section renders correctly with Solarized theme", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("theme", "solarized");
+    });
+    await page.goto("/en-US/settings");
+    const heading = page.getByRole("heading", { name: "Appearance" }).first();
+    await expect(heading).toBeVisible({ timeout: 15000 });
+    const section = heading.locator("..");
+    await expect(section).toHaveScreenshot("theme-solarized.png", { maxDiffPixelRatio: 0.02 });
+  });
+
+  test("appearance section renders correctly with High-Contrast theme", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("theme", "high_contrast");
+    });
+    await page.goto("/en-US/settings");
+    const heading = page.getByRole("heading", { name: "Appearance" }).first();
+    await expect(heading).toBeVisible({ timeout: 15000 });
+    const section = heading.locator("..");
+    await expect(section).toHaveScreenshot("theme-high-contrast.png", { maxDiffPixelRatio: 0.02 });
+  });
+
+  test("appearance section renders correctly with Nord theme", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("theme", "nord");
+    });
+    await page.goto("/en-US/settings");
+    const heading = page.getByRole("heading", { name: "Appearance" }).first();
+    await expect(heading).toBeVisible({ timeout: 15000 });
+    const section = heading.locator("..");
+    await expect(section).toHaveScreenshot("theme-nord.png", { maxDiffPixelRatio: 0.02 });
+  });
 });
