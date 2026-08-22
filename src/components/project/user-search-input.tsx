@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/avatar";
 
 type User = {
@@ -17,7 +18,8 @@ type UserSearchInputProps = {
   excludeIds?: string[];
 };
 
-export function UserSearchInput({ projectId, onSelect, placeholder = "Search users...", excludeIds = [] }: UserSearchInputProps) {
+export function UserSearchInput({ projectId, onSelect, placeholder, excludeIds = [] }: UserSearchInputProps) {
+  const t = useTranslations("project");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<User[]>([]);
   const [open, setOpen] = useState(false);
@@ -70,16 +72,16 @@ export function UserSearchInput({ projectId, onSelect, placeholder = "Search use
         value={query}
         onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
-        placeholder={placeholder}
+        placeholder={placeholder ?? t("members.searchPlaceholder")}
         className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
       />
       {open && (query.length > 0 || results.length > 0) && (
         <div className="absolute top-full start-0 end-0 mt-1 bg-bg-primary border border-border-primary rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
           {loading && (
-            <div className="p-3 text-center text-xs text-fg-muted">Searching...</div>
+            <div className="p-3 text-center text-xs text-fg-muted">{t("members.searching")}</div>
           )}
           {!loading && results.length === 0 && query.length > 0 && (
-            <div className="p-3 text-center text-xs text-fg-muted">No users found</div>
+            <div className="p-3 text-center text-xs text-fg-muted">{t("members.noUsersFound")}</div>
           )}
           {results.map((user) => (
             <button

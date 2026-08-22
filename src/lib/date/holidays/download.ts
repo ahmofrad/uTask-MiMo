@@ -161,6 +161,24 @@ type CalendarificResponse = {
 // uses the same convention with the shorter "Public".
 const DAY_OFF_TYPES = new Set(["National holiday", "Public holiday", "Public"]);
 
+/**
+ * Splits downloaded entries into day offs vs observances, and optionally
+ * returns only the day offs. The admin UI uses this to skip non-off
+ * occasions (e.g. imam birthdays) when importing a provider list.
+ */
+export function filterHolidayEntries(
+  incoming: HolidayEntry[],
+  onlyDayOffs: boolean,
+): { dayOffs: number; observances: number; entries: HolidayEntry[] } {
+  const dayOffs = incoming.filter((h) => h.dayOff !== false);
+  const observances = incoming.length - dayOffs.length;
+  return {
+    dayOffs: dayOffs.length,
+    observances,
+    entries: onlyDayOffs ? dayOffs : incoming,
+  };
+}
+
 /** Fetches official holidays for a year from the configured provider. */
 export async function downloadPublicHolidays(
   config: HolidayEgressConfig,

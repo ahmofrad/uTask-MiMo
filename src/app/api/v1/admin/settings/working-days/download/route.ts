@@ -6,6 +6,7 @@ import { getInstanceSetting } from "@/lib/settings/instance";
 import {
   apiKeyState,
   downloadPublicHolidays,
+  filterHolidayEntries,
   HOLIDAY_EGRESS_SETTING_KEY,
   normalizeHolidayEgress,
 } from "@/lib/date/holidays/download";
@@ -14,6 +15,8 @@ import { applyHolidayImport } from "@/lib/date/holidays/import";
 const downloadSchema = z
   .object({
     year: z.number().int().min(2000).max(2200).optional(),
+    /** When true, observances (dayOff === false) are filtered out before import. */
+    onlyDayOffs: z.boolean().optional(),
   })
   .strict();
 
@@ -74,14 +77,18 @@ export async function POST(request: Request) {
 
   const year = parsed.data.year ?? new Date().getFullYear();
   try {
-    const incoming = await downloadPublicHolidays(egress, year);
+    const downloaded = await downloadPublicHolidays(egress, year);
+    const { dayOffs, observances, entries: incoming } = filterHolidayEntries(
+      downloaded,
+      parsed.data.onlyDayOffs === true,
+    );
     const result = await applyHolidayImport({
       actorUserId: userId,
       source: "download",
       incoming,
       detail: { year, provider: egress.provider, countryCode: egress.countryCode },
     });
-    return NextResponse.json({ data: { ...result, year, provider: egress.provider, countryCode: egress.countryCode } });
+    return NextResponse.json({ data: { ...result, year, provider: egress.provider, countryCode: egress.countryCode, dayOffs, observances } });
   } catch (error) {
     return NextResponse.json(
       {

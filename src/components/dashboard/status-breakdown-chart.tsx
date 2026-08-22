@@ -1,15 +1,18 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 type StatusBreakdownProps = {
   data: { label: string; count: number; color: string }[];
 };
 
 export function StatusBreakdownChart({ data }: StatusBreakdownProps) {
+  const t = useTranslations("project");
   const total = data.reduce((sum, d) => sum + d.count, 0);
 
   return (
     <div className="bg-bg-surface border border-border-primary rounded-xl p-6">
-      <h2 className="text-lg font-semibold text-fg-primary mb-4">Status Breakdown</h2>
+      <h2 className="text-lg font-semibold text-fg-primary mb-4">{t("dashboard.statusBreakdown")}</h2>
       <div className="space-y-3">
         {data.map((item) => (
           <div key={item.label} className="flex items-center gap-3">

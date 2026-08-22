@@ -67,6 +67,7 @@ export default function WorkingDaysPage() {
   const [savingEgress, setSavingEgress] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [downloadYear, setDownloadYear] = useState(() => new Date().getFullYear());
+  const [onlyDayOffs, setOnlyDayOffs] = useState(true);
 
   async function refresh() {
     const res = await apiFetch("/api/v1/admin/settings/working-days");
@@ -222,18 +223,32 @@ export default function WorkingDaysPage() {
       const res = await apiFetch("/api/v1/admin/settings/working-days/download", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ year: downloadYear }),
+        body: JSON.stringify({ year: downloadYear, onlyDayOffs }),
       });
       if (res.ok) {
         const body = (await res.json()) as {
-          data?: { imported: number; skipped: number };
+          data?: {
+            imported: number;
+            skipped: number;
+            dayOffs: number;
+            observances: number;
+          };
         };
+        const data = body.data;
         setImportMsg({
           ok: true,
-          text: t("downloadResult", {
-            imported: body.data?.imported ?? 0,
-            skipped: body.data?.skipped ?? 0,
-          }),
+          text:
+            onlyDayOffs && (data?.observances ?? 0) > 0
+              ? t("downloadResultDetailed", {
+                  imported: data?.imported ?? 0,
+                  skipped: data?.skipped ?? 0,
+                  dayOffs: data?.dayOffs ?? 0,
+                  observances: data?.observances ?? 0,
+                })
+              : t("downloadResult", {
+                  imported: data?.imported ?? 0,
+                  skipped: data?.skipped ?? 0,
+                }),
         });
         await refresh();
       } else {
@@ -522,6 +537,16 @@ export default function WorkingDaysPage() {
                       onChange={(e) => setDownloadYear(Number(e.target.value))}
                       className={`${inputClass} w-24`}
                     />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-fg-primary">
+                    <input
+                      type="checkbox"
+                      data-testid="wd-egress-only-dayoffs"
+                      checked={onlyDayOffs}
+                      onChange={(e) => setOnlyDayOffs(e.target.checked)}
+                      className="w-4 h-4 accent-accent"
+                    />
+                    {t("onlyDayOffs")}
                   </label>
                   <button
                     type="button"

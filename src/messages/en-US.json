@@ -966,6 +966,8 @@
     "egressKeyBroken": "The stored Calendarific API key can't be decrypted — the server's encryption key may have changed between restarts. Re-enter the key to restore downloads.",
     "downloadFailed": "The download failed. Check that outbound HTTPS is allowed to the provider.",
     "downloadResult": "Downloaded and added {imported} holidays ({skipped} duplicates skipped).",
+    "downloadResultDetailed": "Downloaded and added {imported} holidays ({skipped} duplicates skipped) — {dayOffs} day offs imported, {observances} observances filtered out.",
+    "onlyDayOffs": "Only import actual days off (skip observances)",
     "egressProvider": "Provider",
     "providerNager": "Nager (no key)",
     "providerCalendarific": "Calendarific (API key, incl. Iran)",
@@ -1115,7 +1117,10 @@
     "payloadUrl": "Payload URL",
     "payloadUrlPlaceholder": "https://example.com/webhook",
     "saveWebhook": "Save Webhook",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "replay": "Replay",
+    "replaying": "Replaying...",
+    "replayed": "Replayed"
   },
   "token": {
     "title": "API Tokens",

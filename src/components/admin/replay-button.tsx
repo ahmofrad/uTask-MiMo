@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 
 export function ReplayButton({ deliveryId }: { deliveryId: string }) {
+  const t = useTranslations("webhook");
   const [replaying, setReplaying] = useState(false);
   const [done, setDone] = useState(false);
 
@@ -18,7 +20,7 @@ export function ReplayButton({ deliveryId }: { deliveryId: string }) {
   }
 
   if (done) {
-    return <span className="text-xs text-success">Replayed</span>;
+    return <span className="text-xs text-success">{t("replayed")}</span>;
   }
 
   return (
@@ -27,7 +29,7 @@ export function ReplayButton({ deliveryId }: { deliveryId: string }) {
       disabled={replaying}
       className="text-xs text-accent hover:underline disabled:opacity-50"
     >
-      {replaying ? "Replaying..." : "Replay"}
+      {replaying ? t("replaying") : t("replay")}
     </button>
   );
 }

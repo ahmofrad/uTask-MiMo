@@ -5,6 +5,7 @@ import {
   decryptApiKey,
   downloadPublicHolidays,
   encryptApiKey,
+  filterHolidayEntries,
   holidayEgressConfigSchema,
   normalizeHolidayEgress,
 } from "@/lib/date/holidays/download";
@@ -211,6 +212,37 @@ describe("holiday egress downloader", () => {
     expect(healed.provider).toBe("calendarific");
     expect(healed.countryCode).toBe("IR");
     expect(healed.enabled).toBe(true);
+  });
+});
+
+describe("filterHolidayEntries", () => {
+  const mixed = [
+    { date: "2026-03-20", name: "Nowruz", dayOff: true },
+    { date: "2026-01-18", name: "Birth of Imam Ali", dayOff: false },
+    { date: "2026-04-10", name: "Eid al-Fitr", dayOff: true },
+    { date: "2026-03-05", name: "Father's Day", dayOff: false },
+  ];
+
+  it("counts day offs and observances", () => {
+    const result = filterHolidayEntries(mixed, false);
+    expect(result.dayOffs).toBe(2);
+    expect(result.observances).toBe(2);
+    expect(result.entries).toHaveLength(4);
+  });
+
+  it("keeps only day offs when onlyDayOffs is true", () => {
+    const result = filterHolidayEntries(mixed, true);
+    expect(result.entries).toEqual([
+      { date: "2026-03-20", name: "Nowruz", dayOff: true },
+      { date: "2026-04-10", name: "Eid al-Fitr", dayOff: true },
+    ]);
+  });
+
+  it("treats absent dayOff as a day off (backward compat)", () => {
+    const result = filterHolidayEntries([{ date: "2026-03-20", name: "Legacy" }], true);
+    expect(result.dayOffs).toBe(1);
+    expect(result.observances).toBe(0);
+    expect(result.entries).toHaveLength(1);
   });
 });
 
