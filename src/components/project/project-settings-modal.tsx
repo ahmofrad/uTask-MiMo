@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Dialog } from "@/components/ui/dialog";
+import { apiFetch } from "@/lib/api-fetch";
 
 type ProjectSettingsValues = {
   status: "active" | "archived";
@@ -121,7 +122,7 @@ export function ProjectSettingsModal({
                       setArchiving(true);
                       setArchiveError(null);
                       try {
-                        const res = await fetch(`/api/v1/projects/${projectId}`, { method: "DELETE" });
+                        const res = await apiFetch(`/api/v1/projects/${projectId}`, { method: "DELETE" });
                         if (!res.ok) {
                           const body = await res.json().catch(() => null);
                           throw new Error(body?.error?.message ?? t("settings.archiveFailed"));
