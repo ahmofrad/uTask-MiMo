@@ -51,7 +51,7 @@ describe("dispatchWebhook", () => {
     mocks.responseBody = "";
     mocks.httpsRequest.mockImplementation((_options: unknown, callback: (response: EventEmitter & { statusCode: number }) => void) => {
       const request = new EventEmitter() as EventEmitter & { end: (body: string) => void };
-      request.end = () => {
+      request.end = (_body: string) => {
         const response = new EventEmitter() as EventEmitter & { statusCode: number };
         response.statusCode = mocks.responseStatus;
         callback(response);

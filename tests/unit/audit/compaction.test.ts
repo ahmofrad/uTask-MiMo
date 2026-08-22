@@ -1,67 +1,45 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockExecuteRaw = vi.fn();
+const { mockExecuteRaw } = vi.hoisted(() => ({
+  mockExecuteRaw: vi.fn(),
+}));
+
 vi.mock("@/lib/db", () => ({
-  prisma: {
-    $executeRaw: mockExecuteRaw,
-  },
+  prisma: { $executeRaw: mockExecuteRaw },
 }));
+vi.mock("@/lib/logging", () => ({ logger: { info: vi.fn(), error: vi.fn() } }));
 
-vi.mock("@/lib/logging", () => ({
-  logger: {
-    info: vi.fn(),
-    error: vi.fn(),
-    warn: vi.fn(),
-  },
-}));
-
-beforeEach(() => {
-  mockExecuteRaw.mockReset();
-  vi.useFakeTimers();
-  vi.setSystemTime(new Date("2026-08-22T12:00:00Z"));
-});
-
-afterEach(() => {
-  vi.useRealTimers();
-});
+import { compactAuditLog } from "@/lib/audit/compaction";
 
 describe("compactAuditLog", () => {
-  it("deletes rows older than the retention window in batches", async () => {
-    // Simulate: first batch deletes 5000, second batch deletes 3000, third deletes 0.
-    mockExecuteRaw
-      .mockResolvedValueOnce(5000)
-      .mockResolvedValueOnce(3000)
-      .mockResolvedValueOnce(0);
-
-    const { compactAuditLog } = await import("@/lib/audit/compaction");
-    const total = await compactAuditLog();
-
-    expect(total).toBe(8000);
-    // Two batches: first (5000, >= BATCH so continue), second (3000, < BATCH so done).
-    expect(mockExecuteRaw).toHaveBeenCalledTimes(2);
+  beforeEach(() => {
+    mockExecuteRaw.mockReset().mockResolvedValue(0);
   });
 
   it("returns 0 when no rows are old enough", async () => {
-    mockExecuteRaw.mockResolvedValueOnce(0);
-
-    const { compactAuditLog } = await import("@/lib/audit/compaction");
-    const total = await compactAuditLog();
-
-    expect(total).toBe(0);
+    const deleted = await compactAuditLog();
+    expect(deleted).toBe(0);
     expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
   });
 
-  it("respects AUDIT_RETENTION_DAYS env var", async () => {
-    process.env.AUDIT_RETENTION_DAYS = "90";
-    mockExecuteRaw.mockResolvedValueOnce(0);
+  it("deletes in batches until fewer than batch size", async () => {
+    mockExecuteRaw
+      .mockResolvedValueOnce(5000)
+      .mockResolvedValueOnce(5000)
+      .mockResolvedValueOnce(1200)
+      .mockResolvedValueOnce(0);
+    const deleted = await compactAuditLog();
+    expect(deleted).toBe(11200);
+    // Loop breaks when a batch returns fewer than BATCH_SIZE (1200 < 5000)
+    expect(mockExecuteRaw).toHaveBeenCalledTimes(3);
+  });
 
-    const { compactAuditLog } = await import("@/lib/audit/compaction");
+  it("honors the AUDIT_RETENTION_DAYS env var", async () => {
+    process.env.AUDIT_RETENTION_DAYS = "30";
+    mockExecuteRaw.mockResolvedValue(10);
     await compactAuditLog();
-
-    // The cutoff should be 90 days before 2026-08-22.
-    // We can't easily assert the raw SQL params, but we verify the call happened.
-    expect(mockExecuteRaw).toHaveBeenCalledTimes(1);
-
+    const sql = mockExecuteRaw.mock.calls[0]![0] as unknown as string[];
+    expect(sql.join("")).toContain("occurredAt");
     delete process.env.AUDIT_RETENTION_DAYS;
   });
 });
