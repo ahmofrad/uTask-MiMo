@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/avatar";
+import { apiFetch } from "@/lib/api-fetch";
 
 type User = {
   id: string;
@@ -32,7 +33,7 @@ export function UserSearchInput({ projectId, onSelect, placeholder, excludeIds =
     setLoading(true);
     try {
       const params = new URLSearchParams({ q, projectId, limit: "8" });
-      const res = await fetch(`/api/v1/users/search?${params}`);
+      const res = await apiFetch(`/api/v1/users/search?${params}`);
       const j = await res.json();
       setResults((j.data ?? []).filter((u: User) => !excludeIds.includes(u.id)));
     } catch {

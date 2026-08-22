@@ -70,7 +70,7 @@ export const MembersModal = memo(function MembersModal({
   useEffect(() => {
     if (!open) return;
     setLoading(true);
-    fetch(`/api/v1/projects/${projectId}/members`)
+    apiFetch(`/api/v1/projects/${projectId}/members`)
       .then((r) => r.json())
       .then((j) => { setMembers(j.data ?? []); setLoading(false); })
       .catch(() => setLoading(false));
@@ -102,7 +102,7 @@ export const MembersModal = memo(function MembersModal({
     setSearching(true);
     try {
       const params = new URLSearchParams({ q, projectId, limit: "8" });
-      const res = await fetch(`/api/v1/users/search?${params}`);
+      const res = await apiFetch(`/api/v1/users/search?${params}`);
       const j = await res.json();
       setResults(j.data ?? []);
     } catch {

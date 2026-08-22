@@ -34,10 +34,8 @@ type PeriodRowProps = {
   currentUserId: string;
   expanded: boolean;
   onToggle: () => void;
-  // eslint-disable-next-line no-unused-vars
-  onTransition: (periodId: string, action: string) => Promise<void>;
-  // eslint-disable-next-line no-unused-vars
-  onAddEntry: (periodId: string, projectId: string, minutes: number, billable: boolean) => Promise<void>;
+  onTransition: (_periodId: string, _action: string) => Promise<void>;
+  onAddEntry: (_periodId: string, _projectId: string, _minutes: number, _billable: boolean) => Promise<void>;
   busy: string | null;
 };
 

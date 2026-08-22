@@ -1,11 +1,14 @@
 import { Client } from "ldapts";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
+import { logger } from "@/lib/logging";
 import { ldapConfigSchema, type LdapConfig } from "../ldap-schema";
 import { getEnabledLdapSources, getFirstEnabledLdapSource, getLdapSource, sourceToLdapConfig } from "../ldap-sources";
-import { logger } from "@/lib/logging";
 import { decryptSecret } from "@/lib/webhook";
+import { bindAdmin } from "./ldap-helpers";
+
+// Re-export sync functions
+export { syncLdapGroup, syncLdapSource, syncAllLdapSources } from "./ldap-sync";
 
 interface LdapAuthResult {
   success: boolean;
@@ -28,23 +31,6 @@ function attr(entry: Record<string, unknown>, key: string): string | null {
   return typeof v === "string" ? v : null;
 }
 
-function escapeLdapFilterValue(value: string): string {
-  return value.replace(/[\\*()\0]/g, (character) => {
-    switch (character) {
-      case "\\":
-        return "\\5c";
-      case "*":
-        return "\\2a";
-      case "(":
-        return "\\28";
-      case ")":
-        return "\\29";
-      default:
-        return "\\00";
-    }
-  });
-}
-
 function domainDn(upn: string): string {
   const domain = upn.includes("@") ? upn.split("@")[1]! : upn;
   return domain
@@ -54,11 +40,6 @@ function domainDn(upn: string): string {
     .join(",");
 }
 
-/**
- * Single-source compatibility read: the first enabled `LdapSource` row mapped
- * to the runtime config (bind password decrypted). Returns null when no source
- * is enabled — the same contract the legacy settings blob provided.
- */
 export async function getLdapConfig(): Promise<LdapConfig | null> {
   const sources = await getEnabledLdapSources();
   const source = sources[0] ?? null;
@@ -66,7 +47,6 @@ export async function getLdapConfig(): Promise<LdapConfig | null> {
   return sourceToLdapConfig(source);
 }
 
-/** Validate a config object (e.g. from the admin form) and decrypt the password if needed. */
 export function normalizeLdapConfig(input: Record<string, unknown>): LdapConfig {
   const parsed = ldapConfigSchema.parse(input);
   const bindPassword =
@@ -74,16 +54,6 @@ export function normalizeLdapConfig(input: Record<string, unknown>): LdapConfig 
       ? decryptSecret(parsed.bindPassword)
       : parsed.bindPassword;
   return { ...parsed, bindPassword };
-}
-
-async function bindAdmin(config: LdapConfig): Promise<Client> {
-  const clientOpts: ConstructorParameters<typeof Client>[0] = { url: config.url };
-  if (config.tlsCaCert) {
-    clientOpts.tlsOptions = { ca: config.tlsCaCert, rejectUnauthorized: true };
-  }
-  const client = new Client(clientOpts);
-  await client.bind(config.bindUpn, config.bindPassword);
-  return client;
 }
 
 export async function testLdapConnection(
@@ -140,332 +110,11 @@ export async function searchLdapGroups(
   }
 }
 
-type LdapGroup = { id: string; dn: string; name: string };
-type LdapSearchEntry = Record<string, unknown> & { dn: string };
-type LdapGroupSnapshot = {
-  group: LdapGroup;
-  entries: LdapSearchEntry[];
-  managerDn: string | null;
-  managerEmail: string | null;
-};
-type LdapDatabase = Pick<
-  Prisma.TransactionClient,
-  "user" | "authIdentity" | "projectMember" | "ldapGroupMembership" | "ldapSyncGroup" | "department"
->;
-
-/**
- * Reads one directory snapshot for a group: its members, its `managedBy`
- * attribute (the AD-declared manager), and that manager's email/UPN. All reads
- * happen before any write so a failed directory read leaves the previous
- * authorization snapshot untouched.
- */
-async function fetchLdapGroupSnapshot(
-  config: LdapConfig,
-  group: LdapGroup,
-): Promise<LdapGroupSnapshot> {
-  const client = await bindAdmin(config);
-  try {
-    const base = config.searchBase ?? domainDn(config.upnSuffix ?? config.bindUpn);
-    const filter = `(&(objectClass=user)(memberOf:1.2.840.113556.1.4.1941:=${escapeLdapFilterValue(group.dn)}))`;
-    const result = await client.search(base, {
-      filter,
-      scope: "sub",
-      attributes: ["mail", "cn", "userPrincipalName", "displayName", "sAMAccountName", "distinguishedName"],
-    });
-    const entries = result.searchEntries;
-    if (
-      !Array.isArray(entries)
-      || entries.some((entry) => typeof entry !== "object" || entry === null || typeof entry.dn !== "string")
-    ) {
-      throw new Error("LDAP group search returned an incomplete response");
-    }
-
-    let managerDn: string | null = null;
-    let managerEmail: string | null = null;
-    const groupResult = await client.search(group.dn, {
-      scope: "base",
-      attributes: ["managedBy"],
-    });
-    managerDn = groupResult.searchEntries[0]
-      ? attr(groupResult.searchEntries[0], "managedBy")
-      : null;
-    if (managerDn) {
-      const managerResult = await client.search(managerDn, {
-        scope: "base",
-        attributes: ["mail", "userPrincipalName"],
-      });
-      const managerEntry = managerResult.searchEntries[0];
-      managerEmail = managerEntry
-        ? (attr(managerEntry, "userPrincipalName") ?? attr(managerEntry, "mail"))
-        : null;
-    }
-
-    return {
-      group,
-      entries: entries as LdapSearchEntry[],
-      managerDn,
-      managerEmail,
-    };
-  } finally {
-    try {
-      await client.unbind();
-    } catch {
-      // ignore
-    }
-  }
-}
-
-/**
- * Applies the AD-declared manager to the group's department. AD is the source
- * of truth unless an admin explicitly picked a manager (managerSource =
- * "manual"); manual choices survive syncs.
- */
-async function applyLdapDepartmentManager(
-  db: LdapDatabase,
-  group: LdapGroup,
-  managerEmail: string | null,
-): Promise<void> {
-  const department = await db.department.findUnique({
-    where: { ldapSyncGroupId: group.id },
-    select: { id: true, managerUserId: true, managerSource: true },
-  });
-  if (!department || department.managerSource === "manual") return;
-
-  let nextManagerUserId: string | null = null;
-  let nextManagerSource: "ad" | null = null;
-  if (managerEmail) {
-    const manager = await db.user.findUnique({
-      where: { email: managerEmail },
-      select: { id: true, status: true },
-    });
-    if (!manager || manager.status !== "active") {
-      // AD names a manager we cannot resolve yet — keep the current state.
-      return;
-    }
-    nextManagerUserId = manager.id;
-    nextManagerSource = "ad";
-  }
-
-  if (
-    department.managerUserId === nextManagerUserId
-    && department.managerSource === nextManagerSource
-  ) {
-    return;
-  }
-
-  await db.department.update({
-    where: { id: department.id },
-    data: { managerUserId: nextManagerUserId, managerSource: nextManagerSource },
-  });
-
-  await logAudit({
-    actorUserId: null,
-    action: "department_updated",
-    entityType: "department",
-    entityId: department.id,
-    before: {
-      managerUserId: department.managerUserId,
-      managerSource: department.managerSource,
-    },
-    after: {
-      managerUserId: nextManagerUserId,
-      managerSource: nextManagerSource,
-    },
-  });
-}
-
-async function applyLdapGroupSnapshot(
-  db: LdapDatabase,
-  snapshot: LdapGroupSnapshot,
-): Promise<number> {
-  const { group, entries, managerDn, managerEmail } = snapshot;
-  const syncedAt = new Date();
-  let count = 0;
-  for (const e of entries) {
-    const upn = attr(e, "userPrincipalName") ?? attr(e, "mail");
-    const email = upn ?? attr(e, "mail") ?? attr(e, "sAMAccountName");
-    if (!email) continue;
-    const displayName =
-      attr(e, "displayName") ?? attr(e, "cn") ?? email.split("@")[0] ?? email;
-
-    let user = await db.user.findUnique({ where: { email } });
-    const wasRemovedFromLdap = user?.status === "ldapGroupRemoved";
-    if (!user) {
-      user = await db.user.create({
-        data: {
-          email,
-          displayName,
-          passwordHash: null,
-          locale: "fa_IR",
-          status: "active",
-          ldapGroup: group.name,
-          ldapGroupId: null,
-        },
-      });
-    } else {
-      const data: Record<string, unknown> = {
-        ldapGroup: group.name,
-        ldapGroupId: null,
-      };
-      // Re-activate users whose group was previously removed.
-      if (user.status === "ldapGroupRemoved") data.status = "active";
-      user = await db.user.update({ where: { id: user.id }, data });
-    }
-
-    if (wasRemovedFromLdap) {
-      await db.projectMember.updateMany({
-        where: { userId: user.id, disabledReason: "ldap" },
-        data: { disabledAt: null, disabledReason: null },
-      });
-    }
-
-    if (upn) {
-      const identity = await db.authIdentity.findFirst({
-        where: { provider: "ldap", providerSubject: upn },
-      });
-      if (!identity) {
-        await db.authIdentity.create({
-          data: { userId: user.id, provider: "ldap", providerSubject: upn },
-        });
-      }
-    }
-
-    await db.ldapGroupMembership.upsert({
-      where: {
-        userId_ldapSyncGroupId: {
-          userId: user.id,
-          ldapSyncGroupId: group.id,
-        },
-      },
-      create: {
-        userId: user.id,
-        ldapSyncGroupId: group.id,
-        sourceMemberDn: e.dn,
-        lastSeenAt: syncedAt,
-      },
-      update: {
-        sourceMemberDn: e.dn,
-        lastSeenAt: syncedAt,
-      },
-    });
-    count += 1;
-  }
-
-  // Reconcile only AD-origin memberships: rows whose directory entry was not
-  // seen in this snapshot are stale and removed. Manual memberships (added
-  // in-app, `sourceMemberDn IS NULL`) are never touched — hybrid groups keep
-  // their hand-picked members across syncs.
-  await db.ldapGroupMembership.deleteMany({
-    where: {
-      ldapSyncGroupId: group.id,
-      sourceMemberDn: { not: null },
-      lastSeenAt: { lt: syncedAt },
-    },
-  });
-
-  await db.ldapSyncGroup.update({
-    where: { dn: group.dn },
-    data: { lastSyncedAt: new Date(), managerDn },
-  });
-
-  await applyLdapDepartmentManager(db, group, managerEmail);
-  return count;
-}
-
-export async function syncLdapGroup(
-  config: LdapConfig,
-  group: LdapGroup,
-) {
-  const snapshot = await fetchLdapGroupSnapshot(config, group);
-  return prisma.$transaction((tx) => applyLdapGroupSnapshot(tx, snapshot));
-}
-
-/**
- * Synchronizes every AD-synced group that belongs to the given source against
- * that source's directory. Manual groups (`source = manual`) and groups from
- * other sources are never touched — a source only reconciles its own rows.
- *
- * Directory reads happen before any write, so a failed read leaves the
- * previous authorization snapshot untouched.
- */
-export async function syncLdapSource(
-  sourceId: string,
-): Promise<{ groups: number; users: number }> {
-  const source = await prisma.ldapSource.findFirst({
-    where: { id: sourceId, deletedAt: null },
-  });
-  if (!source) {
-    throw new Error("LDAP source not found");
-  }
-  const config = sourceToLdapConfig(source);
-
-  const groups: LdapGroup[] = (await prisma.ldapSyncGroup.findMany({
-    where: { deletedAt: null, source: "ldap", sourceId },
-  })).flatMap((group) =>
-    group.dn ? [{ id: group.id, dn: group.dn, name: group.name }] : [],
-  );
-
-  try {
-    const stagedSnapshots: LdapGroupSnapshot[] = [];
-    for (const group of groups) {
-      stagedSnapshots.push(await fetchLdapGroupSnapshot(config, group));
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      let users = 0;
-      for (const snapshot of stagedSnapshots) {
-        users += await applyLdapGroupSnapshot(tx, snapshot);
-      }
-      return { groups: groups.length, users };
-    });
-
-    await prisma.ldapSource.update({
-      where: { id: source.id },
-      data: { lastSyncedAt: new Date(), lastSyncError: null },
-    });
-
-    return result;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    await prisma.ldapSource.update({
-      where: { id: source.id },
-      data: { lastSyncError: message },
-    });
-    throw err;
-  }
-}
-
-/**
- * Synchronizes every enabled source, each against its own directory. A failure
- * in one source is recorded on that source and does not stop the others;
- * the aggregate counts the successful sources only.
- */
-export async function syncAllLdapSources(): Promise<{ sources: number; groups: number; users: number }> {
-  const sources = await getEnabledLdapSources();
-  let groups = 0;
-  let users = 0;
-  for (const source of sources) {
-    try {
-      const result = await syncLdapSource(source.id);
-      groups += result.groups;
-      users += result.users;
-    } catch (err) {
-      logger.error(
-        { err, sourceId: source.id, sourceName: source.name },
-        "LDAP source sync failed; continuing with remaining sources",
-      );
-    }
-  }
-  return { sources: sources.length, groups, users };
-}
-
 export async function ldapAuth(
   username: string,
   password: string,
   sourceId?: string,
 ): Promise<LdapAuthResult> {
-  // Resolve the directory the user picked: an explicit sourceId (must be an
-  // enabled source) or the first enabled source when omitted (legacy callers).
   const source = sourceId
     ? await getLdapSource(sourceId)
     : await getFirstEnabledLdapSource();
@@ -489,7 +138,6 @@ export async function ldapAuth(
 
     client = new Client(clientOpts);
 
-    // Authenticate the user by binding as their full UPN.
     const suffix = config.upnSuffix?.replace(/^@/, "") || "ldap.local";
     const email = username.includes("@") ? username : `${username}@${suffix}`;
     const displayName = username.split("@")[0] || username;
@@ -497,7 +145,6 @@ export async function ldapAuth(
     await client.bind(email, password);
     await client.unbind();
 
-    // Find or create user
     let user = await prisma.user.findUnique({ where: { email } });
 
     if (user && user.status === "suspended") {
@@ -527,9 +174,6 @@ export async function ldapAuth(
       });
     }
 
-    // Upsert auth identity (subject = UPN/email, which is stable per user).
-    // `providerIssuer` records which directory the user authenticated
-    // against, so multi-AD setups can trace the source of each identity.
     const existingIdentity = await prisma.authIdentity.findFirst({
       where: { provider: "ldap", providerSubject: email },
     });
@@ -553,9 +197,6 @@ export async function ldapAuth(
         after: { provider: "ldap", sourceId: source.id },
       });
     } else if (existingIdentity.providerIssuer !== source.id) {
-      // The same UPN appearing in a second directory resolves to the same
-      // user (email is the user key); the issuer follows the most recent
-      // successful login so the source stays traceable.
       await prisma.authIdentity.update({
         where: { id: existingIdentity.id },
         data: { providerIssuer: source.id, lastUsedAt: new Date() },

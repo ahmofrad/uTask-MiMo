@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
+import { apiFetch } from "@/lib/api-fetch";
 
 type SessionView = {
   id: string;
@@ -18,7 +19,7 @@ export function SessionsSettings() {
   const [revoking, setRevoking] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/v1/auth/sessions")
+    apiFetch("/api/v1/auth/sessions")
       .then((r) => r.json())
       .then((j) => setSessions(j.data ?? []))
       .catch(() => {})
@@ -27,7 +28,7 @@ export function SessionsSettings() {
 
   const revoke = useCallback(async (id: string) => {
     setRevoking(id);
-    await fetch(`/api/v1/auth/sessions/${id}`, { method: "DELETE" }).catch(() => {});
+    await apiFetch(`/api/v1/auth/sessions/${id}`, { method: "DELETE" }).catch(() => {});
     setSessions((prev) => prev.filter((s) => s.id !== id));
     setRevoking(null);
   }, []);

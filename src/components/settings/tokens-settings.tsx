@@ -17,7 +17,7 @@ export function TokensSettings() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    fetch("/api/v1/tokens")
+    apiFetch("/api/v1/tokens")
       .then((r) => r.json())
       .then((j) => setTokens(j.data ?? []))
       .catch(() => {});

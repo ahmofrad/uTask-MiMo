@@ -137,7 +137,7 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
   }
 
   const monthName = isJalali
-    ? getMonthName(month, "fa-IR")
+    ? getMonthName(month, locale)
     : formatMonthName(year, month, "en-US");
 
   return (
