@@ -48,9 +48,8 @@ describe("dispatchWebhook", () => {
     mocks.deliveryCreate.mockResolvedValue({ id: "delivery-1" });
     mocks.deliveryUpdate.mockResolvedValue({});
     mocks.responseStatus = 200;
-    mocks.responseBody = "";
-    mocks.httpsRequest.mockImplementation((_options: unknown, callback: (response: EventEmitter & { statusCode: number }) => void) => {
-      const request = new EventEmitter() as EventEmitter & { end: (body: string) => void };
+    mocks.responseBody = "";      mocks.httpsRequest.mockImplementation((_options: unknown, callback: (_response: EventEmitter & { statusCode: number }) => void) => {
+      const request = new EventEmitter() as EventEmitter & { end: (_body: string) => void };
       request.end = (_body: string) => {
         const response = new EventEmitter() as EventEmitter & { statusCode: number };
         response.statusCode = mocks.responseStatus;
