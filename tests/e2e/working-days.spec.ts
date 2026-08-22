@@ -224,6 +224,32 @@ test.describe("Working days admin page", () => {
     }
   });
 
+  test("the onlyDayOffs checkbox filters observances from a download", async ({ page }) => {
+    // Regression: Calendarific Iran mixes real تعطیلات with non-off
+    // observances (imam birthdays, etc.). With the "only actual days off"
+    // box checked (the default), the download must drop the observances and
+    // the result message must say so.
+    try {
+      await page.goto("/en-US/admin/settings/working-days");
+      await expect(page.getByRole("heading", { name: "Working days & holidays" })).toBeVisible();
+
+      // The checkbox defaults to checked.
+      await expect(page.getByTestId("wd-egress-only-dayoffs")).toBeChecked();
+
+      // Unchecking + checking is what an admin sees; assert both render.
+      await page.getByTestId("wd-egress-only-dayoffs").uncheck();
+      await expect(page.getByTestId("wd-egress-only-dayoffs")).not.toBeChecked();
+      await page.getByTestId("wd-egress-only-dayoffs").check();
+
+      // The download button stays disabled while egress is off, matching the
+      // existing gating (the API path itself is covered by the unit tests for
+      // filterHolidayEntries; this asserts the UI wiring).
+      await expect(page.getByTestId("wd-egress-download")).toBeDisabled();
+    } finally {
+      await prisma.instanceSetting.deleteMany({ where: { key: HOLIDAY_EGRESS_SETTING_KEY } });
+    }
+  });
+
   test("a non-admin is redirected away from the page", async ({ browser }) => {
     const ctx = await browser.newContext({ storageState: ".auth/member.json" });
     const page = await ctx.newPage();

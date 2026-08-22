@@ -1,7 +1,8 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import { cn } from "@/lib/cn";
-import { formatDateTime } from "@/lib/date/format";
+import { formatDateTime, type Locale } from "@/lib/date/format";
 
 type CustomFieldDef = {
   id: string;
@@ -18,6 +19,7 @@ type Props = {
 };
 
 export function CustomFieldValue({ field, value, className }: Props) {
+  const locale = useLocale() as Locale;
   if (value === null || value === undefined || value === "") {
     return (
       <div className={cn("space-y-1", className)}>
@@ -30,12 +32,12 @@ export function CustomFieldValue({ field, value, className }: Props) {
   return (
     <div className={cn("space-y-1", className)}>
       <label className="block text-xs text-fg-muted">{field.name}</label>
-      <div className="text-sm text-fg-primary">{renderValue(field, value)}</div>
+      <div className="text-sm text-fg-primary">{renderValue(field, value, locale)}</div>
     </div>
   );
 }
 
-function renderValue(field: CustomFieldDef, value: unknown) {
+function renderValue(field: CustomFieldDef, value: unknown, locale: Locale) {
   switch (field.type) {
     case "text":
     case "url":
@@ -43,7 +45,7 @@ function renderValue(field: CustomFieldDef, value: unknown) {
     case "number":
       return <NumberFieldValue value={value} />;
     case "date":
-      return <DateFieldValue value={value} />;
+      return <DateFieldValue value={value} locale={locale} />;
     case "select":
       return <SelectFieldValue value={value} />;
     case "multi_select":
@@ -65,10 +67,10 @@ function NumberFieldValue({ value }: { value: unknown }) {
   return <span className="font-mono tabular-nums">{String(value)}</span>;
 }
 
-function DateFieldValue({ value }: { value: unknown }) {
+function DateFieldValue({ value, locale }: { value: unknown; locale: Locale }) {
   if (value instanceof Date || typeof value === "string") {
     const d = typeof value === "string" ? new Date(value) : value;
-    return <span>{formatDateTime(d, "fa-IR")}</span>;
+    return <span>{formatDateTime(d, locale)}</span>;
   }
   return <span>{String(value)}</span>;
 }

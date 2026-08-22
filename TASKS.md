@@ -299,7 +299,7 @@
 ### PMIS / EPM gaps (uTask does not yet have these)
 - **G4 — Baselines & Earned Value Management (EVM)** (frozen baselines, CPI/SPI/EAC, S-curves).
 - **G5 — Resource management** (resource catalog, skills, capacity, task resource assignments).
-- **G6 — Timesheets & rate cards** ✅ shipped (backend; UI pending) — `RateCard`/`TimesheetPeriod`/`TimeEntry`, rate snapshot, approval state machine, department-scoped. See `lib/timesheets/`, `docs/roadmap-pmis.md` G6.
+- **G6 — Timesheets & rate cards** ✅ shipped — `RateCard`/`TimesheetPeriod`/`TimeEntry`, rate snapshot, approval state machine, department-scoped; admin period-creation + rate-card management UI and submit→approve→reopen e2e coverage. See `lib/timesheets/`, `docs/roadmap-pmis.md` G6.
 - **G7 — Cost control ledger** (CostAccount, BudgetLine, Commitment, Expense, append-only ActualCostEntry, FX, multi-currency).
 - **G8 — Risk register** (probability × impact scoring, response plans).
 - **G9 — Change requests** (DRAFT→APPROVED→APPLIED, baseline snapshot on apply).
@@ -312,6 +312,7 @@
 - **G16 — Platform/ops:** multiple themes (Midnight/Solarized/High-Contrast/Nord), PWA/installable, 2FA (TOTP), SCIM provisioning, password policy + lockout + SecurityAuditEvent, in-app backup scheduler + Kopia/offsite, self-updater sidecar, per-user datetime prefs (timezone/12-24h/dual calendar).
 
 > **Shipped (implemented ahead of schedule):**
+> - **Working-day calendar & holidays** ✅ — per-day `dayOff` flag on holidays so observances (e.g. imam birthdays from Calendarific Iran) render as occasions without blocking scheduling; admin working-days page (weekend toggles, Jalali holiday picker, CSV + bundled official + opt-in provider downloads) with an "only actual days off" filter on downloads; holidays tinted red on calendar, Gantt, and exports.
 > - **G1 — Task dependencies & enforcement** (FS/SS/FF/RELATES_TO, block/warn/off, unblock notifications). See `lib/tasks/dependencies.ts`.
 > - **G2 — WBS (n-level task tree)** (outline codes, summary rollups; subtasks stay flat checklist). See `lib/tasks/wbs.ts`, `components/task/wbs-editor.tsx`.
 > - **G3 — Gantt + CPM scheduling engine** (critical path, lag/lead, milestones, baseline ghost bars). See `lib/scheduling/`, `components/task/gantt-chart.tsx`.
