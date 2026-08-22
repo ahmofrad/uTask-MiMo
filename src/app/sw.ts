@@ -19,10 +19,14 @@ const runtimeCaching: RuntimeCaching[] = [
     matcher: ({ url }) => url.pathname.startsWith("/api/"),
     handler: new NetworkOnly(),
   },
-  // Page navigations: network-first, with a short timeout before using cache.
+  // Page navigations: always fetch live HTML so chunk references never
+  // point at a stale build. A rebuild replaces every JS/CSS hash, and
+  // cached HTML from a previous build causes 404s on those old chunks —
+  // the page flickers and Next.js dialog-spams "an error has occurred".
+  // Offline fallback is handled by the fallbacks section below.
   {
     matcher: ({ request, sameOrigin }) => request.mode === "navigate" && sameOrigin,
-    handler: new NetworkFirst({ networkTimeoutSeconds: 5 }),
+    handler: new NetworkOnly(),
   },
   // Everything else (static assets, fonts, images) uses Serwist defaults.
   ...defaultCache,
