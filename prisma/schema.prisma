@@ -239,6 +239,8 @@ enum AuditAction {
   department_created
   department_updated
   department_deleted
+  department_member_added
+  department_member_removed
   group_created
   group_updated
   group_deleted
@@ -303,6 +305,7 @@ model User {
   webhooks                              Webhook[]
   projectTemplates                      ProjectTemplate[]
   ldapMemberships                       LdapGroupMembership[]
+  departmentMemberships                 DepartmentMembership[]
   groupGrantsGranted                    ProjectGroupGrant[]            @relation("ProjectGroupGrantGrantedBy")
   managedDepartments                    Department[]                   @relation("DepartmentManager")
   projectDepartmentLinkRequestsMade     ProjectDepartmentLinkRequest[] @relation("ProjectDepartmentLinkRequestRequester")
@@ -365,8 +368,22 @@ model Department {
   projectLinks           ProjectDepartment[]
   departmentLinkRequests ProjectDepartmentLinkRequest[]
   timesheetPeriods       TimesheetPeriod[]
+  members                DepartmentMembership[]
 
   @@map("Department")
+}
+
+model DepartmentMembership {
+  userId       String   @db.Uuid
+  departmentId String   @db.Uuid
+  createdAt    DateTime @default(now()) @db.Timestamptz
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@id([userId, departmentId])
+  @@index([departmentId])
+  @@map("DepartmentMembership")
 }
 
 model Project {

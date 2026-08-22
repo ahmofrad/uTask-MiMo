@@ -288,6 +288,8 @@
     "manualDepartment": "Manual department",
     "archiveDepartment": "Archive",
     "add": "Add",
+    "addMember": "Add member",
+    "remove": "Remove",
     "delete": "Delete",
     "noDepartments": "No departments yet.",
     "projectsCount": "{count} projects",
@@ -681,7 +683,9 @@
       "title": "Project Settings",
       "dangerZone": "Danger Zone",
       "dangerZoneDesc": "Archiving a project hides it from views but preserves all data.",
-      "archiveButton": "Archive project"
+      "archiveButton": "Archive project",
+      "confirmArchive": "Are you sure? This will archive the project and hide it from all views. Data is preserved and the project can be restored by an admin.",
+      "archiveFailed": "Could not archive the project. Please try again."
     },
     "dashboard": {
       "title": "Project Dashboard",
@@ -1070,6 +1074,8 @@
       "department_created": "created department",
       "department_updated": "updated department",
       "department_deleted": "deleted department",
+      "department_member_added": "added department member",
+      "department_member_removed": "removed department member",
       "group_created": "created group",
       "group_updated": "updated group",
       "group_deleted": "deleted group",

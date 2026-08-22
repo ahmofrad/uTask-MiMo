@@ -24,6 +24,14 @@ type ManagerCandidate = {
   email: string;
 };
 
+type DepartmentMember = {
+  id: string;
+  displayName: string;
+  email: string;
+};
+
+let allUsersCache: DepartmentMember[] | null = null;
+
 type Props = {
   departments: Department[];
 };
@@ -62,6 +70,71 @@ export function DepartmentTree({ departments: initial }: Props) {
   const [newParentId, setNewParentId] = useState("");
   const [managerCandidates, setManagerCandidates] = useState<Record<string, ManagerCandidate[]>>({});
   const [saveMessage, setSaveMessage] = useState("");
+  const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
+  const [deptMembers, setDeptMembers] = useState<Record<string, DepartmentMember[]>>({});
+  const [allUsers, setAllUsers] = useState<DepartmentMember[]>([]);
+
+  useEffect(() => {
+    if (allUsers.length > 0) return;
+    apiFetch("/api/v1/users/search?q&limit=500")
+      .then((r) => r.json())
+      .then((j) => {
+        const users: DepartmentMember[] = (j.data ?? []).map(
+          (u: { id: string; displayName: string; email: string }) => ({ id: u.id, displayName: u.displayName, email: u.email }),
+        );
+        setAllUsers(users);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function loadMembers(departmentId: string) {
+    const res = await apiFetch(`/api/v1/departments/${departmentId}/members`);
+    if (res.ok) {
+      const body = (await res.json()) as { data?: DepartmentMember[] };
+      setDeptMembers((prev) => ({ ...prev, [departmentId]: body.data ?? [] }));
+    }
+  }
+
+  async function addMember(departmentId: string, userId: string) {
+    await apiFetch(`/api/v1/departments/${departmentId}/members`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    await loadMembers(departmentId);
+    setDepartments((prev) =>
+      prev.map((d) =>
+        d.id === departmentId ? { ...d, memberCount: d.memberCount + 1 } : d,
+      ),
+    );
+  }
+
+  async function removeMember(departmentId: string, userId: string) {
+    await apiFetch(`/api/v1/departments/${departmentId}/members`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    await loadMembers(departmentId);
+    setDepartments((prev) =>
+      prev.map((d) =>
+        d.id === departmentId ? { ...d, memberCount: Math.max(0, d.memberCount - 1) } : d,
+      ),
+    );
+  }
+
+  function toggleMembers(departmentId: string) {
+    setExpandedMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(departmentId)) {
+        next.delete(departmentId);
+      } else {
+        next.add(departmentId);
+        void loadMembers(departmentId);
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -167,7 +240,7 @@ export function DepartmentTree({ departments: initial }: Props) {
               <span className="text-xs text-fg-tertiary">
                 {department.ldapSyncGroupId ? t("ldapDepartment") : t("manualDepartment")}
               </span>
-              {department.ldapSyncGroupId && (
+              {department.memberCount > 0 && (
                 <span className="text-xs text-fg-tertiary">
                   {t("membersCount", { count: department.memberCount })}
                 </span>
@@ -221,6 +294,77 @@ export function DepartmentTree({ departments: initial }: Props) {
             </Button>
           </div>
         </div>
+
+        {/* Members Section — for non-LDAP departments only */}
+        {!department.ldapSyncGroupId && (
+          <div
+            className="border-t border-border-primary mt-2 pt-2"
+            style={{ marginInlineStart: `${level * 24}px` }}
+          >
+            <button
+              type="button"
+              onClick={() => toggleMembers(department.id)}
+              className="text-xs text-accent hover:underline"
+            >
+              {expandedMembers.has(department.id)
+                ? t("hideMembers")
+                : t("showMembers")}
+            </button>
+            {expandedMembers.has(department.id) && (
+              <div className="mt-2 space-y-2">
+                {/* Add member picker */}
+                <select
+                  className="w-full max-w-64 rounded-md border border-border-primary bg-bg-primary px-2 py-1 text-sm text-fg-primary"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      void addMember(department.id, e.target.value);
+                      e.target.value = "";
+                    }
+                  }}
+                  aria-label={t("addMember")}
+                >
+                  <option value="">{t("addMember")}…</option>
+                  {allUsers
+                    .filter((u) => !(deptMembers[department.id] ?? []).some((m) => m.id === u.id))
+                    .map((u) => (
+                      <option key={u.id} value={u.id}>
+                        {u.displayName} ({u.email})
+                      </option>
+                    ))}
+                </select>
+
+                {/* Member list */}
+                {(deptMembers[department.id] ?? []).length === 0 ? (
+                  <p className="text-xs text-fg-muted">{t("noGroupMembers")}</p>
+                ) : (
+                  <div className="space-y-1">
+                    {(deptMembers[department.id] ?? []).map((member) => (
+                      <div
+                        key={member.id}
+                        className="flex items-center justify-between gap-2 text-sm"
+                      >
+                        <span className="text-fg-primary truncate">
+                          {member.displayName}
+                          <span className="text-fg-muted text-xs ms-2">{member.email}</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => void removeMember(department.id, member.id)}
+                          title={t("removeMember", { name: member.displayName })}
+                          className="text-xs text-destructive hover:underline shrink-0"
+                        >
+                          {t("remove")}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
         {childrenOf(department.id).map((child) => renderRow(child, level + 1))}
       </div>
     );

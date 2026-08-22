@@ -288,6 +288,8 @@
     "manualDepartment": "دپارتمان دستی",
     "archiveDepartment": "بایگانی",
     "add": "افزودن",
+    "addMember": "افزودن عضو",
+    "remove": "حذف",
     "delete": "حذف",
     "noDepartments": "هنوز دپارتمانی وجود ندارد.",
     "projectsCount": "{count} پروژه",
@@ -681,7 +683,9 @@
       "title": "تنظیمات پروژه",
       "dangerZone": "منطقه خطرناک",
       "dangerZoneDesc": "بایگانی کردن پروژه آن را از دید پنهان می‌کند اما تمام داده‌ها حفظ می‌شوند.",
-      "archiveButton": "بایگانی پروژه"
+      "archiveButton": "بایگانی پروژه",
+      "confirmArchive": "آیا مطمئنید؟ این کار پروژه را بایگانی کرده و از همه نماها پنهان می‌کند. داده‌ها حفظ می‌شوند و مدیر می‌تواند پروژه را بازیابی کند.",
+      "archiveFailed": "بایگانی پروژه ممکن نشد. لطفاً دوباره تلاش کنید."
     },
     "dashboard": {
       "title": "داشبورد پروژه",
@@ -1070,6 +1074,8 @@
       "department_created": "دپارتمان ایجاد کرد",
       "department_updated": "دپارتمان را ویرایش کرد",
       "department_deleted": "دپارتمان را حذف کرد",
+      "department_member_added": "عضو دپارتمان را افزود",
+      "department_member_removed": "عضو دپارتمان را حذف کرد",
       "group_created": "گروه ایجاد کرد",
       "group_updated": "گروه را ویرایش کرد",
       "group_deleted": "گروه را حذف کرد",

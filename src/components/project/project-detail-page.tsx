@@ -406,6 +406,7 @@ export function ProjectDetailPage({ project, initialTasks, currentUserId }: Proj
         error={settingsError}
         onClose={() => setShowSettings(false)}
         onSave={saveSettings}
+        projectId={project.id}
       />
     </>
   );

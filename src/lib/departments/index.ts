@@ -96,6 +96,56 @@ export async function listCreatableDepartments(userId: string): Promise<{
   return { departments, required: !isOrgWide };
 }
 
+export type DepartmentMember = {
+  id: string;
+  displayName: string;
+  email: string;
+  joinedAt: string | null;
+};
+
+export async function listDepartmentMembers(departmentId: string): Promise<DepartmentMember[]> {
+  const memberships = await prisma.departmentMembership.findMany({
+    where: { departmentId },
+    select: {
+      createdAt: true,
+      user: { select: { id: true, displayName: true, email: true } },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  return memberships.map((m) => ({
+    id: m.user.id,
+    displayName: m.user.displayName,
+    email: m.user.email,
+    joinedAt: m.createdAt.toISOString(),
+  }));
+}
+
+export async function addDepartmentMember(departmentId: string, userId: string) {
+  await prisma.departmentMembership.upsert({
+    where: { userId_departmentId: { userId, departmentId } },
+    create: { userId, departmentId },
+    update: {},
+  });
+}
+
+export async function removeDepartmentMember(departmentId: string, userId: string) {
+  await prisma.departmentMembership.deleteMany({
+    where: { userId, departmentId },
+  });
+}
+
+/**
+ * All active users eligible for department membership (excludes guests).
+ * Used by the admin UI to populate department-assignment pickers.
+ */
+export async function listDepartmentMemberCandidates() {
+  return prisma.user.findMany({
+    where: { status: "active" },
+    select: { id: true, displayName: true, email: true },
+    orderBy: { displayName: "asc" },
+  });
+}
+
 export async function createDepartment(data: {
   name: string;
   parentId?: string | null;

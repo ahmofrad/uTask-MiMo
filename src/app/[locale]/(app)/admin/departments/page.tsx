@@ -18,7 +18,7 @@ export default async function AdminDepartmentsPage() {
     where: { deletedAt: null },
     orderBy: { name: "asc" },
     include: {
-      _count: { select: { projects: true } },
+      _count: { select: { projects: true, members: true } },
       ldapSyncGroup: {
         select: { _count: { select: { memberships: true } } },
       },
@@ -36,7 +36,11 @@ export default async function AdminDepartmentsPage() {
     source: department.source,
     ldapSyncGroupId: department.ldapSyncGroupId,
     projectsCount: department._count.projects,
-    memberCount: department.ldapSyncGroup?._count.memberships ?? 0,
+    // LDAP-backed departments show the group membership count; manual ones
+    // show the DepartmentMembership count.
+    memberCount: department.ldapSyncGroupId
+      ? department.ldapSyncGroup?._count.memberships ?? 0
+      : department._count.members,
   }));
 
   return (
