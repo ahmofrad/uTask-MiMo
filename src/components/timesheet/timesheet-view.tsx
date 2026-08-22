@@ -65,6 +65,7 @@ export function TimesheetView({
   const { addToast } = useToast();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
+  const [showCreatePeriod, setShowCreatePeriod] = useState(false);
 
   // New entry form state
   const [entryForm, setEntryForm] = useState({
@@ -72,6 +73,12 @@ export function TimesheetView({
     projectId: "",
     minutes: "",
     billable: true,
+  });
+
+  // New period form state
+  const [periodForm, setPeriodForm] = useState({
+    periodStart: "",
+    periodEnd: "",
   });
 
   function toggle(id: string) {
@@ -137,10 +144,45 @@ export function TimesheetView({
     }
   }
 
-  if (periods.length === 0) {
+  async function handleCreatePeriod(e: React.FormEvent) {
+    e.preventDefault();
+    if (!periodForm.periodStart || !periodForm.periodEnd) return;
+    setBusy("period:create");
+    try {
+      const res = await apiFetch(
+        `/api/v1/departments/${departmentId}/timesheets/periods`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            periodStart: periodForm.periodStart,
+            periodEnd: periodForm.periodEnd,
+          }),
+        },
+      );
+      if (!res.ok) {
+        const j = (await res.json()) as { error?: { message?: string } };
+        addToast({ message: j.error?.message ?? t("periodFailed") });
+        return;
+      }
+      addToast({ message: t("periodCreated") });
+      setPeriodForm({ periodStart: "", periodEnd: "" });
+      setShowCreatePeriod(false);
+      window.location.reload();
+    } catch {
+      addToast({ message: t("periodFailed") });
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  if (periods.length === 0 && !showCreatePeriod) {
     return (
       <div className="rounded-lg border border-border-primary p-8 text-center text-fg-muted">
-        {t("noPeriods")}
+        <p className="mb-4">{t("noPeriods")}</p>
+        <Button size="sm" onClick={() => setShowCreatePeriod(true)}>
+          {t("createPeriod")}
+        </Button>
       </div>
     );
   }
@@ -149,6 +191,52 @@ export function TimesheetView({
 
   return (
     <div className="space-y-4">
+      {/* Create period toggle */}
+      <div>
+        {showCreatePeriod ? (
+          <form
+            onSubmit={handleCreatePeriod}
+            className="flex items-end gap-2 rounded-lg border border-border-primary p-4"
+          >
+            <label className="flex flex-col gap-1 text-sm text-fg-secondary">
+              {t("periodStart")}
+              <input
+                type="date"
+                className="rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
+                value={periodForm.periodStart}
+                onChange={(e) => setPeriodForm({ ...periodForm, periodStart: e.target.value })}
+                required
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm text-fg-secondary">
+              {t("periodEnd")}
+              <input
+                type="date"
+                className="rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
+                value={periodForm.periodEnd}
+                onChange={(e) => setPeriodForm({ ...periodForm, periodEnd: e.target.value })}
+                required
+              />
+            </label>
+            <Button type="submit" size="sm" disabled={busy === "period:create"}>
+              {t("createPeriod")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowCreatePeriod(false)}
+            >
+              {t("cancel")}
+            </Button>
+          </form>
+        ) : (
+          <Button size="sm" variant="outline" onClick={() => setShowCreatePeriod(true)}>
+            {t("createPeriod")}
+          </Button>
+        )}
+      </div>
+
       {periods.map((period) => {
         const isOwner = period.owner.id === currentUserId;
         const isEditable = editableStatuses.includes(period.status);

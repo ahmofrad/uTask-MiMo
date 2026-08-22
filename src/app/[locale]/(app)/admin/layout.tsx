@@ -26,6 +26,7 @@ export default async function AdminLayout({
   const navLinks = [
     { href: "/admin/users", label: t("users"), visible: isAdmin },
     { href: "/admin/departments", label: t("departments"), visible: isAdmin },
+    { href: "/admin/rate-cards", label: t("rateCards"), visible: isAdmin },
     { href: "/admin/groups", label: t("groups"), visible: true },
     { href: "/admin/active-directory", label: t("activeDirectory"), visible: isAdmin },
     { href: "/admin/ldap-sync", label: t("ldapSyncDashboard"), visible: isAdmin },
