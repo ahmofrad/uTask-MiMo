@@ -51,7 +51,7 @@ export function ProjectTemplatesManager() {
   // Create form
   const [formName, setFormName] = useState("");
   const [formDesc, setFormDesc] = useState("");
-  const [formColor, setFormColor] = useState("#2563eb");
+  const [formColor, setFormColor] = useState("#4f46e5");
   const [formTasks, setFormTasks] = useState<TaskTemplate[]>([{ title: "", description: "", priority: "med", estimatedHours: "", isMilestone: false }]);
   const [formFields, setFormFields] = useState<FieldTemplate[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -148,7 +148,7 @@ export function ProjectTemplatesManager() {
   function resetForm() {
     setFormName("");
     setFormDesc("");
-    setFormColor("#2563eb");
+    setFormColor("#4f46e5");
     setFormTasks([{ title: "", description: "", priority: "med", estimatedHours: "", isMilestone: false }]);
     setFormFields([]);
   }

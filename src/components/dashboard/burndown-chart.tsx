@@ -1,15 +1,19 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 type BurndownChartProps = {
   data: { date: string; remaining: number; ideal: number }[];
 };
 
 export function BurndownChart({ data }: BurndownChartProps) {
+  const t = useTranslations("dashboard");
+
   if (data.length === 0) {
     return (
       <div className="bg-bg-surface border border-border-primary rounded-xl p-6">
-        <h2 className="text-lg font-semibold text-fg-primary mb-4">Burndown</h2>
-        <p className="text-sm text-fg-muted text-center py-8">No data available</p>
+        <h2 className="text-lg font-semibold text-fg-primary mb-4">{t("burndown")}</h2>
+        <p className="text-sm text-fg-muted text-center py-8">{t("noData")}</p>
       </div>
     );
   }
@@ -18,7 +22,7 @@ export function BurndownChart({ data }: BurndownChartProps) {
 
   return (
     <div className="bg-bg-surface border border-border-primary rounded-xl p-6">
-      <h2 className="text-lg font-semibold text-fg-primary mb-4">Burndown (last 30 days)</h2>
+      <h2 className="text-lg font-semibold text-fg-primary mb-4">{t("burndownRange")}</h2>
       <div className="flex items-end gap-1 h-32">
         {data.map((d, i) => (
           <div key={i} className="flex-1 flex flex-col items-center gap-1">

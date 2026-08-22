@@ -98,8 +98,8 @@ export function TagPicker({ projectId, value, onChange }: Props) {
               key={tag.id}
               className="group relative inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors"
               style={{
-                backgroundColor: selected ? (tag.color ?? "#2563eb") : "transparent",
-                borderColor: tag.color ?? "#cbd5e1",
+                backgroundColor: selected ? (tag.color ?? "#4f46e5") : "transparent",
+                borderColor: tag.color ?? "var(--border)",
                 color: selected ? "#fff" : "inherit",
               }}
             >
@@ -109,7 +109,7 @@ export function TagPicker({ projectId, value, onChange }: Props) {
                 title={t("toggleAssign")}
                 className="w-3 h-3 rounded-full border"
                 style={{
-                  borderColor: selected ? "#fff" : (tag.color ?? "#94a3b8"),
+                  borderColor: selected ? "#fff" : (tag.color ?? "var(--border-strong)"),
                   backgroundColor: selected ? "#fff" : "transparent",
                 }}
               />

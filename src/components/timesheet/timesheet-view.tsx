@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api-fetch";
 import { useToast } from "@/components/ui/toast";
@@ -62,6 +62,7 @@ export function TimesheetView({
   currentUserId,
 }: TimesheetViewProps) {
   const t = useTranslations("timesheets");
+  const locale = useLocale() as "fa-IR" | "en-US";
   const { addToast } = useToast();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
@@ -259,8 +260,8 @@ export function TimesheetView({
                   {period.owner.displayName}
                 </span>
                 <span className="text-xs text-fg-muted">
-                  {formatDate(new Date(period.periodStart), "en-US", "gregorian")} —{" "}
-                  {formatDate(new Date(period.periodEnd), "en-US", "gregorian")}
+                  {formatDate(new Date(period.periodStart), locale, "gregorian")} —{" "}
+                  {formatDate(new Date(period.periodEnd), locale, "gregorian")}
                 </span>
               </div>
               <div className="flex items-center gap-3">
@@ -327,7 +328,7 @@ export function TimesheetView({
                       type="number"
                       min="1"
                       step="1"
-                      placeholder="min"
+                      placeholder={t("minutes")}
                       className="w-20 rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
                       value={entryForm.periodId === period.id ? entryForm.minutes : ""}
                       onChange={(e) =>

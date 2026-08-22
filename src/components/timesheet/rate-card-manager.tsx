@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api-fetch";
 import { useToast } from "@/components/ui/toast";
@@ -34,6 +34,7 @@ function formatMinor(minor: number | null, currency: string): string {
 
 export function RateCardManager({ cards, users }: RateCardManagerProps) {
   const t = useTranslations("timesheets");
+  const locale = useLocale() as "fa-IR" | "en-US";
   const { addToast } = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -167,11 +168,11 @@ export function RateCardManager({ cards, users }: RateCardManagerProps) {
                     }
                     required
                   >
-                    <option value="owner">Owner</option>
-                    <option value="admin">Admin</option>
-                    <option value="manager">Manager</option>
-                    <option value="member">Member</option>
-                    <option value="guest">Guest</option>
+                    <option value="owner">{t("roles.owner")}</option>
+                    <option value="admin">{t("roles.admin")}</option>
+                    <option value="manager">{t("roles.manager")}</option>
+                    <option value="member">{t("roles.member")}</option>
+                    <option value="guest">{t("roles.guest")}</option>
                   </select>
                 </label>
               )}
@@ -278,7 +279,9 @@ export function RateCardManager({ cards, users }: RateCardManagerProps) {
                   <td className="px-4 py-2 text-fg-primary">
                     {card.scope === "user"
                       ? card.user?.displayName ?? "—"
-                      : card.roleType ?? "—"}
+                      : card.roleType
+                        ? t(`roles.${card.roleType}`)
+                        : "—"}
                   </td>
                   <td className="px-4 py-2 text-end tabular-nums">
                     {formatMinor(card.costRateMinor, card.currency)}
@@ -287,11 +290,11 @@ export function RateCardManager({ cards, users }: RateCardManagerProps) {
                     {formatMinor(card.billRateMinor, card.currency)}
                   </td>
                   <td className="px-4 py-2 text-fg-muted">
-                    {formatDate(new Date(card.effectiveFrom), "en-US", "gregorian")}
+                    {formatDate(new Date(card.effectiveFrom), locale, "gregorian")}
                   </td>
                   <td className="px-4 py-2 text-fg-muted">
                     {card.effectiveTo
-                      ? formatDate(new Date(card.effectiveTo), "en-US", "gregorian")
+                      ? formatDate(new Date(card.effectiveTo), locale, "gregorian")
                       : "—"}
                   </td>
                   <td className="px-4 py-2 text-end">

@@ -1223,6 +1223,11 @@
     "saving": "Saving…",
     "cancel": "Cancel"
   },
+  "dashboard": {
+    "burndown": "Burndown",
+    "burndownRange": "Burndown (last 30 days)",
+    "noData": "No data available"
+  },
   "timesheets": {
     "title": "Timesheets",
     "subtitle": "Log time, submit for approval, and review timesheets",
@@ -1259,6 +1264,13 @@
     "scope": "Scope",
     "user": "User",
     "role": "Role",
+    "roles": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "manager": "Manager",
+      "member": "Member",
+      "guest": "Guest"
+    },
     "costRateMinor": "Cost rate (minor units)",
     "billRateMinor": "Bill rate (minor units)",
     "selectProject": "Select project…",
