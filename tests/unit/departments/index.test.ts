@@ -11,6 +11,7 @@ vi.mock("@/lib/db", () => ({
     user: { findUnique: vi.fn(), findMany: vi.fn() },
     ldapGroupMembership: { findUnique: vi.fn() },
     projectDepartment: { findMany: vi.fn() },
+    role: { findFirst: vi.fn() },
   },
 }));
 
@@ -23,6 +24,7 @@ import {
   deleteDepartment,
   listDepartmentManagerCandidates,
   listProjectLinkDepartments,
+  listCreatableDepartments,
 } from "@/lib/departments";
 
 const mockDepartment = {
@@ -296,6 +298,61 @@ describe("listProjectLinkDepartments", () => {
       select: { id: true, name: true, parentId: true, source: true },
       orderBy: { name: "asc" },
     });
+  });
+});
+
+describe("listCreatableDepartments", () => {
+  it("returns all departments for an owner/admin (department optional)", async () => {
+    vi.mocked(prisma.role.findFirst).mockResolvedValue({ type: "admin" } as never);
+    vi.mocked(prisma.department.findMany).mockResolvedValue([
+      { id: "dept-1", name: "Engineering", parentId: null },
+      { id: "dept-2", name: "Finance", parentId: null },
+    ] as never);
+
+    const result = await listCreatableDepartments("user-1");
+
+    expect(result.required).toBe(false);
+    expect(result.departments).toHaveLength(2);
+    expect(prisma.department.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { deletedAt: null } }),
+    );
+  });
+
+  it("scopes a manager to their managed department subtree (department required)", async () => {
+    vi.mocked(prisma.role.findFirst).mockResolvedValue({ type: "manager" } as never);
+    vi.mocked(prisma.department.findMany).mockImplementation(
+      (args) => {
+        const safe = (args as { where?: Record<string, unknown> } | undefined);
+        // First call: getManagedDepartmentIds loads all departments
+        if (safe?.where && !("id" in safe.where)) {
+          return Promise.resolve([
+            { id: "dept-1", name: "Engineering", parentId: null, managerUserId: "user-1", manager: { status: "active" } },
+            { id: "dept-2", name: "Finance", parentId: null, managerUserId: null, manager: null },
+          ] as never);
+        }
+        // Second call: listCreatableDepartments filters by managed IDs
+        return Promise.resolve([
+          { id: "dept-1", name: "Engineering", parentId: null },
+        ] as never);
+      },
+    );
+
+    const result = await listCreatableDepartments("user-1");
+
+    expect(result.required).toBe(true);
+    expect(result.departments).toEqual([{ id: "dept-1", name: "Engineering", parentId: null }]);
+  });
+
+  it("returns an empty list for a manager with no managed departments", async () => {
+    vi.mocked(prisma.role.findFirst).mockResolvedValue({ type: "manager" } as never);
+    vi.mocked(prisma.department.findMany).mockResolvedValue([
+      { id: "dept-2", name: "Finance", parentId: null, managerUserId: null, manager: null },
+    ] as never);
+
+    const result = await listCreatableDepartments("user-1");
+
+    expect(result.required).toBe(true);
+    expect(result.departments).toEqual([]);
   });
 });
 

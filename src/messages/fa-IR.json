@@ -668,7 +668,9 @@
       "description": "توضیحات",
       "color": "رنگ",
       "visibility": "قابلیت مشاهده",
-      "status": "وضعیت"
+      "status": "وضعیت",
+      "department": "دپارتمان",
+      "noDepartment": "بدون دپارتمان"
     },
     "visibilityOptions": {
       "private": "خصوصی",

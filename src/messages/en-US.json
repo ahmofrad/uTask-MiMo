@@ -668,7 +668,9 @@
       "description": "Description",
       "color": "Color",
       "visibility": "Visibility",
-      "status": "Status"
+      "status": "Status",
+      "department": "Department",
+      "noDepartment": "No department"
     },
     "visibilityOptions": {
       "private": "Private",

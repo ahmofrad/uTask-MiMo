@@ -66,6 +66,36 @@ export async function listProjectLinkDepartments(projectId: string) {
   });
 }
 
+/**
+ * Departments the current user may create projects in. Owners/admins may
+ * create in any department (or none); other roles are scoped to the subtree
+ * they manage. `required` is true when the caller must pick a department.
+ */
+export async function listCreatableDepartments(userId: string): Promise<{
+  departments: { id: string; name: string; parentId: string | null }[];
+  required: boolean;
+}> {
+  const globalRole = await prisma.role.findFirst({
+    where: { userId, scopeType: "global", scopeId: null },
+    select: { type: true },
+  });
+  const isOrgWide =
+    globalRole?.type === "owner" || globalRole?.type === "admin";
+  const managedIds = isOrgWide ? null : await getManagedDepartmentIds(userId);
+  if (managedIds !== null && managedIds.length === 0) {
+    return { departments: [], required: true };
+  }
+  const departments = await prisma.department.findMany({
+    where: {
+      deletedAt: null,
+      ...(managedIds ? { id: { in: managedIds } } : {}),
+    },
+    select: { id: true, name: true, parentId: true },
+    orderBy: { name: "asc" },
+  });
+  return { departments, required: !isOrgWide };
+}
+
 export async function createDepartment(data: {
   name: string;
   parentId?: string | null;
