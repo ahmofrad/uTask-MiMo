@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { memo, useState, useRef, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { apiFetch } from "@/lib/api-fetch";
 
 type SearchResult = {
   tasks?: { id: string; title: string; status: string; projectId: string }[];
@@ -15,7 +16,7 @@ type SearchResult = {
   }[];
 };
 
-export function SearchDialog() {
+export const SearchDialog = memo(function SearchDialog() {
   const t = useTranslations("search");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -48,7 +49,7 @@ export function SearchDialog() {
     }
     setLoading(true);
     try {
-      const res = await fetch(`/api/v1/search?q=${encodeURIComponent(q)}&limit=10`);
+      const res = await apiFetch(`/api/v1/search?q=${encodeURIComponent(q)}&limit=10`);
       const json = await res.json();
       setResults(json.data);
     } catch {
@@ -132,7 +133,7 @@ export function SearchDialog() {
       </div>
     </div>
   );
-}
+});
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (

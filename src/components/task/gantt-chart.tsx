@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { toJalali, toGregorian, getMonthName, getDaysInMonth } from "@/lib/date/jalali";
@@ -18,9 +18,10 @@ import { createWorkingDayCalendar } from "@/lib/date/working-day-calendar";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 import { useToast } from "@/components/ui/toast";
-import { Tooltip } from "@/components/ui/tooltip";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { GanttCriticalPanel } from "./gantt-critical-panel";
+import { GanttDepsPanel } from "./gantt-deps-panel";
+import { GanttHeader } from "./gantt-header";
 import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
 import { linkShortLabel, linkLagSuffix } from "@/lib/gantt/links";
 
@@ -951,129 +952,26 @@ export function GanttChart({
       )}
 
       {depsOpen && (
-        <div data-testid="gantt-deps-panel" className="rounded-lg border border-border-primary p-3 text-sm">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-              {t("ganttDeps")} ({report.links.length})
-            </span>
-            {depsBusy && <span className="text-xs text-fg-muted">{t("loading")}</span>}
-          </div>
-          {report.links.length === 0 ? (
-            <p className="text-sm text-fg-muted">{t("dependencies.none")}</p>
-          ) : (
-            <ul className="space-y-2">
-              {report.links.map((link) => {
-                const edit = depEdits[link.id];
-                return (
-                  <li
-                    key={link.id}
-                    data-testid="gantt-dep-row"
-                    data-link-id={link.id}
-                    className="flex flex-wrap items-center gap-2"
-                  >
-                    <span className="min-w-0 flex-1 text-xs">
-                      <span className="font-medium text-fg-primary">{rowTitle(link.source)}</span>
-                      <span className="mx-1.5 text-fg-muted">→</span>
-                      <span className="text-fg-secondary">{rowTitle(link.target)}</span>
-                    </span>
-                    {canEdit && edit ? (
-                      <>
-                        <select
-                          data-testid="gantt-dep-type"
-                          value={edit.type}
-                          onChange={(ev) =>
-                            setDepEdits((prev) => ({ ...prev, [link.id]: { ...edit, type: ev.target.value as LinkType } }))
-                          }
-                          className="text-xs bg-bg-primary border border-border rounded px-1 py-1 text-fg-primary"
-                        >
-                          {DEP_TYPES.map((tp) => (
-                            <option key={tp} value={tp}>
-                              {typeLabel(tp)}
-                            </option>
-                          ))}
-                        </select>
-                        <input
-                          data-testid="gantt-dep-lag"
-                          type="number"
-                          value={edit.lag}
-                          onChange={(ev) =>
-                            setDepEdits((prev) => ({ ...prev, [link.id]: { ...edit, lag: Number(ev.target.value) } }))
-                          }
-                          className="w-16 text-xs bg-bg-primary border border-border rounded px-1 py-1 text-fg-primary"
-                        />
-                        <select
-                          data-testid="gantt-dep-lag-unit"
-                          value={edit.lagUnit}
-                          onChange={(ev) =>
-                            setDepEdits((prev) => ({
-                              ...prev,
-                              [link.id]: { ...edit, lagUnit: ev.target.value as "DAY" | "HOUR" },
-                            }))
-                          }
-                          className="text-xs bg-bg-primary border border-border rounded px-1 py-1 text-fg-primary"
-                        >
-                          <option value="DAY">{t("dependencies.lagUnitDay")}</option>
-                          <option value="HOUR">{t("dependencies.lagUnitHour")}</option>
-                        </select>
-                        <button
-                          type="button"
-                          data-testid="gantt-dep-save"
-                          onClick={() => void saveDepEdit(link)}
-                          disabled={depsBusy}
-                          className="px-2 py-1 rounded bg-accent text-fg-inverse text-xs font-medium hover:opacity-90 disabled:opacity-40"
-                        >
-                          {t("ganttDepsSave")}
-                        </button>
-                        <button
-                          type="button"
-                          data-testid="gantt-dep-cancel"
-                          onClick={() =>
-                            setDepEdits((prev) => {
-                              const next = { ...prev };
-                              delete next[link.id];
-                              return next;
-                            })
-                          }
-                          className="px-2 py-1 rounded border border-border-primary text-xs text-fg-secondary hover:bg-bg-surface"
-                        >
-                          {t("ganttLinkCancel")}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-xs text-fg-muted">
-                          {typeLabel(link.type)}
-                          <span className="font-mono">{linkLagSuffix(link)}</span>
-                        </span>
-                        {canEdit && (
-                          <>
-                            <button
-                              type="button"
-                              data-testid="gantt-dep-edit"
-                              onClick={() => beginDepEdit(link)}
-                              className="text-xs text-fg-muted hover:text-accent"
-                            >
-                              {t("ganttDepsEdit")}
-                            </button>
-                            <button
-                              type="button"
-                              data-testid="gantt-dep-remove"
-                              onClick={() => void removeLink(link)}
-                              disabled={linkBusy}
-                              className="text-xs text-fg-muted hover:text-destructive disabled:opacity-40"
-                            >
-                              {t("dependencies.remove")}
-                            </button>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
+        <GanttDepsPanel
+          links={report.links}
+          canEdit={canEdit}
+          depsBusy={depsBusy}
+          linkBusy={linkBusy}
+          depEdits={depEdits}
+          rowTitle={rowTitle}
+          typeLabel={typeLabel}
+          beginDepEdit={beginDepEdit}
+          saveDepEdit={saveDepEdit}
+          removeLink={removeLink}
+          onDepEditChange={(linkId, edit) => setDepEdits((prev) => ({ ...prev, [linkId]: edit }))}
+          onDepEditCancel={(linkId) =>
+            setDepEdits((prev) => {
+              const next = { ...prev };
+              delete next[linkId];
+              return next;
+            })
+          }
+        />
       )}
       <div
         data-testid="gantt-scroll-container"
@@ -1081,84 +979,14 @@ export function GanttChart({
       >
         <div style={{ minWidth: totalWidth + LEFT_WIDTH }}>
           {/* Header */}
-          <div className="flex border-b border-border-primary bg-bg-secondary">
-            <div className="sticky start-0 z-30 flex h-20 w-72 shrink-0 items-end border-e border-border-primary bg-bg-secondary p-3 text-xs font-semibold text-fg-muted">
-              {t("wbs")}
-            </div>
-            <div
-              dir="ltr"
-              className="relative h-20 shrink-0"
-              style={{ width: totalWidth }}
-            >
-              <div className="absolute inset-x-0 top-0 h-9 border-b border-border-primary bg-bg-secondary">
-                {months.map((month) => (
-                  <div
-                    key={month.key}
-                    data-testid="gantt-timeline-month"
-                    dir={locale === "fa-IR" ? "rtl" : "ltr"}
-                    className="absolute top-0 flex h-9 items-center border-e border-border-primary px-3 text-[15px] font-bold text-fg-primary"
-                    style={{
-                      left: `${timelineXForOffset(month.startOffset, month.dayCount * dayWidth)}px`,
-                      width: `${month.dayCount * dayWidth}px`,
-                    }}
-                  >
-                    <span className="truncate">{month.label}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="absolute inset-x-0 top-9 h-11 bg-bg-primary">
-                {days.map((day) => {
-                  const cell = (
-                    <div
-                      data-testid="gantt-timeline-day"
-                      data-day-offset={day.offset}
-                      data-holiday-name={day.holidayName || undefined}
-                      dir={locale === "fa-IR" ? "rtl" : "ltr"}
-                      className={`absolute top-0 flex h-11 items-center justify-center border-e border-border-secondary/70 text-[15px] font-semibold leading-none ${
-                        day.isMonthStart ? "border-s-2 border-s-border-strong" : ""
-                      } ${
-                        day.isToday
-                          ? "bg-accent-bg text-accent"
-                          : day.isDayOff
-                            ? "bg-danger-bg/60 text-danger"
-                            : day.isNonWorking
-                              ? "bg-bg-surface-2/70"
-                              : "text-fg-secondary"
-                      }`}
-                      style={{
-                        left: `${timelineXForOffset(day.offset, dayWidth)}px`,
-                        width: `${dayWidth}px`,
-                      }}
-                    >
-                      {day.label}
-                    </div>
-                  );
-                  return day.holidayName ? (
-                    <Tooltip
-                      key={day.offset}
-                      data-testid="gantt-holiday-tooltip"
-                      content={
-                        <span dir={locale === "fa-IR" ? "rtl" : "ltr"} className="flex flex-col gap-0.5">
-                          <span className="font-semibold text-danger">{day.holidayName}</span>
-                          <span className="text-fg-muted">{shortDate(day.date)}</span>
-                        </span>
-                      }
-                    >
-                      {cell}
-                    </Tooltip>
-                  ) : (
-                    <Fragment key={day.offset}>{cell}</Fragment>
-                  );
-                })}
-              </div>
-              {todayOffset != null ? (
-                <div
-                  className="pointer-events-none absolute top-9 z-10 h-11 w-0.5 bg-danger/70"
-                  style={{ left: `${timelineXForOffset(todayOffset, dayWidth) + dayWidth / 2}px` }}
-                />
-              ) : null}
-            </div>
-          </div>
+          <GanttHeader
+            days={days}
+            months={months}
+            dayWidth={dayWidth}
+            totalWidth={totalWidth}
+            todayOffset={todayOffset}
+            timelineXForOffset={timelineXForOffset}
+          />
 
           {/* Dependency arrows overlay */}
           <div className="relative" style={{ height: rowsHeight }}>

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { memo, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { apiFetch } from "@/lib/api-fetch";
 
 type Result = {
   id: string;
@@ -11,7 +12,7 @@ type Result = {
   type: "task" | "project";
 };
 
-export function QuickAddPalette() {
+export const QuickAddPalette = memo(function QuickAddPalette() {
   const t = useTranslations("search");
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -42,7 +43,7 @@ export function QuickAddPalette() {
     }
     const timer = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/v1/search?q=${encodeURIComponent(query)}&limit=8`);
+        const res = await apiFetch(`/api/v1/search?q=${encodeURIComponent(query)}&limit=8`);
         const j = await res.json();
         setResults((j.data ?? []).map((r: { id: string; title?: string; name?: string; __typename?: string }) => ({
           id: r.id,
@@ -131,4 +132,4 @@ export function QuickAddPalette() {
       </div>
     </div>
   );
-}
+});

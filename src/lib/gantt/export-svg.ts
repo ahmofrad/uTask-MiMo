@@ -1,5 +1,5 @@
 import type { GanttReport } from "@/lib/gantt-types";
-import { getMonthName, toJalali, formatJalaliShort } from "@/lib/date/jalali";
+import { getMonthName, toJalali } from "@/lib/date/jalali";
 import { formatNumber, type Locale } from "@/lib/date/format";
 import {
   diffCalendarDays,
@@ -11,81 +11,14 @@ import { getTimelineItemGeometry, getTimelinePosition, type TimelineDirection } 
 import { linkShortLabel } from "@/lib/gantt/links";
 import type { WorkingDayConfig } from "@/lib/date/working-day";
 import { createWorkingDayCalendar } from "@/lib/date/working-day-calendar";
+import { escapeXml, truncate, shortDateFor, FALLBACK_PALETTE, type ExportPalette, STATUS_FILL } from "./export-palette";
+
+export { FALLBACK_PALETTE, type ExportPalette } from "./export-palette";
 
 const DAY_WIDTH = 52;
 const BOX_WIDTH = 64;
 const LEFT_WIDTH = 288;
 const ROW_HEIGHT = 52;
-
-export type ExportPalette = {
-  bgApp: string;
-  bgSurface: string;
-  bgSurface2: string;
-  fgPrimary: string;
-  fgMuted: string;
-  fgSubtle: string;
-  border: string;
-  borderStrong: string;
-  accent: string;
-  accentBg: string;
-  info: string;
-  warning: string;
-  warningBg: string;
-  success: string;
-  danger: string;
-  dangerBg: string;
-  fontSans: string;
-  fontMono: string;
-};
-
-export const FALLBACK_PALETTE: ExportPalette = {
-  bgApp: "#f4f6ff",
-  bgSurface: "#ffffff",
-  bgSurface2: "#eef2ff",
-  fgPrimary: "#17213b",
-  fgMuted: "#4f5d79",
-  fgSubtle: "#53617d",
-  border: "#dce3f3",
-  borderStrong: "#c6d0e8",
-  accent: "#4f46e5",
-  accentBg: "#e0e7ff",
-  info: "#0369a1",
-  warning: "#854d0e",
-  warningBg: "#fef3c7",
-  success: "#15803d",
-  danger: "#b91c1c",
-  dangerBg: "#fee2e2",
-  fontSans: "system-ui, sans-serif",
-  fontMono: "ui-monospace, monospace",
-};
-
-const STATUS_FILL: Record<string, keyof ExportPalette> = {
-  open: "info",
-  in_progress: "warning",
-  done: "success",
-  cancelled: "fgSubtle",
-};
-
-function escapeXml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;");
-}
-
-function truncate(value: string, max: number): string {
-  return value.length > max ? `${value.slice(0, max - 1)}…` : value;
-}
-
-function shortEnDate(date: Date): string {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${months[date.getMonth()] ?? ""} ${date.getDate()}`;
-}
-
-function shortDateFor(date: Date, locale: Locale): string {
-  return locale === "fa-IR" ? formatJalaliShort(date, locale) : shortEnDate(date);
-}
 
 /**
  * Renders a standalone SVG copy of the Gantt chart from the report data —

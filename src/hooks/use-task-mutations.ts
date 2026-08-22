@@ -4,6 +4,9 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-fetch";
 import { normalizeTaskDate } from "@/lib/date/task-date";
+import { computeDuration, addDurationToDate } from "@/lib/date/duration";
+
+export { computeDuration, addDurationToDate } from "@/lib/date/duration";
 import { encodeRecurrenceRule, type RecurrenceRule } from "@/lib/tasks/recurrence";
 import type { ActivityEvent } from "@/lib/activity/types";
 
@@ -80,19 +83,6 @@ export type ProjectMember = {
   avatarUrl?: string | null;
 };
 
-export function computeDuration(start: string, end: string): { days: number; hours: number } {
-  const ms = new Date(end).getTime() - new Date(start).getTime();
-  if (ms <= 0) return { days: 0, hours: 0 };
-  const totalHours = Math.floor(ms / (1000 * 60 * 60));
-  return { days: Math.floor(totalHours / 24), hours: totalHours % 24 };
-}
-
-export function addDurationToDate(start: string, days: number, hours: number): string {
-  const d = new Date(start);
-  d.setDate(d.getDate() + days);
-  d.setHours(d.getHours() + hours);
-  return d.toISOString();
-}
 
 type ToastLike = {
   message: string;

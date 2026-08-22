@@ -3,8 +3,9 @@
 import { Fragment, memo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Dialog } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-fetch";
+import { GroupCreateDialog } from "./group-create-dialog";
+import { GroupMembersPanel } from "./group-members-panel";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 
 type SyncGroup = {
@@ -53,10 +54,6 @@ export const GroupList = memo(function GroupList({
 
   // New-group dialog state
   const [createOpen, setCreateOpen] = useState(false);
-  const [createName, setCreateName] = useState("");
-  const [createOwnerDept, setCreateOwnerDept] = useState("");
-  const [createSubmitting, setCreateSubmitting] = useState(false);
-  const [createError, setCreateError] = useState("");
 
   // Member search + add state
   const [memberQuery, setMemberQuery] = useState<Record<string, string>>({});
@@ -132,45 +129,6 @@ export const GroupList = memo(function GroupList({
       if (res.ok) setGroups((prev) => prev.filter((x) => x.id !== id));
     } catch {
       /* ignore */
-    }
-  }
-
-  async function handleCreateGroup(e: React.FormEvent) {
-    e.preventDefault();
-    if (!createName.trim() || createSubmitting) return;
-    setCreateSubmitting(true);
-    setCreateError("");
-    try {
-      const res = await apiFetch("/api/v1/groups", {
-        method: "POST",
-        body: JSON.stringify({
-          name: createName.trim(),
-          ...(createOwnerDept ? { ownerDepartmentId: createOwnerDept } : {}),
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setCreateError(json.error?.message ?? t("syncFailed"));
-        return;
-      }
-      const created = json.data as SyncGroup;
-      setGroups((prev) => [
-        {
-          ...created,
-          memberCount: 0,
-          department: null,
-          ownerDepartment: departments.find((d) => d.id === created.ownerDepartmentId) ?? null,
-          source: "manual",
-        },
-        ...prev,
-      ]);
-      setCreateOpen(false);
-      setCreateName("");
-      setCreateOwnerDept("");
-    } catch {
-      setCreateError(t("syncFailed"));
-    } finally {
-      setCreateSubmitting(false);
     }
   }
 
@@ -412,124 +370,42 @@ export const GroupList = memo(function GroupList({
               </div>
             </div>
             {expandedId === group.id && (
-              <div className="mt-2 ms-4 ps-4 border-s border-border-primary space-y-2">
-                <div className="relative max-w-sm">
-                  <input
-                    className={inputClass}
-                    value={memberQuery[group.id] ?? ""}
-                    onChange={(e) => void searchUsers(group.id, e.target.value)}
-                    placeholder={t("addMemberPlaceholder")}
-                  />
-                  {(memberSuggestions[group.id] ?? []).length > 0 && (
-                    <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-auto rounded-lg border border-border-primary bg-bg-primary shadow-lg">
-                      {(memberSuggestions[group.id] ?? []).map((u) => (
-                        <li key={u.id}>
-                          <button
-                            type="button"
-                            onClick={() => void addMember(group.id, u)}
-                            className="w-full text-start px-3 py-2 text-sm text-fg-primary hover:bg-bg-surface"
-                          >
-                            <span className="block">{u.displayName}</span>
-                            <span className="block text-xs text-fg-muted">{u.email}</span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                {memberAddError[group.id] && (
-                  <p className="text-xs text-destructive">{memberAddError[group.id]}</p>
-                )}
-                {memberAddNote[group.id] && (
-                  <p className="text-xs text-fg-muted">{memberAddNote[group.id]}</p>
-                )}
-                {loadingId === group.id ? (
-                  <p className="text-sm text-fg-muted">{tc("loading")}</p>
-                ) : (members[group.id] ?? []).length === 0 ? (
-                  <p className="text-sm text-fg-tertiary">{t("noGroupMembers")}</p>
-                ) : (
-                  <div className="overflow-x-auto rounded-lg border border-border-primary">
-                    <table className="w-full text-sm">
-                      <thead className="bg-bg-secondary text-fg-secondary">
-                        <tr>
-                          <th className="text-start ps-3 pe-2 py-2 font-medium">{t("memberColumn")}</th>
-                          <th className="text-start ps-2 pe-2 py-2 font-medium">{t("emailColumn")}</th>
-                          <th className="text-end ps-2 pe-3 py-2 font-medium">{t("actions")}</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border-primary">
-                        {(members[group.id] ?? []).map((member) => (
-                          <tr key={member.id} className="hover:bg-bg-secondary/50">
-                            <td className="ps-3 pe-2 py-2 text-fg-primary whitespace-nowrap">
-                              {member.displayName}
-                            </td>
-                            <td className="ps-2 pe-2 py-2 text-fg-secondary">
-                              {member.email ?? "—"}
-                            </td>
-                            <td className="ps-2 pe-3 py-2 text-end">
-                              <button
-                                type="button"
-                                onClick={() => void removeMember(group.id, member.id)}
-                                className="text-xs text-fg-muted hover:text-destructive"
-                                aria-label={t("removeMember", { name: member.displayName })}
-                              >
-                                ✕
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
+              <GroupMembersPanel
+                groupId={group.id}
+                members={members[group.id] ?? []}
+                loading={loadingId === group.id}
+                query={memberQuery[group.id] ?? ""}
+                suggestions={memberSuggestions[group.id] ?? []}
+                addError={memberAddError[group.id] ?? null}
+                addNote={memberAddNote[group.id] ?? null}
+                onQueryChange={(groupId, q) => void searchUsers(groupId, q)}
+                onAddMember={(groupId, user) => void addMember(groupId, user)}
+                onRemoveMember={(groupId, userId) => void removeMember(groupId, userId)}
+              />
             )}
             </Fragment>
           ))}
         </div>
       )}
 
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)}>
-        <form onSubmit={(e) => void handleCreateGroup(e)} className="space-y-4 p-5">
-          <h3 className="text-lg font-semibold text-fg-primary">{t("newGroup")}</h3>
-          <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1.5">
-              {t("groupName")} *
-            </label>
-            <input
-              className={inputClass}
-              value={createName}
-              onChange={(e) => setCreateName(e.target.value)}
-              required
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1.5">
-              {t("ownerDepartment")}
-            </label>
-            <select
-              className={inputClass}
-              value={createOwnerDept}
-              onChange={(e) => setCreateOwnerDept(e.target.value)}
-            >
-              <option value="">{t("noOwnerDepartment")}</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
-          {createError && <p className="text-sm text-destructive">{createError}</p>}
-          <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
-              {tc("cancel")}
-            </Button>
-            <Button type="submit" disabled={createSubmitting || !createName.trim()}>
-              {createSubmitting ? tc("loading") : t("createGroup")}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
+      <GroupCreateDialog
+        open={createOpen}
+        departments={departments}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(group) => {
+          setGroups((prev) => [
+            {
+              ...group,
+              memberCount: 0,
+              department: null,
+              ownerDepartment: departments.find((d) => d.id === group.ownerDepartmentId) ?? null,
+              source: "manual",
+            },
+            ...prev,
+          ]);
+          setCreateOpen(false);
+        }}
+      />
     </div>
   );
 });
