@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api-fetch";
@@ -36,7 +36,7 @@ type TimesheetViewProps = {
   currentUserId: string;
 };
 
-export function TimesheetView({
+export const TimesheetView = memo(function TimesheetView({
   departmentId,
   periods,
   projects,
@@ -174,4 +174,4 @@ export function TimesheetView({
       ))}
     </div>
   );
-}
+});

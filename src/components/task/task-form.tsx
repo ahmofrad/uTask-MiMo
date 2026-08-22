@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { memo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { normalizeTaskDate } from "@/lib/date/task-date";
@@ -34,7 +34,7 @@ type TaskFormProps = {
   onCancel: () => void;
 };
 
-export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onCancel }: TaskFormProps) {
+export const TaskForm = memo(function TaskForm({ projectId, initialMembers, initialData, onSubmit, onCancel }: TaskFormProps) {
   const t = useTranslations("task");
   const tc = useTranslations("common");
   const [loading, setLoading] = useState(false);
@@ -354,4 +354,4 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
       </div>
     </form>
   );
-}
+});

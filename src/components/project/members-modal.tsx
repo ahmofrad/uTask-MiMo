@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { memo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/avatar";
 import { Dialog } from "@/components/ui/dialog";
@@ -35,7 +35,7 @@ type GroupOption = {
   memberCount: number;
 };
 
-export function MembersModal({
+export const MembersModal = memo(function MembersModal({
   open,
   onClose,
   projectId,
@@ -375,4 +375,4 @@ export function MembersModal({
         </div>
     </Dialog>
   );
-}
+});

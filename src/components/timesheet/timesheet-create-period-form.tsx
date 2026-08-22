@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
@@ -10,7 +10,7 @@ type CreatePeriodFormProps = {
   busy: boolean;
 };
 
-export function CreatePeriodForm({ onSubmit, onCancel, busy }: CreatePeriodFormProps) {
+export const CreatePeriodForm = memo(function CreatePeriodForm({ onSubmit, onCancel, busy }: CreatePeriodFormProps) {
   const t = useTranslations("timesheets");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
@@ -56,4 +56,4 @@ export function CreatePeriodForm({ onSubmit, onCancel, busy }: CreatePeriodFormP
       </Button>
     </form>
   );
-}
+});

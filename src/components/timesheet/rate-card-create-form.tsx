@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
@@ -24,7 +24,7 @@ type CreateFormProps = {
   onCancel: () => void;
 };
 
-export function RateCardCreateForm({ users, busy, onSubmit, onCancel }: CreateFormProps) {
+export const RateCardCreateForm = memo(function RateCardCreateForm({ users, busy, onSubmit, onCancel }: CreateFormProps) {
   const t = useTranslations("timesheets");
   const [form, setForm] = useState<CreateFormData>({
     scope: "user",
@@ -170,4 +170,4 @@ export function RateCardCreateForm({ users, busy, onSubmit, onCancel }: CreateFo
       </div>
     </form>
   );
-}
+});

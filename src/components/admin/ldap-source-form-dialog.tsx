@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -67,7 +67,7 @@ type LdapSourceFormDialogProps = {
   onUpdated: (_source: LdapSourceView) => void;
 };
 
-export function LdapSourceFormDialog({
+export const LdapSourceFormDialog = memo(function LdapSourceFormDialog({
   open,
   editing,
   onClose,
@@ -220,4 +220,4 @@ export function LdapSourceFormDialog({
       </form>
     </Dialog>
   );
-}
+});

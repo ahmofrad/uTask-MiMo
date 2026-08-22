@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { linkLagSuffix } from "@/lib/gantt/links";
@@ -26,7 +26,7 @@ type LagUnit = "DAY" | "HOUR";
 
 type DepEdit = { type: LinkType; lag: number; lagUnit: LagUnit };
 
-export function TaskDependencies({ projectId, taskId }: { projectId: string; taskId: string }) {
+export const TaskDependencies = memo(function TaskDependencies({ projectId, taskId }: { projectId: string; taskId: string }) {
   const t = useTranslations("task");
   const [deps, setDeps] = useState<DepResponse | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
@@ -359,7 +359,7 @@ export function TaskDependencies({ projectId, taskId }: { projectId: string; tas
       </div>
     </div>
   );
-}
+});
 
 function errorKey(code?: string): string {
   switch (code) {

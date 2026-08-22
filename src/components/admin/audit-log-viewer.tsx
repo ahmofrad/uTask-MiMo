@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { memo, useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
@@ -70,7 +70,7 @@ type AuditLogViewerProps = {
   initialNextCursor: string | null;
 };
 
-export function AuditLogViewer({ initialLogs, initialHasMore, initialNextCursor }: AuditLogViewerProps) {
+export const AuditLogViewer = memo(function AuditLogViewer({ initialLogs, initialHasMore, initialNextCursor }: AuditLogViewerProps) {
   const t = useTranslations("audit");
   const { dateTime } = useFormattedDate();
   const [logs, setLogs] = useState(initialLogs);
@@ -340,7 +340,7 @@ export function AuditLogViewer({ initialLogs, initialHasMore, initialNextCursor 
       )}
     </div>
   );
-}
+});
 
 function formatJsonVal(val: unknown): string {
   if (val === undefined || val === null) return "—";

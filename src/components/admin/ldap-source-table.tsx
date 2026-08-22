@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
@@ -16,7 +17,7 @@ type LdapSourceTableProps = {
   onDelete: (_source: LdapSourceView) => Promise<void>;
 };
 
-export function LdapSourceTable({
+export const LdapSourceTable = memo(function LdapSourceTable({
   sources,
   busyId,
   busyKind,
@@ -101,4 +102,4 @@ export function LdapSourceTable({
       </table>
     </div>
   );
-}
+});

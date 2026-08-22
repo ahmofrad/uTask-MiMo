@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
@@ -67,7 +67,7 @@ type ProjectDetailPageProps = {
 
 type Tab = "board" | "timeline" | "calendar" | "gantt" | "wbs" | "tasks";
 
-export function ProjectDetailPage({ project, initialTasks, currentUserId }: ProjectDetailPageProps) {
+export const ProjectDetailPage = memo(function ProjectDetailPage({ project, initialTasks, currentUserId }: ProjectDetailPageProps) {
   const t = useTranslations("project");
   const taskT = useTranslations("task");
   // RAG health is editable in the header; keep it in state so a save updates
@@ -410,4 +410,4 @@ export function ProjectDetailPage({ project, initialTasks, currentUserId }: Proj
       />
     </>
   );
-}
+});

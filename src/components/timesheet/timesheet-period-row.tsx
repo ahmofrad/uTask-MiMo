@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/date/format";
@@ -62,7 +62,7 @@ function formatRate(minor: number, currency: string): string {
   return `${currency} ${major}`;
 }
 
-export function PeriodRow({
+export const PeriodRow = memo(function PeriodRow({
   period,
   projects,
   isApprover,
@@ -240,4 +240,4 @@ export function PeriodRow({
       )}
     </div>
   );
-}
+});

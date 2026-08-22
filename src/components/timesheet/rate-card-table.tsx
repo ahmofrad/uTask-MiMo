@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/date/format";
@@ -28,7 +29,7 @@ function formatMinor(minor: number | null, currency: string): string {
   return `${currency} ${(minor / 100).toFixed(2)}`;
 }
 
-export function RateCardTable({ cards, busy, onDelete }: RateCardTableProps) {
+export const RateCardTable = memo(function RateCardTable({ cards, busy, onDelete }: RateCardTableProps) {
   const t = useTranslations("timesheets");
   const locale = useLocale() as "fa-IR" | "en-US";
 
@@ -99,4 +100,4 @@ export function RateCardTable({ cards, busy, onDelete }: RateCardTableProps) {
       </table>
     </div>
   );
-}
+});

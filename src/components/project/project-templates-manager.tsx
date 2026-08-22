@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { memo, useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { Dialog } from "@/components/ui/dialog";
@@ -37,7 +37,7 @@ type FieldTemplate = {
   options: string;
 };
 
-export function ProjectTemplatesManager() {
+export const ProjectTemplatesManager = memo(function ProjectTemplatesManager() {
   const t = useTranslations("project");
   const tField = useTranslations("customField");
   const router = useRouter();
@@ -367,4 +367,4 @@ export function ProjectTemplatesManager() {
       </Dialog>
     </div>
   );
-}
+});

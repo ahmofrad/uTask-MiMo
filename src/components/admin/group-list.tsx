@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, memo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -27,7 +27,7 @@ type GroupMember = { id: string; displayName: string; email: string };
 const inputClass =
   "w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent";
 
-export function GroupList({
+export const GroupList = memo(function GroupList({
   groups: initial,
   departments,
   canSearchAd,
@@ -532,4 +532,4 @@ export function GroupList({
       </Dialog>
     </div>
   );
-}
+});

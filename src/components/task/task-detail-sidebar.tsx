@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@/lib/cn";
 import { apiFetch } from "@/lib/api-fetch";
@@ -78,7 +78,7 @@ type TaskDetailSidebarProps = {
   onRemoveWatcher: (_userId: string) => void;
 };
 
-export function TaskDetailSidebar({
+export const TaskDetailSidebar = memo(function TaskDetailSidebar({
   task,
   projectMembers,
   currentUserId,
@@ -426,4 +426,4 @@ export function TaskDetailSidebar({
       </div>
     </div>
   );
-}
+});
