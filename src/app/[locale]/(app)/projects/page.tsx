@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac/can";
+import { getUserReadableProjectIds } from "@/lib/projects";
 import { listCreatableDepartments } from "@/lib/departments";
 import { getTranslations } from "next-intl/server";
 import { ProjectCard } from "@/components/project/project-card";
@@ -9,10 +10,16 @@ import { ProjectCreateButton } from "@/components/project/project-create-dialog"
 
 export default async function ProjectsPage() {
   const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const userId = session?.user?.id;
+  if (!userId) redirect("/login");
+
+  const readableIds = await getUserReadableProjectIds(userId);
 
   const projects = await prisma.project.findMany({
-    where: { archivedAt: null },
+    where: {
+      archivedAt: null,
+      ...(readableIds !== null ? { id: { in: readableIds } } : {}),
+    },
     orderBy: { createdAt: "desc" },
     include: {
       _count: { select: { tasks: true, members: true } },
@@ -20,8 +27,8 @@ export default async function ProjectsPage() {
     },
   });
 
-  const canCreate = await can(session.user.id, "project:create");
-  const creatable = await listCreatableDepartments(session.user.id);
+  const canCreate = await can(userId, "project:create");
+  const creatable = await listCreatableDepartments(userId);
   const t = await getTranslations("project");
 
   return (
