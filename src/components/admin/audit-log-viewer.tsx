@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 import { Button } from "@/components/ui/button";
+import { LogDiffDetails } from "./audit-log-diff";
 
 type AuditEntry = {
   id: string;
@@ -294,39 +295,14 @@ export const AuditLogViewer = memo(function AuditLogViewer({ initialLogs, initia
       {expandedId && (() => {
         const log = filtered.find((l) => l.id === expandedId);
         if (!log) return null;
-        const before = log.beforeJson as Record<string, unknown> | null;
-        const after = log.afterJson as Record<string, unknown> | null;
-        const allKeys = [...new Set([...Object.keys(before ?? {}), ...Object.keys(after ?? {})])];
         return (
-          <div className="rounded-lg border border-border-primary bg-bg-surface p-3">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-semibold text-fg-secondary">
-                {t("diff.field")}: {log.entityType} · {log.entityId.slice(0, 8)}…
-              </span>
-              <button type="button" onClick={() => setExpandedId(null)} className="text-xs text-fg-muted hover:text-fg-primary">
-                {t("hideDetails")}
-              </button>
-            </div>
-            {allKeys.length === 0 ? (
-              <p className="text-xs text-fg-muted italic">{t("diff.noChanges")}</p>
-            ) : (
-              <div className="space-y-1">
-                {allKeys.map((key) => {
-                  const b = before?.[key];
-                  const a = after?.[key];
-                  if (b === a) return null;
-                  return (
-                    <div key={key} className="flex items-start gap-2 text-xs">
-                      <span className="font-medium text-fg-muted shrink-0 w-24 truncate">{key}</span>
-                      <span className="text-fg-muted truncate max-w-[40%]">{formatJsonVal(b)}</span>
-                      <span className="text-fg-subtle">→</span>
-                      <span className="text-fg-primary truncate max-w-[40%]">{formatJsonVal(a)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+          <LogDiffDetails
+            entityType={log.entityType}
+            entityId={log.entityId}
+            before={log.beforeJson as Record<string, unknown> | null}
+            after={log.afterJson as Record<string, unknown> | null}
+            onClose={() => setExpandedId(null)}
+          />
         );
       })()}
 
@@ -341,10 +317,3 @@ export const AuditLogViewer = memo(function AuditLogViewer({ initialLogs, initia
     </div>
   );
 });
-
-function formatJsonVal(val: unknown): string {
-  if (val === undefined || val === null) return "—";
-  if (typeof val === "object") return JSON.stringify(val);
-  const str = String(val);
-  return str.length > 80 ? str.slice(0, 80) + "…" : str;
-}

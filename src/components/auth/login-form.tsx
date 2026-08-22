@@ -4,6 +4,7 @@ import { signIn } from "next-auth/react";
 import { useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
+import { apiFetch } from "@/lib/api-fetch";
 
 type LdapSourceOption = {
   id: string;
@@ -37,9 +38,8 @@ export function LoginForm({ ldapSources, ssoConfigured }: LoginFormProps) {
       if (provider !== "local") {
         // LDAP: authenticate against the picked directory via the server route,
         // which binds, JIT-provisions the user, and creates the session.
-        const res = await fetch("/api/v1/auth/ldap/start", {
+        const res = await apiFetch("/api/v1/auth/ldap/start", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: email, password, sourceId: provider }),
         });
         if (!res.ok) {

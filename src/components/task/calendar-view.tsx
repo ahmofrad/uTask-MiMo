@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { toJalali, toGregorian, getDaysInMonth, getMonthName, getDayName } from "@/lib/date/jalali";
 import { formatMonthName } from "@/lib/date/format";
@@ -15,24 +14,9 @@ import { cn } from "@/lib/cn";
 import { useWorkingDayConfig } from "@/hooks/use-working-day-config";
 import { createWorkingDayCalendar } from "@/lib/date/working-day-calendar";
 import { toDateOnly } from "@/lib/date/day-marker";
+import { CalendarDayCell, STATUS_CHIP, type CalendarTask } from "./calendar-day-cell";
 
-export type CalendarTask = {
-  id: string;
-  title: string;
-  status: string;
-  priority: string;
-  dueDate: string | null;
-  startDate?: string | null;
-  progress?: number | null;
-};
-
-const STATUS_CHIP: Record<string, string> = {
-  open: "border-s-info",
-  in_progress: "border-s-warning",
-  pending_approval: "border-s-tone-violet",
-  done: "border-s-success",
-  cancelled: "border-s-fg-muted",
-};
+export type { CalendarTask } from "./calendar-day-cell";
 
 type CalendarViewProps = {
   tasks: CalendarTask[];
@@ -197,91 +181,20 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
         ))}
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const day = i + 1;
-          const dayTasks = getTasksForDay(day);
-          const holiday = holidayName(day);
           return (
-            <div
+            <CalendarDayCell
               key={day}
-              data-testid={isHolidayDay(day) ? "calendar-holiday" : "calendar-day"}
-              data-date={toDateOnly(cellDate(day))}
-              title={holiday || undefined}
-              className={cn(
-                "min-h-[60px] p-1 rounded-lg border text-xs transition-colors",
-                dayTasks.length > 0 ? "border-accent/30 bg-accent-bg/30" : "border-border-primary",
-                isWeekendDay(day) ? "bg-secondary/40" : "",
-                isDayOffDay(day) ? "bg-danger-bg/50 border-danger/40" : "",
-                isToday(day) ? "ring-2 ring-accent" : "",
-                onMove ? "hover:border-accent/60" : "",
-              )}
-              onDrop={(e) => {
-                if (!onMove) return;
-                e.preventDefault();
-                const id = e.dataTransfer.getData("text/task-id");
-                if (id) void handleDrop(id, day);
-              }}
-            >
-              <div
-                className={cn(
-                  "text-start mb-1",
-                  isToday(day)
-                    ? "font-semibold text-accent"
-                    : isDayOffDay(day)
-                      ? "font-semibold text-danger"
-                      : "text-fg-muted",
-                )}
-              >
-                {day}
-                {isHolidayDay(day) && (
-                  <span
-                    className={cn(
-                      "ms-1 inline-block h-1.5 w-1.5 rounded-full align-middle",
-                      isDayOffDay(day) ? "bg-danger" : "bg-fg-subtle",
-                    )}
-                  />
-                )}
-              </div>
-              {dayTasks.slice(0, 3).map((task) => {
-                const draggable = !!onMove && !!task.dueDate;
-                return (
-                  <Link
-                    key={task.id}
-                    href={`/tasks/${task.id}`}
-                    draggable={draggable}
-                    onDragStart={
-                      draggable
-                        ? (e) => {
-                            e.dataTransfer.setData("text/task-id", task.id);
-                            e.dataTransfer.effectAllowed = "move";
-                          }
-                        : undefined
-                    }
-                    className={cn(
-                      "block text-xs text-fg-primary truncate px-1 py-0.5 rounded border-s-2 hover:shadow-sm hover:bg-accent/20 cursor-grab active:cursor-grabbing",
-                      STATUS_CHIP[task.status] ?? "border-s-fg-muted",
-                    )}
-                    title={draggable ? t("dragToReschedule") : undefined}
-                  >
-                    <span className="flex items-center gap-1">
-                      {task.priority === "high" && (
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-danger shrink-0" />
-                      )}
-                      <span className="truncate">{task.title}</span>
-                    </span>
-                    {task.progress != null && task.status !== "done" && (
-                      <span className="mt-0.5 block h-0.5 w-full rounded-full bg-secondary overflow-hidden">
-                        <span
-                          className="block h-full bg-accent"
-                          style={{ width: `${Math.max(0, Math.min(100, task.progress))}%` }}
-                        />
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-              {dayTasks.length > 3 && (
-                <div className="text-xs text-fg-subtle text-center">+{dayTasks.length - 3}</div>
-              )}
-            </div>
+              day={day}
+              dayTasks={getTasksForDay(day)}
+              holiday={holidayName(day)}
+              isHoliday={isHolidayDay(day)}
+              isDayOff={isDayOffDay(day)}
+              isWeekend={isWeekendDay(day)}
+              isToday={isToday(day)}
+              dateOnly={toDateOnly(cellDate(day))}
+              onMove={!!onMove}
+              onDrop={(id, d) => void handleDrop(id, d)}
+            />
           );
         })}
       </div>
