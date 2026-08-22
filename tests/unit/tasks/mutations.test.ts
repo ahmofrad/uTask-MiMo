@@ -24,6 +24,10 @@ vi.mock("@/lib/db", () => ({
     notification: {
       create: vi.fn(() => Promise.resolve({})),
     },
+    projectMember: {
+      findMany: vi.fn(() => Promise.resolve([])),
+      createMany: vi.fn(() => Promise.resolve({ count: 0 })),
+    },
   },
 }));
 

@@ -149,6 +149,37 @@ async function notifyNewAssignees(taskId: string, title: string, userIds: string
   }
 }
 
+/**
+ * Auto-adds users as project members (default "contributor" role) when they
+ * are assigned to a task in the project but aren't yet members.
+ *
+ * Idempotent: existing memberships (including disabled ones) are left alone;
+ * only users who have never been a member of the project get a new row.
+ */
+async function ensureProjectMembers(projectId: string, assigneeIds: string[], adderId?: string) {
+  if (assigneeIds.length === 0) return;
+  const existingIds = new Set(
+    (
+      await prisma.projectMember.findMany({
+        where: { projectId, userId: { in: assigneeIds } },
+        select: { userId: true },
+      })
+    ).map((m) => m.userId),
+  );
+  const newIds = assigneeIds.filter((uid) => !existingIds.has(uid));
+  if (newIds.length === 0) return;
+
+  await prisma.projectMember.createMany({
+    data: newIds.map((userId) => ({
+      projectId,
+      userId,
+      projectRole: "contributor",
+      addedBy: adderId ?? userId,
+    })),
+    skipDuplicates: true,
+  });
+}
+
 export async function createTask(data: CreateTaskData) {
   const parentTaskId: string | null = data.parentTaskId ?? null;
   let orderIndex: number;
@@ -213,6 +244,7 @@ export async function createTask(data: CreateTaskData) {
   });
 
   await notifyNewAssignees(task.id, task.title, assigneeIds);
+  await ensureProjectMembers(data.projectId, assigneeIds, data.createdById);
 
   if (data.customFields && typeof data.customFields === "object") {
     const { setCustomFieldValues } = await import("@/lib/custom-fields/values");
@@ -344,6 +376,9 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
       create: added.map((userId) => ({ userId })),
     };
     await notifyNewAssignees(id, before?.title ?? "", added);
+    if (before && added.length > 0) {
+      await ensureProjectMembers(before.projectId, added, actorId);
+    }
   }
 
   const task = await prisma.task.update({
