@@ -205,6 +205,14 @@ services:
 
   migrate:
     image: taskapp/app:${APP_VERSION:-1.0.0}
+    # Run migrations on every `up`. The image ENTRYPOINT (scripts/entrypoint.sh)
+    # gates on RUN_MIGRATIONS and runs `prisma migrate deploy` (with retry)
+    # before exec-ing the command. `true` is the no-op command so the
+    # container exits 0 once migrations land.
+    #
+    # IMPORTANT: a stale image will report "No pending migrations" against a
+    # wiped DB and exit 0, silently leaving prod schemaless. Rebuild the
+    # image whenever prisma/migrations changes before deploying.
     command: ["true"]
     <<: *app-env
     environment:

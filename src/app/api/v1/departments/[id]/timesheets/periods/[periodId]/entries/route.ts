@@ -6,7 +6,7 @@ import { timeEntryCreateSchema, readJsonBody, validationError } from "@/lib/vali
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ departmentId: string; periodId: string }> },
+  { params }: { params: Promise<{ id: string; periodId: string }> },
 ) {
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
@@ -14,7 +14,7 @@ export async function POST(
   const { userId } = authResult;
 
   const period = await getPeriod(resolvedParams.periodId);
-  if (!period || period.departmentId !== resolvedParams.departmentId) {
+  if (!period || period.departmentId !== resolvedParams.id) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Timesheet period not found" } },
       { status: 404 },

@@ -7,7 +7,7 @@ import { timesheetPeriodCreateSchema, readJsonBody, validationError } from "@/li
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ departmentId: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
   const authResult = await requireAuth(_request, { params: resolvedParams });
@@ -17,7 +17,7 @@ export async function GET(
   // Approvers see every period in the department; others see only their own.
   const isApprover = await can(userId, "timesheet.approve");
   const periods = await listPeriods({
-    departmentId: resolvedParams.departmentId,
+    departmentId: resolvedParams.id,
     ...(isApprover ? {} : { ownerId: userId }),
   });
 
@@ -26,7 +26,7 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ departmentId: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
@@ -39,7 +39,7 @@ export async function POST(
   }
 
   const period = await createPeriod({
-    departmentId: resolvedParams.departmentId,
+    departmentId: resolvedParams.id,
     ownerId: userId,
     periodStart: new Date(parsed.data.periodStart),
     periodEnd: new Date(parsed.data.periodEnd),
