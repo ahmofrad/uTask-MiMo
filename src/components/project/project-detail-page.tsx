@@ -3,7 +3,7 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { cn } from "@/lib/cn";
+import { ProjectTabBar } from "@/components/project/project-tab-bar";
 import { TagsModal } from "@/components/tags/tags-modal";
 import { Board } from "@/components/task/board";
 import { Timeline } from "@/components/task/timeline";
@@ -287,31 +287,13 @@ export const ProjectDetailPage = memo(function ProjectDetailPage({ project, init
       <ProjectDepartmentLinks projectId={project.id} canManage={canManage} />
 
       {/* Tab Bar */}
-      <div className="flex items-center gap-2 mb-6">
-        <div className="flex items-center gap-1 p-1 bg-bg-surface-2 rounded-lg overflow-x-auto scrollbar-hide flex-1">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap shrink-0",
-                activeTab === tab.key
-                  ? "bg-bg-primary text-fg-primary shadow-sm"
-                  : "text-fg-muted hover:text-fg-secondary",
-              )}
-            >
-              {tab.icon}
-              {tab.label}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => setShowCreateForm(true)}
-          className="px-4 py-2 text-sm font-medium rounded-md bg-accent text-fg-inverse hover:opacity-90 transition-opacity whitespace-nowrap shrink-0"
-        >
-          + {taskT("create")}
-        </button>
-      </div>
+      <ProjectTabBar
+        tabs={tabs}
+        activeTab={activeTab}
+        canCreate={canEdit}
+        onCreate={() => setShowCreateForm(true)}
+        onTabChange={setActiveTab}
+      />
 
       {/* Tab Content */}
       {activeTab === "board" && (

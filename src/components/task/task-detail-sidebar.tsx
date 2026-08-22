@@ -2,17 +2,16 @@
 
 import { memo, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { cn } from "@/lib/cn";
 import { apiFetch } from "@/lib/api-fetch";
 import { formatDateTime } from "@/lib/date/format";
 import { estimatedDaysToHours, estimatedHoursToDays } from "@/lib/date/estimated-time";
 import { TagPicker } from "@/components/tags/tag-picker";
 import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
-import { CustomFieldInput } from "@/components/custom-field/custom-field-input";
+import { TaskCustomFieldsCard } from "@/components/task/task-custom-fields-card";
 import { AssigneeSelect } from "@/components/task/assignee-select";
 import { TaskRecurrenceEditor } from "@/components/task/task-recurrence-editor";
 import type { RecurrenceRule } from "@/lib/tasks/recurrence";
-import { Avatar } from "@/components/ui/avatar";
+import { TaskWatchersCard } from "@/components/task/task-watchers-card";
 
 type TaskStatus = "open" | "in_progress" | "pending_approval" | "done" | "cancelled";
 type TaskPriority = "low" | "med" | "high" | "urgent";
@@ -348,82 +347,22 @@ export const TaskDetailSidebar = memo(function TaskDetailSidebar({
       </div>
 
       {/* Custom Fields card */}
-      {customFieldSchema.length > 0 && (
-        <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
-          <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-3">
-            {t("task.customFields")}
-          </h4>
-          <div className="space-y-3">
-            {customFieldSchema.map((field) => (
-              <CustomFieldInput
-                key={field.id}
-                field={field}
-                value={cfValues[field.key] ?? null}
-                onChange={(value) => void onCustomFieldChange(field.key, value)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      <TaskCustomFieldsCard
+        schema={customFieldSchema}
+        values={cfValues}
+        onChange={onCustomFieldChange}
+      />
 
       {/* Watchers card */}
-      <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">
-            {t("task.watchers")}
-          </h4>
-          <div className="flex items-center gap-2">
-            <select
-              onChange={(e) => {
-                const userId = e.target.value;
-                e.target.value = "";
-                if (userId) onAddWatcher(userId);
-              }}
-              className="text-xs bg-transparent border border-border-primary rounded px-1.5 py-0.5 text-fg-muted"
-            >
-              <option value="">+ {t("task.addWatcher")}</option>
-              {projectMembers
-                .filter((m) => !watchers.some((w) => w.id === m.id))
-                .map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.displayName}
-                  </option>
-                ))}
-            </select>
-            <button
-              onClick={onToggleWatch}
-              className={cn(
-                "text-xs px-2 py-0.5 rounded-md border transition-colors",
-                isWatching
-                  ? "border-accent/30 text-accent hover:bg-accent/10"
-                  : "border-border text-fg-muted hover:text-fg hover:border-fg-muted",
-              )}
-            >
-              {isWatching ? t("task.watching") : t("task.watch")}
-            </button>
-          </div>
-        </div>
-        {watchers.length > 0 ? (
-          <div className="space-y-1.5">
-            {watchers.map((w) => (
-              <div key={w.id} className="flex items-center gap-2 text-sm text-fg-muted group">
-                <Avatar initials={w.displayName.slice(0, 2).toUpperCase()} size="sm" />
-                <span className="truncate flex-1">{w.displayName || t("common.you")}</span>
-                {w.id !== currentUserId && (
-                  <button
-                    onClick={() => onRemoveWatcher(w.id)}
-                    className="text-xs text-fg-muted opacity-0 group-hover:opacity-100 hover:text-destructive transition-[opacity,color]"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-fg-subtle">{t("task.noWatchers")}</p>
-        )}
-      </div>
+      <TaskWatchersCard
+        watchers={watchers}
+        projectMembers={projectMembers}
+        currentUserId={currentUserId}
+        isWatching={isWatching}
+        onAddWatcher={onAddWatcher}
+        onRemoveWatcher={onRemoveWatcher}
+        onToggleWatch={onToggleWatch}
+      />
     </div>
   );
 });
