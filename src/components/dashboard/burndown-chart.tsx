@@ -1,13 +1,16 @@
 "use client";
 
+import { useMemo, memo } from "react";
 import { useTranslations } from "next-intl";
 
 type BurndownChartProps = {
   data: { date: string; remaining: number; ideal: number }[];
 };
 
-export function BurndownChart({ data }: BurndownChartProps) {
+export const BurndownChart = memo(function BurndownChart({ data }: BurndownChartProps) {
   const t = useTranslations("dashboard");
+
+  const max = useMemo(() => Math.max(...data.map((d) => Math.max(d.remaining, d.ideal)), 0), [data]);
 
   if (data.length === 0) {
     return (
@@ -17,8 +20,6 @@ export function BurndownChart({ data }: BurndownChartProps) {
       </div>
     );
   }
-
-  const max = Math.max(...data.map((d) => Math.max(d.remaining, d.ideal)));
 
   return (
     <div className="bg-bg-surface border border-border-primary rounded-xl p-6">
@@ -43,4 +44,4 @@ export function BurndownChart({ data }: BurndownChartProps) {
       </div>
     </div>
   );
-}
+});

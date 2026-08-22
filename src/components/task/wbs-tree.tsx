@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { AssigneeStack } from "@/components/task/assignee-stack";
@@ -83,7 +83,7 @@ function TreeRow({ task, code, depth, expanded, hasChildren, onToggle }: TreeRow
   );
 }
 
-export function WBSTree({ tasks }: WBSTreeProps) {
+export const WBSTree = memo(function WBSTree({ tasks }: WBSTreeProps) {
   const t = useTranslations("task");
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(tasks.filter((task) => tasks.some((child) => child.parentTaskId === task.id)).map((task) => task.id)));
   const [search, setSearch] = useState("");
@@ -187,4 +187,4 @@ export function WBSTree({ tasks }: WBSTreeProps) {
       </div>
     </div>
   );
-}
+});

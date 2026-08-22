@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api-fetch";
@@ -29,8 +29,6 @@ type DepartmentMember = {
   displayName: string;
   email: string;
 };
-
-let allUsersCache: DepartmentMember[] | null = null;
 
 type Props = {
   departments: Department[];
@@ -268,7 +266,7 @@ export function DepartmentTree({ departments: initial }: Props) {
               className="max-w-56 rounded-md border border-border-primary bg-bg-primary px-2 py-1 text-sm text-fg-primary"
             >
               <option value="">{t("noParent")}</option>
-              {parentOptions(departments, department.id).map((option) => (
+              {(parentOptionsMap.get(department.id) ?? []).map((option) => (
                 <option key={option.id} value={option.id}>
                   {option.name}
                 </option>
@@ -370,13 +368,23 @@ export function DepartmentTree({ departments: initial }: Props) {
     );
   }
 
-  function childrenOf(parentId: string | null): Department[] {
-    return departments
-      .filter((department) => department.parentId === parentId)
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }
+  const childrenOf = useMemo(() => {
+    const fn = (parentId: string | null): Department[] =>
+      departments
+        .filter((department) => department.parentId === parentId)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    return fn;
+  }, [departments]);
 
-  const roots = childrenOf(null);
+  const roots = useMemo(() => childrenOf(null), [childrenOf]);
+
+  const parentOptionsMap = useMemo(() => {
+    const map = new Map<string, Department[]>();
+    for (const department of departments) {
+      map.set(department.id, parentOptions(departments, department.id));
+    }
+    return map;
+  }, [departments]);
 
   return (
     <div className="space-y-4">

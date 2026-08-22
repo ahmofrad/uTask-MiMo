@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { cn } from "@/lib/cn";
 
 type DashboardCardProps = {
@@ -15,7 +16,7 @@ const colorClasses: Record<string, string> = {
   info: "bg-info-bg text-info border-info/20",
 };
 
-export function DashboardCard({ label, value, color }: DashboardCardProps) {
+export const DashboardCard = memo(function DashboardCard({ label, value, color }: DashboardCardProps) {
   return (
     <div className={cn(
       "rounded-xl border p-5 flex flex-col gap-1 shadow-sm",
@@ -25,4 +26,4 @@ export function DashboardCard({ label, value, color }: DashboardCardProps) {
       <span className="text-sm opacity-80">{label}</span>
     </div>
   );
-}
+});

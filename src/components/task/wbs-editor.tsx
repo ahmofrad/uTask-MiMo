@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
@@ -259,7 +259,7 @@ function WbsRow(props: RowProps) {
   );
 }
 
-export function WbsEditor({ projectId, projectName, showHeader = true }: EditorProps) {
+export const WbsEditor = memo(function WbsEditor({ projectId, projectName, showHeader = true }: EditorProps) {
   const t = useTranslations("task");
   const [nodes, setNodes] = useState<WbsNode[]>([]);
   const [loading, setLoading] = useState(true);
@@ -613,4 +613,4 @@ export function WbsEditor({ projectId, projectName, showHeader = true }: EditorP
       </div>
     </div>
   );
-}
+});

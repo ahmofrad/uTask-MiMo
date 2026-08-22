@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 type KpiCardProps = {
   label: string;
   value: number | string;
@@ -14,7 +16,7 @@ const colorMap = {
   info: "bg-info-bg text-info",
 };
 
-export function KpiCard({ label, value, color = "accent", change }: KpiCardProps) {
+export const KpiCard = memo(function KpiCard({ label, value, color = "accent", change }: KpiCardProps) {
   return (
       <div className={`rounded-xl border border-border-primary p-5 shadow-sm ${colorMap[color]}`}>
       <div className="text-3xl font-bold">{value}</div>
@@ -24,4 +26,4 @@ export function KpiCard({ label, value, color = "accent", change }: KpiCardProps
       )}
     </div>
   );
-}
+});

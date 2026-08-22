@@ -1,14 +1,15 @@
 "use client";
 
+import { useMemo, memo } from "react";
 import { useTranslations } from "next-intl";
 
 type StatusBreakdownProps = {
   data: { label: string; count: number; color: string }[];
 };
 
-export function StatusBreakdownChart({ data }: StatusBreakdownProps) {
+export const StatusBreakdownChart = memo(function StatusBreakdownChart({ data }: StatusBreakdownProps) {
   const t = useTranslations("project");
-  const total = data.reduce((sum, d) => sum + d.count, 0);
+  const total = useMemo(() => data.reduce((sum, d) => sum + d.count, 0), [data]);
 
   return (
     <div className="bg-bg-surface border border-border-primary rounded-xl p-6">
@@ -29,4 +30,4 @@ export function StatusBreakdownChart({ data }: StatusBreakdownProps) {
       </div>
     </div>
   );
-}
+});

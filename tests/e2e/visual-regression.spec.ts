@@ -592,6 +592,46 @@ test.describe("Authenticated visual regression @visual", () => {
     });
   });
 
+  test("workspace shell renders correctly in LTR", async ({ page }) => {
+    await page.goto("/en-US/workspace");
+    await expect(page.getByRole("heading", { name: "Workspace" })).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page).toHaveScreenshot("workspace-ltr.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+
+  test("workspace shell renders correctly in RTL", async ({ page }) => {
+    await page.goto("/fa-IR/workspace");
+    await expect(page.getByRole("heading", { name: "فضای کاری" })).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page).toHaveScreenshot("workspace-rtl.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+
+  test("search page renders correctly in LTR", async ({ page }) => {
+    await page.goto("/en-US/search");
+    await expect(page.getByPlaceholder("Search tasks, projects, comments…")).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page).toHaveScreenshot("search-ltr.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+
+  test("search page renders correctly in RTL", async ({ page }) => {
+    await page.goto("/fa-IR/search");
+    await expect(page.getByPlaceholder("جستجو در تسک‌ها، پروژه‌ها، نظرات…")).toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page).toHaveScreenshot("search-rtl.png", {
+      maxDiffPixelRatio: 0.02,
+    });
+  });
+
   // ── Theme visual baselines ──────────────────────────────────────────
   // Navigate to the settings page with each named theme injected into
   // localStorage so the ThemeProvider picks it up on mount.  Screenshot
