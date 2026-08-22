@@ -1,33 +1,43 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { hmacSign, hmacVerify } from "@/lib/crypto/hmac";
 
-describe("hmac", () => {
-  const secret = "test-secret-key";
-  const payload = "test payload";
-
-  it("sign returns consistent hex string", () => {
-    const sig1 = hmacSign(payload, secret);
-    const sig2 = hmacSign(payload, secret);
-    expect(sig1).toBe(sig2);
-    expect(sig1).toMatch(/^[a-f0-9]+$/);
+describe("hmacSign", () => {
+  it("returns a 64-char hex string", () => {
+    const result = hmacSign("hello", "secret");
+    expect(result).toHaveLength(64);
+    expect(result).toMatch(/^[0-9a-f]+$/);
   });
 
-  it("verify returns true for valid signature", () => {
-    const sig = hmacSign(payload, secret);
-    expect(hmacVerify(payload, sig, secret)).toBe(true);
+  it("is deterministic for same payload and secret", () => {
+    expect(hmacSign("hello", "secret")).toBe(hmacSign("hello", "secret"));
   });
 
-  it("verify returns false for tampered payload", () => {
-    const sig = hmacSign(payload, secret);
-    expect(hmacVerify("tampered", sig, secret)).toBe(false);
+  it("produces different signatures for different secrets", () => {
+    expect(hmacSign("hello", "secret1")).not.toBe(hmacSign("hello", "secret2"));
   });
 
-  it("verify returns false for wrong secret", () => {
-    const sig = hmacSign(payload, secret);
-    expect(hmacVerify(payload, sig, "wrong-secret")).toBe(false);
+  it("produces different signatures for different payloads", () => {
+    expect(hmacSign("hello", "secret")).not.toBe(hmacSign("world", "secret"));
+  });
+});
+
+describe("hmacVerify", () => {
+  it("returns true for a valid signature", () => {
+    const signature = hmacSign("hello", "secret");
+    expect(hmacVerify("hello", signature, "secret")).toBe(true);
   });
 
-  it("verify returns false for wrong signature", () => {
-    expect(hmacVerify(payload, "000000", secret)).toBe(false);
+  it("returns false for an invalid signature", () => {
+    expect(hmacVerify("hello", "badbad".repeat(32), "secret")).toBe(false);
+  });
+
+  it("returns false for wrong secret", () => {
+    const signature = hmacSign("hello", "secret");
+    expect(hmacVerify("hello", signature, "wrong")).toBe(false);
+  });
+
+  it("returns false for tampered payload", () => {
+    const signature = hmacSign("hello", "secret");
+    expect(hmacVerify("world", signature, "secret")).toBe(false);
   });
 });
