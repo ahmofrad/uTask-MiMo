@@ -282,6 +282,8 @@
     "assignManager": "Assign manager",
     "noManager": "No manager",
     "managerSaved": "Manager saved",
+    "managerManual": "manual",
+    "managerHint": "The manager oversees this department: they can manage its projects, approve access requests, and see department-scoped reports.",
     "ldapDepartment": "LDAP department",
     "manualDepartment": "Manual department",
     "archiveDepartment": "Archive",

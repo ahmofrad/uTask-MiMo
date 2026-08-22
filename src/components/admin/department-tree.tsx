@@ -65,9 +65,8 @@ export function DepartmentTree({ departments: initial }: Props) {
 
   useEffect(() => {
     let cancelled = false;
-    const ldapDepartments = departments.filter((department) => department.ldapSyncGroupId);
     void Promise.all(
-      ldapDepartments.map(async (department) => {
+      departments.map(async (department) => {
         const response = await apiFetch(`/api/v1/departments/${department.id}/manager-candidates`);
         if (!response.ok) return [department.id, []] as const;
         const body = (await response.json()) as { data?: ManagerCandidate[] };
@@ -180,9 +179,11 @@ export function DepartmentTree({ departments: initial }: Props) {
                 <span className="text-xs text-fg-tertiary">{t("subgroup")}</span>
               )}
             </div>
-            {department.managerSource === "ad" && department.managerName && (
+            {department.managerName && (
               <p className="mt-1 text-xs text-fg-secondary">
-                {department.managerName} · {t("managerFromAd")}
+                {department.managerName}
+                {department.managerSource === "ad" && ` · ${t("managerFromAd")}`}
+                {department.managerSource === "manual" && ` · ${t("managerManual")}`}
               </p>
             )}
           </div>
@@ -200,22 +201,21 @@ export function DepartmentTree({ departments: initial }: Props) {
                 </option>
               ))}
             </select>
-            {department.ldapSyncGroupId && (
-              <select
-                value={department.managerUserId ?? ""}
-                onChange={(e) => void saveManager(department.id, e.target.value)}
-                aria-label={`${t("assignManager")}: ${department.name}`}
-                className="max-w-64 rounded-md border border-border-primary bg-bg-primary px-2 py-1 text-sm text-fg-primary"
-              >
-                <option value="">{t("noManager")}</option>
-                {managerOptions.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.displayName}
-                    {candidate.email ? ` (${candidate.email})` : ""}
-                  </option>
-                ))}
-              </select>
-            )}
+            <select
+              value={department.managerUserId ?? ""}
+              onChange={(e) => void saveManager(department.id, e.target.value)}
+              aria-label={`${t("assignManager")}: ${department.name}`}
+              title={t("managerHint")}
+              className="max-w-64 rounded-md border border-border-primary bg-bg-primary px-2 py-1 text-sm text-fg-primary"
+            >
+              <option value="">{t("noManager")}</option>
+              {managerOptions.map((candidate) => (
+                <option key={candidate.id} value={candidate.id}>
+                  {candidate.displayName}
+                  {candidate.email ? ` (${candidate.email})` : ""}
+                </option>
+              ))}
+            </select>
             <Button variant="ghost" size="sm" onClick={() => void removeDepartment(department.id)}>
               {t("archiveDepartment")}
             </Button>

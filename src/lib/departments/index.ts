@@ -25,18 +25,25 @@ export async function listDepartmentManagerCandidates(departmentId: string) {
     where: { id: departmentId, deletedAt: null },
     select: { ldapSyncGroupId: true },
   });
-  if (!department?.ldapSyncGroupId) return [];
+  if (!department) return [];
+
+  // LDAP-backed departments can only be managed by an active member of the
+  // synced group; manual departments draw from all active users.
+  const where =
+    department.ldapSyncGroupId
+      ? {
+          status: "active" as const,
+          ldapMemberships: {
+            some: {
+              ldapSyncGroupId: department.ldapSyncGroupId,
+              group: { deletedAt: null },
+            },
+          },
+        }
+      : { status: "active" as const };
 
   return prisma.user.findMany({
-    where: {
-      status: "active",
-      ldapMemberships: {
-        some: {
-          ldapSyncGroupId: department.ldapSyncGroupId,
-          group: { deletedAt: null },
-        },
-      },
-    },
+    where,
     select: { id: true, displayName: true, email: true },
     orderBy: { displayName: "asc" },
   });
@@ -122,6 +129,15 @@ export async function updateDepartment(
         : null;
       if (manager?.status !== "active" || !membership) {
         throw new Error("Department manager must be an active LDAP-synchronized member");
+      }
+    } else {
+      // Manual departments may be managed by any active user.
+      const manager = await prisma.user.findUnique({
+        where: { id: data.managerUserId },
+        select: { status: true },
+      });
+      if (manager?.status !== "active") {
+        throw new Error("Department manager must be an active user");
       }
     }
   }

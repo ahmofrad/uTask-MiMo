@@ -57,7 +57,13 @@ export async function PATCH(
       ...(managerUserId !== undefined ? { managerUserId } : {}),
     });
   } catch (error) {
-    if (error instanceof Error && error.message === "Department manager must be an active LDAP-synchronized member") {
+    if (
+      error instanceof Error
+      && (
+        error.message === "Department manager must be an active LDAP-synchronized member"
+        || error.message === "Department manager must be an active user"
+      )
+    ) {
       return NextResponse.json({ error: { code: "INVALID_MANAGER", message: error.message } }, { status: 400 });
     }
     throw error;

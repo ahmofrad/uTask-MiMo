@@ -282,6 +282,8 @@
     "assignManager": "تعیین مدیر",
     "noManager": "بدون مدیر",
     "managerSaved": "مدیر ذخیره شد",
+    "managerManual": "دستی",
+    "managerHint": "مدیر بر این دپارتمان نظارت دارد: می‌تواند پروژه‌های آن را مدیریت کند، درخواست‌های دسترسی را تأیید کند و گزارش‌های محدود به دپارتمان را ببیند.",
     "ldapDepartment": "دپارتمان LDAP",
     "manualDepartment": "دپارتمان دستی",
     "archiveDepartment": "بایگانی",

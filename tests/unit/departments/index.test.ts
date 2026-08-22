@@ -140,6 +140,12 @@ describe("updateDepartment", () => {
   });
 
   it("updates manager and marks it manual", async () => {
+    vi.mocked(prisma.department.findFirst).mockResolvedValue({
+      ...mockDepartment,
+      source: "manual",
+      ldapSyncGroupId: null,
+    } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ status: "active" } as never);
     vi.mocked(prisma.department.update).mockResolvedValue(mockDepartment as never);
 
     await updateDepartment("dept-1", { managerUserId: "user-2" });
@@ -166,6 +172,38 @@ describe("updateDepartment", () => {
       where: { userId_ldapSyncGroupId: { userId: "user-2", ldapSyncGroupId: "group-1" } },
       select: { userId: true },
     });
+  });
+
+  it("allows any active user to manage a manual department", async () => {
+    vi.mocked(prisma.department.findFirst).mockResolvedValue({
+      ...mockDepartment,
+      source: "manual",
+      ldapSyncGroupId: null,
+    } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ status: "active" } as never);
+    vi.mocked(prisma.department.update).mockResolvedValue(mockDepartment as never);
+
+    await updateDepartment("dept-1", { managerUserId: "user-2" });
+
+    expect(prisma.ldapGroupMembership.findUnique).not.toHaveBeenCalled();
+    expect(prisma.department.update).toHaveBeenCalledWith({
+      where: { id: "dept-1" },
+      data: { managerUserId: "user-2", managerSource: "manual" },
+    });
+  });
+
+  it("rejects a suspended user as manager of a manual department", async () => {
+    vi.mocked(prisma.department.findFirst).mockResolvedValue({
+      ...mockDepartment,
+      source: "manual",
+      ldapSyncGroupId: null,
+    } as never);
+    vi.mocked(prisma.user.findUnique).mockResolvedValue({ status: "suspended" } as never);
+
+    await expect(updateDepartment("dept-1", { managerUserId: "user-2" })).rejects.toThrow(
+      "Department manager must be an active user",
+    );
+    expect(prisma.department.update).not.toHaveBeenCalled();
   });
 
   it("rejects a suspended LDAP user as department manager", async () => {
@@ -211,6 +249,33 @@ describe("listDepartmentManagerCandidates", () => {
       select: { id: true, displayName: true, email: true },
       orderBy: { displayName: "asc" },
     });
+  });
+
+  it("returns all active users for a manual department", async () => {
+    vi.mocked(prisma.department.findFirst).mockResolvedValue({
+      ldapSyncGroupId: null,
+    } as never);
+    vi.mocked(prisma.user.findMany).mockResolvedValue([
+      { id: "user-1", displayName: "Alice", email: "alice@example.test" },
+    ] as never);
+
+    const result = await listDepartmentManagerCandidates("dept-1");
+
+    expect(result).toEqual([{ id: "user-1", displayName: "Alice", email: "alice@example.test" }]);
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      where: { status: "active" },
+      select: { id: true, displayName: true, email: true },
+      orderBy: { displayName: "asc" },
+    });
+  });
+
+  it("returns an empty list for a missing department", async () => {
+    vi.mocked(prisma.department.findFirst).mockResolvedValue(null);
+
+    const result = await listDepartmentManagerCandidates("missing");
+
+    expect(result).toEqual([]);
+    expect(prisma.user.findMany).not.toHaveBeenCalled();
   });
 });
 
