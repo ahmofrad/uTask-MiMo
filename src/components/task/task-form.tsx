@@ -67,8 +67,10 @@ export function TaskForm({ projectId, initialMembers, initialData, onSubmit, onC
     (async () => {
       try {
         const res = await apiFetch(`/api/v1/projects/${projectId}/members`);
-        const json = (await res.json()) as { data?: Member[] };
-        if (active) setMembers(json.data ?? []);
+        const json = (await res.json()) as {
+          data?: { user: { id: string; displayName: string; avatarUrl?: string | null } }[];
+        };
+        if (active) setMembers((json.data ?? []).map((m) => m.user));
       } catch {
         /* non-fatal: assignee picker stays empty */
       }
