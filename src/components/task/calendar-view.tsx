@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { toJalali, toGregorian, getDaysInMonth, getMonthName, getDayName } from "@/lib/date/jalali";
+import { formatMonthName } from "@/lib/date/format";
 import {
   calendarDeltaDays,
   calendarDueMarker,
@@ -137,7 +138,7 @@ export function CalendarView({ tasks, onMove }: CalendarViewProps) {
 
   const monthName = isJalali
     ? getMonthName(month, "fa-IR")
-    : new Date(year, month - 1).toLocaleString("en-US", { month: "long" });
+    : formatMonthName(year, month, "en-US");
 
   return (
     <div className="space-y-4">

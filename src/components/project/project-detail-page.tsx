@@ -143,7 +143,7 @@ export function ProjectDetailPage({ project, initialTasks, currentUserId }: Proj
     () => ({
       status: (project.status ?? "active") as "active" | "archived",
       visibility: project.visibility ?? "private",
-      color: project.color ?? "#2563eb",
+      color: project.color ?? "#4f46e5",
     }),
     [project.status, project.visibility, project.color],
   );

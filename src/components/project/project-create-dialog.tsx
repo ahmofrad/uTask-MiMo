@@ -31,7 +31,7 @@ function ProjectCreateDialog({ onClose }: { onClose: () => void }) {
   const tc = useTranslations("common");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [color, setColor] = useState("#2563eb");
+  const [color, setColor] = useState("#4f46e5");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 

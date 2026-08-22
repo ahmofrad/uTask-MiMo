@@ -299,7 +299,7 @@
 ### PMIS / EPM gaps (uTask does not yet have these)
 - **G4 — Baselines & Earned Value Management (EVM)** (frozen baselines, CPI/SPI/EAC, S-curves).
 - **G5 — Resource management** (resource catalog, skills, capacity, task resource assignments).
-- **G6 — Timesheets & rate cards** (time entry, approval workflow, cost/bill rates).
+- **G6 — Timesheets & rate cards** ✅ shipped (backend; UI pending) — `RateCard`/`TimesheetPeriod`/`TimeEntry`, rate snapshot, approval state machine, department-scoped. See `lib/timesheets/`, `docs/roadmap-pmis.md` G6.
 - **G7 — Cost control ledger** (CostAccount, BudgetLine, Commitment, Expense, append-only ActualCostEntry, FX, multi-currency).
 - **G8 — Risk register** (probability × impact scoring, response plans).
 - **G9 — Change requests** (DRAFT→APPROVED→APPLIED, baseline snapshot on apply).

@@ -253,7 +253,7 @@ export function ProjectDetailHeader({
             <span
               key={tag.id}
               className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border"
-              style={{ backgroundColor: tag.color ? `${tag.color}22` : undefined, borderColor: tag.color ?? "#cbd5e1", color: tag.color ?? "inherit" }}
+              style={{ backgroundColor: tag.color ? `${tag.color}22` : undefined, borderColor: tag.color ?? undefined, color: tag.color ?? "inherit" }}
             >
               {tag.name}
             </span>

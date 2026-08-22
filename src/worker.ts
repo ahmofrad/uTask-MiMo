@@ -8,6 +8,7 @@ import { startDueSoonScheduler, stopDueSoonScheduler } from "@/lib/notifications
 import { startDigestScheduler, stopDigestScheduler } from "@/lib/notifications/digest-scheduler";
 import { startReportRefreshScheduler, stopReportRefreshScheduler } from "@/lib/reports/scheduler";
 import { startWebhookRetryScheduler, stopWebhookRetryScheduler } from "@/lib/webhook/retry-scheduler";
+import { startAuditCompactionScheduler, stopAuditCompactionScheduler } from "@/lib/audit/compaction-scheduler";
 import { logger } from "@/lib/logging";
 import { unlinkSync, writeFileSync } from "node:fs";
 
@@ -36,6 +37,7 @@ async function start() {
     startDigestScheduler();
     startReportRefreshScheduler();
     startWebhookRetryScheduler();
+    startAuditCompactionScheduler();
     markReady();
     logger.info("Workers started");
   } catch (err) {
@@ -53,6 +55,7 @@ async function shutdown(signal: string) {
   stopDigestScheduler();
   stopReportRefreshScheduler();
   stopWebhookRetryScheduler();
+  stopAuditCompactionScheduler();
   const { workers, queues } = getWorkers();
   const timeout = setTimeout(() => {
     logger.error("Shutdown timed out after 30s, forcing exit");

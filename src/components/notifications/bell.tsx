@@ -29,7 +29,7 @@ export function NotificationBell() {
   useEffect(() => {
     fetch("/api/v1/notifications/count")
       .then((r) => r.json())
-      .then((j: any) => setCount(j?.data?.count ?? 0))
+      .then((j: { data?: { count?: number } }) => setCount(j?.data?.count ?? 0))
       .catch(() => {});
   }, []);
 

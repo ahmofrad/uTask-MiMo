@@ -191,9 +191,15 @@ model ResourceAssignment { taskId String; resourceId String; units Decimal @defa
 
 ---
 
-## G6 — Timesheets & rate cards
+## G6 — Timesheets & rate cards  ✅ shipped
 
 **Goal.** Log time against projects/tasks, approve via period workflow, snapshot cost rates.
+
+> **Status:** Backend shipped (commit `f52e7f0`). `RateCard`, `TimesheetPeriod`, `TimeEntry` models,
+> rate-card resolution with snapshot, approval state machine (`open→submitted→approved/rejected`, `reopen`),
+> full RBAC + audit. Department-scoped per the user's "Department as team" decision.
+> **Deferred:** G7 cost-ledger posting on approval (snapshot is in place for G7 to consume).
+> **Missing:** UI (log time / submit / approve page) — follow-up anchored on M17 workspace shell.
 
 **Data model.**
 

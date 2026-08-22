@@ -119,3 +119,20 @@ export function formatNumber(
   }
   return formatted;
 }
+
+/**
+ * Format a Gregorian month name for a given locale.
+ *
+ * Replaces `new Date(y, m, 1).toLocaleString("en-US", { month: "long" })`
+ * which hardcodes the locale and breaks under the app's pinned-timezone
+ * convention. Uses date-fns locale data for consistent output.
+ */
+export function formatMonthName(
+  year: number,
+  month: number, // 1-indexed
+  locale: Locale,
+): string {
+  const date = new Date(year, month - 1, 1);
+  const formatLocale = locale === "fa-IR" ? faIRGregorian : enUS;
+  return formatGregorian(date, "MMMM", { locale: formatLocale });
+}

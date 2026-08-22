@@ -39,6 +39,7 @@ type FieldTemplate = {
 
 export function ProjectTemplatesManager() {
   const t = useTranslations("project");
+  const tField = useTranslations("customField");
   const router = useRouter();
   const { addToast } = useToast();
   const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
@@ -304,13 +305,13 @@ export function ProjectTemplatesManager() {
                     setFormFields(next);
                   }}
                 >
-                  <option value="text">Text</option>
-                  <option value="number">Number</option>
-                  <option value="date">Date</option>
-                  <option value="select">Select</option>
-                  <option value="multi_select">Multi-select</option>
-                  <option value="checkbox">Checkbox</option>
-                  <option value="url">URL</option>
+                  <option value="text">{tField("types.text")}</option>
+                  <option value="number">{tField("types.number")}</option>
+                  <option value="date">{tField("types.date")}</option>
+                  <option value="select">{tField("types.select")}</option>
+                  <option value="multi_select">{tField("types.multi_select")}</option>
+                  <option value="checkbox">{tField("types.checkbox")}</option>
+                  <option value="url">{tField("types.url")}</option>
                 </select>
                 <button
                   type="button"

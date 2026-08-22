@@ -34,7 +34,8 @@ export default async function RootLayout({
     <html lang={locale} dir={dir} className={`${vazirmatn.variable} ${inter.variable}`}>
       <head>
         <link rel="manifest" href="/manifest.webmanifest" />
-        <meta name="theme-color" content="#2563eb" />
+        <meta name="theme-color" content="#4f46e5" />
+        <script dangerouslySetInnerHTML={{ __html: `(() => { try { const m=document.querySelector('meta[name=theme-color]'); const v=getComputedStyle(document.documentElement).getPropertyValue('--accent'); if(m&&v.trim())m.content=v.trim(); } catch {} })();` }} />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
       </head>
       <body className="bg-bg-primary text-fg font-sans antialiased overflow-x-clip">
