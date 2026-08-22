@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth/config";
 import { can } from "@/lib/rbac/can";
 import { prisma } from "@/lib/db";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { formatDateTime } from "@/lib/date/format";
 import { webhookSecretState } from "@/lib/webhook";
 
@@ -9,6 +9,7 @@ export default async function AdminWebhooksPage() {
   const session = await auth();
   const canManage = session?.user?.id && (await can(session.user.id, "webhook:manage"));
 
+  const locale = await getLocale();
   const t = await getTranslations("webhook");
   const tCommon = await getTranslations("common");
   const tAdmin = await getTranslations("admin");
@@ -57,7 +58,7 @@ export default async function AdminWebhooksPage() {
                       {wh.active ? tCommon("yes") : tCommon("no")}
                     </span>
                   </td>
-                  <td className="p-3 text-xs text-fg-muted">{formatDateTime(wh.createdAt, "fa-IR")}</td>
+                  <td className="p-3 text-xs text-fg-muted">{formatDateTime(wh.createdAt, locale as "fa-IR" | "en-US")}</td>
                 </tr>
               ))}
             </tbody>

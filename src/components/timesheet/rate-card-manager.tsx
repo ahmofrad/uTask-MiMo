@@ -1,11 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api-fetch";
 import { useToast } from "@/components/ui/toast";
-import { formatDate } from "@/lib/date/format";
+import { RateCardCreateForm } from "@/components/timesheet/rate-card-create-form";
+import { RateCardTable } from "@/components/timesheet/rate-card-table";
 
 type RateCard = {
   id: string;
@@ -27,31 +28,22 @@ type RateCardManagerProps = {
   users: User[];
 };
 
-function formatMinor(minor: number | null, currency: string): string {
-  if (minor === null) return "—";
-  return `${currency} ${(minor / 100).toFixed(2)}`;
-}
-
 export function RateCardManager({ cards, users }: RateCardManagerProps) {
   const t = useTranslations("timesheets");
-  const locale = useLocale() as "fa-IR" | "en-US";
   const { addToast } = useToast();
   const [busy, setBusy] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  const [form, setForm] = useState({
-    scope: "user" as "user" | "role",
-    userId: "",
-    roleType: "member" as "owner" | "admin" | "manager" | "member" | "guest",
-    costRateMinor: "",
-    billRateMinor: "",
-    currency: "USD",
-    effectiveFrom: "",
-    effectiveTo: "",
-  });
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleCreate(form: {
+    scope: "user" | "role";
+    userId: string;
+    roleType: string;
+    costRateMinor: string;
+    billRateMinor: string;
+    currency: string;
+    effectiveFrom: string;
+    effectiveTo: string;
+  }) {
     setBusy("create");
     try {
       const body: Record<string, unknown> = {
@@ -83,16 +75,6 @@ export function RateCardManager({ cards, users }: RateCardManagerProps) {
         return;
       }
       addToast({ message: t("rateCardCreated") });
-      setForm({
-        scope: "user",
-        userId: "",
-        roleType: "member",
-        costRateMinor: "",
-        billRateMinor: "",
-        currency: "USD",
-        effectiveFrom: "",
-        effectiveTo: "",
-      });
       setShowForm(false);
       window.location.reload();
     } catch {
@@ -124,125 +106,12 @@ export function RateCardManager({ cards, users }: RateCardManagerProps) {
     <div className="space-y-4">
       <div>
         {showForm ? (
-          <form
+          <RateCardCreateForm
+            users={users}
+            busy={busy === "create"}
             onSubmit={handleCreate}
-            className="space-y-3 rounded-lg border border-border-primary p-4"
-          >
-            <div className="flex gap-4">
-              <label className="flex flex-col gap-1 text-sm text-fg-secondary">
-                {t("scope")}
-                <select
-                  className="rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
-                  value={form.scope}
-                  onChange={(e) => setForm({ ...form, scope: e.target.value as "user" | "role" })}
-                >
-                  <option value="user">{t("user")}</option>
-                  <option value="role">{t("role")}</option>
-                </select>
-              </label>
-              {form.scope === "user" ? (
-                <label className="flex flex-col gap-1 text-sm text-fg-secondary">
-                  {t("user")}
-                  <select
-                    className="rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
-                    value={form.userId}
-                    onChange={(e) => setForm({ ...form, userId: e.target.value })}
-                    required
-                  >
-                    <option value="">—</option>
-                    {users.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.displayName} ({u.email})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : (
-                <label className="flex flex-col gap-1 text-sm text-fg-secondary">
-                  {t("role")}
-                  <select
-                    className="rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
-                    value={form.roleType}
-                    onChange={(e) =>
-                      setForm({ ...form, roleType: e.target.value as typeof form.roleType })
-                    }
-                    required
-                  >
-                    <option value="owner">{t("roles.owner")}</option>
-                    <option value="admin">{t("roles.admin")}</option>
-                    <option value="manager">{t("roles.manager")}</option>
-                    <option value="member">{t("roles.member")}</option>
-                    <option value="guest">{t("roles.guest")}</option>
-                  </select>
-                </label>
-              )}
-            </div>
-            <div className="flex gap-4">
-              <label className="flex flex-col gap-1 text-sm text-fg-secondary">
-                {t("costRateMinor")}
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  className="rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
-                  value={form.costRateMinor}
-                  onChange={(e) => setForm({ ...form, costRateMinor: e.target.value })}
-                  required
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-fg-secondary">
-                {t("billRateMinor")}
-                <input
-                  type="number"
-                  min="0"
-                  step="1"
-                  className="rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
-                  value={form.billRateMinor}
-                  onChange={(e) => setForm({ ...form, billRateMinor: e.target.value })}
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-fg-secondary">
-                {t("currency")}
-                <input
-                  type="text"
-                  maxLength={3}
-                  className="w-16 rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
-                  value={form.currency}
-                  onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })}
-                  required
-                />
-              </label>
-            </div>
-            <div className="flex gap-4">
-              <label className="flex flex-col gap-1 text-sm text-fg-secondary">
-                {t("effectiveFrom")}
-                <input
-                  type="date"
-                  className="rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
-                  value={form.effectiveFrom}
-                  onChange={(e) => setForm({ ...form, effectiveFrom: e.target.value })}
-                  required
-                />
-              </label>
-              <label className="flex flex-col gap-1 text-sm text-fg-secondary">
-                {t("effectiveTo")}
-                <input
-                  type="date"
-                  className="rounded border border-border-primary bg-bg-primary px-2 py-1 text-sm"
-                  value={form.effectiveTo}
-                  onChange={(e) => setForm({ ...form, effectiveTo: e.target.value })}
-                />
-              </label>
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={busy === "create"}>
-                {t("createRateCard")}
-              </Button>
-              <Button type="button" size="sm" variant="ghost" onClick={() => setShowForm(false)}>
-                {t("cancel")}
-              </Button>
-            </div>
-          </form>
+            onCancel={() => setShowForm(false)}
+          />
         ) : (
           <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
             {t("createRateCard")}
@@ -250,69 +119,7 @@ export function RateCardManager({ cards, users }: RateCardManagerProps) {
         )}
       </div>
 
-      {cards.length === 0 ? (
-        <div className="rounded-lg border border-border-primary p-8 text-center text-fg-muted">
-          {t("noRateCards")}
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-border-primary">
-          <table className="w-full text-sm">
-            <thead className="bg-bg-surface">
-              <tr>
-                <th className="px-4 py-2 text-start font-medium text-fg-secondary">{t("scope")}</th>
-                <th className="px-4 py-2 text-start font-medium text-fg-secondary">{t("user")}/{t("role")}</th>
-                <th className="px-4 py-2 text-end font-medium text-fg-secondary">{t("costRateMinor")}</th>
-                <th className="px-4 py-2 text-end font-medium text-fg-secondary">{t("billRateMinor")}</th>
-                <th className="px-4 py-2 text-start font-medium text-fg-secondary">{t("effectiveFrom")}</th>
-                <th className="px-4 py-2 text-start font-medium text-fg-secondary">{t("effectiveTo")}</th>
-                <th className="px-4 py-2"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-primary">
-              {cards.map((card) => (
-                <tr key={card.id}>
-                  <td className="px-4 py-2">
-                    <span className="inline-flex items-center rounded-full bg-accent-bg px-2 py-0.5 text-xs font-medium text-accent">
-                      {t(card.scope)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-fg-primary">
-                    {card.scope === "user"
-                      ? card.user?.displayName ?? "—"
-                      : card.roleType
-                        ? t(`roles.${card.roleType}`)
-                        : "—"}
-                  </td>
-                  <td className="px-4 py-2 text-end tabular-nums">
-                    {formatMinor(card.costRateMinor, card.currency)}
-                  </td>
-                  <td className="px-4 py-2 text-end tabular-nums">
-                    {formatMinor(card.billRateMinor, card.currency)}
-                  </td>
-                  <td className="px-4 py-2 text-fg-muted">
-                    {formatDate(new Date(card.effectiveFrom), locale, "gregorian")}
-                  </td>
-                  <td className="px-4 py-2 text-fg-muted">
-                    {card.effectiveTo
-                      ? formatDate(new Date(card.effectiveTo), locale, "gregorian")
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-2 text-end">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      disabled={busy === `delete:${card.id}`}
-                      onClick={() => handleDelete(card.id)}
-                    >
-                      {t("delete")}
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <RateCardTable cards={cards} busy={busy} onDelete={handleDelete} />
     </div>
   );
 }

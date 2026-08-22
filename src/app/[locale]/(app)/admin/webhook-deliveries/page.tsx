@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/date/format";
 import { ReplayButton } from "@/components/admin/replay-button";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 
 export default async function WebhookDeliveriesPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
+  const locale = await getLocale();
   const t = await getTranslations();
 
   const deliveries = await prisma.webhookDelivery.findMany({
@@ -35,7 +36,7 @@ export default async function WebhookDeliveriesPage() {
           <tbody>
             {deliveries.map((d) => (
               <tr key={d.id} className="border-b border-border-primary last:border-0 hover:bg-bg-surface-2 transition-colors">
-                <td className="p-3 text-fg-secondary">{formatDateTime(new Date(d.scheduledAt), "fa-IR")}</td>
+                <td className="p-3 text-fg-secondary">{formatDateTime(new Date(d.scheduledAt), locale as "fa-IR" | "en-US")}</td>
                 <td className="p-3 text-fg-primary">{d.webhook?.name}</td>
                 <td className="p-3 text-fg-primary">{d.eventType}</td>
                 <td className="p-3">

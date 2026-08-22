@@ -27,7 +27,7 @@ export function NotificationBell() {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetch("/api/v1/notifications/count")
+    apiFetch("/api/v1/notifications/count")
       .then((r) => r.json())
       .then((j: { data?: { count?: number } }) => setCount(j?.data?.count ?? 0))
       .catch(() => {});
@@ -35,7 +35,7 @@ export function NotificationBell() {
 
   async function toggle() {
     if (!open) {
-      const res = await fetch("/api/v1/notifications?limit=10");
+      const res = await apiFetch("/api/v1/notifications?limit=10");
       const j = await res.json();
       setNotifications(j.data);
     }
