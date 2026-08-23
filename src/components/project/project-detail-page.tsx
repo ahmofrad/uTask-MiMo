@@ -3,20 +3,15 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
-import { ProjectTabBar } from "@/components/project/project-tab-bar";
 import { TagsModal } from "@/components/tags/tags-modal";
-import { Board } from "@/components/task/board";
-import { Timeline } from "@/components/task/timeline";
-import { CalendarView } from "@/components/task/calendar-view";
-import { GanttView } from "@/components/task/gantt-view";
-import { WbsEditor } from "@/components/task/wbs-editor";
-import { ProjectTaskList, type CustomFieldFilterDef } from "@/components/task/project-task-list";
 import { TaskForm } from "@/components/task/task-form";
 import { CustomFieldsManager } from "@/components/custom-field/custom-fields-manager";
 import { MembersModal } from "@/components/project/members-modal";
 import { ProjectDetailHeader } from "@/components/project/project-detail-header";
 import { ProjectSettingsModal } from "@/components/project/project-settings-modal";
 import { ProjectDepartmentLinks } from "@/components/project/project-department-links";
+import { ProjectTabs, type ProjectTab } from "@/components/project/project-tabs";
+import { ProjectTabContent, type ProjectCustomFieldDef, type TaskItem } from "@/components/project/project-tab-content";
 import { Dialog } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-fetch";
 
@@ -40,32 +35,11 @@ type ProjectInfo = {
   ragReason: string | null;
 };
 
-type TaskItem = {
-  id: string;
-  title: string;
-  description?: string | null;
-  status: string;
-  priority: string;
-  projectId: string;
-  assignees?: { id: string; displayName: string; avatarUrl?: string | null }[];
-  dueDate: string | null;
-  startDate: string | null;
-  parentTaskId: string | null;
-  orderIndex: number;
-  tags?: { id: string; name: string }[];
-  subtaskCount?: number;
-  subtaskDone?: number;
-  progress?: number | null;
-  blockedBy?: { id: string; title: string; status: string; startDate: string | null; dueDate: string | null }[];
-};
-
 type ProjectDetailPageProps = {
   project: ProjectInfo;
   initialTasks: TaskItem[];
   currentUserId: string | undefined;
 };
-
-type Tab = "board" | "timeline" | "calendar" | "gantt" | "wbs" | "tasks";
 
 export const ProjectDetailPage = memo(function ProjectDetailPage({ project, initialTasks, currentUserId }: ProjectDetailPageProps) {
   const t = useTranslations("project");
@@ -79,10 +53,10 @@ export const ProjectDetailPage = memo(function ProjectDetailPage({ project, init
   const [showCFModal, setShowCFModal] = useState(false);
   const [showTagsModal, setShowTagsModal] = useState(false);
   const [projectTags, setProjectTags] = useState<{ id: string; name: string; color?: string | null }[]>([]);
-  const [cfFields, setCfFields] = useState<Array<{ id: string; name: string; key: string; type: string; required: boolean; configJson?: CustomFieldFilterDef["configJson"] }>>([]);
+  const [cfFields, setCfFields] = useState<ProjectCustomFieldDef[]>([]);
   const [cfLoading, setCfLoading] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<Tab>("board");
+  const [activeTab, setActiveTab] = useState<ProjectTab>("board");
 
   const canEdit = project.isOwner;
   const canManage = project.canManage;
@@ -233,14 +207,16 @@ export const ProjectDetailPage = memo(function ProjectDetailPage({ project, init
     });
   }
 
-  const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: "board", label: taskT("board"), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7m6-10a2 2 0 012-2h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7m10 0a2 2 0 012-2h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7" /></svg> },
-    { key: "timeline", label: taskT("timeline"), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-    { key: "calendar", label: taskT("calendar"), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg> },
-    { key: "gantt", label: taskT("gantt"), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h8m-8 6h16" /></svg> },
-    { key: "wbs", label: taskT("wbs"), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h12M4 14h8M4 18h4" /></svg> },
-    { key: "tasks", label: taskT("title"), icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg> },
-  ];
+  const refreshTags = async () => {
+    try {
+      const res = await apiFetch(`/api/v1/tags?projectId=${project.id}`);
+      if (res.ok) {
+        setProjectTags((await res.json()).data ?? []);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <>
@@ -286,66 +262,21 @@ export const ProjectDetailPage = memo(function ProjectDetailPage({ project, init
 
       <ProjectDepartmentLinks projectId={project.id} canManage={canManage} />
 
-      {/* Tab Bar */}
-      <ProjectTabBar
-        tabs={tabs}
+      <ProjectTabs
         activeTab={activeTab}
         canCreate={canManage}
         onCreate={() => setShowCreateForm(true)}
         onTabChange={setActiveTab}
       />
 
-      {/* Tab Content */}
-      {activeTab === "board" && (
-        <div>
-          <Board initialTasks={tasks} projectId={project.id} currentUserId={currentUserId} />
-        </div>
-      )}
-
-      {activeTab === "timeline" && (
-        <div>
-          <Timeline tasks={tasks} />
-        </div>
-      )}
-
-      {activeTab === "calendar" && (
-        <div>
-          <CalendarView tasks={tasks} onMove={handleCalendarMove} />
-        </div>
-      )}
-
-      {activeTab === "gantt" && (
-        <div>
-          <GanttView projectId={project.id} currentUserId={currentUserId} />
-        </div>
-      )}
-
-      {activeTab === "wbs" && (
-        <div>
-          <WbsEditor projectId={project.id} showHeader={false} />
-        </div>
-      )}
-
-      {activeTab === "tasks" && (
-        <ProjectTaskList
-          projectId={project.id}
-          initialTasks={tasks.map((task) => ({
-            id: task.id,
-            title: task.title,
-            description: task.description ?? null,
-            status: task.status,
-            priority: task.priority,
-            assignees: task.assignees ?? [],
-            dueDate: task.dueDate,
-            startDate: task.startDate,
-            tags: task.tags ?? [],
-            subtaskCount: task.subtaskCount ?? 0,
-            subtaskDone: task.subtaskDone ?? 0,
-            blockedBy: task.blockedBy ?? [],
-          }))}
-          fields={cfFields.map((f) => ({ ...f, configJson: f.configJson ?? null }))}
-        />
-      )}
+      <ProjectTabContent
+        activeTab={activeTab}
+        projectId={project.id}
+        tasks={tasks}
+        currentUserId={currentUserId}
+        fields={cfFields}
+        onCalendarMove={(taskId, dueDate, startDate) => handleCalendarMove(taskId, dueDate, startDate)}
+      />
 
       {/* Task Create Modal */}
       <Dialog open={showCreateForm} onClose={() => setShowCreateForm(false)} title={taskT("createTask")} className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -372,13 +303,7 @@ export const ProjectDetailPage = memo(function ProjectDetailPage({ project, init
         projectId={project.id}
         open={showTagsModal}
         onClose={() => setShowTagsModal(false)}
-        onChanged={() =>
-          apiFetch(`/api/v1/tags?projectId=${project.id}`)
-            .then(async (res) => {
-              if (res.ok) setProjectTags((await res.json()).data ?? []);
-            })
-            .catch(() => {})
-        }
+        onChanged={() => void refreshTags()}
       />
 
       <ProjectSettingsModal

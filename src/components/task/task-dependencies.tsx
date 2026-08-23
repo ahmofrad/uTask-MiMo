@@ -3,28 +3,10 @@
 import { memo, useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
-import { linkLagSuffix } from "@/lib/gantt/links";
-
-type DepEdge = {
-  id: string;
-  taskId: string;
-  dependsOnId: string;
-  type: "FINISH_TO_START" | "START_TO_START" | "FINISH_TO_FINISH" | "RELATES_TO";
-  lag: number;
-  lagUnit: "DAY" | "HOUR";
-  predecessor?: { id: string; title: string; status: string } | null;
-  dependent?: { id: string; title: string; status: string } | null;
-};
-
-type DepResponse = { outgoing: DepEdge[]; incoming: DepEdge[] };
-
-type Candidate = { id: string; title: string };
-
-const DEP_TYPES = ["FINISH_TO_START", "START_TO_START", "FINISH_TO_FINISH", "RELATES_TO"] as const;
-type LinkType = (typeof DEP_TYPES)[number];
-type LagUnit = "DAY" | "HOUR";
-
-type DepEdit = { type: LinkType; lag: number; lagUnit: LagUnit };
+import { DepAddForm } from "./dep-add-form";
+import { DepIncomingList } from "./dep-incoming";
+import { DepOutgoingList } from "./dep-outgoing";
+import { dependencyErrorKey, type Candidate, type DepEdit, type DepEdge, type DepResponse, type LagUnit, type LinkType } from "./dep-types";
 
 export const TaskDependencies = memo(function TaskDependencies({ projectId, taskId }: { projectId: string; taskId: string }) {
   const t = useTranslations("task");
@@ -67,6 +49,16 @@ export const TaskDependencies = memo(function TaskDependencies({ projectId, task
     void load();
   }, [load]);
 
+  const showError = (res: Response, fallback: string) => {
+    void res
+      .json()
+      .catch(() => null)
+      .then((json) => {
+        const code = (json as { error?: { code?: string } } | null)?.error?.code;
+        setError(code ? t(`dependencies.${dependencyErrorKey(code)}`) : fallback);
+      });
+  };
+
   const addDep = async () => {
     if (!selected || busy) return;
     setError(null);
@@ -77,8 +69,7 @@ export const TaskDependencies = memo(function TaskDependencies({ projectId, task
         body: JSON.stringify({ dependsOnId: selected, type, lag: Number(lag), lagUnit }),
       });
       if (!res.ok) {
-        const json = await res.json().catch(() => null);
-        setError(t(`dependencies.${errorKey(json?.error?.code)}`) ?? t("dependencies.duplicateError"));
+        showError(res, t("dependencies.duplicateError"));
         return;
       }
       await load();
@@ -99,8 +90,7 @@ export const TaskDependencies = memo(function TaskDependencies({ projectId, task
         { method: "DELETE" },
       );
       if (!res.ok) {
-        const json = await res.json().catch(() => null);
-        setError(t(`dependencies.${errorKey(json?.error?.code)}`) ?? t("wbsMoveError"));
+        showError(res, t("wbsMoveError"));
         return;
       }
       await load();
@@ -123,8 +113,7 @@ export const TaskDependencies = memo(function TaskDependencies({ projectId, task
         { method: "DELETE" },
       );
       if (!del.ok) {
-        const json = await del.json().catch(() => null);
-        setError(t(`dependencies.${errorKey(json?.error?.code)}`) ?? t("wbsMoveError"));
+        showError(del, t("wbsMoveError"));
         return;
       }
       const res = await apiFetch(`/api/v1/projects/${projectId}/tasks/${taskId}/dependencies`, {
@@ -132,8 +121,7 @@ export const TaskDependencies = memo(function TaskDependencies({ projectId, task
         body: JSON.stringify({ dependsOnId: edge.dependsOnId, type: edit.type, lag: edit.lag, lagUnit: edit.lagUnit }),
       });
       if (!res.ok) {
-        const json = await res.json().catch(() => null);
-        setError(t(`dependencies.${errorKey(json?.error?.code)}`) ?? t("dependencies.duplicateError"));
+        showError(res, t("dependencies.duplicateError"));
         return;
       }
       setEdits((prev) => {
@@ -149,23 +137,12 @@ export const TaskDependencies = memo(function TaskDependencies({ projectId, task
     }
   };
 
-  const typeLabel = (tp: string) => {
-    const map: Record<string, string> = {
-      FINISH_TO_START: "typeFS",
-      START_TO_START: "typeSS",
-      FINISH_TO_FINISH: "typeFF",
-      RELATES_TO: "typeRelates",
-    };
-    return t(`dependencies.${map[tp] ?? "typeFS"}`);
-  };
+  const outgoing = deps?.outgoing ?? [];
+  const incoming = deps?.incoming ?? [];
 
   if (loading) {
     return <div className="text-sm text-fg-muted py-4">{t("wbsTotal")}…</div>;
   }
-
-  const outgoing = deps?.outgoing ?? [];
-  const incoming = deps?.incoming ?? [];
-  const selectClass = "text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary";
 
   return (
     <div className="space-y-4">
@@ -179,201 +156,51 @@ export const TaskDependencies = memo(function TaskDependencies({ projectId, task
         {/* Depends on */}
         <div>
           <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">{t("dependencies.dependsOn")}</h4>
-          {outgoing.length === 0 ? (
-            <p className="text-sm text-fg-muted">{t("dependencies.none")}</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {outgoing.map((e) => {
-                const edit = edits[e.id];
-                return (
-                  <li key={e.id} data-testid="dep-row" data-depends-on={e.dependsOnId} className="flex items-center justify-between gap-2 text-sm">
-                    {edit ? (
-                      <span className="flex flex-wrap items-center gap-1.5 min-w-0">
-                        <span className="truncate text-xs">{e.predecessor?.title ?? e.dependsOnId}</span>
-                        <select
-                          data-testid="dep-edit-type"
-                          value={edit.type}
-                          onChange={(ev) => setEdits((prev) => ({ ...prev, [e.id]: { ...edit, type: ev.target.value as LinkType } }))}
-                          className={selectClass}
-                        >
-                          {DEP_TYPES.map((tp) => (
-                            <option key={tp} value={tp}>{typeLabel(tp)}</option>
-                          ))}
-                        </select>
-                        <input
-                          data-testid="dep-edit-lag"
-                          type="number"
-                          value={edit.lag}
-                          onChange={(ev) => setEdits((prev) => ({ ...prev, [e.id]: { ...edit, lag: Number(ev.target.value) } }))}
-                          className="w-16 text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary"
-                        />
-                        <select
-                          data-testid="dep-edit-lag-unit"
-                          value={edit.lagUnit}
-                          onChange={(ev) => setEdits((prev) => ({ ...prev, [e.id]: { ...edit, lagUnit: ev.target.value as LagUnit } }))}
-                          className={selectClass}
-                        >
-                          <option value="DAY">{t("dependencies.lagUnitDay")}</option>
-                          <option value="HOUR">{t("dependencies.lagUnitHour")}</option>
-                        </select>
-                        <button
-                          data-testid="dep-edit-save"
-                          onClick={() => void saveEdit(e)}
-                          disabled={busy}
-                          className="px-2 py-1 rounded bg-accent text-fg-inverse text-xs font-medium hover:opacity-90 disabled:opacity-40"
-                        >
-                          {t("ganttDepsSave")}
-                        </button>
-                        <button
-                          data-testid="dep-edit-cancel"
-                          onClick={() =>
-                            setEdits((prev) => {
-                              const next = { ...prev };
-                              delete next[e.id];
-                              return next;
-                            })
-                          }
-                          className="px-2 py-1 rounded border border-border-primary text-xs text-fg-secondary hover:bg-bg-surface"
-                        >
-                          {t("ganttLinkCancel")}
-                        </button>
-                      </span>
-                    ) : (
-                      <span className="flex items-center gap-2 min-w-0">
-                        <span className="truncate">{e.predecessor?.title ?? e.dependsOnId}</span>
-                        <span className="text-xs text-fg-muted shrink-0">
-                          {typeLabel(e.type)}<span className="font-mono">{linkLagSuffix(e)}</span>
-                        </span>
-                        <button
-                          data-testid="dep-edit"
-                          onClick={() =>
-                            setEdits((prev) => ({
-                              ...prev,
-                              [e.id]: { type: e.type, lag: e.lag, lagUnit: e.lagUnit === "HOUR" ? "HOUR" : "DAY" },
-                            }))
-                          }
-                          className="text-xs text-fg-muted hover:text-accent shrink-0"
-                        >
-                          {t("ganttDepsEdit")}
-                        </button>
-                        <button
-                          data-testid="dep-remove"
-                          onClick={() => removeDep(e.dependsOnId, e.type)}
-                          disabled={busy}
-                          className="text-xs text-fg-muted hover:text-destructive shrink-0 disabled:opacity-40"
-                          title={t("dependencies.remove")}
-                        >
-                          {t("dependencies.remove")}
-                        </button>
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          <DepOutgoingList
+            edges={outgoing}
+            edits={edits}
+            busy={busy}
+            onStartEdit={(e) =>
+              setEdits((prev) => ({
+                ...prev,
+                [e.id]: { type: e.type, lag: e.lag, lagUnit: e.lagUnit === "HOUR" ? "HOUR" : "DAY" },
+              }))
+            }
+            onCancelEdit={(edgeId) =>
+              setEdits((prev) => {
+                const next = { ...prev };
+                delete next[edgeId];
+                return next;
+              })
+            }
+            onSaveEdit={(e) => void saveEdit(e)}
+            onRemove={(id, tp) => void removeDep(id, tp)}
+            onEditChange={(edgeId, patch) =>
+              setEdits((prev) => ({ ...prev, [edgeId]: { ...prev[edgeId]!, ...patch } }))
+            }
+          />
         </div>
 
         {/* Blocks */}
         <div>
           <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">{t("dependencies.blocks")}</h4>
-          {incoming.length === 0 ? (
-            <p className="text-sm text-fg-muted">{t("dependencies.none")}</p>
-          ) : (
-            <ul className="space-y-1">
-              {incoming.map((e) => (
-                <li key={e.id} className="flex items-center gap-2 text-sm">
-                  <span className="truncate">{e.dependent?.title ?? e.taskId}</span>
-                  <span className="text-xs text-fg-muted shrink-0">
-                    {typeLabel(e.type)}<span className="font-mono">{linkLagSuffix(e)}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <DepIncomingList edges={incoming} />
         </div>
       </div>
 
-      {/* Add */}
-      <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-border-secondary">
-        <div className="flex-1 min-w-[160px]">
-          <label className="block text-xs text-fg-muted mb-1">{t("dependencies.dependsOn")}</label>
-          <select
-            data-testid="dep-add-select"
-            value={selected}
-            onChange={(ev) => setSelected(ev.target.value)}
-            className="w-full text-sm bg-bg-primary border border-border rounded px-2 py-1 text-fg-primary"
-          >
-            {candidates.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-fg-muted mb-1">{t("dependencies.typeFS")}</label>
-          <select
-            data-testid="dep-add-type"
-            value={type}
-            onChange={(ev) => setType(ev.target.value as LinkType)}
-            className="text-sm bg-bg-primary border border-border rounded px-2 py-1 text-fg-primary"
-          >
-            {DEP_TYPES.map((tp) => (
-              <option key={tp} value={tp}>
-                {typeLabel(tp)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-fg-muted mb-1">{t("dependencies.lag")}</label>
-          <input
-            data-testid="dep-add-lag"
-            type="number"
-            value={lag}
-            onChange={(ev) => setLag(Number(ev.target.value))}
-            className="w-16 text-sm bg-bg-primary border border-border rounded px-2 py-1 text-fg-primary"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-fg-muted mb-1">{t("ganttLinkLagUnit")}</label>
-          <select
-            data-testid="dep-add-lag-unit"
-            value={lagUnit}
-            onChange={(ev) => setLagUnit(ev.target.value as LagUnit)}
-            className="text-sm bg-bg-primary border border-border rounded px-2 py-1 text-fg-primary"
-          >
-            <option value="DAY">{t("dependencies.lagUnitDay")}</option>
-            <option value="HOUR">{t("dependencies.lagUnitHour")}</option>
-          </select>
-        </div>
-        <button
-          data-testid="dep-add-submit"
-          onClick={addDep}
-          disabled={!selected || busy}
-          className="px-3 py-1.5 rounded-md bg-accent text-fg-inverse text-sm font-medium hover:opacity-90 disabled:opacity-40"
-        >
-          {t("dependencies.addTitle")}
-        </button>
-      </div>
+      <DepAddForm
+        candidates={candidates}
+        selected={selected}
+        type={type}
+        lag={lag}
+        lagUnit={lagUnit}
+        busy={busy}
+        onSelect={setSelected}
+        onTypeChange={setType}
+        onLagChange={setLag}
+        onLagUnitChange={setLagUnit}
+        onSubmit={() => void addDep()}
+      />
     </div>
   );
 });
-
-function errorKey(code?: string): string {
-  switch (code) {
-    case "SELF":
-      return "selfError";
-    case "DUPLICATE":
-      return "duplicateError";
-    case "CROSS_PROJECT":
-      return "sameProjectError";
-    case "DEPENDENCY_CYCLE":
-      return "cycleError";
-    case "DEPENDENCY_BLOCKED":
-      return "blocked";
-    default:
-      return "duplicateError";
-  }
-}

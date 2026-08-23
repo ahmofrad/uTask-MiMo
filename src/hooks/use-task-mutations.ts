@@ -5,116 +5,42 @@ import { useRouter } from "next/navigation";
 import { apiFetch } from "@/lib/api-fetch";
 import { normalizeTaskDate } from "@/lib/date/task-date";
 import { computeDuration, addDurationToDate } from "@/lib/date/duration";
+import { encodeRecurrenceRule, type RecurrenceRule } from "@/lib/tasks/recurrence";
+import { useTaskComments } from "./use-task-comments";
+import { useTaskWatchers } from "./use-task-watchers";
+import { useTaskSubtasks } from "./use-task-subtasks";
+import { useTaskAttachments } from "./use-task-attachments";
 
 export { computeDuration, addDurationToDate } from "@/lib/date/duration";
-import { encodeRecurrenceRule, type RecurrenceRule } from "@/lib/tasks/recurrence";
-import type { ActivityEvent } from "@/lib/activity/types";
+export type {
+  TaskData,
+  CustomFieldDef,
+  CommentData,
+  WatcherData,
+  AttachmentData,
+  ProjectMember,
+  AutoScheduledChange,
+  ToastLike,
+  TranslateFn,
+  UseTaskMutationsOptions,
+  ActivityEventForTask,
+} from "./task-mutations/types";
+export type { RecurrenceRule } from "@/lib/tasks/recurrence";
 
-export type TaskData = {
-  id: string;
-  title: string;
-  description?: string | null;
-  status: "open" | "in_progress" | "pending_approval" | "done" | "cancelled";
-  priority: "low" | "med" | "high" | "urgent";
-  startDate: string | null;
-  endDate: string | null;
-  dueDate: string | null;
-  estimatedHours?: number | null;
-  spentHours?: number | null;
-  requiresApproval?: boolean;
-  approverId?: string | null;
-  approvalNote?: string | null;
-  recurrenceRule?: string | null;
-  recurrenceParentId?: string | null;
-  projectId: string;
-  projectName: string;
-  assignees: { id: string; displayName: string; avatarUrl?: string | null }[];
-  assigneeGroup: { id: string; name: string } | null;
-  reporter: { id: string; displayName: string } | null;
-  tags: { id: string; name: string }[];
-  subtasks: { id: string; title: string; status: string; priority: string; assignees: { id: string; displayName: string; avatarUrl?: string | null }[] }[];
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type CustomFieldDef = {
-  id: string;
-  key: string;
-  name: string;
-  type: "text" | "number" | "date" | "select" | "multi_select" | "user" | "checkbox" | "url";
-  required: boolean;
-  config: Record<string, unknown>;
-};
-
-export type CommentData = {
-  id: string;
-  body: string;
-  createdAt: string;
-  authorId?: string | undefined;
-  author: { displayName: string; avatarUrl?: string | null };
-  replies?: { id: string; body: string; createdAt: string; author: { displayName: string; avatarUrl?: string | null } }[];
-};
-
-export type WatcherData = {
-  id: string;
-  displayName: string;
-  avatarUrl?: string | null;
-  addedAt: string;
-};
-
-export type AttachmentData = {
-  id: string;
-  filename: string;
-  mimeType: string;
-  sizeBytes: number;
-  createdAt: string;
-};
-
-type AutoScheduledChange = {
-  id: string;
-  title: string;
-  startDate: string | null;
-  dueDate: string | null;
-};
-
-export type ProjectMember = {
-  id: string;
-  displayName: string;
-  avatarUrl?: string | null;
-};
-
-
-type ToastLike = {
-  message: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-};
-
-type TranslateFn = (_key: string, _values?: Record<string, string | number | Date>) => string;
-
-export type UseTaskMutationsOptions = {
-  initialTask: TaskData;
-  initialComments: CommentData[];
-  initialWatchers: WatcherData[];
-  initialAttachments: AttachmentData[];
-  initialSubtasks: TaskData["subtasks"];
-  initialCFValues: Record<string, unknown>;
-  initialTagIds: string[];
-  projectMembers: ProjectMember[];
-  currentUserId: string;
-  /** Refresh the task activity timeline after a mutation. */
-  onAuditRefresh: () => Promise<void>;
-  addToast: (_toast: ToastLike) => void;
-  t: TranslateFn;
-};
+import type {
+  TaskData,
+  UseTaskMutationsOptions,
+} from "./task-mutations/types";
 
 /**
  * Owns every task-detail mutation and the state it writes to. The page binds
  * controls to the returned handlers and renders the returned state; all fetch
  * + optimistic update + audit refresh + toast side effects concentrate here so
  * the mutation semantics are testable through one interface.
+ *
+ * The comments / watchers / subtasks / attachments state lives in focused
+ * sub-hooks (use-task-comments, use-task-watchers, use-task-subtasks,
+ * use-task-attachments); this hook composes them with the core task state.
  */
 export function useTaskMutations({
   initialTask,
@@ -134,10 +60,6 @@ export function useTaskMutations({
   const [task, setTask] = useState(initialTask);
   const [taskTagIds, setTaskTagIds] = useState<string[]>(initialTagIds);
   const [cfValues, setCfValues] = useState(initialCFValues);
-  const [comments, setComments] = useState(initialComments);
-  const [watchers, setWatchers] = useState(initialWatchers);
-  const [attachments, setAttachments] = useState(initialAttachments);
-  const [subtasks, setSubtasks] = useState(initialSubtasks);
   const [durationDays, setDurationDays] = useState(() => {
     if (!initialTask.startDate || !initialTask.endDate) return 0;
     const { days } = computeDuration(initialTask.startDate, initialTask.endDate);
@@ -150,7 +72,28 @@ export function useTaskMutations({
   });
   const [deleted, setDeleted] = useState(false);
 
-  const isWatching = watchers.some((w) => w.id === currentUserId);
+  const { comments, addComment, updateComment, deleteComment } = useTaskComments({
+    taskId: task.id,
+    initialComments,
+    t,
+  });
+
+  const { watchers, isWatching, toggleWatch, addWatcher, removeWatcher } = useTaskWatchers({
+    taskId: task.id,
+    initialWatchers,
+    currentUserId,
+    projectMembers,
+  });
+
+  const { subtasks, toggleSubtask, addSubtask, renameSubtask, deleteSubtask } = useTaskSubtasks({
+    taskId: task.id,
+    initialSubtasks,
+  });
+
+  const { attachments, uploadAttachment, deleteAttachment } = useTaskAttachments({
+    taskId: task.id,
+    initialAttachments,
+  });
 
   const updateTask = useCallback(async (updates: Record<string, unknown>) => {
     const normalizedUpdates = { ...updates };
@@ -171,7 +114,7 @@ export function useTaskMutations({
     void onAuditRefresh();
 
     // If the date change pushed dependent tasks forward, offer to undo it.
-    const autoScheduled = (body.data?.autoScheduled as AutoScheduledChange[] | undefined) ?? [];
+    const autoScheduled = (body.data?.autoScheduled as { id: string; title: string; startDate: string | null; dueDate: string | null }[] | undefined) ?? [];
     if (autoScheduled.length > 0) {
       addToast({
         message: t("task.autoScheduledToast", { count: autoScheduled.length }),
@@ -258,56 +201,6 @@ export function useTaskMutations({
     [addToast, onAuditRefresh, task.id, t],
   );
 
-  const addComment = useCallback(async (body: string) => {
-    const res = await apiFetch(`/api/v1/tasks/${task.id}/comments`, {
-      method: "POST",
-      body: JSON.stringify({ bodyMarkdown: body }),
-    });
-    if (!res.ok) throw new Error(t("task.commentFailed"));
-    const result = await res.json();
-    setComments((prev) => [
-      ...prev,
-      {
-        id: result.data.id,
-        body: result.data.bodyMarkdown,
-        createdAt: result.data.createdAt,
-        authorId: result.data.authorId,
-        author: { displayName: result.data.author.displayName, avatarUrl: result.data.author.avatarUrl },
-      },
-    ]);
-  }, [task.id, t]);
-
-  const updateComment = useCallback(async (id: string, body: string) => {
-    const res = await apiFetch(`/api/v1/comments/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ bodyMarkdown: body }),
-    });
-    if (res.ok) {
-      const result = await res.json();
-      setComments((prev) => prev.map((c) => c.id === id ? { ...c, body: result.data.bodyMarkdown } : c));
-    }
-  }, []);
-
-  const deleteComment = useCallback(async (id: string) => {
-    const res = await apiFetch(`/api/v1/comments/${id}`, { method: "DELETE" });
-    if (res.ok) setComments((prev) => prev.filter((c) => c.id !== id));
-  }, []);
-
-  const toggleWatch = useCallback(async () => {
-    if (isWatching) {
-      const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}`, { method: "DELETE" });
-      if (res.ok) setWatchers((prev) => prev.filter((w) => w.id !== currentUserId));
-    } else {
-      const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}`, { method: "POST" });
-      if (res.ok) {
-        setWatchers((prev) => [
-          ...prev,
-          { id: currentUserId, displayName: "", addedAt: new Date().toISOString() },
-        ]);
-      }
-    }
-  }, [currentUserId, isWatching, task.id]);
-
   const handleDelete = useCallback(async () => {
     const res = await apiFetch(`/api/v1/tasks/${task.id}`, { method: "DELETE" });
     if (res.ok) {
@@ -316,66 +209,12 @@ export function useTaskMutations({
     }
   }, [router, task.id]);
 
-  const handleSubtaskToggle = useCallback(async (id: string, status: string) => {
-    setSubtasks((prev) => prev.map((st) => st.id === id ? { ...st, status } : st));
-    await apiFetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    });
-  }, [task.id]);
-
-  const handleSubtaskAdd = useCallback(async (title: string) => {
-    const res = await apiFetch(`/api/v1/tasks/${task.id}/subtasks`, {
-      method: "POST",
-      body: JSON.stringify({ title }),
-    });
-    if (res.ok) {
-      const result = await res.json();
-      setSubtasks((prev) => [...prev, result.data]);
-    }
-  }, [task.id]);
-
-  const handleSubtaskRename = useCallback(async (id: string, title: string) => {
-    setSubtasks((prev) => prev.map((st) => st.id === id ? { ...st, title } : st));
-    await apiFetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ title }),
-    });
-  }, [task.id]);
-
-  const handleSubtaskDelete = useCallback(async (id: string) => {
-    setSubtasks((prev) => prev.filter((st) => st.id !== id));
-    await apiFetch(`/api/v1/tasks/${task.id}/subtasks/${id}`, { method: "DELETE" });
-  }, [task.id]);
-
   const handleTagsChange = useCallback(async (ids: string[]) => {
     setTaskTagIds(ids);
     await apiFetch(`/api/v1/tasks/${task.id}`, {
       method: "PATCH",
       body: JSON.stringify({ tagIds: ids }),
     });
-  }, [task.id]);
-
-  const handleAttachmentUpload = useCallback(async (file: File) => {
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await apiFetch(`/api/v1/tasks/${task.id}/attachments`, {
-      method: "POST",
-      body: formData,
-    });
-    if (res.ok) {
-      const result = await res.json();
-      setAttachments((prev) => [result.data, ...prev]);
-    }
-  }, [task.id]);
-
-  const handleAttachmentDelete = useCallback(async (attachmentId: string) => {
-    const res = await apiFetch(`/api/v1/tasks/${task.id}/attachments/${attachmentId}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      setAttachments((prev) => prev.filter((a) => a.id !== attachmentId));
-    }
   }, [task.id]);
 
   const handleAssigneeChange = useCallback((ids: string[]) => {
@@ -430,24 +269,6 @@ export function useTaskMutations({
       setCfValues(prev);
     }
   }, [cfValues, task.id]);
-
-  const handleAddWatcher = useCallback(async (userId: string) => {
-    const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}/add?userId=${userId}`, { method: "POST" });
-    if (res.ok) {
-      const member = projectMembers.find((m) => m.id === userId);
-      setWatchers((prev) => [
-        ...prev,
-        { id: userId, displayName: member?.displayName ?? "", avatarUrl: member?.avatarUrl ?? null, addedAt: new Date().toISOString() },
-      ]);
-    }
-  }, [projectMembers, task.id]);
-
-  const handleRemoveWatcher = useCallback(async (userId: string) => {
-    const res = await apiFetch(`/api/v1/watchers/tasks/${task.id}/remove?userId=${userId}`, { method: "DELETE" });
-    if (res.ok) {
-      setWatchers((prev) => prev.filter((x) => x.id !== userId));
-    }
-  }, [task.id]);
 
   const handleStartDateChange = useCallback((val: string | null) => {
     setTask((prev) => ({ ...prev, startDate: val }));
@@ -508,13 +329,13 @@ export function useTaskMutations({
     deleteComment,
     toggleWatch,
     handleDelete,
-    handleSubtaskToggle,
-    handleSubtaskAdd,
-    handleSubtaskRename,
-    handleSubtaskDelete,
+    handleSubtaskToggle: toggleSubtask,
+    handleSubtaskAdd: addSubtask,
+    handleSubtaskRename: renameSubtask,
+    handleSubtaskDelete: deleteSubtask,
     handleTagsChange,
-    handleAttachmentUpload,
-    handleAttachmentDelete,
+    handleAttachmentUpload: uploadAttachment,
+    handleAttachmentDelete: deleteAttachment,
     handleAssigneeChange,
     handleGroupChange,
     handleEstimatedChange,
@@ -524,12 +345,10 @@ export function useTaskMutations({
     handleApprove,
     handleReject,
     handleCustomFieldChange,
-    handleAddWatcher,
-    handleRemoveWatcher,
+    handleAddWatcher: addWatcher,
+    handleRemoveWatcher: removeWatcher,
     handleStartDateChange,
     handleEndDateChange,
     handleDurationChange,
   };
 }
-
-export type ActivityEventForTask = ActivityEvent;
