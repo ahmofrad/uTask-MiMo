@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { authenticatePublicApi, withPublicApiRateLimit } from "@/lib/public-api/middleware";
 import { canProject, canReadProject } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
@@ -14,7 +14,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
-  const { userId, error } = await authenticatePublicApi(request, "tasks:read");
+  const { userId, rateLimit, error } = await authenticatePublicApi(request, "tasks:read");
   if (error) return error;
 
   const task = await prisma.task.findUnique({
@@ -25,15 +25,27 @@ export async function GET(
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
+  const { searchParams } = new URL(request.url);
+  const cursor = searchParams.get("cursor");
+  const limit = Math.min(Math.max(Number(searchParams.get("limit")) || 50, 1), 200);
   const comments = await prisma.comment.findMany({
     where: { taskId: resolvedParams.id, deletedAt: null },
-    orderBy: { createdAt: "asc" },
+    take: limit + 1,
+    skip: cursor ? 1 : 0,
+    ...(cursor ? { cursor: { id: cursor } } : {}),
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
     include: {
       author: { select: { id: true, displayName: true } },
     },
   });
+  const hasMore = comments.length > limit;
+  if (hasMore) comments.pop();
+  const lastItem = comments[comments.length - 1];
 
-  return NextResponse.json({ data: comments });
+  return withPublicApiRateLimit(NextResponse.json({
+    data: comments,
+    meta: { nextCursor: hasMore && lastItem ? lastItem.id : null, hasMore },
+  }), rateLimit);
 }
 
 export async function POST(

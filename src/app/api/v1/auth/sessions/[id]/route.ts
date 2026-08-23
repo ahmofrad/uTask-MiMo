@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth/config";
 import { NextResponse } from "next/server";
 import { getSession, revokeSession } from "@/lib/auth/session-store";
+import { logAudit } from "@/lib/audit/log";
 
 export async function DELETE(
   _request: Request,
@@ -20,6 +21,12 @@ export async function DELETE(
   }
 
   await revokeSession(sessionId);
+  await logAudit({
+    actorUserId: session.user.id,
+    action: "session_revoked",
+    entityType: "session",
+    entityId: sessionId,
+  });
 
   return NextResponse.json({ data: { success: true } });
 }

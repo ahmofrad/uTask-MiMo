@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { authenticatePublicApi, withPublicApiRateLimit } from "@/lib/public-api/middleware";
 import { prisma } from "@/lib/db";
 import { createApiToken, invalidScopes, normalizeScopes, userCanGrantScope, PUBLIC_SCOPES } from "@/lib/api-token";
 import { logAudit } from "@/lib/audit/log";
 import { publicTokenCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
-  const { userId, error } = await authenticatePublicApi(request);
+  const { userId, rateLimit, error } = await authenticatePublicApi(request);
   if (error) return error;
 
   const tokens = await prisma.apiToken.findMany({
@@ -15,10 +15,10 @@ export async function GET(request: Request) {
       id: true, name: true, prefix: true, scopes: true,
       expiresAt: true, lastUsedAt: true, createdAt: true,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
   });
 
-  return NextResponse.json({ data: tokens });
+  return withPublicApiRateLimit(NextResponse.json({ data: tokens }), rateLimit);
 }
 
 export async function POST(request: Request) {

@@ -88,7 +88,7 @@ describe("listUsers", () => {
     expect(result.meta).toBeDefined();
     expect(prisma.user.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       }),
     );
   });

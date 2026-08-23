@@ -30,7 +30,7 @@ export async function search(params: {
         ],
       },
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: {
         id: true,
         title: true,
@@ -50,7 +50,7 @@ export async function search(params: {
         bodyMarkdown: { contains: q, mode: "insensitive" },
       },
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: {
         id: true,
         bodyMarkdown: true,
@@ -72,7 +72,7 @@ export async function search(params: {
         ],
       },
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       select: { id: true, name: true, color: true, createdAt: true },
     });
   }
@@ -81,6 +81,7 @@ export async function search(params: {
     results.customFieldValues = await prisma.customFieldValue.findMany({
       where: {
         ...commentScope,
+        task: { ...((commentScope as { task?: Record<string, unknown> }).task ?? {}), deletedAt: null },
         valueText: { contains: q, mode: "insensitive" },
       },
       take: limit,

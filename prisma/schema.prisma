@@ -314,6 +314,7 @@ model User {
   timesheetPeriods                      TimesheetPeriod[]              @relation("TimesheetPeriodOwner")
   timeEntries                           TimeEntry[]                    @relation("TimeEntryUser")
 
+  @@index([displayName, id], map: "User_displayName_id_idx")
   @@map("User")
 }
 
@@ -415,6 +416,7 @@ model Project {
   timeEntries            TimeEntry[]
 
   @@index([ownerId])
+  @@index([createdAt, id], map: "Project_createdAt_id_idx")
   @@index([departmentId])
   @@map("Project")
 }
@@ -506,6 +508,7 @@ model CustomField {
 
   @@unique([projectId, key])
   @@index([projectId, orderIndex])
+  @@index([projectId, orderIndex, id], map: "CustomField_projectId_orderIndex_id_idx")
   @@map("CustomField")
 }
 
@@ -581,6 +584,7 @@ model Task {
 
   @@index([projectId, status, dueDate])
   @@index([projectId, orderIndex])
+  @@index([createdAt, id], map: "Task_createdAt_id_idx")
   @@index([parentTaskId])
   @@index([reporterId])
   @@index([createdById])
@@ -692,7 +696,7 @@ model Comment {
   parentComment Comment?  @relation("CommentReply", fields: [parentCommentId], references: [id])
   replies       Comment[] @relation("CommentReply")
 
-  @@index([taskId, createdAt])
+  @@index([taskId, createdAt, id], map: "Comment_taskId_createdAt_id_idx")
   @@map("Comment")
 }
 
@@ -785,6 +789,7 @@ model Webhook {
   @@index([createdById])
   @@index([active, deletedAt])
   @@index([deletedAt])
+  @@index([createdAt, id], map: "Webhook_createdAt_id_idx")
   @@map("Webhook")
 }
 

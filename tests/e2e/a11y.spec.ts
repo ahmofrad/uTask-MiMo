@@ -39,6 +39,20 @@ test.describe("Accessibility", () => {
     expect(results.violations).toEqual([]);
   });
 
+  for (const { name, path } of [
+    { name: "admin departments", path: "/admin/departments" },
+    { name: "admin rate cards", path: "/admin/rate-cards" },
+    { name: "admin webhooks", path: "/admin/webhooks" },
+    { name: "admin webhook deliveries", path: "/admin/webhook-deliveries" },
+  ] as const) {
+    test(`@a11y rtl (fa-IR) ${name} has no auto-detected violations`, async ({ page }) => {
+      await page.goto(`/fa-IR${path}`);
+      await page.waitForLoadState("networkidle");
+      const results = await new AxeBuilder({ page }).analyze();
+      expect(results.violations).toEqual([]);
+    });
+  }
+
   // The newest project views live inside the project detail page, which the
   // AUTH_PAGES sweep above does not cover. Check the board (default tab), the
   // Gantt chart, and the WBS tree explicitly.

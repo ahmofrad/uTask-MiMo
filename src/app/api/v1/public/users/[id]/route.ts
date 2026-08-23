@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { authenticatePublicApi, withPublicApiRateLimit } from "@/lib/public-api/middleware";
 import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
-  const { userId, error } = await authenticatePublicApi(request, "users:read");
+  const { userId, rateLimit, error } = await authenticatePublicApi(request, "users:read");
   if (error) return error;
   if (!(await can(userId, "user:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
@@ -21,5 +21,5 @@ export async function GET(
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
-  return NextResponse.json({ data: user });
+  return withPublicApiRateLimit(NextResponse.json({ data: user }), rateLimit);
 }

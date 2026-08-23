@@ -138,7 +138,9 @@
     "workspace": "فضای کاری",
     "openMenu": "باز کردن منو",
     "expandSidebar": "باز کردن نوار کناری",
-    "collapseSidebar": "بستن نوار کناری"
+    "collapseSidebar": "بستن نوار کناری",
+    "primaryNavigation": "پیمایش اصلی",
+    "mobileNavigation": "پیمایش موبایل"
   },
   "workspace": {
     "title": "فضای کاری",

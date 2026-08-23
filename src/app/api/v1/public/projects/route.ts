@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { authenticatePublicApi, withPublicApiRateLimit } from "@/lib/public-api/middleware";
 import { canCreateProject } from "@/lib/rbac";
 import { getUserReadableProjectIds, listProjects } from "@/lib/projects/queries";
 import { createProject } from "@/lib/projects/mutations";
@@ -8,7 +8,7 @@ import { emitTaskEvent } from "@/lib/webhook/emit";
 import { publicProjectCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
-  const { userId, error } = await authenticatePublicApi(request, "projects:read");
+  const { userId, rateLimit, error } = await authenticatePublicApi(request, "projects:read");
   if (error) return error;
 
   const { searchParams } = new URL(request.url);
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     ...(readable ? { projectIds: readable } : {}),
   });
 
-  return NextResponse.json(projects);
+  return withPublicApiRateLimit(NextResponse.json(projects), rateLimit);
 }
 
 export async function POST(request: Request) {

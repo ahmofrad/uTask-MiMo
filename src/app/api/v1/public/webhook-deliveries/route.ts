@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { authenticatePublicApi, withPublicApiRateLimit } from "@/lib/public-api/middleware";
 import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(request: Request) {
-  const { userId, error } = await authenticatePublicApi(request, "webhooks:manage");
+  const { userId, rateLimit, error } = await authenticatePublicApi(request, "webhooks:manage");
   if (error) return error;
   if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
@@ -37,8 +37,8 @@ export async function GET(request: Request) {
   if (hasMore) deliveries.pop();
   const lastItem = deliveries[deliveries.length - 1];
 
-  return NextResponse.json({
+  return withPublicApiRateLimit(NextResponse.json({
     data: deliveries,
     meta: { nextCursor: hasMore && lastItem ? lastItem.id : null, hasMore },
-  });
+  }), rateLimit);
 }

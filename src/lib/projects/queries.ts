@@ -81,7 +81,7 @@ export async function listProjects(
     take,
     skip,
     ...(cursor ? { cursor } : {}),
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     include: {
       _count: { select: { tasks: true, members: true } },
     },

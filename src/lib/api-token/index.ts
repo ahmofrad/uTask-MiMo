@@ -36,10 +36,16 @@ export async function createApiToken(params: {
 }
 
 export async function revokeApiToken(tokenId: string, userId: string) {
-  return prisma.apiToken.update({
-    where: { id: tokenId, userId },
+  const result = await prisma.apiToken.updateMany({
+    where: { id: tokenId, userId, revokedAt: null },
     data: { revokedAt: new Date() },
   });
+  if (result.count !== 1) {
+    const error = new Error("API token not found") as Error & { code?: string };
+    error.code = "NOT_FOUND";
+    throw error;
+  }
+  return { success: true };
 }
 
 export async function lookupToken(rawToken: string) {

@@ -26,7 +26,7 @@ export function MobileNav({ isAdmin, canManageGroups }: MobileNavProps) {
         </svg>
       </button>
       <Sheet open={open} onClose={() => setOpen(false)} title="uTask" side="end">
-        <nav className="space-y-1">
+        <nav aria-label={t("mobileNavigation")} className="space-y-1">
           <Link href="/" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("home")}</Link>
           <Link href="/workspace" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("workspace")}</Link>
           <Link href="/projects" onClick={() => setOpen(false)} className="block px-3 py-2 text-sm rounded-md text-fg-secondary hover:bg-bg-primary">{t("projects")}</Link>

@@ -14,7 +14,7 @@ const intlMiddleware = createMiddleware({
   localeDetection: true,
 });
 
-const PUBLIC_PREFIXES = ["/api/", "/_next/", "/favicon.ico"];
+const PUBLIC_PREFIXES = ["/api/", "/metrics", "/_next/", "/favicon.ico"];
 const CSRF_COOKIE = "csrf_token";
 const CSRF_HEADER = "x-csrf-token";
 const STATE_METHODS = ["POST", "PATCH", "DELETE", "PUT"];

@@ -138,7 +138,9 @@
     "workspace": "Workspace",
     "openMenu": "Open menu",
     "expandSidebar": "Expand sidebar",
-    "collapseSidebar": "Collapse sidebar"
+    "collapseSidebar": "Collapse sidebar",
+    "primaryNavigation": "Primary navigation",
+    "mobileNavigation": "Mobile navigation"
   },
   "workspace": {
     "title": "Workspace",

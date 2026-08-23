@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { authenticatePublicApi, withPublicApiRateLimit } from "@/lib/public-api/middleware";
 import { can } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { randomHex } from "@/lib/crypto";
@@ -9,7 +9,7 @@ import { logAudit } from "@/lib/audit/log";
 import { publicWebhookCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
-  const { userId, error } = await authenticatePublicApi(request, "webhooks:manage");
+  const { userId, rateLimit, error } = await authenticatePublicApi(request, "webhooks:manage");
   if (error) return error;
   if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
     take: limit + 1,
     skip: cursor ? 1 : 0,
     ...(cursor ? { cursor: { id: cursor } } : {}),
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
       id: true,
       name: true,
@@ -38,10 +38,10 @@ export async function GET(request: Request) {
   if (hasMore) webhooks.pop();
   const lastItem = webhooks[webhooks.length - 1];
 
-  return NextResponse.json({
+  return withPublicApiRateLimit(NextResponse.json({
     data: webhooks,
     meta: { nextCursor: hasMore && lastItem ? lastItem.id : null, hasMore },
-  });
+  }), rateLimit);
 }
 
 export async function POST(request: Request) {

@@ -8,6 +8,7 @@ import { startDueSoonScheduler, stopDueSoonScheduler } from "@/lib/notifications
 import { startDigestScheduler, stopDigestScheduler } from "@/lib/notifications/digest-scheduler";
 import { startReportRefreshScheduler, stopReportRefreshScheduler } from "@/lib/reports/scheduler";
 import { startWebhookRetryScheduler, stopWebhookRetryScheduler } from "@/lib/webhook/retry-scheduler";
+import { startWebhookRetentionScheduler, stopWebhookRetentionScheduler } from "@/lib/webhook/retention-scheduler";
 import { startAuditCompactionScheduler, stopAuditCompactionScheduler } from "@/lib/audit/compaction-scheduler";
 import { logger } from "@/lib/logging";
 import { unlinkSync, writeFileSync } from "node:fs";
@@ -37,6 +38,7 @@ async function start() {
     startDigestScheduler();
     startReportRefreshScheduler();
     startWebhookRetryScheduler();
+    startWebhookRetentionScheduler();
     startAuditCompactionScheduler();
     markReady();
     logger.info("Workers started");
@@ -55,6 +57,7 @@ async function shutdown(signal: string) {
   stopDigestScheduler();
   stopReportRefreshScheduler();
   stopWebhookRetryScheduler();
+  stopWebhookRetentionScheduler();
   stopAuditCompactionScheduler();
   const { workers, queues } = getWorkers();
   const timeout = setTimeout(() => {

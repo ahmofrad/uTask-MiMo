@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { authenticatePublicApi, withPublicApiRateLimit } from "@/lib/public-api/middleware";
 import { prisma } from "@/lib/db";
 
 export async function GET(request: Request) {
-  const { userId, error } = await authenticatePublicApi(request);
+  const { userId, rateLimit, error } = await authenticatePublicApi(request);
   if (error) return error;
 
   const user = await prisma.user.findUnique({
@@ -22,5 +22,5 @@ export async function GET(request: Request) {
     },
   });
 
-  return NextResponse.json({ data: user });
+  return withPublicApiRateLimit(NextResponse.json({ data: user }), rateLimit);
 }

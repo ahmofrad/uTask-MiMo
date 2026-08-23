@@ -3,10 +3,31 @@ import { lookupToken, tokenHasScope } from "@/lib/api-token";
 import { checkRateLimitIp, checkRateLimitToken, checkRateLimitUser } from "@/lib/rate-limit";
 
 
+export type PublicApiRateLimit = {
+  limit: number;
+  remaining: number;
+  reset: number;
+};
+
+export type PublicApiAuthResult = {
+  userId: string;
+  rateLimit?: PublicApiRateLimit;
+  error?: NextResponse;
+};
+
+export function withPublicApiRateLimit(response: NextResponse, rateLimit?: PublicApiRateLimit): NextResponse {
+  if (rateLimit) {
+    for (const [key, value] of Object.entries(rateLimitHeaders(rateLimit.limit, rateLimit.remaining, rateLimit.reset))) {
+      response.headers.set(key, value);
+    }
+  }
+  return response;
+}
+
 export async function authenticatePublicApi(
   request: Request,
   requiredScope?: string,
-): Promise<{ userId: string; error?: NextResponse }> {
+): Promise<PublicApiAuthResult> {
   const authHeader = request.headers.get("authorization");
   if (!authHeader?.startsWith("Bearer ")) {
     return {
@@ -63,7 +84,14 @@ export async function authenticatePublicApi(
     };
   }
 
-  return { userId: token.userId };
+  return {
+    userId: token.userId,
+    rateLimit: {
+      limit: tokenResult.limit,
+      remaining: Math.min(ipResult.remaining, userResult.remaining, tokenResult.remaining),
+      reset: Math.ceil((Math.max(ipResult.resetAt, userResult.resetAt, tokenResult.resetAt) - Date.now()) / 1000),
+    },
+  };
 }
 
 export function rateLimitHeaders(

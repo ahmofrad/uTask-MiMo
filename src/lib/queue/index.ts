@@ -144,6 +144,23 @@ export function getWorkers() {
   return { workers: _workers, queues: [_webhookQueue, _emailQueue].filter(Boolean) as Queue[] };
 }
 
+export async function getQueueHealth() {
+  const queues = [
+    { name: "webhook-delivery", queue: await getWebhookQueue() },
+    { name: "email", queue: await getEmailQueue() },
+    { name: "recurrence-sweep", queue: await getRecurrenceQueue() },
+  ];
+  const details = await Promise.all(queues.map(async ({ name, queue }) => ({
+    name,
+    ...(await queue.getJobCounts("waiting", "active", "completed", "failed", "delayed")),
+  })));
+  return {
+    workersStarted,
+    workers: _workers.length,
+    queues: details,
+  };
+}
+
 export async function startWorkers(): Promise<void> {
   if (workersStarted) return;
   workersStarted = true;

@@ -54,7 +54,7 @@ export async function listUsers(params: {
     take,
     skip,
     ...(cursor ? { cursor } : {}),
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: USER_SELECT,
   });
 

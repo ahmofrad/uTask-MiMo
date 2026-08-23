@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { authenticatePublicApi, withPublicApiRateLimit } from "@/lib/public-api/middleware";
 import { canProject } from "@/lib/rbac";
 import { sha256 } from "@/lib/crypto";
 import { getUserReadableProjectIds } from "@/lib/projects/queries";
@@ -14,7 +14,7 @@ import { acquirePending, checkIdempotency, releasePending, setIdempotencyResult 
 import { publicTaskCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
-  const { userId, error } = await authenticatePublicApi(request, "tasks:read");
+  const { userId, rateLimit, error } = await authenticatePublicApi(request, "tasks:read");
   if (error) return error;
 
   const { searchParams } = new URL(request.url);
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
     take: limit + 1,
     skip: cursor ? 1 : 0,
     ...(cursor ? { cursor: { id: cursor } } : {}),
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: {
       id: true, title: true, description: true, status: true, priority: true,
       dueDate: true, projectId: true, reporterId: true,
@@ -55,16 +55,15 @@ export async function GET(request: Request) {
     },
   });
 
-  const data = tasks.map((t) => ({ ...toPlainTaskRow(t), assignees: mapAssignees(t.assignees) }));
-
   const hasMore = tasks.length > limit;
   if (hasMore) tasks.pop();
   const lastItem = tasks[tasks.length - 1];
+  const data = tasks.map((t) => ({ ...toPlainTaskRow(t), assignees: mapAssignees(t.assignees) }));
 
-  return NextResponse.json({
+  return withPublicApiRateLimit(NextResponse.json({
     data,
     meta: { nextCursor: hasMore && lastItem ? lastItem.id : null, hasMore },
-  });
+  }), rateLimit);
 }
 
 export async function POST(request: Request) {

@@ -11,7 +11,14 @@ export async function DELETE(
   const { userId, error } = await authenticatePublicApi(request);
   if (error) return error;
 
-  await revokeApiToken(resolvedParams.id, userId);
+  try {
+    await revokeApiToken(resolvedParams.id, userId);
+  } catch (error) {
+    if ((error as { code?: string }).code === "NOT_FOUND") {
+      return NextResponse.json({ error: { code: "NOT_FOUND", message: "Token not found" } }, { status: 404 });
+    }
+    throw error;
+  }
 
   await logAudit({
     actorUserId: userId,

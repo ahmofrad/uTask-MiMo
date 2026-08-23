@@ -66,6 +66,8 @@ function isValidDate(value: string): boolean {
   );
 }
 
+export const MAX_CSV_ROWS = 10_000;
+
 export type CsvImportResult = {
   holidays: HolidayEntry[];
   errors: string[];
@@ -77,6 +79,12 @@ export type CsvImportResult = {
  */
 export function parseHolidayCsv(text: string): CsvImportResult {
   const rows = parseCsv(text).filter((row) => row.some((cell) => cell.trim() !== ""));
+  if (rows.length > MAX_CSV_ROWS + 1) {
+    return {
+      holidays: [],
+      errors: [`CSV contains ${rows.length} rows; the maximum is ${MAX_CSV_ROWS}`],
+    };
+  }
   if (rows.length === 0) {
     return { holidays: [], errors: ["CSV is empty"] };
   }

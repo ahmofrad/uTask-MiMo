@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockAuth, mockListUserSessions, mockGetSession, mockRevokeSession } = vi.hoisted(() => ({
+const { mockAuth, mockListUserSessions, mockGetSession, mockRevokeSession, mockLogAudit } = vi.hoisted(() => ({
   mockAuth: vi.fn(),
   mockListUserSessions: vi.fn(),
   mockGetSession: vi.fn(),
   mockRevokeSession: vi.fn(),
+  mockLogAudit: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/config", () => ({ auth: mockAuth }));
@@ -13,6 +14,7 @@ vi.mock("@/lib/auth/session-store", () => ({
   getSession: mockGetSession,
   revokeSession: mockRevokeSession,
 }));
+vi.mock("@/lib/audit/log", () => ({ logAudit: mockLogAudit }));
 
 import { GET } from "@/app/api/v1/auth/sessions/route";
 import { DELETE } from "@/app/api/v1/auth/sessions/[id]/route";
@@ -97,6 +99,7 @@ describe("DELETE /api/v1/auth/sessions/:id", () => {
     const res = await del("session-1");
     expect(res.status).toBe(200);
     expect(mockRevokeSession).toHaveBeenCalledWith("session-1");
+    expect(mockLogAudit).toHaveBeenCalledWith(expect.objectContaining({ action: "session_revoked", entityId: "session-1" }));
     const json = await res.json();
     expect(json.data).toEqual({ success: true });
   });

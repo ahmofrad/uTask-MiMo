@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { authenticatePublicApi, withPublicApiRateLimit } from "@/lib/public-api/middleware";
 import { canReadProject } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
-  const { userId, error } = await authenticatePublicApi(request, "projects:read");
+  const { userId, rateLimit, error } = await authenticatePublicApi(request, "projects:read");
   if (error) return error;
 
   if (!(await canReadProject(userId, resolvedParams.id))) {
@@ -28,5 +28,5 @@ export async function GET(
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
-  return NextResponse.json({ data: project });
+  return withPublicApiRateLimit(NextResponse.json({ data: project }), rateLimit);
 }

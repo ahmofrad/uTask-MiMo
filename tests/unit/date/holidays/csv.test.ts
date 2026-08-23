@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseHolidayCsv, parseCsv } from "@/lib/date/holidays/csv";
+import { MAX_CSV_ROWS, parseHolidayCsv, parseCsv } from "@/lib/date/holidays/csv";
 
 describe("holiday CSV parser", () => {
   it("parses simple date,name rows", () => {
@@ -30,6 +30,12 @@ describe("holiday CSV parser", () => {
     expect(result.holidays).toHaveLength(1);
     expect(result.errors).toHaveLength(2);
     expect(result.errors[0]).toContain("invalid date");
+  });
+
+  it("rejects oversized input before importing any rows", () => {
+    const result = parseHolidayCsv(Array.from({ length: MAX_CSV_ROWS + 2 }, (_, i) => `2026-01-01,Holiday ${i}`).join("\n"));
+    expect(result.holidays).toEqual([]);
+    expect(result.errors[0]).toContain("maximum");
   });
 
   it("rejects empty input", () => {

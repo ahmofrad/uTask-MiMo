@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticatePublicApi } from "@/lib/public-api/middleware";
+import { authenticatePublicApi, withPublicApiRateLimit } from "@/lib/public-api/middleware";
 import { canEditTask, canReadTask } from "@/lib/rbac";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
@@ -22,7 +22,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
-  const { userId, error } = await authenticatePublicApi(request, "tasks:read");
+  const { userId, rateLimit, error } = await authenticatePublicApi(request, "tasks:read");
   if (error) return error;
 
   const access = await checkProjectAccess(userId, resolvedParams.id, "read");
@@ -42,7 +42,7 @@ export async function GET(
     return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
   }
 
-  return NextResponse.json({ data: { ...toPlainTaskRow(task), assignees: mapAssignees(task.assignees) } });
+  return withPublicApiRateLimit(NextResponse.json({ data: { ...toPlainTaskRow(task), assignees: mapAssignees(task.assignees) } }), rateLimit);
 }
 
 export async function PATCH(
