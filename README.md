@@ -20,6 +20,8 @@ A multi-user, multi-project task management platform designed for companies that
 - **Bilingual UI** — Persian (default, RTL, Jalali calendar) and English.
 - **Per-user theming** — accent color customization, light/dark mode.
 - **RBAC** — Owner, Admin, Manager, Member, Guest roles with project-scoped permissions.
+- **Two-factor authentication (TOTP)** — per-user enrollment with QR code, encrypted secret at rest, single-use recovery codes, and a second login step for local accounts. Password brute-force lockout with configurable attempts/window.
+- **Per-user datetime preferences** — IANA timezone, 12/24-hour format, and an optional dual Jalali/Gregorian display.
 - **Audit logging** — every action captured, queryable by admin.
 - **Notifications** — in-app notifications (assigned, mentioned, commented, status changed, due soon). Email + daily digest is V1.1 backlog.
 - **Installable PWA** — add to the home screen; the app shell works offline while live data stays network-only. Web app manifest + maskable icons; service worker via Serwist.
@@ -261,7 +263,7 @@ See the [Webhook Integration Guide](./docs/webhook-integration.md) for signature
 
 Three modes, configurable per organization:
 
-1. **Local** — email + password, magic-link recovery.
+1. **Local** — email + password, magic-link recovery, optional per-user TOTP 2FA (enrolled from Settings → Security), and automatic lockout after `AUTH_MAX_FAILED_ATTEMPTS` (default 5) failed attempts for `AUTH_LOCKOUT_MINUTES` (default 15).
 2. **LDAP / Active Directory** — UPN-based bind (full UPN or `sAMAccountName`); selected groups provision users and soft-de-provision them (`ldapGroupRemoved`) on a schedule. Configured via the admin SSO page.
 3. **SAML 2.0 SSO** — integrate with Azure AD, Okta, AD FS, Keycloak, or any SAML IdP.
 

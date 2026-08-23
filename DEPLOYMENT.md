@@ -562,7 +562,8 @@ The platform uses the following secret material that must be protected by the cu
 
 - `DB_PASSWORD` — Postgres user password.
 - `AUTH_SECRET` — JWT signing secret (32+ bytes, random).
-- `WEBHOOK_SECRET_ENCRYPTION_KEY` — AES-256-GCM key for encrypting webhook signing secrets at rest (32 bytes, random). It also encrypts the Calendarific egress API key saved in the holiday-download settings. **If this key is lost, all registered webhook secrets become unrecoverable.** Rotating this key requires re-issuing every webhook; a changed key also silently breaks holiday downloads (the settings page warns and asks you to re-enter the API key).
+- `WEBHOOK_SECRET_ENCRYPTION_KEY` — AES-256-GCM key for encrypting webhook signing secrets at rest (32 bytes, random). It also encrypts the Calendarific egress API key saved in the holiday-download settings **and per-user TOTP 2FA secrets**. **If this key is lost, all registered webhook secrets and all enrolled 2FA secrets become unrecoverable** — users must re-enroll 2FA and webhooks must be re-issued. Rotating this key requires re-issuing every webhook and re-enrolling every 2FA user; a changed key also silently breaks holiday downloads (the settings page warns and asks you to re-enter the API key).
+- `AUTH_MAX_FAILED_ATTEMPTS` (default `5`) and `AUTH_LOCKOUT_MINUTES` (default `15`) — consecutive failed local-login attempts before an account is temporarily locked, and the lockout window. Lockout is enforced in Redis and keyed by a hash of the email (the raw address never appears in Redis). Failed-password events that trip the lockout are written to the audit log as `login_failed`.
 - `LDAP_BIND_PASSWORD`, `SAML_IDP_CERTIFICATE`, `SMTP_PASSWORD` — sensitive credentials.
 - `MINIO_ROOT_PASSWORD`, `REDIS_PASSWORD` (if used).
 
@@ -662,6 +663,14 @@ groups:
         annotations:
           summary: "Backup has not succeeded in 2 days"
 ```
+
+---
+
+### 7.6 Operational endpoints
+
+- `GET /api/v1/health` — liveness probe (always 200 when the process is up).
+- `GET /api/v1/health?ready=1` — readiness probe; checks `SELECT 1` against Postgres and `redis.ping()`, returns 503 with problem details if either dependency is unreachable. Used by the load balancer and by `scripts/smoke.sh`.
+- `GET /admin/health` — authenticated admin dashboard showing DB/Redis latency, pending migrations, and worker liveness.
 
 ---
 
