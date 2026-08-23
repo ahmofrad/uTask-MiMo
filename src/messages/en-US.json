@@ -119,8 +119,15 @@
       "errors": {
         "invalidCredentials": "Invalid email or password.",
         "ssoUnavailable": "SSO service unavailable.",
-        "rateLimited": "Too many login attempts. Try again later."
-      }
+        "rateLimited": "Too many login attempts. Try again later.",
+        "invalidCode": "Invalid or expired code. Try again."
+      },
+      "twoFactorTitle": "Two-factor authentication",
+      "twoFactorHint": "Enter the 6-digit code from your authenticator app, or a recovery code.",
+      "otpPlaceholder": "123456",
+      "otpSubmit": "Verify",
+      "verifying": "Verifying...",
+      "backToPassword": "Back to password"
     },
     "logout": "Sign out"
   },
@@ -401,7 +408,31 @@
     "hmac": "HMAC-SHA-256",
     "secret": "Secret",
     "secretMasked": "whsec_••••••••",
-    "workingDays": "Working days"
+    "workingDays": "Working days",
+    "memberThroughput": "Member output (last 30 days)",
+    "memberThroughputHint": "Tasks completed, on-time completion rate, and current open workload per member.",
+    "noMemberActivity": "No task activity yet.",
+    "completed30": "Completed (30d)",
+    "onTimeRate": "On-time rate",
+    "workload": "Current workload",
+    "healthPage": {
+      "title": "Health",
+      "subtitle": "Runtime status of the database, Redis, migrations, and the background worker.",
+      "db": "Database",
+      "redis": "Redis",
+      "migrations": "Migrations",
+      "migrationsDetail": "{applied} applied, {pending} pending",
+      "worker": "Background worker",
+      "workerRunning": "Ready (marker file present)",
+      "workerNotRunning": "Not running (no marker file)",
+      "ok": "OK",
+      "down": "DOWN",
+      "runtime": "Runtime",
+      "nodeVersion": "Node.js version",
+      "uptimeSeconds": "Uptime (s)",
+      "environment": "Environment"
+    },
+    "health": "Health"
   },
   "task": {
     "title": "Tasks",
@@ -871,7 +902,43 @@
     "expired": "Expired",
     "event": "Event",
     "inApp": "In-app",
-    "email": "Email"
+    "email": "Email",
+    "datetime": {
+      "timeZoneLabel": "Time zone",
+      "timeZoneHint": "Times and deadlines are shown in this zone. Stored values stay in UTC.",
+      "timeFormatLabel": "Time format",
+      "format24": "24-hour (e.g. 17:30)",
+      "format12": "12-hour (e.g. 5:30 PM)",
+      "dualCalendarLabel": "Show both calendars",
+      "dualCalendarHint": "Display Jalali and Gregorian dates side by side.",
+      "saved": "Preferences saved.",
+      "saveFailed": "Could not save preferences."
+    },
+    "security": {
+      "title": "Security",
+      "enabled": "Two-factor authentication is enabled",
+      "enabledHint": "Sign-in requires a code from your authenticator app in addition to your password.",
+      "disable": "Disable two-factor authentication",
+      "disableConfirm": "Disable two-factor authentication? Your TOTP secret and recovery codes will be removed.",
+      "disabled": "Two-factor authentication disabled.",
+      "disableFailed": "Could not disable two-factor authentication.",
+      "disabledHint": "Add a second verification step to your account. Use an authenticator app such as Google Authenticator, Authy, or Bitwarden.",
+      "enable": "Enable two-factor authentication",
+      "enableFailed": "Could not start enrollment.",
+      "enrollHint": "Scan the QR code or add the secret manually to your authenticator app, then enter the 6-digit code it generates.",
+      "secretLabel": "Manual setup key",
+      "secretHint": "Or open the link below in an authenticator app.",
+      "tokenLabel": "Verification code",
+      "verify": "Verify and enable",
+      "verifyFailed": "That code was not accepted. Check the time on your device.",
+      "cancel": "Cancel",
+      "codesTitle": "Recovery codes",
+      "codesHint": "Store these in a safe place. Each code works exactly once if you ever lose access to your authenticator.",
+      "copyCodes": "Copy codes",
+      "copied": "Copied!",
+      "done": "Done",
+      "qrAlt": "QR code for enrollment"
+    }
   },
   "search": {
     "placeholder": "Search tasks, projects, comments...",

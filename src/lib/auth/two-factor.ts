@@ -67,6 +67,17 @@ function computeTotp(key: Buffer, counter: number): string {
   return hotp(key, counter, 6);
 }
 
+/**
+ * Generate the TOTP code valid for `now` (RFC 6238, 30 s window).
+ * Exported for e2e tests and automations that must produce a code for a
+ * known secret (e.g. enrollment verification in Playwright).
+ */
+export function generateTotpToken(secret: string, now: number = Date.now()): string {
+  const key = base32Decode(secret);
+  const currentWindow = Math.floor(now / 30000);
+  return computeTotp(key, currentWindow);
+}
+
 /** RFC 4226 HMAC-based OTP. */
 function hotp(key: Buffer, counter: number, digits: number): string {
   const buffer = Buffer.alloc(8);

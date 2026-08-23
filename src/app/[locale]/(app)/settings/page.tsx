@@ -1,9 +1,12 @@
 import { auth } from "@/lib/auth/config";
+import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { ProfileSettings } from "@/components/settings/profile-settings";
 import { AppearanceSettings } from "@/components/settings/appearance-settings";
 import { LanguageSettings } from "@/components/settings/language-settings";
+import { DatetimeSettings } from "@/components/settings/datetime-settings";
+import { SecuritySettings } from "@/components/settings/security-settings";
 import { TokensSettings } from "@/components/settings/tokens-settings";
 import { SessionsSettings } from "@/components/settings/sessions-settings";
 
@@ -19,6 +22,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default async function SettingsPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  const me = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      timeZone: true,
+      timeFormat: true,
+      dualCalendar: true,
+      totpEnabled: true,
+      accentColor: true,
+    },
+  });
 
   const t = await getTranslations("settings");
 
@@ -50,7 +64,19 @@ export default async function SettingsPage() {
         <Section title={t("language")}>
           <LanguageSettings userId={session.user.id} />
         </Section>
+
+        <Section title={t("datetime")}>
+          <DatetimeSettings
+            timeZone={me?.timeZone ?? null}
+            timeFormat={(me?.timeFormat as "H12" | "H24") ?? "H24"}
+            dualCalendar={me?.dualCalendar ?? false}
+          />
+        </Section>
       </div>
+
+      <Section title={t("security")}>
+        <SecuritySettings totpEnabled={me?.totpEnabled ?? false} />
+      </Section>
 
       <Section title={t("notifications")}>
         <div className="overflow-hidden rounded-lg border border-border-primary">

@@ -6,6 +6,9 @@ import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 import { verifySsoToken } from "@/lib/auth/sso-token";
 import { createSession, getSession, revokeSession, revokeAllUserSessions } from "@/lib/auth/session-store";
+import { decrypt } from "@/lib/crypto/encrypt";
+import { verifyTotp, verifyRecoveryCode } from "@/lib/auth/two-factor";
+import { isLockedOut, recordFailedLogin, clearLockout, auditLockout } from "@/lib/auth/lockout";
 import type { Session } from "next-auth";
 
 const { handlers: nextAuthHandlers, auth: nextAuth, signIn: nextAuthSignIn, signOut: nextAuthSignOut } = NextAuth({
@@ -15,7 +18,7 @@ const { handlers: nextAuthHandlers, auth: nextAuth, signIn: nextAuthSignIn, sign
   providers: [
     Credentials({
       name: "credentials",
-      credentials: { email: {}, password: {}, ssoToken: {} },
+      credentials: { email: {}, password: {}, ssoToken: {}, totpCode: {} },
       authorize: async (credentials) => {
         const ssoToken = credentials?.ssoToken ? String(credentials.ssoToken) : undefined;
         if (ssoToken) {
@@ -48,13 +51,44 @@ const { handlers: nextAuthHandlers, auth: nextAuth, signIn: nextAuthSignIn, sign
         const password = String(credentials.password ?? "");
         if (!password || !user.passwordHash) return null;
 
+        // G16e: fail-fast when the account is in a temporary lockout window.
+        // Downstream (2FA) steps are skipped too so a stuck authenticator
+        // cannot be used to probe the password.
+        if (await isLockedOut(email)) return null;
+
         const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
+        if (!valid) {
+          // Successful brute-force guard: count the failure, lock the account
+          // after AUTH_MAX_FAILED_ATTEMPTS, and record a security-audit row.
+          const locked = await recordFailedLogin(email);
+          if (locked) await auditLockout(email);
+          return null;
+        }
+
+        await clearLockout(email);
 
         await prisma.user.update({
           where: { id: user.id },
           data: { lastLoginAt: new Date() },
         });
+
+        // Two-factor challenge: a local user with TOTP enabled must present a
+        // valid code (or recovery code) before a session is issued. The first
+        // step (password only) returns a marker user; the login form then
+        // posts the code through the same credentials provider.
+        if (user.totpEnabled && user.totpSecret) {
+          const totpCode = credentials.totpCode ? String(credentials.totpCode) : undefined;
+          if (!totpCode) {
+            return { id: user.id, email: user.email, name: user.displayName, image: user.avatarUrl, twoFactorPending: true };
+          }
+
+          const secret = decrypt(JSON.parse(user.totpSecret));
+          let codeOk = verifyTotp(secret, totpCode);
+          if (!codeOk) {
+            codeOk = await verifyRecoveryCode(user.id, totpCode);
+          }
+          if (!codeOk) return null;
+        }
 
         const role = await getGlobalRole(user.id);
         const sessionId = await createSession(user.id, user.email, role);
@@ -66,11 +100,25 @@ const { handlers: nextAuthHandlers, auth: nextAuth, signIn: nextAuthSignIn, sign
   callbacks: {
     jwt: async ({ token, user }) => {
       if (user) {
-        token.sessionId = (user as { sessionId: string }).sessionId;
+        const u = user as { sessionId?: string; twoFactorPending?: boolean };
+        if (u.twoFactorPending) {
+          // Pending 2FA session: no session store entry yet, bounded lifetime.
+          token.twoFactorPending = true;
+          token.sessionId = undefined;
+          return token;
+        }
+        token.sessionId = u.sessionId;
       }
       return token;
     },
     session: async ({ session, token }) => {
+      const pending = token.twoFactorPending;
+      if (pending) {
+        session.user.id = String(token.sub ?? "");
+        (session as unknown as { pendingTwoFactor: boolean }).pendingTwoFactor = true;
+        return session;
+      }
+
       const sessionId = token.sessionId as string | undefined;
       if (!sessionId) return session;
 
@@ -126,3 +174,10 @@ export async function revokeUserSessions(userId: string): Promise<void> {
 export const handlers = nextAuthHandlers;
 export const signIn = nextAuthSignIn;
 export const signOut = nextAuthSignOut;
+
+/**
+ * Raw NextAuth session resolver (does NOT validate the app session store).
+ * Used only by the 2FA pending-check endpoint to detect a password-verified
+ * but not-yet-2FA'd session.
+ */
+export const authRaw = nextAuth;
