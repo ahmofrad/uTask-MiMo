@@ -51,9 +51,9 @@ export async function handleTransition(
     result = await transitionPeriod(periodId, transition);
   } catch (error) {
     const code = (error as { code?: string }).code;
-    if (code === "INVALID_TRANSITION") {
+    if (code === "INVALID_TRANSITION" || code === "CONCURRENT_TRANSITION") {
       return NextResponse.json(
-        { error: { code: "INVALID_TRANSITION", message: (error as Error).message } },
+        { error: { code, message: (error as Error).message } },
         { status: 409 },
       );
     }

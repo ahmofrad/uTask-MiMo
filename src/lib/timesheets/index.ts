@@ -137,7 +137,15 @@ export async function transitionPeriod(
     throw err;
   }
 
-  await prisma.timesheetPeriod.update({ where: { id }, data: { status: next } });
+  const updated = await prisma.timesheetPeriod.updateMany({
+    where: { id, status: period.status },
+    data: { status: next },
+  });
+  if (updated.count !== 1) {
+    const err = new Error("Timesheet period changed before this transition completed") as Error & { code?: string };
+    err.code = "CONCURRENT_TRANSITION";
+    throw err;
+  }
 
   return { before: period.status, after: next };
 }

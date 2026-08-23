@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/config";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
+import { canReadProject } from "@/lib/rbac";
 
 export default async function ProjectDashboardPage(props: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await props.params;
@@ -9,6 +10,7 @@ export default async function ProjectDashboardPage(props: { params: Promise<{ pr
   if (!session?.user?.id) redirect("/login");
 
   const t = await getTranslations();
+  if (!(await canReadProject(session.user.id, projectId))) notFound();
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) notFound();

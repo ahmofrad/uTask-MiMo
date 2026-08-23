@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth/config";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { CustomFieldsManager } from "@/components/custom-field/custom-fields-manager";
+import { canReadProject } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +10,8 @@ export default async function CustomFieldsPage(props: { params: Promise<{ projec
   const { projectId } = await props.params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  if (!(await canReadProject(session.user.id, projectId))) notFound();
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) notFound();

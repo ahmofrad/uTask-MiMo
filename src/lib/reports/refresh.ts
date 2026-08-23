@@ -28,11 +28,13 @@ const NON_CONCURRENT_VIEWS = new Set(["mv_org_stats"]);
 const UNDEFINED_RELATION = "42P01";
 
 /** Views known to be missing this run, so we stop retrying them. */
-const missingViews = new Set<string>();
+const MISSING_VIEW_RETRY_MS = 10 * 60_000;
+const missingViews = new Map<string, number>();
 
 export async function refreshMaterializedViews(concurrently = false): Promise<void> {
   for (const view of MATERIALIZED_VIEWS) {
-    if (missingViews.has(view)) continue;
+    const missingAt = missingViews.get(view);
+    if (missingAt !== undefined && Date.now() - missingAt < MISSING_VIEW_RETRY_MS) continue;
     try {
       const useConcurrent = concurrently && !NON_CONCURRENT_VIEWS.has(view);
       const sql = useConcurrent
@@ -48,7 +50,7 @@ export async function refreshMaterializedViews(concurrently = false): Promise<vo
         // The view doesn't exist in the DB — a migration is marked applied
         // without having created it. Warn once and skip to avoid error-spam
         // every refresh tick.
-        missingViews.add(view);
+        missingViews.set(view, Date.now());
         logger.warn(
           { view, migration: "20260714093154_materialized_views" },
           "Materialized view missing from DB; skipping refresh. Run prisma migrate deploy or re-create via the corrective migration.",

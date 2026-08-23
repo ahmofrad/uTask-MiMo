@@ -196,7 +196,7 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
 export type UpcomingTask = Awaited<ReturnType<typeof getUpcomingTasks>>[number];
 
 export async function getUpcomingTasks(userId: string, limit = 6) {
-  return prisma.task.findMany({
+  const tasks = await prisma.task.findMany({
     where: {
       deletedAt: null,
       assignees: { some: { userId } },
@@ -211,4 +211,6 @@ export async function getUpcomingTasks(userId: string, limit = 6) {
       project: { select: { id: true, name: true } },
     },
   });
+
+  return tasks.map(toPlainTaskRow);
 }

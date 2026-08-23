@@ -120,12 +120,17 @@ export async function listDepartmentMembers(departmentId: string): Promise<Depar
   }));
 }
 
-export async function addDepartmentMember(departmentId: string, userId: string) {
+export async function addDepartmentMember(departmentId: string, userId: string): Promise<{ created: boolean }> {
+  const existing = await prisma.departmentMembership.findUnique({
+    where: { userId_departmentId: { userId, departmentId } },
+    select: { userId: true },
+  });
   await prisma.departmentMembership.upsert({
     where: { userId_departmentId: { userId, departmentId } },
     create: { userId, departmentId },
     update: {},
   });
+  return { created: !existing };
 }
 
 export async function removeDepartmentMember(departmentId: string, userId: string) {
@@ -135,12 +140,15 @@ export async function removeDepartmentMember(departmentId: string, userId: strin
 }
 
 /**
- * All active users eligible for department membership (excludes guests).
+ * All active users eligible for department membership (excludes global guests).
  * Used by the admin UI to populate department-assignment pickers.
  */
 export async function listDepartmentMemberCandidates() {
   return prisma.user.findMany({
-    where: { status: "active" },
+    where: {
+      status: "active",
+      roles: { none: { type: "guest", scopeType: "global" } },
+    },
     select: { id: true, displayName: true, email: true },
     orderBy: { displayName: "asc" },
   });

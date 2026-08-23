@@ -2,11 +2,14 @@ import { auth } from "@/lib/auth/config";
 import { redirect, notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { Board } from "@/components/task/board";
+import { canReadProject } from "@/lib/rbac";
 
 export default async function BoardPage(props: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await props.params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+
+  if (!(await canReadProject(session.user.id, projectId))) notFound();
 
   const project = await prisma.project.findUnique({ where: { id: projectId } });
   if (!project) notFound();

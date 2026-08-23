@@ -8,6 +8,7 @@ vi.mock("@/lib/db", () => ({
     task: {
       findUnique: vi.fn(),
       findMany: vi.fn(),
+      count: vi.fn(),
     },
   },
 }));
@@ -150,6 +151,20 @@ describe("getInboxTasks", () => {
         status: { not: "done" },
       }),
     );
+  });
+
+  it("normalizes Decimal fields in upcoming tasks", async () => {
+    vi.mocked(prisma.task.findMany).mockResolvedValue([{
+      ...mockTask,
+      dueDate: new Date(),
+      estimatedHours: { toNumber: () => 4.5 },
+      spentHours: { toNumber: () => 1.25 },
+      orderIndex: { toNumber: () => 2 },
+    }] as never);
+
+    const { getUpcomingTasks } = await import("@/lib/tasks/queries");
+    const result = await getUpcomingTasks("user-1");
+    expect(result[0]).toMatchObject({ estimatedHours: 4.5, spentHours: 1.25, orderIndex: 2 });
   });
 
   describe("toPlainTaskRow", () => {

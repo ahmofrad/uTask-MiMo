@@ -52,7 +52,7 @@ export function DepartmentTree({ departments: initial }: Props) {
   useEffect(() => {
     if (usersLoadStarted.current) return;
     usersLoadStarted.current = true;
-    apiFetch("/api/v1/users/search?q&limit=500")
+    apiFetch("/api/v1/departments/member-candidates")
       .then((r) => r.json())
       .then((j) => {
         const users: DepartmentMember[] = (j.data ?? []).map(
@@ -72,25 +72,30 @@ export function DepartmentTree({ departments: initial }: Props) {
   }
 
   async function addMember(departmentId: string, userId: string) {
-    await apiFetch(`/api/v1/departments/${departmentId}/members`, {
+    const res = await apiFetch(`/api/v1/departments/${departmentId}/members`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId }),
     });
+    if (!res.ok) return;
+    const body = (await res.json()) as { data?: { created?: boolean } };
     await loadMembers(departmentId);
-    setDepartments((prev) =>
-      prev.map((d) =>
-        d.id === departmentId ? { ...d, memberCount: d.memberCount + 1 } : d,
-      ),
-    );
+    if (body.data?.created !== false) {
+      setDepartments((prev) =>
+        prev.map((d) =>
+          d.id === departmentId ? { ...d, memberCount: d.memberCount + 1 } : d,
+        ),
+      );
+    }
   }
 
   async function removeMember(departmentId: string, userId: string) {
-    await apiFetch(`/api/v1/departments/${departmentId}/members`, {
+    const res = await apiFetch(`/api/v1/departments/${departmentId}/members`, {
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId }),
     });
+    if (!res.ok) return;
     await loadMembers(departmentId);
     setDepartments((prev) =>
       prev.map((d) =>
