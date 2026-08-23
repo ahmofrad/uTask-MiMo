@@ -14,7 +14,7 @@ export default async function AdminWebhooksPage() {
   const tCommon = await getTranslations("common");
   const tAdmin = await getTranslations("admin");
 
-  const webhooks = canManage ? await prisma.webhook.findMany({ orderBy: { createdAt: "desc" } }) : [];
+  const webhooks = canManage ? await prisma.webhook.findMany({ where: { deletedAt: null }, orderBy: { createdAt: "desc" } }) : [];
 
   return (
     <div className="space-y-6">

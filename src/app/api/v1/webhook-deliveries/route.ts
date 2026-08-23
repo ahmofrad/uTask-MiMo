@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "Invalid cursor" } }, { status: 400 });
   }
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = { webhook: { deletedAt: null } };
   if (webhookId) where.webhookId = webhookId;
 
   const deliveries = await prisma.webhookDelivery.findMany({
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     take: limit + 1,
     skip: cursor ? 1 : 0,
     ...(cursor ? { cursor: { id: cursor } } : {}),
-    orderBy: { scheduledAt: "desc" },
+    orderBy: [{ scheduledAt: "desc" }, { id: "desc" }],
   });
 
   const hasMore = deliveries.length > limit;

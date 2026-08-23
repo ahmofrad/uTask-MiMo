@@ -50,16 +50,22 @@ export async function PATCH(
     data: updateData,
   });
 
+  const { secret: _beforeSecret, ...beforeAudit } = before;
+  const { secret: _afterSecret, ...afterAudit } = webhook;
+  void _beforeSecret;
+  void _afterSecret;
   await logAudit({
     actorUserId: userId,
     action: "webhook_updated",
     entityType: "webhook",
     entityId: resolvedParams.id,
-    before: before as never,
-    after: webhook as never,
+    before: beforeAudit as never,
+    after: afterAudit as never,
   });
 
-  return NextResponse.json({ data: webhook });
+  const { secret: _secret, ...safeWebhook } = webhook;
+  void _secret;
+  return NextResponse.json({ data: safeWebhook });
 }
 
 export async function DELETE(
@@ -79,12 +85,14 @@ export async function DELETE(
     data: { deletedAt: new Date() },
   });
 
+  const { secret: _secret, ...beforeAudit } = before;
+  void _secret;
   await logAudit({
     actorUserId: userId,
     action: "webhook_deleted",
     entityType: "webhook",
     entityId: resolvedParams.id,
-    before: before as never,
+    before: beforeAudit as never,
   });
 
   return NextResponse.json({ data: { success: true } });

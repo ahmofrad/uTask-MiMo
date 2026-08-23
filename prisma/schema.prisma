@@ -466,6 +466,7 @@ model ProjectMember {
   addedByUser User    @relation("ProjectMemberAddedBy", fields: [addedBy], references: [id])
 
   @@id([projectId, userId])
+  @@index([userId, disabledAt, projectId])
   @@map("ProjectMember")
 }
 
@@ -782,6 +783,7 @@ model Webhook {
   deliveries WebhookDelivery[]
 
   @@index([createdById])
+  @@index([active, deletedAt])
   @@index([deletedAt])
   @@map("Webhook")
 }
@@ -821,6 +823,7 @@ model WebhookDelivery {
   webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
 
   @@index([webhookId, scheduledAt])
+  @@index([scheduledAt, id])
   @@index([eventId])
   @@map("WebhookDelivery")
 }

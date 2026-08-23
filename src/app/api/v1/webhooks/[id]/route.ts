@@ -35,21 +35,34 @@ export async function PATCH(
   if (events !== undefined) updateData.events = events;
   if (active !== undefined) updateData.active = active;
 
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "At least one field is required" } }, { status: 400 });
+  }
+
+  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, deletedAt: null } });
+  if (!before) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+
   const webhook = await prisma.webhook.update({
     where: { id: resolvedParams.id },
     data: updateData,
   });
 
+  const { secret: _beforeSecret, ...beforeAudit } = before;
+  const { secret: _afterSecret, ...afterAudit } = webhook;
+  void _beforeSecret;
+  void _afterSecret;
   await logAudit({
     actorUserId: userId,
     action: "webhook_updated",
     entityType: "webhook",
     entityId: resolvedParams.id,
-    before: { name, url, events, active },
-    after: updateData,
+    before: beforeAudit as never,
+    after: afterAudit as never,
   });
 
-  return NextResponse.json({ data: webhook });
+  const { secret: _secret, ...safeWebhook } = webhook;
+  void _secret;
+  return NextResponse.json({ data: safeWebhook });
 }
 
 export async function DELETE(
@@ -65,16 +78,22 @@ export async function DELETE(
   const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
+  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, deletedAt: null } });
+  if (!before) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
+
   await prisma.webhook.update({
     where: { id: resolvedParams.id },
     data: { deletedAt: new Date() },
   });
 
+  const { secret: _secret, ...beforeAudit } = before;
+  void _secret;
   await logAudit({
     actorUserId: userId,
     action: "webhook_deleted",
     entityType: "webhook",
     entityId: resolvedParams.id,
+    before: beforeAudit as never,
   });
 
   return NextResponse.json({ data: { success: true } });

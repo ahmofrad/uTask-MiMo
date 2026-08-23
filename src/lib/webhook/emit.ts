@@ -20,7 +20,7 @@ export async function emitTaskEvent(
   // Find all active webhooks subscribed to this event type
   const { prisma } = await import("@/lib/db");
   const webhooks = await prisma.webhook.findMany({
-    where: { active: true, events: { has: eventType } },
+    where: { active: true, deletedAt: null, events: { has: eventType } },
   });
 
   let queued = 0;

@@ -81,7 +81,7 @@ export async function POST(
   // Create custom fields first
   if (templateData.customFields && templateData.customFields.length > 0) {
     for (const field of templateData.customFields) {
-      await prisma.customField.create({
+      const createdField = await prisma.customField.create({
         data: {
           projectId: project.id,
           name: field.name,
@@ -90,6 +90,13 @@ export async function POST(
           required: field.required ?? false,
           configJson: (field.configJson ?? undefined) as never,
         },
+      });
+      await logAudit({
+        actorUserId: userId,
+        action: "custom_field_created",
+        entityType: "customField",
+        entityId: createdField.id,
+        after: createdField as never,
       });
     }
   }
@@ -112,6 +119,14 @@ export async function POST(
           createdById: userId,
           orderIndex: (i + 1) * 1000,
         },
+      });
+
+      await logAudit({
+        actorUserId: userId,
+        action: "task_created",
+        entityType: "task",
+        entityId: task.id,
+        after: task as never,
       });
 
       // Notify the creator

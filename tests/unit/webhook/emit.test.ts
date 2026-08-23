@@ -19,7 +19,7 @@ vi.mock("@/lib/queue", () => ({ enqueueWebhook: (...args: unknown[]) => mockEnqu
 
 import { emitTaskEvent } from "@/lib/webhook/emit";
 
-const webhook = { id: "wh1", active: true, events: ["task.created"] };
+const webhook = { id: "wh1", active: true, deletedAt: null, events: ["task.created"] };
 
 describe("emitTaskEvent", () => {
   beforeEach(() => {
@@ -72,7 +72,7 @@ describe("emitTaskEvent", () => {
     expect(result).toEqual({ queued: 0, failedDeliveryIds: [] });
     expect(mockCreateDelivery).not.toHaveBeenCalled();
     expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { active: true, events: { has: "task.created" } } }),
+      expect.objectContaining({ where: { active: true, deletedAt: null, events: { has: "task.created" } } }),
     );
   });
 });

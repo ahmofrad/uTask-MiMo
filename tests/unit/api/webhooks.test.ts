@@ -9,7 +9,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     task: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     tag: { findMany: vi.fn(), create: vi.fn(), findFirst: vi.fn(), deleteMany: vi.fn(), delete: vi.fn() },
-    webhook: { findMany: vi.fn(), create: vi.fn() },
+    webhook: { findMany: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
   },
 }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: vi.fn() }));
@@ -45,12 +45,32 @@ const { logAudit } = await import("@/lib/audit/log");
 
 const mockAuth = auth as ReturnType<typeof vi.fn>;
 const mockWebhookCreate = (prisma.webhook.create as ReturnType<typeof vi.fn>);
+const mockWebhookFindFirst = (prisma.webhook.findFirst as ReturnType<typeof vi.fn>);
+const mockWebhookUpdate = (prisma.webhook.update as ReturnType<typeof vi.fn>);
 const mockValidateUrl = validateWebhookUrl as ReturnType<typeof vi.fn>;
 const mockValidateUrlResolved = validateWebhookUrlResolved as ReturnType<typeof vi.fn>;
 const mockLogAudit = logAudit as ReturnType<typeof vi.fn>;
 
 function authenticatedSession() {
   mockAuth.mockResolvedValue({ user: { id: "user-1" } });
+  mockWebhookFindFirst.mockResolvedValue({
+    id: "wh1",
+    name: "old",
+    url: "https://example.com/old",
+    events: ["task.created"],
+    active: true,
+    secret: "encrypted-secret",
+    deletedAt: null,
+  });
+  mockWebhookUpdate.mockResolvedValue({
+    id: "wh1",
+    name: "new",
+    url: "https://example.com/old",
+    events: ["task.created"],
+    active: true,
+    secret: "encrypted-secret",
+    deletedAt: null,
+  });
 }
 
 function unauthenticatedSession() {
@@ -101,7 +121,7 @@ describe("POST /api/v1/webhooks", () => {
     mockCan.mockResolvedValue(true);
     mockValidateUrl.mockReturnValue(true);
     mockValidateUrlResolved.mockResolvedValue(true);
-    mockWebhookCreate.mockResolvedValue({ id: "wh1", name: "wh", url: "https://example.com", events: ["task.created"] });
+    mockWebhookCreate.mockResolvedValue({ id: "wh1", name: "wh", url: "https://example.com", events: ["task.created"], secret: "encrypted-secret" });
 
     const { POST } = await import("@/app/api/v1/webhooks/route");
     const res = await POST(makeRequest("POST", { name: "wh", url: "https://example.com/hook", events: ["task.created"] }));
@@ -117,5 +137,19 @@ describe("POST /api/v1/webhooks", () => {
     expect(mockLogAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: "webhook_created" }),
     );
+  });
+});
+
+describe("PATCH /api/v1/webhooks/:id", () => {
+  it("does not expose the encrypted secret", async () => {
+    mockCan.mockResolvedValue(true);
+    const { PATCH } = await import("@/app/api/v1/webhooks/[id]/route");
+    const response = await PATCH(makeRequest("PATCH", { name: "new" }), {
+      params: Promise.resolve({ id: "wh1" }),
+    });
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.data.secret).toBeUndefined();
+    expect(body.data.name).toBe("new");
   });
 });

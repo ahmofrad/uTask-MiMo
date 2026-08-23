@@ -13,7 +13,8 @@ export default async function WebhookDeliveriesPage() {
   const t = await getTranslations();
 
   const deliveries = await prisma.webhookDelivery.findMany({
-    orderBy: { scheduledAt: "desc" },
+    where: { webhook: { deletedAt: null } },
+    orderBy: [{ scheduledAt: "desc" }, { id: "desc" }],
     take: 50,
     include: { webhook: { select: { name: true } } },
   });
