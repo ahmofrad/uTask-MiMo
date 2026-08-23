@@ -325,6 +325,12 @@ model User {
   lastLoginAt   DateTime?  @db.Timestamptz
   emailVerified DateTime?  @db.Timestamptz
   image         String?
+  timeZone      String?    @db.VarChar(64)
+  timeFormat    String     @default("H24") @db.VarChar(3)
+  dualCalendar  Boolean    @default(false)
+  totpSecret    String?    @db.VarChar(255)
+  totpEnabled   Boolean    @default(false)
+  totpRecoveryCodesHashed String[]
   createdAt     DateTime   @default(now()) @db.Timestamptz
   updatedAt     DateTime   @updatedAt @db.Timestamptz
 
