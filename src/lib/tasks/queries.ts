@@ -166,7 +166,10 @@ export type TaskStats = {
 };
 
 export async function getTaskStats(userId: string): Promise<TaskStats> {
+  const readableProjectIds = await getUserReadableProjectIds(userId);
+  const projectScope = readableProjectIds === null ? {} : { projectId: { in: readableProjectIds } };
   const notDone = {
+    ...projectScope,
     deletedAt: null,
     assignees: { some: { userId } },
     parentTaskId: null,
@@ -180,7 +183,7 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
       where: { ...notDone, status: { in: ["open", "in_progress"] } },
     }),
     prisma.task.count({
-      where: { deletedAt: null, assignees: { some: { userId } }, status: "done" },
+      where: { ...projectScope, deletedAt: null, assignees: { some: { userId } }, status: "done" },
     }),
     prisma.task.count({
       where: { ...notDone, dueDate: { lt: now } },
@@ -196,8 +199,11 @@ export async function getTaskStats(userId: string): Promise<TaskStats> {
 export type UpcomingTask = Awaited<ReturnType<typeof getUpcomingTasks>>[number];
 
 export async function getUpcomingTasks(userId: string, limit = 6) {
+  const readableProjectIds = await getUserReadableProjectIds(userId);
+  const projectScope = readableProjectIds === null ? {} : { projectId: { in: readableProjectIds } };
   const tasks = await prisma.task.findMany({
     where: {
+      ...projectScope,
       deletedAt: null,
       assignees: { some: { userId } },
       parentTaskId: null,

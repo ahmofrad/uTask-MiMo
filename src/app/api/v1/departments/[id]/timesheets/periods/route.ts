@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac/middleware";
-import { can } from "@/lib/rbac/can";
+import { can, canAccessDepartment } from "@/lib/rbac/can";
 import { logAudit } from "@/lib/audit/log";
 import { createPeriod, listPeriods } from "@/lib/timesheets";
 import { timesheetPeriodCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
@@ -13,6 +13,9 @@ export async function GET(
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
+  if (!(await canAccessDepartment(userId, resolvedParams.id))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient department permissions" } }, { status: 403 });
+  }
 
   // Approvers see every period in the department; others see only their own.
   const isApprover = await can(userId, "timesheet.approve");
@@ -32,6 +35,9 @@ export async function POST(
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
+  if (!(await canAccessDepartment(userId, resolvedParams.id))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient department permissions" } }, { status: 403 });
+  }
 
   const parsed = timesheetPeriodCreateSchema.safeParse(await readJsonBody(request));
   if (!parsed.success) {

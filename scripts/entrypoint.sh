@@ -4,6 +4,8 @@ set -e
 # Apply pending migrations only in the dedicated migration container/job.
 # Application and worker replicas must never race each other through migrations.
 if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+  echo "Running migration preflight..."
+  npx tsx scripts/migration-preflight.ts --allow-pending
   attempt=1
   while ! npx prisma migrate deploy; do
     if [ "$attempt" -ge 12 ]; then
@@ -14,5 +16,6 @@ if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
     attempt=$((attempt + 1))
     sleep 5
   done
+  npx tsx scripts/migration-preflight.ts
 fi
 exec "$@"

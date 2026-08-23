@@ -1,6 +1,7 @@
 import { logger } from "@/lib/logging";
 import type IORedis from "ioredis";
 import { getRedisConnectionOptions } from "@/lib/redis/config";
+import { recordRedisOperation } from "@/lib/metrics";
 
 let client: IORedis | null = null;
 let connecting: Promise<IORedis> | null = null;
@@ -34,9 +35,11 @@ export function getRedis(): Promise<IORedis> {
       });
 
       await instance.connect();
+      recordRedisOperation("connect", "success");
       client = instance;
       return instance;
     } catch (err) {
+      recordRedisOperation("connect", "error");
       logger.error({ err }, "Failed to connect to Redis");
       client = null;
       connecting = null;

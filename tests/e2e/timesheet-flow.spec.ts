@@ -96,20 +96,28 @@ test.describe("Timesheet submit to approve to reopen flow", () => {
   test.describe("as member", () => {
     test.use({ storageState: ".auth/member.json" });
 
-    test("non-approver cannot approve or reject a period", async ({ request }) => {
-    const periodId = await createPeriod(request);
+    test("non-approver cannot approve or reject a period", async ({ browser, request }) => {
+    // The member fixture is intentionally not assigned to the seeded
+    // department. Create the period as an admin, then exercise the denied
+    // approval/rejection calls with the member session.
+    const adminContext = await browser.newContext({ storageState: ".auth/admin.json" });
+    const periodId = await createPeriod(adminContext.request);
 
-    const approveResponse = await request.post(
-      `/api/v1/departments/${DEPARTMENT_ID}/timesheets/periods/${periodId}/approve`,
-      { headers: { "x-csrf-token": await getApiCsrfToken(request) } },
-    );
-    expect(approveResponse.status()).toBe(403);
+    try {
+      const approveResponse = await request.post(
+        `/api/v1/departments/${DEPARTMENT_ID}/timesheets/periods/${periodId}/approve`,
+        { headers: { "x-csrf-token": await getApiCsrfToken(request) } },
+      );
+      expect(approveResponse.status()).toBe(403);
 
-    const rejectResponse = await request.post(
-      `/api/v1/departments/${DEPARTMENT_ID}/timesheets/periods/${periodId}/reject`,
-      { headers: { "x-csrf-token": await getApiCsrfToken(request) } },
-    );
-    expect(rejectResponse.status()).toBe(403);
+      const rejectResponse = await request.post(
+        `/api/v1/departments/${DEPARTMENT_ID}/timesheets/periods/${periodId}/reject`,
+        { headers: { "x-csrf-token": await getApiCsrfToken(request) } },
+      );
+      expect(rejectResponse.status()).toBe(403);
+    } finally {
+      await adminContext.close();
+    }
   });
   });
 });

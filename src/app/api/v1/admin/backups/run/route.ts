@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
-import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
+import { requireAuth } from "@/lib/rbac/middleware";
+import { can } from "@/lib/rbac";
+import { problemResponse } from "@/lib/api/problem";
 import { logAudit } from "@/lib/audit/log";
 import { exec } from "child_process";
 import { promisify } from "util";
 
 const execAsync = promisify(exec);
 
-export async function POST() {
-  const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
+export async function POST(request: Request) {
+  const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  const guard = requirePermission("user:manage");
-  const guardResult = await guard(new Request("http://localhost"), { params: {} });
-  if (guardResult) return guardResult;
+  if (!(await can(userId, "user:manage"))) {
+    return problemResponse(request, 403, "FORBIDDEN", "Insufficient permissions");
+  }
 
   const scriptPath = `${process.cwd()}/scripts/backup.sh`;
 
@@ -45,9 +47,6 @@ export async function POST() {
       after: { triggeredBy: "admin", error: message.slice(-500) },
     });
 
-    return NextResponse.json(
-      { error: { code: "BACKUP_FAILED", message: message.slice(0, 500) } },
-      { status: 500 },
-    );
+    return problemResponse(request, 500, "BACKUP_FAILED", message.slice(0, 500));
   }
 }

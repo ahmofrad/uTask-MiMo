@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/rbac/middleware";
 import { logAudit } from "@/lib/audit/log";
 import { addEntry, getPeriod } from "@/lib/timesheets";
+import { canAccessDepartment, canReadProject } from "@/lib/rbac";
 import { timeEntryCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function POST(
@@ -12,6 +13,9 @@ export async function POST(
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
+  if (!(await canAccessDepartment(userId, resolvedParams.id))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient department permissions" } }, { status: 403 });
+  }
 
   const period = await getPeriod(resolvedParams.periodId);
   if (!period || period.departmentId !== resolvedParams.id) {
@@ -31,6 +35,10 @@ export async function POST(
   const parsed = timeEntryCreateSchema.safeParse(await readJsonBody(request));
   if (!parsed.success) {
     return NextResponse.json(validationError(parsed.error), { status: 400 });
+  }
+
+  if (!(await canReadProject(userId, parsed.data.projectId))) {
+    return NextResponse.json({ error: { code: "FORBIDDEN", message: "You cannot log time against this project" } }, { status: 403 });
   }
 
   let entry;

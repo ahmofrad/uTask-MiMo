@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
 import { getProjectDependencyStatusMap } from "@/lib/tasks/dependency-status-queries";
+import { getUserReadableProjectIds } from "@/lib/projects";
 import { DashboardPage } from "@/components/dashboard/dashboard-page";
 
 export default async function AppHomePage() {
@@ -10,13 +11,17 @@ export default async function AppHomePage() {
   const userId = session?.user?.id;
   if (!userId) redirect("/login");
 
+  const readableProjectIds = await getUserReadableProjectIds(userId);
+  const projectScope = readableProjectIds === null ? {} : { projectId: { in: readableProjectIds } };
+
   const [assignedTasks, overdueTasks, completedThisWeek, unreadNotifications, allTasks] =
     await Promise.all([
       prisma.task.count({
-        where: { assignees: { some: { userId } }, deletedAt: null, parentTaskId: null, status: { not: "done" } },
+        where: { ...projectScope, assignees: { some: { userId } }, deletedAt: null, parentTaskId: null, status: { not: "done" } },
       }),
       prisma.task.count({
         where: {
+          ...projectScope,
           assignees: { some: { userId } },
           deletedAt: null, parentTaskId: null,
           dueDate: { lt: new Date() },
@@ -25,6 +30,7 @@ export default async function AppHomePage() {
       }),
       prisma.task.count({
         where: {
+          ...projectScope,
           assignees: { some: { userId } },
           status: "done",
           updatedAt: { gte: new Date(Date.now() - 7 * 86400000) },
@@ -34,7 +40,7 @@ export default async function AppHomePage() {
         where: { userId, readAt: null },
       }),
       prisma.task.findMany({
-        where: { deletedAt: null, parentTaskId: null },
+        where: { ...projectScope, deletedAt: null, parentTaskId: null },
         orderBy: { dueDate: "asc" },
         take: 100,
         select: {

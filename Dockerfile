@@ -64,6 +64,7 @@ COPY --from=builder --chown=node:node /app/package.json ./
 COPY --from=builder --chown=node:node /app/next.config.mjs ./
 COPY --from=builder --chown=node:node /app/dist ./dist
 COPY --from=builder --chown=node:node /app/scripts/entrypoint.sh ./entrypoint.sh
+COPY --from=builder --chown=node:node /app/scripts/migration-preflight.ts ./scripts/migration-preflight.ts
 
 EXPOSE 3000
 

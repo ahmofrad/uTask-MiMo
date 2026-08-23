@@ -51,6 +51,7 @@ jobs:
           exit 1
       - run: pnpm install --frozen-lockfile
       - run: pnpm prisma generate
+      - run: pnpm migration:preflight:deploy
       - run: pnpm prisma migrate deploy
       - run: pnpm db:seed
       - run: pnpm db:sample
@@ -58,6 +59,12 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm test:integration
+      - name: Verify backup drill safety guard
+        run: |
+          if DRILL_CONFIRM=I_UNDERSTAND_DISPOSABLE_DATABASE DRILL_DATABASE_URL="$DATABASE_URL" SOURCE_DATABASE_URL="$DATABASE_URL" pnpm backup:restore:drill; then
+            echo "Backup drill safety guard failed"
+            exit 1
+          fi
       - run: pnpm i18n:check
       - run: pnpm design:check
       - run: pnpm pwa:check

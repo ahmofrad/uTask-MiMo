@@ -110,6 +110,7 @@ export async function addEntry(input: {
       minutes: input.minutes,
       billable: input.billable,
       costRateMinorSnapshot: rate.costRateMinor,
+      billRateMinorSnapshot: rate.billRateMinor,
       currencySnapshot: rate.currency,
     },
   });

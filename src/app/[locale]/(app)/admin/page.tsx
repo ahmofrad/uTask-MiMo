@@ -2,10 +2,13 @@ import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
+import { QueueHealthPanel } from "@/components/admin/queue-health-panel";
+import { can } from "@/lib/rbac";
 
 export default async function AdminOverviewPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  if (!(await can(session.user.id, "org:settings"))) redirect("/");
 
   const t = await getTranslations("admin");
 
@@ -35,6 +38,8 @@ export default async function AdminOverviewPage() {
           </div>
         ))}
       </div>
+
+      <QueueHealthPanel />
 
       <div className="bg-bg-surface border border-border-primary rounded-xl p-6">
         <h2 className="text-lg font-semibold text-fg-primary mb-4">{t("systemHealth")}</h2>

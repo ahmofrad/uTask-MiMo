@@ -19,10 +19,10 @@ beforeEach(() => {
 
 describe("resolveCostRate", () => {
   it("prefers a user-scoped rate card over a role card", async () => {
-    mockPrisma.rateCard.findFirst.mockResolvedValueOnce({ costRateMinor: 5500, currency: "USD" });
+    mockPrisma.rateCard.findFirst.mockResolvedValueOnce({ costRateMinor: 5500, billRateMinor: 8000, currency: "USD" });
 
     const rate = await resolveCostRate("u1", AT);
-    expect(rate).toEqual({ costRateMinor: 5500, currency: "USD" });
+    expect(rate).toEqual({ costRateMinor: 5500, billRateMinor: 8000, currency: "USD" });
     // Should never query the role card path.
     expect(mockPrisma.role.findFirst).not.toHaveBeenCalled();
   });
@@ -30,11 +30,11 @@ describe("resolveCostRate", () => {
   it("falls back to the user's global role rate card", async () => {
     mockPrisma.rateCard.findFirst
       .mockResolvedValueOnce(null) // no user card
-      .mockResolvedValueOnce({ costRateMinor: 4200, currency: "EUR" }); // role card
+      .mockResolvedValueOnce({ costRateMinor: 4200, billRateMinor: 6100, currency: "EUR" }); // role card
     mockPrisma.role.findFirst.mockResolvedValue({ type: "manager" });
 
     const rate = await resolveCostRate("u1", AT);
-    expect(rate).toEqual({ costRateMinor: 4200, currency: "EUR" });
+    expect(rate).toEqual({ costRateMinor: 4200, billRateMinor: 6100, currency: "EUR" });
     expect(mockPrisma.rateCard.findFirst).toHaveBeenCalledTimes(2);
     expect(mockPrisma.role.findFirst).toHaveBeenCalledWith({
       where: { userId: "u1", scopeType: "global", scopeId: null },
@@ -47,11 +47,11 @@ describe("resolveCostRate", () => {
     mockPrisma.role.findFirst.mockResolvedValue(null);
 
     const rate = await resolveCostRate("u1", AT);
-    expect(rate).toEqual({ costRateMinor: 0, currency: "USD" });
+    expect(rate).toEqual({ costRateMinor: 0, billRateMinor: null, currency: "USD" });
   });
 
   it("queries the correct effective window", async () => {
-    mockPrisma.rateCard.findFirst.mockResolvedValue({ costRateMinor: 100, currency: "USD" });
+    mockPrisma.rateCard.findFirst.mockResolvedValue({ costRateMinor: 100, billRateMinor: null, currency: "USD" });
 
     await resolveCostRate("u1", AT);
     expect(mockPrisma.rateCard.findFirst).toHaveBeenCalledWith(

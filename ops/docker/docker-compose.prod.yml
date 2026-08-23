@@ -217,6 +217,7 @@ services:
     <<: *app-env
     environment:
       RUN_MIGRATIONS: "true"
+      MIGRATION_PREFLIGHT_ALLOW_PENDING: "true"
     depends_on:
       pgbouncer:
         condition: service_healthy

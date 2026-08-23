@@ -1,5 +1,6 @@
 import { createServer } from "http";
 import next from "next";
+import { recordHttpRequest } from "./src/lib/metrics";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "0.0.0.0";
@@ -10,6 +11,7 @@ const handle = app.getRequestHandler();
 
 app.prepare().then(async () => {
   const server = createServer(async (req, res) => {
+    const startedAt = performance.now();
     try {
       await handle(req, res);
     } catch (err) {
@@ -18,6 +20,8 @@ app.prepare().then(async () => {
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: { code: "INTERNAL_ERROR" } }));
       }
+    } finally {
+      recordHttpRequest(req.method ?? "UNKNOWN", req.url?.split("?")[0] ?? "unknown", res.statusCode, performance.now() - startedAt);
     }
   });
 

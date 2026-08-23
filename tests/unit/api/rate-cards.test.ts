@@ -1,13 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextResponse } from "next/server";
 
-const { mockRequireAuth, mockRequirePermission, mockPrisma, mockCan, mockLogAudit } = vi.hoisted(() => ({
+const { mockRequireAuth, mockRequirePermission, mockPrisma, mockCan, mockCanAccessDepartment, mockLogAudit } = vi.hoisted(() => ({
   mockRequireAuth: vi.fn(),
   mockRequirePermission: vi.fn(),
   mockPrisma: {
     rateCard: { findMany: vi.fn(), create: vi.fn(), findUnique: vi.fn(), delete: vi.fn() },
   },
   mockCan: vi.fn(),
+  mockCanAccessDepartment: vi.fn(),
   mockLogAudit: vi.fn(),
 }));
 
@@ -16,7 +17,7 @@ vi.mock("@/lib/rbac/middleware", () => ({
   requirePermission: () => mockRequirePermission,
 }));
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
-vi.mock("@/lib/rbac/can", () => ({ can: mockCan }));
+vi.mock("@/lib/rbac/can", () => ({ can: mockCan, canAccessDepartment: mockCanAccessDepartment }));
 vi.mock("@/lib/audit/log", () => ({ logAudit: mockLogAudit }));
 
 import { GET, POST } from "@/app/api/v1/rate-cards/route";
@@ -40,6 +41,7 @@ beforeEach(() => {
   mockRequireAuth.mockResolvedValue({ userId: "admin-1" });
   mockRequirePermission.mockResolvedValue(null);
   mockLogAudit.mockResolvedValue(undefined);
+  mockCanAccessDepartment.mockResolvedValue(true);
 });
 
 describe("GET /api/v1/rate-cards", () => {

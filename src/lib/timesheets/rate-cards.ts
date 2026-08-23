@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 
 export type ResolvedRate = {
   costRateMinor: number;
+  billRateMinor: number | null;
   currency: string;
 };
 
@@ -21,9 +22,9 @@ export async function resolveCostRate(userId: string, at: Date = new Date()): Pr
       OR: [{ effectiveTo: null }, { effectiveTo: { gte: at } }],
     },
     orderBy: { effectiveFrom: "desc" },
-    select: { costRateMinor: true, currency: true },
+    select: { costRateMinor: true, billRateMinor: true, currency: true },
   });
-  if (userCard) return userCard;
+  if (userCard) return { ...userCard, billRateMinor: userCard.billRateMinor ?? null };
 
   const role = await prisma.role.findFirst({
     where: { userId, scopeType: "global", scopeId: null },
@@ -38,10 +39,10 @@ export async function resolveCostRate(userId: string, at: Date = new Date()): Pr
         OR: [{ effectiveTo: null }, { effectiveTo: { gte: at } }],
       },
       orderBy: { effectiveFrom: "desc" },
-      select: { costRateMinor: true, currency: true },
+      select: { costRateMinor: true, billRateMinor: true, currency: true },
     });
-    if (roleCard) return roleCard;
+    if (roleCard) return { ...roleCard, billRateMinor: roleCard.billRateMinor ?? null };
   }
 
-  return { costRateMinor: 0, currency: "USD" };
+  return { costRateMinor: 0, billRateMinor: null, currency: "USD" };
 }

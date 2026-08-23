@@ -1,4 +1,4 @@
-export { can, canProject, canCreateProject, canReadProject, canReadTask, canEditTask, canManageGroup, getUserRole, isProjectOwner } from "@/lib/rbac/can";
+export { can, canProject, canCreateProject, canReadProject, canReadTask, canEditTask, canManageGroup, canAccessDepartment, getUserRole, isProjectOwner } from "@/lib/rbac/can";
 export type { UserRoleInfo } from "@/lib/rbac/can";
 export {
   getRolePermissions,

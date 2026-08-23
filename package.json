@@ -26,6 +26,7 @@
     "db:baseline": "tsx scripts/db-baseline.ts",
     "migration:preflight": "tsx scripts/migration-preflight.ts",
     "migration:preflight:deploy": "tsx scripts/migration-preflight.ts --allow-pending",
+    "backup:restore:drill": "bash scripts/backup-restore-drill.sh",
     "docker:up": "docker compose -f ops/docker/docker-compose.yml up -d --wait",
     "docker:down": "docker compose -f ops/docker/docker-compose.yml down",
     "i18n:extract": "i18next-parser 'src/**/*.{ts,tsx}' --output src/messages/{locale}.json",

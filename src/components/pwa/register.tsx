@@ -19,10 +19,16 @@ export function PwaRegister() {
     let registration: ServiceWorkerRegistration | null = null;
     let checkForUpdates: (() => void) | null = null;
     let reloading = false;
+    const reloadKey = "taskapp-sw-reload-at";
+    const reloadWindowMs = 10_000;
     let disposed = false;
 
     const onControllerChange = () => {
       if (reloading) return;
+      const now = Date.now();
+      const previousReload = Number(sessionStorage.getItem(reloadKey) ?? "0");
+      if (Number.isFinite(previousReload) && now - previousReload < reloadWindowMs) return;
+      sessionStorage.setItem(reloadKey, String(now));
       reloading = true;
       window.location.reload();
     };

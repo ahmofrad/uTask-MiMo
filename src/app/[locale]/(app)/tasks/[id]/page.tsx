@@ -3,6 +3,7 @@ import { toPlainCustomFieldValue } from "@/lib/custom-fields/values";
 import { auth } from "@/lib/auth/config";
 import { redirect, notFound } from "next/navigation";
 import { isTaskFinalizer } from "@/lib/tasks";
+import { canReadTask } from "@/lib/rbac";
 import { TaskDetailPage } from "@/components/task/task-detail-page";
 import { getTaskActivity } from "@/lib/activity";
 
@@ -12,6 +13,7 @@ export default async function TaskDetailRoute(props: { params: Promise<{ id: str
   const { id } = await props.params;
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
+  if (!(await canReadTask(session.user.id, id))) notFound();
 
   const task = await prisma.task.findUnique({
     where: { id: id },

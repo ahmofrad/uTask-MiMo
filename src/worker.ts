@@ -12,6 +12,7 @@ import { startWebhookRetentionScheduler, stopWebhookRetentionScheduler } from "@
 import { startAuditCompactionScheduler, stopAuditCompactionScheduler } from "@/lib/audit/compaction-scheduler";
 import { logger } from "@/lib/logging";
 import { unlinkSync, writeFileSync } from "node:fs";
+import { setWorkerReady } from "@/lib/metrics";
 
 const readyFile = process.env.WORKER_READY_FILE ?? "/tmp/taskapp-worker-ready";
 
@@ -20,6 +21,7 @@ function markReady(): void {
 }
 
 function clearReady(): void {
+  setWorkerReady(false);
   try {
     unlinkSync(readyFile);
   } catch (err) {
@@ -41,6 +43,7 @@ async function start() {
     startWebhookRetentionScheduler();
     startAuditCompactionScheduler();
     markReady();
+    setWorkerReady(true);
     logger.info("Workers started");
   } catch (err) {
     clearReady();

@@ -168,6 +168,29 @@ export const canManageGroup = cache(
   },
 );
 
+export const canAccessDepartment = cache(
+  async function canAccessDepartment(userId: string, departmentId: string): Promise<boolean> {
+    const { globalRole } = await getUserRole(userId);
+    if (globalRole === "owner" || globalRole === "admin") return true;
+
+    const department = await prisma.department.findFirst({
+      where: { id: departmentId, deletedAt: null },
+      select: { managerUserId: true },
+    });
+    if (!department) return false;
+    if (department.managerUserId === userId) return true;
+
+    const membership = await prisma.departmentMembership.findUnique({
+      where: { userId_departmentId: { userId, departmentId } },
+      select: { userId: true },
+    });
+    if (membership) return true;
+
+    const managedDepartmentIds = await getManagedDepartmentIds(userId);
+    return managedDepartmentIds.includes(departmentId);
+  },
+);
+
 export const canCreateProject = cache(
   async function canCreateProject(userId: string, departmentId?: string | null): Promise<boolean> {
   const { globalRole } = await getUserRole(userId);

@@ -80,7 +80,8 @@ function zodToOpenApi(schema: ZodType<unknown>): Record<string, unknown> {
   }
 
   if (schema instanceof z.ZodObject) {
-    const shape = (schema._def as unknown as { shape: () => Record<string, unknown> }).shape();
+    const rawShape = (schema._def as unknown as { shape: Record<string, unknown> | (() => Record<string, unknown>) }).shape;
+    const shape = typeof rawShape === "function" ? rawShape() : rawShape;
     const properties: Record<string, OpenApiSchema> = {};
     const required: string[] = [];
     for (const [key, value] of Object.entries(shape)) {

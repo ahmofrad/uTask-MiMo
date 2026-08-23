@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logging";
+import { recordWebhookRetentionDeleted } from "@/lib/metrics";
 
 const DEFAULT_RETENTION_DAYS = 30;
 const BATCH_SIZE = 5_000;
@@ -25,6 +26,7 @@ export async function pruneWebhookDeliveries(): Promise<number> {
   }
 
   if (totalDeleted > 0) {
+    recordWebhookRetentionDeleted(totalDeleted);
     logger.info({ totalDeleted, retentionDays, cutoff: cutoff.toISOString() }, "Webhook delivery retention completed");
   }
   return totalDeleted;

@@ -30,8 +30,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   if (!hasAccess) {
     return NextResponse.json(
-      { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
-      { status: 403 },
+      { error: { code: "NOT_FOUND", message: "Task not found" } },
+      { status: 404 },
     );
   }
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { can } from "@/lib/rbac/can";
+import { can, canAccessDepartment } from "@/lib/rbac/can";
 import { logAudit } from "@/lib/audit/log";
 import { getPeriod, transitionPeriod, type TimesheetTransition } from "@/lib/timesheets";
 
@@ -24,6 +24,13 @@ export async function handleTransition(
   departmentId: string,
   periodId: string,
 ): Promise<NextResponse> {
+  if (!(await canAccessDepartment(userId, departmentId))) {
+    return NextResponse.json(
+      { error: { code: "FORBIDDEN", message: "Insufficient department permissions" } },
+      { status: 403 },
+    );
+  }
+
   if (mode === "approver" && !(await can(userId, "timesheet.approve"))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },

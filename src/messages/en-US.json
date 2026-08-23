@@ -205,6 +205,8 @@
     "runBackupNow": "Run backup now",
     "running": "Running...",
     "lastBackup": "Last backup",
+    "destination": "Destination",
+    "unknown": "Unknown",
     "noBackups": "No backups yet",
     "schedule": "Schedule",
     "dailyAt2am": "Daily at 2:00 AM",
@@ -365,6 +367,17 @@
     "healthy": "Healthy",
     "redis": "Redis",
     "queue": "Queue",
+    "queueDashboard": "Queue dashboard",
+    "workerReady": "Worker ready",
+    "workerNotReady": "Worker not ready",
+    "queueUnavailable": "Queue health is unavailable.",
+    "workerCount": "{count} workers",
+    "queueCounts": "{waiting} waiting · {active} active · {failed} failed",
+    "retentionEligible": "{count} deliveries are eligible for retention cleanup.",
+    "retentionUnavailable": "Retention status is unavailable.",
+    "retentionDeleted": "Deleted {count} deliveries.",
+    "retentionFailed": "Retention cleanup failed.",
+    "runRetention": "Run retention cleanup",
     "pending": "{count} pending",
     "webhook": "Webhook",
     "overviewDeliveriesSettings": "Overview, deliveries, and settings",
@@ -1321,6 +1334,9 @@
     "delete": "Delete",
     "noPeriods": "No timesheet periods yet.",
     "noEntries": "No time entries yet.",
-    "noRateCards": "No rate cards yet."
+    "noRateCards": "No rate cards yet.",
+    "billRate": "Bill rate",
+    "report": "Cost and bill report",
+    "downloadReport": "Download CSV report"
   }
 }

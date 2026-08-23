@@ -10,7 +10,6 @@ export function mergeHolidays(
   config: WorkingDayConfig,
   incoming: HolidayEntry[],
 ): { config: WorkingDayConfig; imported: number; skipped: number } {
-  const existing = new Set(config.holidays.map((holiday) => holiday.date));
   const holidays = [...config.holidays];
   let imported = 0;
   let skipped = 0;
@@ -27,7 +26,6 @@ export function mergeHolidays(
       }
       continue;
     }
-    existing.add(entry.date);
     holidays.push(entry);
     imported++;
   }

@@ -205,6 +205,8 @@
     "runBackupNow": "اجرای پشتیبان‌گیری",
     "running": "در حال اجرا...",
     "lastBackup": "آخرین پشتیبان",
+    "destination": "مقصد",
+    "unknown": "نامشخص",
     "noBackups": "هنوز پشتیبانی وجود ندارد",
     "schedule": "زمان‌بندی",
     "dailyAt2am": "روزانه ساعت ۲:۰۰ صبح",
@@ -363,8 +365,18 @@
     "systemHealth": "سلامت سیستم",
     "database": "پایگاه داده",
     "healthy": "سالم",
-    "redis": "Redis",
-    "queue": " صف",
+    "redis": "Redis",    "queue": "صف",
+    "queueDashboard": "داشبورد صف‌ها",
+    "workerReady": "کارگر آماده است",
+    "workerNotReady": "کارگر آماده نیست",
+    "queueUnavailable": "وضعیت صف در دسترس نیست.",
+    "workerCount": "{count} کارگر",
+    "queueCounts": "{waiting} در انتظار · {active} فعال · {failed} ناموفق",
+    "retentionEligible": "{count} تحویل برای پاک‌سازی نگهداری آماده است.",
+    "retentionUnavailable": "وضعیت نگهداری در دسترس نیست.",
+    "retentionDeleted": "{count} تحویل حذف شد.",
+    "retentionFailed": "پاک‌سازی نگهداری ناموفق بود.",
+    "runRetention": "اجرای پاک‌سازی نگهداری",
     "pending": "{count} در انتظار",
     "webhook": "Webhook",
     "overviewDeliveriesSettings": "نمای کلی، ارسال‌ها و تنظیمات",
@@ -1322,7 +1334,10 @@
     "delete": "حذف",
     "noPeriods": "هنوز بازه برگه زمانی وجود ندارد.",
     "noEntries": "هنوز ثبت زمانی وجود ندارد.",
-    "noRateCards": "هنوز کارت نرخی وجود ندارد."
+    "noRateCards": "هنوز کارت نرخی وجود ندارد.",
+    "billRate": "نرخ صورتحساب",
+    "report": "گزارش هزینه و صورتحساب",
+    "downloadReport": "دانلود گزارش CSV"
   }
 
 }

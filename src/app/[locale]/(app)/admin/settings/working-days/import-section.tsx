@@ -132,24 +132,23 @@ export function WorkingDaysImportSection({ onImported }: ImportSectionProps) {
     setDownloading(true);
     setImportMsg(null);
     try {
-      const params = new URLSearchParams({ year: String(downloadYear), onlyDayOffs: String(onlyDayOffs) });
-      const res = await apiFetch(
-        `/api/v1/admin/settings/working-days/download?${params}`,
-      );
-      const body = (await res.json()) as { data?: { count?: number; rows?: string[] } };
+      const res = await apiFetch("/api/v1/admin/settings/working-days/download", {
+        method: "POST",
+        body: JSON.stringify({ year: downloadYear, onlyDayOffs }),
+      });
+      const body = (await res.json()) as {
+        data?: { imported?: number; skipped?: number; dayOffs?: number; observances?: number };
+        error?: { message?: string };
+      };
       if (!res.ok) {
-        setImportMsg({ ok: false, text: t("downloadFailed") });
+        setImportMsg({ ok: false, text: body.error?.message ? t("downloadFailedReason", { reason: body.error.message }) : t("downloadFailed") });
         return;
       }
-      const count = body.data?.count ?? 0;
+      const count = body.data?.imported ?? 0;
       setImportMsg({ ok: true, text: t("downloadDone", { count }) });
       onImported();
     } catch {
-      const body = (await apiFetch(`/api/v1/admin/settings/working-days/download?year=${downloadYear}`).then((r) => r.json()).catch(() => null)) as {
-        error?: { code?: string; message?: string };
-      } | null;
-      const reason = body?.error?.message;
-      setImportMsg({ ok: false, text: reason ? t("downloadFailedReason", { reason }) : t("downloadFailed") });
+      setImportMsg({ ok: false, text: t("downloadFailed") });
     } finally {
       setDownloading(false);
     }

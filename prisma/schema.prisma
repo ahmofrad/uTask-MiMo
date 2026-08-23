@@ -1017,6 +1017,7 @@ model TimeEntry {
   minutes               Int
   billable              Boolean  @default(true)
   costRateMinorSnapshot Int
+  billRateMinorSnapshot Int?
   currencySnapshot      String   @default("USD") @db.VarChar(3)
   createdAt             DateTime @default(now()) @db.Timestamptz
 

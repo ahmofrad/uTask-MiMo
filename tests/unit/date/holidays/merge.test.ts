@@ -69,4 +69,20 @@ describe("mergeHolidays dayOff reconciliation", () => {
     const { config } = mergeHolidays(base, [{ date: "2026-01-18", name: "Occasion", dayOff: false }]);
     expect(config.holidays[0]).toEqual({ date: "2026-01-18", name: "Occasion", dayOff: false });
   });
+
+  it("keeps distinct incoming dates sorted and counts them", () => {
+    const result = mergeHolidays(
+      { weekendDays: [], holidays: [] },
+      [
+        { date: "2026-12-31", name: "New Year Eve", dayOff: true },
+        { date: "2026-01-01", name: "New Year", dayOff: true },
+      ],
+    );
+    expect(result.imported).toBe(2);
+    expect(result.skipped).toBe(0);
+    expect(result.config.holidays.map((holiday) => holiday.date)).toEqual([
+      "2026-01-01",
+      "2026-12-31",
+    ]);
+  });
 });

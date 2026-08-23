@@ -4,6 +4,7 @@ import crypto from "node:crypto";
 import { waitForRedisReady, type RedisReadyClient } from "./connection";
 import { getRedisConnectionOptions } from "@/lib/redis/config";
 import type { RedisOptions } from "ioredis";
+import { setQueueJobCounts, setWorkerReady } from "@/lib/metrics";
 
 let sharedConnection: unknown;
 let connectionPromise: Promise<unknown> | null = null;
@@ -150,10 +151,11 @@ export async function getQueueHealth() {
     { name: "email", queue: await getEmailQueue() },
     { name: "recurrence-sweep", queue: await getRecurrenceQueue() },
   ];
-  const details = await Promise.all(queues.map(async ({ name, queue }) => ({
-    name,
-    ...(await queue.getJobCounts("waiting", "active", "completed", "failed", "delayed")),
-  })));
+  const details = await Promise.all(queues.map(async ({ name, queue }) => {
+    const counts = await queue.getJobCounts("waiting", "active", "completed", "failed", "delayed");
+    setQueueJobCounts(name, counts);
+    return { name, ...counts };
+  }));
   return {
     workersStarted,
     workers: _workers.length,
@@ -164,6 +166,7 @@ export async function getQueueHealth() {
 export async function startWorkers(): Promise<void> {
   if (workersStarted) return;
   workersStarted = true;
+  setWorkerReady(false);
 
   try {
     const conn = await ensureConnection() as { ping?: () => Promise<unknown> };
@@ -247,9 +250,11 @@ export async function startWorkers(): Promise<void> {
     // by their repeat key, so this is safe to call on every boot.
     await ensureRecurrenceSweepScheduled();
 
+    setWorkerReady(true);
     logger.info("BullMQ workers started");
   } catch (err) {
     workersStarted = false;
+    setWorkerReady(false);
     logger.error({ err }, "Failed to start BullMQ workers");
     throw err;
   }

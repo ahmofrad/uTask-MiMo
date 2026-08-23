@@ -10,6 +10,7 @@ type Entry = {
   minutes: number;
   billable: boolean;
   costRateMinorSnapshot: number;
+  billRateMinorSnapshot: number | null;
   currencySnapshot: string;
   createdAt: string;
   project: { id: string; name: string };
@@ -138,8 +139,13 @@ export const PeriodRow = memo(function PeriodRow({
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-fg-muted text-xs">
-                      {formatRate(entry.costRateMinorSnapshot, entry.currencySnapshot)}
+                      {t("costRate")}: {formatRate(entry.costRateMinorSnapshot, entry.currencySnapshot)}
                     </span>
+                    {entry.billRateMinorSnapshot !== null && (
+                      <span className="text-fg-muted text-xs">
+                        {t("billRate")}: {formatRate(entry.billRateMinorSnapshot, entry.currencySnapshot)}
+                      </span>
+                    )}
                     <span className="tabular-nums font-medium">
                       {formatMinutes(entry.minutes)}
                     </span>

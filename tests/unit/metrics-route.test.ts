@@ -1,12 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockMetrics } = vi.hoisted(() => ({ mockMetrics: vi.fn() }));
+const { mockQueryRaw } = vi.hoisted(() => ({ mockQueryRaw: vi.fn() }));
 
-vi.mock("prom-client", () => ({
-  register: {
-    metrics: mockMetrics,
-    contentType: "text/plain; version=0.0.4",
-  },
+vi.mock("@/lib/db", () => ({
+  prisma: { $queryRaw: mockQueryRaw },
 }));
 
 import { GET } from "@/app/metrics/route";
@@ -15,7 +12,7 @@ describe("GET /metrics", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     delete process.env.METRICS_AUTH_TOKEN;
-    mockMetrics.mockResolvedValue("taskapp_up 1\n");
+    mockQueryRaw.mockResolvedValue([{ ok: 1 }]);
   });
 
   it("serves metrics when no token is configured", async () => {
@@ -23,7 +20,7 @@ describe("GET /metrics", () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toContain("text/plain");
-    expect(await response.text()).toBe("taskapp_up 1\n");
+    expect(await response.text()).toContain("taskapp_worker_ready");
   });
 
   it("rejects requests with a missing or invalid bearer token", async () => {
@@ -37,7 +34,7 @@ describe("GET /metrics", () => {
     expect(missing.status).toBe(401);
     expect(invalid.status).toBe(401);
     expect(missing.headers.get("www-authenticate")).toBe("Bearer");
-    expect(mockMetrics).not.toHaveBeenCalled();
+    expect(mockQueryRaw).not.toHaveBeenCalled();
   });
 
   it("accepts the configured bearer token", async () => {
@@ -48,6 +45,6 @@ describe("GET /metrics", () => {
     }));
 
     expect(response.status).toBe(200);
-    expect(mockMetrics).toHaveBeenCalledOnce();
+    expect(mockQueryRaw).toHaveBeenCalledOnce();
   });
 });

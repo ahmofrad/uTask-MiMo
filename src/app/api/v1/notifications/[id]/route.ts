@@ -22,7 +22,7 @@ export async function POST(
   }
 
   const { markAsRead } = await import("@/lib/notifications");
-  await markAsRead(resolvedParams.id);
+  await markAsRead(resolvedParams.id, userId);
 
   return NextResponse.json({ data: { success: true } });
 }

@@ -3,15 +3,22 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
 import { timelineDayStart, isSameTimelineDay } from "@/lib/date/day-marker";
+import { getUserReadableProjectIds } from "@/lib/projects";
 
 export default async function MyTasksPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const t = await getTranslations();
+  const readableProjectIds = await getUserReadableProjectIds(session.user.id);
 
   const tasks = await prisma.task.findMany({
-    where: { assignees: { some: { userId: session.user.id } }, deletedAt: null, parentTaskId: null },
+    where: {
+      ...(readableProjectIds === null ? {} : { projectId: { in: readableProjectIds } }),
+      assignees: { some: { userId: session.user.id } },
+      deletedAt: null,
+      parentTaskId: null,
+    },
     orderBy: [{ dueDate: "asc" }, { priority: "desc" }],
     take: 50,
     select: {

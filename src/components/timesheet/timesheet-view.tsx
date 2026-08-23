@@ -19,6 +19,7 @@ type Period = {
     minutes: number;
     billable: boolean;
     costRateMinorSnapshot: number;
+    billRateMinorSnapshot: number | null;
     currencySnapshot: string;
     createdAt: string;
     project: { id: string; name: string };
@@ -144,7 +145,13 @@ export const TimesheetView = memo(function TimesheetView({
   return (
     <div className="space-y-4">
       {/* Create period toggle */}
-      <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <a
+          href={`/api/v1/departments/${departmentId}/timesheets/report?format=csv`}
+          className="inline-flex items-center rounded-md border border-border-primary px-3 py-2 text-sm text-fg-secondary hover:bg-bg-surface-2"
+        >
+          {t("downloadReport")}
+        </a>
         {showCreatePeriod ? (
           <CreatePeriodForm
             onSubmit={handleCreatePeriod}

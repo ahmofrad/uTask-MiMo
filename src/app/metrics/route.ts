@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
-import { register } from "prom-client";
+import { prisma } from "@/lib/db";
+import { renderApplicationMetrics } from "@/lib/metrics";
 
 function hasMetricsAccess(request: Request): boolean {
   const expected = process.env.METRICS_AUTH_TOKEN?.trim();
@@ -18,9 +19,16 @@ export async function GET(request: Request) {
     });
   }
 
-  const body = await register.metrics();
-  return new Response(body, {
+  try {
+    // The Prisma query event listener records this probe in the shared DB
+    // histogram, proving the endpoint includes live database health.
+    await prisma.$queryRaw`SELECT 1`;
+  } catch {
+    // Metrics must remain scrapeable during a database outage.
+  }
+
+  return new Response(renderApplicationMetrics(), {
     status: 200,
-    headers: { "Content-Type": register.contentType },
+    headers: { "Content-Type": "text/plain; version=0.0.4" },
   });
 }

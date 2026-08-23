@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { formatDateTime } from "@/lib/date/format";
 import { ReplayButton } from "@/components/admin/replay-button";
 import { getLocale, getTranslations } from "next-intl/server";
+import { WebhookRetentionPanel } from "@/components/admin/webhook-retention-panel";
 
 export default async function WebhookDeliveriesPage() {
   const session = await auth();
@@ -22,6 +23,8 @@ export default async function WebhookDeliveriesPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-fg-primary">{t("admin.webhookDeliveries")}</h1>
+
+      <WebhookRetentionPanel />
 
       <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
         <table className="w-full text-sm">

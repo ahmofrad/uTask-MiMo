@@ -20,10 +20,12 @@ spec:
         - name: migrate
           image: "{{ .Values.app.image }}:{{ .Values.app.tag }}"
           imagePullPolicy: IfNotPresent
-          command: ["true"]
+          command: ["sh", "-c"]
+          args:
+            - npx tsx scripts/migration-preflight.ts --allow-pending && npx prisma migrate deploy && npx tsx scripts/migration-preflight.ts
           env:
             - name: RUN_MIGRATIONS
-              value: "true"
+              value: "false"
           envFrom:
             - configMapRef:
                 name: {{ include "taskapp.fullname" . }}

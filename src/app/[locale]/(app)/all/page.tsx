@@ -2,15 +2,21 @@ import { auth } from "@/lib/auth/config";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getTranslations } from "next-intl/server";
+import { getUserReadableProjectIds } from "@/lib/projects";
 
 export default async function AllTasksPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
 
   const t = await getTranslations("nav");
+  const readableProjectIds = await getUserReadableProjectIds(session.user.id);
 
   const tasks = await prisma.task.findMany({
-    where: { deletedAt: null, parentTaskId: null },
+    where: {
+      ...(readableProjectIds === null ? {} : { projectId: { in: readableProjectIds } }),
+      deletedAt: null,
+      parentTaskId: null,
+    },
     orderBy: { updatedAt: "desc" },
     take: 50,
     select: {

@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth/config";
 import { redirect, notFound } from "next/navigation";
-import { can } from "@/lib/rbac/can";
+import { can, canAccessDepartment } from "@/lib/rbac/can";
+import { getUserReadableProjectIds } from "@/lib/projects";
 import { getTranslations } from "next-intl/server";
 import { TimesheetView } from "@/components/timesheet/timesheet-view";
 
@@ -20,30 +21,43 @@ export default async function DepartmentTimesheetsPage({
     where: { id: departmentId, deletedAt: null },
     select: { id: true, name: true },
   });
-  if (!department) notFound();
+  if (!department || !(await canAccessDepartment(session.user.id, departmentId))) notFound();
 
   const isApprover = await can(session.user.id, "timesheet.approve");
+  const readableProjectIds = await getUserReadableProjectIds(session.user.id);
+
+  const entryInclude = {
+    orderBy: { createdAt: "desc" as const },
+    include: {
+      project: { select: { id: true, name: true } },
+      task: { select: { id: true, title: true } },
+    },
+  } as const;
+  const scopedEntryInclude = {
+    where: { projectId: { in: readableProjectIds ?? [] } },
+    ...entryInclude,
+  } as const;
 
   const periods = await prisma.timesheetPeriod.findMany({
     where: {
       departmentId,
       ...(isApprover ? {} : { ownerId: session.user.id }),
+      ...(readableProjectIds === null ? {} : {
+        entries: { some: { projectId: { in: readableProjectIds } } },
+      }),
     },
     include: {
       owner: { select: { id: true, displayName: true, email: true } },
-      entries: {
-        orderBy: { createdAt: "desc" },
-        include: {
-          project: { select: { id: true, name: true } },
-          task: { select: { id: true, title: true } },
-        },
-      },
+      entries: readableProjectIds === null ? entryInclude : scopedEntryInclude,
     },
     orderBy: { periodStart: "desc" },
   });
 
   const projects = await prisma.project.findMany({
-    where: { archivedAt: null },
+    where: {
+      archivedAt: null,
+      ...(readableProjectIds !== null ? { id: { in: readableProjectIds } } : {}),
+    },
     select: { id: true, name: true },
     orderBy: { name: "asc" },
   });
@@ -69,6 +83,7 @@ export default async function DepartmentTimesheetsPage({
             minutes: e.minutes,
             billable: e.billable,
             costRateMinorSnapshot: e.costRateMinorSnapshot,
+            billRateMinorSnapshot: e.billRateMinorSnapshot,
             currencySnapshot: e.currencySnapshot,
             createdAt: e.createdAt.toISOString(),
             project: e.project,
