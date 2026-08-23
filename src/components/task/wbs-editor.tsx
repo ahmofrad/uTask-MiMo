@@ -7,6 +7,8 @@ import { apiFetch } from "@/lib/api-fetch";
 import type { WbsNode } from "@/lib/tasks";
 import { computeWbsStats, filterWbsBySearch } from "@/lib/tasks/wbs-stats";
 import { WbsRow, type DropZone } from "@/components/task/wbs-row";
+import { WbsToolbar } from "@/components/task/wbs-toolbar";
+import { WbsAddRootForm } from "@/components/task/wbs-add-root-form";
 
 const APPEND_LAST = Number.MAX_SAFE_INTEGER;
 
@@ -276,48 +278,22 @@ export const WbsEditor = memo(function WbsEditor({ projectId, projectName, showH
         </div>
       )}
 
-      <div data-testid="wbs-toolbar" className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-bg-surface p-3 shadow-xs">
-        <div className="relative min-w-[16rem] flex-1">
-          <svg className="pointer-events-none absolute inset-s-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m21 21-4.35-4.35m2.35-5.65a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z" />
-          </svg>
-          <input
-            data-testid="wbs-search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t("wbsSearchPlaceholder")}
-            aria-label={t("wbsSearch")}
-            className="w-full rounded-md border border-border bg-bg-surface-2 py-2 ps-9 pe-3 text-sm text-fg-primary outline-none placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/20"
-          />
-        </div>
-        <button type="button" data-testid="wbs-expand-all" onClick={() => setExpanded(new Set(nodes.filter((node) => node.isSummary).map((node) => node.id)))} className="rounded-md border border-border px-3 py-2 text-sm text-fg-muted hover:bg-bg-surface-2 hover:text-fg-primary">
-          {t("wbsExpandAll")}
-        </button>
-        <button type="button" data-testid="wbs-collapse-all" onClick={() => setExpanded(new Set())} className="rounded-md border border-border px-3 py-2 text-sm text-fg-muted hover:bg-bg-surface-2 hover:text-fg-primary">
-          {t("wbsCollapseAll")}
-        </button>
-        <button type="button" data-testid="wbs-add-root" onClick={() => { setAddingRoot(true); setRootTitle(""); }} className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover">
-          + {t("wbsAddRoot")}
-        </button>
-      </div>
+      <WbsToolbar
+        search={search}
+        onSearch={setSearch}
+        onExpandAll={() => setExpanded(new Set(nodes.filter((node) => node.isSummary).map((node) => node.id)))}
+        onCollapseAll={() => setExpanded(new Set())}
+        onAddRoot={() => { setAddingRoot(true); setRootTitle(""); }}
+      />
 
       {addingRoot && (
-        <form data-testid="wbs-root-form" className="flex flex-wrap items-center gap-2 rounded-xl border border-accent/30 bg-accent-bg p-3" onSubmit={(e) => { e.preventDefault(); void addRoot(); }}>
-          <input
-            data-testid="wbs-root-title"
-            autoFocus
-            value={rootTitle}
-            onChange={(e) => setRootTitle(e.target.value)}
-            placeholder={t("wbsAddRootPlaceholder")}
-            className="min-w-[16rem] flex-1 rounded-md border border-border bg-bg-surface px-3 py-2 text-sm text-fg-primary outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-          />
-          <button type="submit" disabled={busyId === "root" || !rootTitle.trim()} className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-fg disabled:opacity-50">
-            {t("add")}
-          </button>
-          <button type="button" onClick={() => { setAddingRoot(false); setRootTitle(""); }} className="rounded-md px-3 py-2 text-sm text-fg-muted hover:bg-bg-surface">
-            {t("wbsCancel")}
-          </button>
-        </form>
+        <WbsAddRootForm
+          busy={busyId === "root"}
+          title={rootTitle}
+          onTitle={setRootTitle}
+          onSubmit={() => void addRoot()}
+          onCancel={() => { setAddingRoot(false); setRootTitle(""); }}
+        />
       )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

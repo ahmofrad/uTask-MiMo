@@ -113,4 +113,31 @@ test.describe("service worker (PWA)", () => {
     expect(state.controller).toContain("/sw.js");
     expect(pageErrors).toEqual([]);
   });
+
+  test("serves offline fallback page when network is unavailable", async ({ page, context }) => {
+    // First visit: install and activate the service worker.
+    await page.goto("/login", { waitUntil: "networkidle" });
+    await page.waitForFunction(() => navigator.serviceWorker.controller != null, null, { timeout: 15000 });
+
+    // Navigate to a page we haven't visited before while offline.
+    // The SW must fall back to offline.html for any navigation that
+    // isn't in its cache.
+    await context.setOffline(true);
+    await page.goto("/some-page-we-never-visited", { waitUntil: "commit" }).catch(() => {
+      // Playwright may throw on offline goto; the SW should still handle it.
+    });
+
+    // Give the SW time to respond with the fallback.
+    await page.waitForTimeout(2000);
+
+    const bodyText = await page.evaluate(() => document.body.innerText);
+    expect(bodyText).toContain("offline");
+
+    // The fallback page should have a recognizable title.
+    const title = await page.title();
+    expect(title).toContain("Offline");
+
+    // Restore connectivity for subsequent tests.
+    await context.setOffline(false);
+  });
 });

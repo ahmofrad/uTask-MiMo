@@ -104,6 +104,8 @@ pnpm db:sample      # Optional: adds sample users, projects, tasks
 pnpm dev
 
 # Open http://localhost:3000
+# When opening the dev server through another hostname or IP, set
+# NEXT_ALLOWED_DEV_ORIGINS=your-server-hostname,192.0.2.10 in .env first.
 # Mailhog UI: http://localhost:8025
 # MinIO console: http://localhost:9001
 

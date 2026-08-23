@@ -6,11 +6,22 @@ import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { Dialog } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-fetch";
 
+type TokenRow = {
+  id: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  revokedAt: string | null;
+  createdAt: string;
+  lastUsedAt?: string | null;
+  expiresAt?: string | null;
+};
+
 export function TokensSettings() {
   const t = useTranslations("settings");
   const tc = useTranslations("common");
   const { shortDate } = useFormattedDate();
-  const [tokens, setTokens] = useState<any[]>([]);
+  const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [newTokenName, setNewTokenName] = useState("");
   const [newTokenRaw, setNewTokenRaw] = useState<string | null>(null);
@@ -116,7 +127,7 @@ export function TokensSettings() {
                 {token.revokedAt && (
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-danger-bg text-danger">{t("revoked")}</span>
                 )}
-                {token.expiresAt && token.expiresAt < new Date() && !token.revokedAt && (
+                {token.expiresAt && new Date(token.expiresAt) < new Date() && !token.revokedAt && (
                   <span className="text-xs px-1.5 py-0.5 rounded-full bg-warning-bg text-warning">{t("expired")}</span>
                 )}
               </div>

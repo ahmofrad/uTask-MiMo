@@ -1,12 +1,12 @@
 "use client";
 
-import { Fragment, memo, useState } from "react";
+import { memo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api-fetch";
 import { GroupCreateDialog } from "./group-create-dialog";
 import { GroupMembersPanel } from "./group-members-panel";
-import { useFormattedDate } from "@/lib/date/useFormattedDate";
+import { GroupRow } from "./group-row";
 
 type SyncGroup = {
   id: string;
@@ -40,8 +40,6 @@ export const GroupList = memo(function GroupList({
   hiddenGroupCount?: number;
 }) {
   const t = useTranslations("admin");
-  const tc = useTranslations("common");
-  const { dateTime } = useFormattedDate();
 
   const [groups, setGroups] = useState<SyncGroup[]>(initial);
   const [search, setSearch] = useState("");
@@ -297,93 +295,32 @@ export const GroupList = memo(function GroupList({
       ) : (
         <div className="space-y-2">
           {groups.map((group) => (
-            <Fragment key={group.id}>
-            <div className="flex flex-col gap-3 rounded-lg border border-border-primary p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    className="font-medium text-fg-primary bg-transparent border border-transparent hover:border-border-primary rounded px-1 py-0.5 text-sm w-48 focus:outline-none focus:border-border-primary"
-                    defaultValue={group.name}
-                    onBlur={(e) => {
-                      if (e.target.value.trim() && e.target.value.trim() !== group.name) {
-                        void handleRename(group.id, e.target.value);
-                      }
-                    }}
-                    aria-label={t("groupName")}
+            <GroupRow
+              key={group.id}
+              group={group}
+              departments={departments}
+              isExpanded={expandedId === group.id}
+              onRename={handleRename}
+              onSetOwnerDepartment={handleSetOwnerDepartment}
+              onToggleMembers={(id) => void toggleMembers(id)}
+              onRemove={handleRemoveGroup}
+              expandedSlot={
+                expandedId === group.id ? (
+                  <GroupMembersPanel
+                    groupId={group.id}
+                    members={members[group.id] ?? []}
+                    loading={loadingId === group.id}
+                    query={memberQuery[group.id] ?? ""}
+                    suggestions={memberSuggestions[group.id] ?? []}
+                    addError={memberAddError[group.id] ?? null}
+                    addNote={memberAddNote[group.id] ?? null}
+                    onQueryChange={(groupId, q) => void searchUsers(groupId, q)}
+                    onAddMember={(groupId, user) => void addMember(groupId, user)}
+                    onRemoveMember={(groupId, userId) => void removeMember(groupId, userId)}
                   />
-                  <span
-                    className={
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium " +
-                      (group.source === "manual"
-                        ? "bg-accent/10 border border-accent text-accent"
-                        : "bg-bg-surface-2 border border-border-primary text-fg-secondary")
-                    }
-                  >
-                    {group.source === "manual" ? t("sourceManual") : t("sourceLdap")}
-                  </span>
-                  {group.dn && <span className="text-xs text-fg-tertiary">{group.dn}</span>}
-                </div>
-                <p className="mt-1 text-xs text-fg-secondary">
-                  {t("membersCount", { count: group.memberCount })}
-                  {" · "}
-                  {group.department ? (
-                    <>
-                      {t("groupDepartment")}: {group.department.name}
-                    </>
-                  ) : (
-                    t("noLinkedDepartment")
-                  )}
-                  {" · "}
-                  {group.ownerDepartment
-                    ? <>
-                        {t("ownerDepartment")}: {group.ownerDepartment.name}
-                      </>
-                    : null}
-                  {group.source === "ldap" && (
-                    <>
-                      {" · "}
-                      {t("lastSynced")}: {group.lastSyncedAt ? dateTime(group.lastSyncedAt) : tc("never")}
-                    </>
-                  )}
-                </p>
-                <div className="mt-2 flex items-center gap-2">
-                  <label className="text-xs text-fg-muted">{t("ownerDepartment")}</label>
-                  <select
-                    value={group.ownerDepartment?.id ?? ""}
-                    onChange={(e) => void handleSetOwnerDepartment(group.id, e.target.value)}
-                    className="text-xs bg-bg-primary border border-border-primary rounded px-2 py-1 text-fg-muted"
-                  >
-                    <option value="">{t("noOwnerDepartment")}</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => void toggleMembers(group.id)}>
-                  {expandedId === group.id ? t("hideMembers") : t("showMembers")}
-                </Button>
-                <Button variant="ghost" size="sm" onClick={() => void handleRemoveGroup(group.id)}>
-                  {t("delete")}
-                </Button>
-              </div>
-            </div>
-            {expandedId === group.id && (
-              <GroupMembersPanel
-                groupId={group.id}
-                members={members[group.id] ?? []}
-                loading={loadingId === group.id}
-                query={memberQuery[group.id] ?? ""}
-                suggestions={memberSuggestions[group.id] ?? []}
-                addError={memberAddError[group.id] ?? null}
-                addNote={memberAddNote[group.id] ?? null}
-                onQueryChange={(groupId, q) => void searchUsers(groupId, q)}
-                onAddMember={(groupId, user) => void addMember(groupId, user)}
-                onRemoveMember={(groupId, userId) => void removeMember(groupId, userId)}
-              />
-            )}
-            </Fragment>
+                ) : undefined
+              }
+            />
           ))}
         </div>
       )}

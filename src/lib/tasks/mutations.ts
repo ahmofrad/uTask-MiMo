@@ -10,17 +10,14 @@ import {
 } from "@/lib/tasks/wbs";
 import { evaluateStatusChange, notifyUnblocked, DependencyBlockedError } from "@/lib/tasks/dependencies";
 import { bumpScheduleVersion } from "@/lib/scheduling/cpm";
-import { isTaskFinalizer, shouldRouteToApproval, TaskNotPendingApprovalError } from "@/lib/tasks/approval";
+import { isTaskFinalizer, shouldRouteToApproval } from "@/lib/tasks/approval";
 import {
-  childRule,
-  decodeRecurrenceRule,
   encodeRecurrenceRule,
-  nextOccurrenceDate,
-  shouldSpawnNext,
   type RecurrenceRule,
 } from "@/lib/tasks/recurrence";
-import { diffCalendarDays, snapDayMarker, shiftDayMarker, timelineDayStart } from "@/lib/date/day-marker";
-import type { Task } from "@prisma/client";
+// Approval mutations and recurrence spawning live in focused modules;
+// re-export for backward compatibility.
+export { approveTask, rejectTask } from "@/lib/tasks/approval-mutations";
 
 export type CreateTaskData = {
   title: string;
@@ -61,64 +58,6 @@ function clampProgress(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(100, Math.round(n)));
-}
-
-/**
- * Spawn the next occurrence of a recurring task after its current occurrence
- * is completed. The series carries the rule forward (with `count` decremented)
- * and references the series root via `recurrenceParentId`.
- */
-async function spawnNextRecurrence(task: Task, actorId: string): Promise<void> {
-  const rule = decodeRecurrenceRule(task.recurrenceRule);
-  if (!rule) return;
-
-  const anchor = rule.anchor === "startDate" ? task.startDate : task.dueDate;
-  if (!anchor) return;
-
-  const next = nextOccurrenceDate(rule, anchor);
-  if (!shouldSpawnNext(rule, next)) return;
-  const nextRule = childRule(rule);
-  if (!nextRule) return;
-
-  const deltaDays = diffCalendarDays(timelineDayStart(anchor), timelineDayStart(next));
-  const shift = (d: Date, boundary: "start" | "end") =>
-    snapDayMarker(shiftDayMarker(d, deltaDays), boundary);
-
-  const rootId = task.recurrenceParentId ?? task.id;
-  const spawned = await prisma.task.create({
-    data: {
-      projectId: task.projectId,
-      title: task.title,
-      description: task.description,
-      status: "open",
-      priority: task.priority,
-      startDate: task.startDate ? shift(task.startDate, "start") : null,
-      endDate: task.endDate ? shift(task.endDate, "end") : null,
-      dueDate: task.dueDate ? shift(task.dueDate, "end") : null,
-      recurrenceRule: encodeRecurrenceRule(nextRule),
-      recurrenceParentId: rootId,
-      reporterId: task.reporterId,
-      createdById: actorId || task.createdById,
-      assigneeGroupId: task.assigneeGroupId,
-      estimatedHours: task.estimatedHours,
-      isMilestone: task.isMilestone,
-      requiresApproval: task.requiresApproval,
-      approverId: task.approverId,
-    },
-  });
-
-  const { logAudit } = await import("@/lib/audit/log");
-  await logAudit({
-    actorUserId: actorId || null,
-    action: "task_recurrence_spawned",
-    entityType: "task",
-    entityId: spawned.id,
-    after: {
-      parentTaskId: task.id,
-      recurrenceRootId: rootId,
-      recurrenceRule: encodeRecurrenceRule(nextRule),
-    },
-  });
 }
 
 async function notifyNewAssignees(taskId: string, title: string, userIds: string[]) {
@@ -435,6 +374,7 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
   // (the approval gate may have rerouted a `done` request, so only spawn when
   // the task actually landed on `done`).
   if (task.status === "done" && before && before.status !== "done" && task.recurrenceRule) {
+    const { spawnNextRecurrence } = await import("@/lib/tasks/approval-mutations");
     await spawnNextRecurrence(task, actorId ?? task.createdById);
   }
 
@@ -533,45 +473,4 @@ export async function moveTask(id: string, data: MoveTaskData) {
   });
 
   return { before, task: updated };
-}
-
-export async function approveTask(id: string, _actorId: string) {
-  const before = await prisma.task.findUnique({ where: { id } });
-  if (!before || before.deletedAt || before.status !== "pending_approval") {
-    throw new TaskNotPendingApprovalError();
-  }
-
-  const task = await prisma.task.update({
-    where: { id },
-    data: {
-      status: "done",
-      completedAt: new Date(),
-      progress: 100,
-      approvalNote: null,
-    },
-  });
-
-  if (task.recurrenceRule) {
-    await spawnNextRecurrence(task, _actorId);
-  }
-
-  return { before, task };
-}
-
-export async function rejectTask(id: string, _actorId: string, reason: string) {
-  const before = await prisma.task.findUnique({ where: { id } });
-  if (!before || before.deletedAt || before.status !== "pending_approval") {
-    throw new TaskNotPendingApprovalError();
-  }
-
-  const task = await prisma.task.update({
-    where: { id },
-    data: {
-      status: "in_progress",
-      completedAt: null,
-      approvalNote: reason,
-    },
-  });
-
-  return { before, task };
 }
