@@ -24,40 +24,44 @@ test("task detail shows audit events and comments in the activity timeline", asy
   const taskId = created.data?.id;
   expect(taskId).toBeDefined();
 
-  test.info().annotations.push({ type: "cleanup", description: taskId as string });
+  try {
+    const renameRes = await page.request.patch(`/api/v1/tasks/${taskId}`, {
+      headers: csrfHeaders,
+      data: { title: "Activity timeline e2e task (renamed)" },
+    });
+    expect(renameRes.ok()).toBeTruthy();
 
-  const renameRes = await page.request.patch(`/api/v1/tasks/${taskId}`, {
-    headers: csrfHeaders,
-    data: { title: "Activity timeline e2e task (renamed)" },
-  });
-  expect(renameRes.ok()).toBeTruthy();
+    const commentRes = await page.request.post(`/api/v1/tasks/${taskId}/comments`, {
+      headers: { "Idempotency-Key": `activity-e2e-comment-${Date.now()}`, ...csrfHeaders },
+      data: { bodyMarkdown: "Activity timeline e2e comment" },
+    });
+    expect(commentRes.ok()).toBeTruthy();
 
-  const commentRes = await page.request.post(`/api/v1/tasks/${taskId}/comments`, {
-    headers: { "Idempotency-Key": `activity-e2e-comment-${Date.now()}`, ...csrfHeaders },
-    data: { bodyMarkdown: "Activity timeline e2e comment" },
-  });
-  expect(commentRes.ok()).toBeTruthy();
+    await page.goto(`/en-US/tasks/${taskId}`);
+    // The page renders the timeline in two layouts (desktop/mobile variants).
+    const timeline = page.getByTestId("activity-timeline").first();
+    await expect(timeline).toBeVisible({ timeout: 15000 });
 
-  await page.goto(`/en-US/tasks/${taskId}`);
-  // The page renders the timeline in two layouts (desktop/mobile variants).
-  const timeline = page.getByTestId("activity-timeline").first();
-  await expect(timeline).toBeVisible({ timeout: 15000 });
+    // Audit entries: creation and the rename.
+    await expect(timeline.getByText("created task", { exact: true })).toBeVisible();
+    await expect(timeline.getByText("updated task", { exact: true })).toBeVisible();
 
-  // Audit entries: creation and the rename.
-  await expect(timeline.getByText("created task", { exact: true })).toBeVisible();
-  await expect(timeline.getByText("updated task", { exact: true })).toBeVisible();
+    // Comment entry with its body.
+    await expect(timeline.getByText("commented", { exact: true })).toBeVisible();
+    await expect(timeline.getByText("Activity timeline e2e comment")).toBeVisible();
 
-  // Comment entry with its body.
-  await expect(timeline.getByText("commented", { exact: true })).toBeVisible();
-  await expect(timeline.getByText("Activity timeline e2e comment")).toBeVisible();
+    // Diff expander on the update event shows the title before/after.
+    await timeline.getByText("Show details", { exact: true }).first().click();
+    await expect(timeline.getByText("Activity timeline e2e task", { exact: true })).toBeVisible();
 
-  // Diff expander on the update event shows the title before/after.
-  await timeline.getByText("Show details", { exact: true }).first().click();
-  await expect(timeline.getByText("Activity timeline e2e task", { exact: true })).toBeVisible();
-
-  // Soft-delete the scratch task so it never shows up in product views.
-  await prisma.task.update({
-    where: { id: taskId },
-    data: { deletedAt: new Date() },
-  });
+    // Soft-delete the scratch task so it never shows up in product views.
+    await prisma.task.update({
+      where: { id: taskId },
+      data: { deletedAt: new Date() },
+    });
+  } finally {
+    // Cleanup must run even when an assertion fails, otherwise later workers
+    // inherit a scratch task and its activity rows.
+    await prisma.task.deleteMany({ where: { id: taskId } });
+  }
 });

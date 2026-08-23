@@ -4,40 +4,42 @@ import { prisma } from "@/lib/db";
 // Calendar drags use HTML5 drag-and-drop; Playwright's dragAndDrop drives real
 // drag events (raw mouse events do not synthesize dragstart/drop).
 test.describe("calendar drag-to-reschedule", () => {
+  let projectId: string;
   let taskId: string;
   let originalDue: string;
-  let originalStart: string | null;
 
   test.beforeAll(async () => {
-    const project = await prisma.project.findFirstOrThrow({
-      where: { name: "Product Launch" },
+    const admin = await prisma.user.findUniqueOrThrow({
+      where: { email: "admin@utask.local" },
       select: { id: true },
     });
-    const task = await prisma.task.findFirstOrThrow({
-      where: { projectId: project.id, dueDate: { not: null }, deletedAt: null },
-      orderBy: { dueDate: "asc" },
-      select: { id: true, dueDate: true, startDate: true },
+    const project = await prisma.project.create({
+      data: { name: `Calendar drag E2E ${Date.now()}`, ownerId: admin.id, visibility: "org" },
     });
+    const task = await prisma.task.create({
+      data: {
+        projectId: project.id,
+        title: "Calendar drag e2e task",
+        status: "open",
+        priority: "med",
+        createdById: admin.id,
+        reporterId: admin.id,
+        startDate: new Date("2026-08-10T00:00:00.000Z"),
+        dueDate: new Date("2026-08-12T23:59:59.999Z"),
+      },
+    });
+    projectId = project.id;
     taskId = task.id;
     originalDue = task.dueDate!.toISOString();
-    originalStart = task.startDate ? task.startDate.toISOString() : null;
   });
 
   test.afterAll(async () => {
-    // Restore the exact dates so the suite never mutates seed data.
-    await prisma.task.update({
-      where: { id: taskId },
-      data: { dueDate: new Date(originalDue), startDate: originalStart ? new Date(originalStart) : null },
-    });
+    await prisma.task.deleteMany({ where: { projectId } });
+    await prisma.project.deleteMany({ where: { id: projectId } });
   });
 
   test("drag a task to another day on the project calendar", async ({ page }) => {
-    const project = await prisma.project.findFirstOrThrow({
-      where: { name: "Product Launch" },
-      select: { id: true },
-    });
-
-    await page.goto(`/en-US/projects/${project.id}`);
+    await page.goto(`/en-US/projects/${projectId}`);
     await page.getByRole("button", { name: /calendar/i }).first().click();
     const bar = page.locator(`a[href="/tasks/${taskId}"]`);
     await expect(bar).toBeVisible();
@@ -54,9 +56,7 @@ test.describe("calendar drag-to-reschedule", () => {
     });
 
     // Track the PATCH so we know the drag actually rescheduled. The calendar
-    // repaints on realtime task events, so under full-suite load another test's
-    // mutation can shift the bar mid-drag and swallow the drop — retry until a
-    // PATCH actually lands (afterAll restores the seed dates regardless).
+    // repaints on realtime task events, so retry until a PATCH actually lands.
     let response: Response | null = null;
     for (let attempt = 0; attempt < 3 && !response; attempt++) {
       const barBox = await bar.boundingBox();
