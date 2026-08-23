@@ -38,6 +38,7 @@ export default async function AdminLayout({
     { href: "/admin/templates", label: t("templates"), visible: isAdmin },
     { href: "/admin/settings/email-templates", label: t("emailTemplates"), visible: isAdmin },
     { href: "/admin/settings/working-days", label: t("workingDays"), visible: isAdmin },
+    { href: "/admin/health", label: t("health"), visible: isAdmin },
   ].filter((link) => link.visible);
 
   return (

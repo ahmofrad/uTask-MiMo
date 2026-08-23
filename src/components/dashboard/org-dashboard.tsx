@@ -40,6 +40,37 @@ export async function OrgDashboard({ organizationId }: { organizationId?: string
           </span>
         </div>
       </div>
+
+      <div className="bg-bg-surface border border-border-primary rounded-xl p-6 overflow-x-auto">
+        <h2 className="text-lg font-semibold text-fg-primary mb-1">{t("memberThroughput")}</h2>
+        <p className="text-sm text-fg-muted mb-4">{t("memberThroughputHint")}</p>
+        {report.memberThroughput.length === 0 ? (
+          <p className="text-sm text-fg-tertiary">{t("noMemberActivity")}</p>
+        ) : (
+          <table className="w-full text-sm min-w-[32rem]">
+            <thead>
+              <tr className="border-b border-border-primary">
+                <th className="text-start p-2 font-medium text-fg-muted">{t("member")}</th>
+                <th className="text-start p-2 font-medium text-fg-muted">{t("completed30")}</th>
+                <th className="text-start p-2 font-medium text-fg-muted">{t("onTimeRate")}</th>
+                <th className="text-start p-2 font-medium text-fg-muted">{t("workload")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-primary">
+              {report.memberThroughput.map((m) => (
+                <tr key={m.userId} className="hover:bg-bg-secondary/50">
+                  <td className="p-2 text-fg-primary">{m.displayName}</td>
+                  <td className="p-2 text-fg-secondary">{m.completed30}</td>
+                  <td className="p-2 text-fg-secondary">
+                    {m.onTimeRate === null ? "—" : `${m.onTimeRate}%`}
+                  </td>
+                  <td className="p-2 text-fg-secondary">{m.workload}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
