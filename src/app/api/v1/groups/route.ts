@@ -10,28 +10,29 @@ import { groupCreateSchema, readJsonBody, validationError } from "@/lib/validati
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  const isGlobalManager = await can(userId, "group:manage");
+  const isGlobalManager = await can(userId, "group:manage", organizationId);
   let groups;
   if (isGlobalManager) {
-    groups = await listGroups();
+    groups = await listGroups(organizationId);
   } else {
-    const managedDepartmentIds = await getManagedDepartmentIds(userId);
+    const managedDepartmentIds = await getManagedDepartmentIds(userId, organizationId);
     if (managedDepartmentIds.length === 0) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
     }
     // Scoped managers see only groups in their department subtree (owning
     // department, or the linked department for AD-synced groups).
-    groups = await listGroupsScoped(managedDepartmentIds);
+    groups = await listGroupsScoped(managedDepartmentIds, organizationId);
   }
 
   return NextResponse.json({ data: groups });
 }
 
-async function listGroupsScoped(managedDepartmentIds: string[]) {
+async function listGroupsScoped(managedDepartmentIds: string[], organizationId: string) {
   const rows = await prisma.ldapSyncGroup.findMany({
     where: {
+      organizationId,
       deletedAt: null,
       OR: [
         { ownerDepartmentId: { in: managedDepartmentIds } },
@@ -60,7 +61,7 @@ async function listGroupsScoped(managedDepartmentIds: string[]) {
 export async function POST(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const parsed = groupCreateSchema.safeParse(await readJsonBody(request));
   if (!parsed.success) {
@@ -68,10 +69,10 @@ export async function POST(request: Request) {
   }
   const { name, ownerDepartmentId } = parsed.data;
 
-  const isGlobalManager = await can(userId, "group:manage");
+  const isGlobalManager = await can(userId, "group:manage", organizationId);
   if (!isGlobalManager) {
     // Scoped manager: the group must belong to a department in their subtree.
-    const managedDepartmentIds = await getManagedDepartmentIds(userId);
+    const managedDepartmentIds = await getManagedDepartmentIds(userId, organizationId);
     if (!ownerDepartmentId || !managedDepartmentIds.includes(ownerDepartmentId)) {
       return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
     }
@@ -79,7 +80,7 @@ export async function POST(request: Request) {
 
   if (ownerDepartmentId) {
     const department = await prisma.department.findFirst({
-      where: { id: ownerDepartmentId, deletedAt: null },
+      where: { id: ownerDepartmentId, organizationId, deletedAt: null },
       select: { id: true },
     });
     if (!department) {
@@ -87,9 +88,10 @@ export async function POST(request: Request) {
     }
   }
 
-  const group = await createManualGroup({ name, ownerDepartmentId: ownerDepartmentId ?? null });
+  const group = await createManualGroup({ organizationId, name, ownerDepartmentId: ownerDepartmentId ?? null });
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "group_created",
     entityType: "group",

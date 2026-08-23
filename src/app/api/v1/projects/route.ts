@@ -10,20 +10,21 @@ import { getUserReadableProjectIds, listProjects, createProject } from "@/lib/pr
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
   const departmentId = searchParams.get("departmentId");
   const status = searchParams.get("status");
-  const readableProjectIds = await getUserReadableProjectIds(userId);
+  const readableProjectIds = await getUserReadableProjectIds(userId, organizationId);
 
   const result = await listProjects({
     limit,
     ...(cursor ? { cursor } : {}),
     ...(departmentId ? { departmentId } : {}),
     ...(status ? { status } : {}),
+    organizationId,
     ...(readableProjectIds !== null ? { projectIds: readableProjectIds } : {}),
   });
 
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const parsed = projectCreateSchema.safeParse(await readJsonBody(request));
   if (!parsed.success) {
@@ -47,20 +48,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "You are not allowed to create a project in this department" } }, { status: 403 });
   }
 
-  const canLinkAllDepartments = await can(userId, "org:settings");
+  const canLinkAllDepartments = await can(userId, "org:settings", organizationId);
   const departmentIdsToCreate = canLinkAllDepartments ? departmentIds : departmentIds.slice(0, 1);
 
   const project = await createProject({
     name,
     description: description ?? null,
     ownerId: userId,
+    organizationId,
     departmentId: primaryDepartmentId,
     ...(departmentIdsToCreate.length > 0 ? { departmentIds: departmentIdsToCreate } : {}),
     ...(color ? { color } : {}),
     ...(visibility ? { visibility: visibility as never } : {}),
   });
 
-  await logAudit({ actorUserId: userId, action: "project_created", entityType: "project", entityId: project.id, after: project as never });
+  await logAudit({ organizationId, actorUserId: userId, action: "project_created", entityType: "project", entityId: project.id, after: project as never });
 
   if (!canLinkAllDepartments) {
     for (const departmentId of departmentIds.slice(1)) {

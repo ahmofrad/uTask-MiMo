@@ -6,11 +6,11 @@ import { logAudit } from "@/lib/audit/log";
 import { publicTokenCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
-  const { userId, rateLimit, error } = await authenticatePublicApi(request);
+  const { userId, organizationId, rateLimit, error } = await authenticatePublicApi(request);
   if (error) return error;
 
   const tokens = await prisma.apiToken.findMany({
-    where: { userId, revokedAt: null },
+    where: { userId, organizationId, revokedAt: null },
     select: {
       id: true, name: true, prefix: true, scopes: true,
       expiresAt: true, lastUsedAt: true, createdAt: true,
@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { userId, error } = await authenticatePublicApi(request);
+  const { userId, organizationId, error } = await authenticatePublicApi(request);
   if (error) return error;
 
   const parsed = publicTokenCreateSchema.safeParse(await readJsonBody(request));
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   }
 
   for (const scope of normalized) {
-    if (!(await userCanGrantScope(userId, scope))) {
+    if (!(await userCanGrantScope(userId, scope, organizationId))) {
       return NextResponse.json(
         { error: { code: "FORBIDDEN", message: `You are not allowed to grant the scope: ${scope}` } },
         { status: 403 },
@@ -65,12 +65,14 @@ export async function POST(request: Request) {
 
   const { raw, prefix, id } = await createApiToken({
     userId,
+    organizationId,
     name,
     scopes: normalized,
     expiresAt: expiresAt ? new Date(expiresAt) : null,
   });
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "api_token_created",
     entityType: "api_token",

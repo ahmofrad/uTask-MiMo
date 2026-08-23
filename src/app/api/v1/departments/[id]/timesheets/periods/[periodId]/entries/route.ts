@@ -12,8 +12,8 @@ export async function POST(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
-  if (!(await canAccessDepartment(userId, resolvedParams.id))) {
+  const { userId, organizationId } = authResult;
+  if (!(await canAccessDepartment(userId, resolvedParams.id, organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient department permissions" } }, { status: 403 });
   }
 
@@ -37,7 +37,7 @@ export async function POST(
     return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
 
-  if (!(await canReadProject(userId, parsed.data.projectId))) {
+  if (!(await canReadProject(userId, parsed.data.projectId, organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "You cannot log time against this project" } }, { status: 403 });
   }
 
@@ -50,6 +50,7 @@ export async function POST(
       taskId: parsed.data.taskId ?? null,
       minutes: parsed.data.minutes,
       billable: parsed.data.billable,
+      organizationId,
     });
   } catch (error) {
     const code = (error as { code?: string }).code;
@@ -63,6 +64,7 @@ export async function POST(
   }
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "timesheet_entry_created",
     entityType: "time_entry",

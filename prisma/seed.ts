@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { LOCAL_SEED_EMAIL, LOCAL_SEED_PASSWORD } from "../src/lib/auth/seed-defaults";
+import { DEFAULT_ORGANIZATION_ID } from "../src/lib/organizations/context";
 
 const prisma = new PrismaClient();
 
@@ -40,13 +41,20 @@ async function main() {
     },
   });
 
+  await prisma.organizationMembership.upsert({
+    where: { organizationId_userId: { organizationId: DEFAULT_ORGANIZATION_ID, userId: admin.id } },
+    create: { organizationId: DEFAULT_ORGANIZATION_ID, userId: admin.id, role: "owner" },
+    update: { role: "owner" },
+  });
+
   const existingRole = await prisma.role.findFirst({
-    where: { userId: admin.id, type: "owner", scopeType: "global" },
+    where: { userId: admin.id, organizationId: DEFAULT_ORGANIZATION_ID, type: "owner", scopeType: "global" },
   });
   if (!existingRole) {
     await prisma.role.create({
       data: {
         userId: admin.id,
+        organizationId: DEFAULT_ORGANIZATION_ID,
         type: "owner",
         scopeType: "global",
         scopeId: null,
@@ -71,13 +79,19 @@ async function main() {
           status: "active",
         },
       });
+      await prisma.organizationMembership.upsert({
+        where: { organizationId_userId: { organizationId: DEFAULT_ORGANIZATION_ID, userId: user.id } },
+        create: { organizationId: DEFAULT_ORGANIZATION_ID, userId: user.id, role: "member" },
+        update: {},
+      });
       const role = await prisma.role.findFirst({
-        where: { userId: user.id, type: testUser.type, scopeType: "global" },
+        where: { userId: user.id, organizationId: DEFAULT_ORGANIZATION_ID, type: testUser.type, scopeType: "global" },
       });
       if (!role) {
         await prisma.role.create({
           data: {
             userId: user.id,
+            organizationId: DEFAULT_ORGANIZATION_ID,
             type: testUser.type,
             scopeType: "global",
             scopeId: null,

@@ -1,11 +1,13 @@
 import { prisma } from "@/lib/db";
 import type { ProjectVisibility } from "@prisma/client";
+import { DEFAULT_ORGANIZATION_ID } from "@/lib/organizations/context";
 
 type CreateProjectData = {
   name: string;
   description?: string | null;
   color?: string;
   ownerId: string;
+  organizationId?: string;
   departmentId?: string | null;
   departmentIds?: string[];
   visibility?: ProjectVisibility;
@@ -18,6 +20,7 @@ export async function createProject(data: CreateProjectData) {
     ));
     const project = await tx.project.create({
       data: {
+        organizationId: data.organizationId ?? DEFAULT_ORGANIZATION_ID,
         name: data.name,
         description: data.description ?? null,
         color: data.color ?? "#2563eb",

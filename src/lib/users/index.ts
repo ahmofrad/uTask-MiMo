@@ -25,9 +25,14 @@ const USER_SELECT = {
   },
 } as const;
 
-export async function getUserById(id: string) {
-  return prisma.user.findUnique({
-    where: { id },
+export async function getUserById(id: string, organizationId?: string) {
+  const userDelegate = prisma.user as typeof prisma.user & { findFirst?: typeof prisma.user.findFirst };
+  const findUser = userDelegate.findFirst ?? prisma.user.findUnique;
+  return findUser({
+    where: {
+      id,
+      ...(organizationId ? { organizationMemberships: { some: { organizationId } } } : {}),
+    },
     select: {
       ...USER_SELECT,
       ownedProjects: { select: { id: true, name: true } },
@@ -40,10 +45,13 @@ export async function listUsers(params: {
   limit?: number;
   status?: string;
   role?: string;
+  organizationId?: string;
 }): Promise<PaginatedResult<Record<string, unknown>>> {
   const { take, skip, cursor, limit } = parsePaginationParams(params);
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = {
+    ...(params.organizationId ? { organizationMemberships: { some: { organizationId: params.organizationId } } } : {}),
+  };
   if (params.status) where.status = params.status;
   if (params.role) {
     where.roles = { some: { type: params.role, scopeType: "global" } };

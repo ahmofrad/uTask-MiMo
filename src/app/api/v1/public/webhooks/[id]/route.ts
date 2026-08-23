@@ -11,9 +11,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
-  const { userId, error } = await authenticatePublicApi(request, "webhooks:manage");
+  const { userId, organizationId, error } = await authenticatePublicApi(request, "webhooks:manage");
   if (error) return error;
-  if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  if (!(await can(userId, "webhook:manage", organizationId))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
   const parsed = publicWebhookUpdateSchema.safeParse(await readJsonBody(request));
   if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
@@ -42,7 +42,7 @@ export async function PATCH(
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "At least one field is required" } }, { status: 400 });
   }
 
-  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, deletedAt: null } });
+  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, organizationId, deletedAt: null } });
   if (!before) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
 
   const webhook = await prisma.webhook.update({
@@ -55,6 +55,7 @@ export async function PATCH(
   void _beforeSecret;
   void _afterSecret;
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "webhook_updated",
     entityType: "webhook",
@@ -73,11 +74,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
-  const { userId, error } = await authenticatePublicApi(_request, "webhooks:manage");
+  const { userId, organizationId, error } = await authenticatePublicApi(_request, "webhooks:manage");
   if (error) return error;
-  if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  if (!(await can(userId, "webhook:manage", organizationId))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
-  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, deletedAt: null } });
+  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, organizationId, deletedAt: null } });
   if (!before) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
 
   await prisma.webhook.update({
@@ -88,6 +89,7 @@ export async function DELETE(
   const { secret: _secret, ...beforeAudit } = before;
   void _secret;
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "webhook_deleted",
     entityType: "webhook",

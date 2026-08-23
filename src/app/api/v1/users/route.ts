@@ -19,7 +19,9 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
 
+  const { organizationId } = authResult;
   const result = await listUsers({
+    organizationId,
     ...(searchParams.get("cursor") ? { cursor: searchParams.get("cursor")! } : {}),
     limit,
     ...(searchParams.get("status") ? { status: searchParams.get("status")! } : {}),
@@ -32,7 +34,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const guard = requirePermission("user:manage");
   const guardResult = await guard(request, { params: {} });
@@ -62,6 +64,7 @@ export async function POST(request: Request) {
     await prisma.role.create({
       data: {
         userId: user.id,
+        organizationId,
         type: role,
         scopeType: "global",
         scopeId: null,
@@ -70,7 +73,11 @@ export async function POST(request: Request) {
     });
   }
 
-  await logAudit({ actorUserId: userId, action: "created" as AuditAction, entityType: "user", entityId: user.id, after: { email: user.email, displayName: user.displayName, status: user.status } as never });
+  if (prisma.organizationMembership) {
+    await prisma.organizationMembership.create({ data: { organizationId, userId: user.id, role: role === "owner" ? "owner" : role === "admin" ? "admin" : "member" } });
+  }
+
+  await logAudit({ organizationId, actorUserId: userId, action: "created" as AuditAction, entityType: "user", entityId: user.id, after: { email: user.email, displayName: user.displayName, status: user.status } as never });
 
   // Users created without a password are invited — email them the accept link.
   if (!password && user.status === "invited") {

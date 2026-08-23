@@ -1,9 +1,9 @@
 import { getTranslations } from "next-intl/server";
 import { getOrgReport } from "@/lib/reports";
 
-export async function OrgDashboard() {
+export async function OrgDashboard({ organizationId }: { organizationId?: string } = {}) {
   const t = await getTranslations("admin");
-  const report = await getOrgReport();
+  const report = await getOrgReport(organizationId);
 
   const cards = [
     { label: t("activeUsers"), value: report.totalUsers, tone: "bg-info-bg text-info" },

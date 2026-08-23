@@ -14,7 +14,7 @@ import { acquirePending, checkIdempotency, releasePending, setIdempotencyResult 
 import { publicTaskCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
-  const { userId, rateLimit, error } = await authenticatePublicApi(request, "tasks:read");
+  const { userId, organizationId, rateLimit, error } = await authenticatePublicApi(request, "tasks:read");
   if (error) return error;
 
   const { searchParams } = new URL(request.url);
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   const assigneeId = searchParams.get("assigneeId");
   const assigneeIdsRaw = searchParams.get("assigneeIds");
 
-  const readable = await getUserReadableProjectIds(userId);
+  const readable = await getUserReadableProjectIds(userId, organizationId);
   if (projectId && readable !== null && !readable.includes(projectId)) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "You are not a member of this project" } },
@@ -67,7 +67,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { userId, error } = await authenticatePublicApi(request, "tasks:write");
+  const { userId, organizationId, error } = await authenticatePublicApi(request, "tasks:write");
   if (error) return error;
 
   const parsed = publicTaskCreateSchema.safeParse(await readJsonBody(request));
@@ -76,7 +76,7 @@ export async function POST(request: Request) {
   }
   const input = parsed.data;
 
-  const allowed = await canProject(userId, "task:create", input.projectId);
+  const allowed = await canProject(userId, "task:create", input.projectId, organizationId);
   if (!allowed) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "You are not a member of this project" } },
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
       ...(input.dueDate !== undefined ? { dueDate: input.dueDate } : {}),
     });
 
-    await logAudit({ actorUserId: userId, action: "task_created", entityType: "task", entityId: task.id, after: task as never });
+    await logAudit({ organizationId, actorUserId: userId, action: "task_created", entityType: "task", entityId: task.id, after: task as never });
     await emitTaskEvent("task.created", task.id, { id: task.id, title: task.title, projectId: task.projectId }, userId);
     emitToProject(task.projectId, "task.created", { id: task.id, title: task.title, projectId: task.projectId, actorUserId: userId });
 

@@ -9,7 +9,7 @@ const BACKUP_NAME = /^taskapp-[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}\.dump$/;
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  if (!(await can(authResult.userId, "user:manage"))) {
+  if (!(await can(authResult.userId, "user:manage", authResult.organizationId))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
       { status: 403 },

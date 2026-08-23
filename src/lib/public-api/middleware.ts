@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { lookupToken, tokenHasScope } from "@/lib/api-token";
 import { checkRateLimitIp, checkRateLimitToken, checkRateLimitUser } from "@/lib/rate-limit";
+import { getOrganizationContext } from "@/lib/organizations/context";
+import { problemResponse } from "@/lib/api/problem";
 
 
 export type PublicApiRateLimit = {
@@ -11,6 +13,7 @@ export type PublicApiRateLimit = {
 
 export type PublicApiAuthResult = {
   userId: string;
+  organizationId: string;
   rateLimit?: PublicApiRateLimit;
   error?: NextResponse;
 };
@@ -32,10 +35,8 @@ export async function authenticatePublicApi(
   if (!authHeader?.startsWith("Bearer ")) {
     return {
       userId: "",
-      error: NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "Missing or invalid Authorization header" } },
-        { status: 401 },
-      ),
+      organizationId: "",
+      error: problemResponse(request, 401, "UNAUTHORIZED", "Missing or invalid Authorization header"),
     };
   }
 
@@ -45,10 +46,8 @@ export async function authenticatePublicApi(
   if (!token) {
     return {
       userId: "",
-      error: NextResponse.json(
-        { error: { code: "UNAUTHORIZED", message: "Invalid or revoked token" } },
-        { status: 401 },
-      ),
+      organizationId: "",
+      error: problemResponse(request, 401, "UNAUTHORIZED", "Invalid or revoked token"),
     };
   }
 
@@ -64,28 +63,43 @@ export async function authenticatePublicApi(
   if (blocked) {
     return {
       userId: "",
-      error: NextResponse.json(
-        { error: { code: "RATE_LIMITED", message: "Too many requests" } },
-        {
-          status: 429,
-          headers: rateLimitHeaders(blocked.limit, blocked.remaining, Math.ceil((blocked.resetAt - Date.now()) / 1000)),
-        },
-      ),
+      organizationId: "",
+      error: (() => {
+        const response = problemResponse(request, 429, "RATE_LIMITED", "Too many requests");
+        for (const [key, value] of Object.entries(rateLimitHeaders(blocked.limit, blocked.remaining, Math.ceil((blocked.resetAt - Date.now()) / 1000)))) response.headers.set(key, value);
+        return response;
+      })(),
     };
   }
 
   if (requiredScope && !tokenHasScope(token.scopes, requiredScope)) {
     return {
       userId: "",
-      error: NextResponse.json(
-        { error: { code: "FORBIDDEN", message: `Token requires scope: ${requiredScope}` } },
-        { status: 403 },
-      ),
+      organizationId: "",
+      error: problemResponse(request, 403, "FORBIDDEN", `Token requires scope: ${requiredScope}`),
+    };
+  }
+
+  const requestedOrganizationId = request.headers.get("x-organization-id")?.trim();
+  if (requestedOrganizationId && requestedOrganizationId !== token.organizationId) {
+    return {
+      userId: "",
+      organizationId: "",
+      error: problemResponse(request, 403, "ORGANIZATION_ACCESS_DENIED", "This token is bound to a different organization"),
+    };
+  }
+  const organization = await getOrganizationContext(token.userId, token.organizationId);
+  if (!organization) {
+    return {
+      userId: "",
+      organizationId: "",
+      error: problemResponse(request, 403, "ORGANIZATION_ACCESS_DENIED", "You do not have access to this organization"),
     };
   }
 
   return {
     userId: token.userId,
+    organizationId: organization.organizationId,
     rateLimit: {
       limit: tokenResult.limit,
       remaining: Math.min(ipResult.remaining, userResult.remaining, tokenResult.remaining),

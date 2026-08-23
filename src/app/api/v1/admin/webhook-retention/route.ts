@@ -23,6 +23,7 @@ export async function GET(request: Request) {
   const cutoff = cutoffDate();
   const eligible = await prisma.webhookDelivery.count({
     where: {
+      webhook: { organizationId: authResult.organizationId },
       OR: [
         { deliveredAt: { lt: cutoff } },
         { deliveredAt: null, nextRetryAt: null, scheduledAt: { lt: cutoff } },
@@ -44,8 +45,9 @@ export async function POST(request: Request) {
   const denied = await authorize(request);
   if (denied) return denied;
 
-  const deleted = await pruneWebhookDeliveries();
+  const deleted = await pruneWebhookDeliveries(authResult.organizationId);
   await logAudit({
+    organizationId: authResult.organizationId,
     actorUserId: authResult.userId,
     action: "deleted",
     entityType: "webhook_delivery_retention",

@@ -1,9 +1,9 @@
 import { prisma } from "@/lib/db";
 import { collectDepartmentSubtreeIds } from "@/lib/departments/scope";
 
-export async function listDepartments() {
+export async function listDepartments(organizationId?: string) {
   return prisma.department.findMany({
-    where: { deletedAt: null },
+    where: { ...(organizationId ? { organizationId } : {}), deletedAt: null },
     orderBy: { name: "asc" },
     include: {
       _count: { select: { projects: true } },
@@ -11,9 +11,10 @@ export async function listDepartments() {
   });
 }
 
-export async function getDepartmentById(id: string) {
+export async function getDepartmentById(id: string, organizationId?: string) {
+  const where = { id, ...(organizationId ? { organizationId } : {}), deletedAt: null };
   return prisma.department.findFirst({
-    where: { id, deletedAt: null },
+    where,
     include: {
       _count: { select: { projects: true } },
     },
@@ -71,22 +72,23 @@ export async function listProjectLinkDepartments(projectId: string) {
  * create in any department (or none); other roles are scoped to the subtree
  * they manage. `required` is true when the caller must pick a department.
  */
-export async function listCreatableDepartments(userId: string): Promise<{
+export async function listCreatableDepartments(userId: string, organizationId?: string): Promise<{
   departments: { id: string; name: string; parentId: string | null }[];
   required: boolean;
 }> {
   const globalRole = await prisma.role.findFirst({
-    where: { userId, scopeType: "global", scopeId: null },
+    where: { userId, ...(organizationId ? { organizationId } : {}), scopeType: "global", scopeId: null },
     select: { type: true },
   });
   const isOrgWide =
     globalRole?.type === "owner" || globalRole?.type === "admin";
-  const managedIds = isOrgWide ? null : await getManagedDepartmentIds(userId);
+  const managedIds = isOrgWide ? null : await getManagedDepartmentIds(userId, organizationId);
   if (managedIds !== null && managedIds.length === 0) {
     return { departments: [], required: true };
   }
   const departments = await prisma.department.findMany({
     where: {
+      ...(organizationId ? { organizationId } : {}),
       deletedAt: null,
       ...(managedIds ? { id: { in: managedIds } } : {}),
     },
@@ -155,6 +157,7 @@ export async function listDepartmentMemberCandidates() {
 }
 
 export async function createDepartment(data: {
+  organizationId?: string;
   name: string;
   parentId?: string | null;
   managerUserId?: string | null;
@@ -162,6 +165,7 @@ export async function createDepartment(data: {
   const managerUserId = data.managerUserId ?? null;
   return prisma.department.create({
     data: {
+      ...(data.organizationId ? { organizationId: data.organizationId } : {}),
       name: data.name,
       parentId: data.parentId ?? null,
       managerUserId,
@@ -293,9 +297,9 @@ export async function ensureLdapDepartment(group: { id: string; name: string }) 
   return { department, created: true, renamed: false };
 }
 
-export async function getManagedDepartmentIds(userId: string): Promise<string[]> {
+export async function getManagedDepartmentIds(userId: string, organizationId?: string): Promise<string[]> {
   const departments = await prisma.department.findMany({
-    where: { deletedAt: null },
+    where: { ...(organizationId ? { organizationId } : {}), deletedAt: null },
     select: {
       id: true,
       parentId: true,

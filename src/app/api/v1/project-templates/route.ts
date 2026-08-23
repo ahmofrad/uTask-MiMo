@@ -31,8 +31,10 @@ const createTemplateSchema = z.object({
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
+  const { organizationId } = authResult;
 
   const templates = await prisma.projectTemplate.findMany({
+    where: { organizationId },
     orderBy: { createdAt: "desc" },
     include: {
       createdBy: { select: { id: true, displayName: true } },
@@ -45,9 +47,9 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  if (!(await can(userId, "project:create"))) {
+  if (!(await can(userId, "project:create", organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
@@ -64,6 +66,7 @@ export async function POST(request: Request) {
 
   const template = await prisma.projectTemplate.create({
     data: {
+      organizationId,
       name,
       description: description ?? null,
       color: color ?? "#2563eb",
@@ -73,6 +76,7 @@ export async function POST(request: Request) {
   });
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "project_created",
     entityType: "projectTemplate",

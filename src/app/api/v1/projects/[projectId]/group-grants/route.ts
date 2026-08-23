@@ -14,9 +14,9 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  if (!(await canReadProject(userId, resolvedParams.projectId))) {
+  if (!(await canReadProject(userId, resolvedParams.projectId, organizationId))) {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, { status: 404 });
   }
 
@@ -24,8 +24,8 @@ export async function GET(
 
   // The group picker is only useful to users who can actually grant, so only
   // include the group list for them (default-deny for viewers/contributors).
-  const canAssign = await canProject(userId, "project_role:assign", resolvedParams.projectId);
-  const groups = canAssign ? await listGroups() : [];
+  const canAssign = await canProject(userId, "project_role:assign", resolvedParams.projectId, organizationId);
+  const groups = canAssign ? await listGroups(organizationId) : [];
 
   return NextResponse.json({ data: grants, groups });
 }
@@ -37,9 +37,9 @@ export async function POST(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  if (!(await canProject(userId, "project_role:assign", resolvedParams.projectId))) {
+  if (!(await canProject(userId, "project_role:assign", resolvedParams.projectId, organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
@@ -50,7 +50,7 @@ export async function POST(
   const { groupId, role } = parsed.data;
 
   const group = await prisma.ldapSyncGroup.findUnique({
-    where: { id: groupId },
+    where: { id: groupId, organizationId },
     select: { id: true, name: true, deletedAt: true },
   });
   if (!group || group.deletedAt) {
@@ -60,6 +60,7 @@ export async function POST(
   const grant = await grantGroupProjectRole(resolvedParams.projectId, groupId, role ?? "contributor", userId);
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "group_grant_created",
     entityType: "project",
@@ -68,7 +69,7 @@ export async function POST(
   });
 
   const project = await prisma.project.findUnique({
-    where: { id: resolvedParams.projectId },
+    where: { id: resolvedParams.projectId, organizationId },
     select: { name: true },
   });
   if (project) {

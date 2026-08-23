@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { requirePermission } from "@/lib/rbac/middleware";
-import { auth } from "@/lib/auth/config";
+import { requireAuth, requirePermission } from "@/lib/rbac/middleware";
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 
@@ -8,13 +7,15 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const authResult = await requireAuth(request, { params: {} });
+  if (authResult instanceof NextResponse) return authResult;
+
   const guard = requirePermission("timesheet.manage_rates");
   const guardResult = await guard(request, { params: {} });
   if (guardResult) return guardResult;
 
   const resolvedParams = await params;
-
-  const before = await prisma.rateCard.findUnique({ where: { id: resolvedParams.id } });
+  const before = await prisma.rateCard.findFirst({ where: { id: resolvedParams.id, organizationId: authResult.organizationId } });
   if (!before) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Rate card not found" } },
@@ -22,11 +23,11 @@ export async function DELETE(
     );
   }
 
-  await prisma.rateCard.delete({ where: { id: resolvedParams.id } });
+  await prisma.rateCard.deleteMany({ where: { id: resolvedParams.id, organizationId: authResult.organizationId } });
 
-  const session = await auth();
   await logAudit({
-    actorUserId: session?.user?.id ?? null,
+    organizationId: authResult.organizationId,
+    actorUserId: authResult.userId,
     action: "rate_card_deleted",
     entityType: "rate_card",
     entityId: resolvedParams.id,

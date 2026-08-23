@@ -23,7 +23,7 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  if (!(await can(authResult.userId, "timesheet.approve")) || !(await canAccessDepartment(authResult.userId, resolvedParams.id))) {
+  if (!(await can(authResult.userId, "timesheet.approve", authResult.organizationId)) || !(await canAccessDepartment(authResult.userId, resolvedParams.id, authResult.organizationId))) {
     return problemResponse(request, 403, "FORBIDDEN", "Insufficient timesheet permissions");
   }
 
@@ -37,6 +37,7 @@ export async function GET(
   }
 
   const rows = await getTimesheetReport({
+    organizationId: authResult.organizationId,
     departmentId: resolvedParams.id,
     ...(parsed.data.from ? { periodStart: new Date(parsed.data.from) } : {}),
     ...(parsed.data.to ? { periodEnd: new Date(parsed.data.to) } : {}),

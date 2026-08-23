@@ -10,12 +10,12 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const permitted =
-    (await canProject(userId, "task:edit_any", resolvedParams.projectId)) ||
-    (await canProject(userId, "task:edit_own", resolvedParams.projectId)) ||
-    (await canProject(userId, "comment:create", resolvedParams.projectId));
+    (await canProject(userId, "task:edit_any", resolvedParams.projectId, organizationId)) ||
+    (await canProject(userId, "task:edit_own", resolvedParams.projectId, organizationId)) ||
+    (await canProject(userId, "comment:create", resolvedParams.projectId, organizationId));
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
@@ -26,7 +26,7 @@ export async function GET(
 
   const [report, canEdit] = await Promise.all([
     buildGanttReport(resolvedParams.projectId, withCritical),
-    canProject(userId, "task:edit_any", resolvedParams.projectId),
+    canProject(userId, "task:edit_any", resolvedParams.projectId, organizationId),
   ]);
   return NextResponse.json({ data: { ...report, canEdit } });
 }

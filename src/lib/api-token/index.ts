@@ -2,6 +2,7 @@ import { sha256, randomBytes } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import type { Permission } from "@/lib/rbac/roles";
+import { DEFAULT_ORGANIZATION_ID } from "@/lib/organizations/context";
 
 const TOKEN_PREFIX = "tk_";
 
@@ -15,6 +16,7 @@ export function generateToken(): { raw: string; hash: string; prefix: string } {
 
 export async function createApiToken(params: {
   userId: string;
+  organizationId?: string;
   name: string;
   scopes: string[];
   expiresAt?: Date | null;
@@ -23,6 +25,7 @@ export async function createApiToken(params: {
 
   const token = await prisma.apiToken.create({
     data: {
+      organizationId: params.organizationId ?? DEFAULT_ORGANIZATION_ID,
       userId: params.userId,
       name: params.name,
       hashedToken: hash,
@@ -35,9 +38,9 @@ export async function createApiToken(params: {
   return { raw, prefix, id: token.id };
 }
 
-export async function revokeApiToken(tokenId: string, userId: string) {
+export async function revokeApiToken(tokenId: string, userId: string, organizationId = DEFAULT_ORGANIZATION_ID) {
   const result = await prisma.apiToken.updateMany({
-    where: { id: tokenId, userId, revokedAt: null },
+    where: { id: tokenId, userId, organizationId, revokedAt: null },
     data: { revokedAt: new Date() },
   });
   if (result.count !== 1) {
@@ -133,12 +136,16 @@ export function invalidScopes(scopes: string[]): string[] {
 }
 
 /** Whether the user is entitled to grant the given (allowlisted) scope. */
-export async function userCanGrantScope(userId: string, scope: string): Promise<boolean> {
+export async function userCanGrantScope(
+  userId: string,
+  scope: string,
+  organizationId = DEFAULT_ORGANIZATION_ID,
+): Promise<boolean> {
   const required = SCOPE_PERMISSIONS[scope as PublicScope];
   if (!required) return false;
   if (required.length === 0) return true;
   for (const perm of required) {
-    if (await can(userId, perm)) return true;
+    if (await can(userId, perm, organizationId)) return true;
   }
   return false;
 }

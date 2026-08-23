@@ -15,13 +15,13 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  if (!(await canManageGroup(userId, resolvedParams.id))) {
+  if (!(await canManageGroup(userId, resolvedParams.id, organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
   const group = await prisma.ldapSyncGroup.findUnique({
-    where: { id: resolvedParams.id },
+    where: { id: resolvedParams.id, organizationId },
     select: { id: true, deletedAt: true },
   });
   if (!group || group.deletedAt) {
@@ -39,13 +39,13 @@ export async function POST(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  if (!(await canManageGroup(userId, resolvedParams.id))) {
+  if (!(await canManageGroup(userId, resolvedParams.id, organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
   const group = await prisma.ldapSyncGroup.findUnique({
-    where: { id: resolvedParams.id },
+    where: { id: resolvedParams.id, organizationId },
     select: { id: true, deletedAt: true },
   });
   if (!group || group.deletedAt) {
@@ -104,6 +104,7 @@ export async function POST(
 
     if (created) {
       await logAudit({
+        organizationId,
         actorUserId: userId,
         action: "group_member_added",
         entityType: "group",

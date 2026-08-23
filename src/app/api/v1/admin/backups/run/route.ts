@@ -5,15 +5,16 @@ import { problemResponse } from "@/lib/api/problem";
 import { logAudit } from "@/lib/audit/log";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { recordBackupFailure, recordBackupSuccess } from "@/lib/backup-metrics";
 
 const execAsync = promisify(exec);
 
 export async function POST(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  if (!(await can(userId, "user:manage"))) {
+  if (!(await can(userId, "user:manage", organizationId))) {
     return problemResponse(request, 403, "FORBIDDEN", "Insufficient permissions");
   }
 
@@ -25,7 +26,9 @@ export async function POST(request: Request) {
       env: { ...process.env },
     });
 
+    recordBackupSuccess();
     await logAudit({
+      organizationId: authResult.organizationId,
       actorUserId: userId,
       action: "created",
       entityType: "backup",
@@ -37,9 +40,11 @@ export async function POST(request: Request) {
       data: { success: true, output: stdout.slice(-1000) },
     });
   } catch (err: unknown) {
+    recordBackupFailure();
     const message = err instanceof Error ? err.message : String(err);
 
     await logAudit({
+      organizationId: authResult.organizationId,
       actorUserId: userId,
       action: "created",
       entityType: "backup",

@@ -25,16 +25,19 @@ export async function PUT(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  const project = await prisma.project.findUnique({ where: { id: resolvedParams.projectId } });
+  const projectDelegate = prisma.project as typeof prisma.project & { findFirst?: typeof prisma.project.findFirst };
+  const project = await (projectDelegate.findFirst ?? prisma.project.findUnique)({
+    where: { id: resolvedParams.projectId, ...(organizationId ? { organizationId } : {}) },
+  });
   if (!project || project.archivedAt) {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, { status: 404 });
   }
 
   const permitted =
-    (await canProject(userId, "project:update", resolvedParams.projectId)) ||
-    (await isProjectOwner(userId, resolvedParams.projectId));
+    (await canProject(userId, "project:update", resolvedParams.projectId, organizationId)) ||
+    (await isProjectOwner(userId, resolvedParams.projectId, organizationId));
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
@@ -54,6 +57,7 @@ export async function PUT(
   });
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "project_health_updated",
     entityType: "project",

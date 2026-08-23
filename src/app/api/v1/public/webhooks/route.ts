@@ -9,16 +9,16 @@ import { logAudit } from "@/lib/audit/log";
 import { publicWebhookCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
 export async function GET(request: Request) {
-  const { userId, rateLimit, error } = await authenticatePublicApi(request, "webhooks:manage");
+  const { userId, organizationId, rateLimit, error } = await authenticatePublicApi(request, "webhooks:manage");
   if (error) return error;
-  if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  if (!(await can(userId, "webhook:manage", organizationId))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
   const { searchParams } = new URL(request.url);
   const cursor = searchParams.get("cursor");
   const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
 
   const webhooks = await prisma.webhook.findMany({
-    where: { deletedAt: null },
+    where: { organizationId, deletedAt: null },
     take: limit + 1,
     skip: cursor ? 1 : 0,
     ...(cursor ? { cursor: { id: cursor } } : {}),
@@ -45,9 +45,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { userId, error } = await authenticatePublicApi(request, "webhooks:manage");
+  const { userId, organizationId, error } = await authenticatePublicApi(request, "webhooks:manage");
   if (error) return error;
-  if (!(await can(userId, "webhook:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  if (!(await can(userId, "webhook:manage", organizationId))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
   const parsed = publicWebhookCreateSchema.safeParse(await readJsonBody(request));
   if (!parsed.success) return NextResponse.json(validationError(parsed.error), { status: 400 });
@@ -70,6 +70,7 @@ export async function POST(request: Request) {
 
   const webhook = await prisma.webhook.create({
     data: {
+      organizationId,
       name,
       url,
       secret: `${iv}:${ciphertext}:${tag}`,
@@ -79,6 +80,7 @@ export async function POST(request: Request) {
   });
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "webhook_created",
     entityType: "webhook",

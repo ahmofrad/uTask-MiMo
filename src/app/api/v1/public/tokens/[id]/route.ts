@@ -8,11 +8,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
-  const { userId, error } = await authenticatePublicApi(request);
+  const { userId, organizationId, error } = await authenticatePublicApi(request);
   if (error) return error;
 
   try {
-    await revokeApiToken(resolvedParams.id, userId);
+    await revokeApiToken(resolvedParams.id, userId, organizationId);
   } catch (error) {
     if ((error as { code?: string }).code === "NOT_FOUND") {
       return NextResponse.json({ error: { code: "NOT_FOUND", message: "Token not found" } }, { status: 404 });
@@ -21,6 +21,7 @@ export async function DELETE(
   }
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "api_token_revoked",
     entityType: "api_token",

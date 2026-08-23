@@ -10,10 +10,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const guard = requirePermission("org:settings");
   const denied = await guard(request, { params: resolvedParams });
   if (denied) return denied;
-  const before = await prisma.department.findUnique({ where: { id: resolvedParams.id }, select: { id: true, deletedAt: true } });
+  const before = await prisma.department.findFirst({ where: { id: resolvedParams.id, organizationId: authResult.organizationId }, select: { id: true, deletedAt: true } });
   if (!before) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Department not found" } }, { status: 404 });
   if (!before.deletedAt) return NextResponse.json({ data: { success: true, restored: false } });
   await prisma.department.update({ where: { id: resolvedParams.id }, data: { deletedAt: null } });
-  await logAudit({ actorUserId: authResult.userId, action: "updated", entityType: "department", entityId: before.id, before, after: { deletedAt: null } });
+  await logAudit({ organizationId: authResult.organizationId, actorUserId: authResult.userId, action: "updated", entityType: "department", entityId: before.id, before, after: { deletedAt: null } });
   return NextResponse.json({ data: { success: true, restored: true } });
 }

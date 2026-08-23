@@ -19,14 +19,14 @@ export async function POST(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  if (!(await can(userId, "project:create"))) {
+  if (!(await can(userId, "project:create", organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const template = await prisma.projectTemplate.findUnique({
-    where: { id: resolvedParams.templateId },
+  const template = await prisma.projectTemplate.findFirst({
+    where: { id: resolvedParams.templateId, organizationId },
   });
 
   if (!template) {
@@ -44,7 +44,7 @@ export async function POST(
 
   const { name, departmentId } = parsed.data;
 
-  if (!(await canCreateProject(userId, departmentId ?? null))) {
+  if (!(await canCreateProject(userId, departmentId ?? null, organizationId))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "You are not allowed to create a project in this department" } },
       { status: 403 },
@@ -56,6 +56,7 @@ export async function POST(
     name,
     description: null,
     ownerId: userId,
+    organizationId,
     departmentId: departmentId ?? null,
     color: template.color,
   });
@@ -92,6 +93,7 @@ export async function POST(
         },
       });
       await logAudit({
+        organizationId,
         actorUserId: userId,
         action: "custom_field_created",
         entityType: "customField",
@@ -122,6 +124,7 @@ export async function POST(
       });
 
       await logAudit({
+        organizationId,
         actorUserId: userId,
         action: "task_created",
         entityType: "task",
@@ -136,6 +139,7 @@ export async function POST(
   }
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "project_created",
     entityType: "project",

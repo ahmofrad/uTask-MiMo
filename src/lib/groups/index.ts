@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { logAudit } from "@/lib/audit/log";
 import type { ProjectMemberRole } from "@/lib/rbac/roles";
+import { DEFAULT_ORGANIZATION_ID } from "@/lib/organizations/context";
 
 export type GroupListItem = {
   id: string;
@@ -139,9 +140,9 @@ export async function listGroupMembers(groupId: string) {
   return memberships.map((membership) => membership.user);
 }
 
-export async function listGroups(): Promise<GroupListItem[]> {
+export async function listGroups(organizationId = DEFAULT_ORGANIZATION_ID): Promise<GroupListItem[]> {
   const groups = await prisma.ldapSyncGroup.findMany({
-    where: { deletedAt: null },
+    where: { organizationId, deletedAt: null },
     orderBy: { name: "asc" },
     include: {
       _count: { select: { memberships: true } },
@@ -163,11 +164,13 @@ export async function listGroups(): Promise<GroupListItem[]> {
 }
 
 export async function createManualGroup(data: {
+  organizationId?: string;
   name: string;
   ownerDepartmentId?: string | null;
 }) {
   return prisma.ldapSyncGroup.create({
     data: {
+      organizationId: data.organizationId ?? DEFAULT_ORGANIZATION_ID,
       name: data.name,
       source: "manual",
       dn: null,

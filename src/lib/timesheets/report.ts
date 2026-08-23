@@ -12,6 +12,7 @@ export type TimesheetReportRow = {
 };
 
 export async function getTimesheetReport(input: {
+  organizationId?: string;
   departmentId?: string;
   periodStart?: Date;
   periodEnd?: Date;
@@ -22,6 +23,7 @@ export async function getTimesheetReport(input: {
         ? {
             period: {
               ...(input.departmentId ? { departmentId: input.departmentId } : {}),
+              ...(input.organizationId ? { department: { organizationId: input.organizationId } } : {}),
               ...(input.periodStart ? { periodStart: { gte: input.periodStart } } : {}),
               ...(input.periodEnd ? { periodEnd: { lt: input.periodEnd } } : {}),
             },

@@ -14,11 +14,11 @@ export async function POST(
   const denied = await guard(request, { params: resolvedParams });
   if (denied) return denied;
 
-  const before = await prisma.webhook.findUnique({ where: { id: resolvedParams.id }, select: { id: true, deletedAt: true } });
+  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, organizationId: authResult.organizationId }, select: { id: true, deletedAt: true } });
   if (!before) return NextResponse.json({ error: { code: "NOT_FOUND", message: "Webhook not found" } }, { status: 404 });
   if (!before.deletedAt) return NextResponse.json({ data: { success: true, restored: false } });
 
   await prisma.webhook.update({ where: { id: resolvedParams.id }, data: { deletedAt: null } });
-  await logAudit({ actorUserId: authResult.userId, action: "updated", entityType: "webhook", entityId: resolvedParams.id, before, after: { deletedAt: null } });
+  await logAudit({ organizationId: authResult.organizationId, actorUserId: authResult.userId, action: "updated", entityType: "webhook", entityId: resolvedParams.id, before, after: { deletedAt: null } });
   return NextResponse.json({ data: { success: true, restored: true } });
 }

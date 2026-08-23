@@ -12,13 +12,13 @@ export async function DELETE(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId: actorUserId } = authResult;
+  const { userId: actorUserId, organizationId } = authResult;
 
-  if (!(await canManageGroup(actorUserId, resolvedParams.id))) {
+  if (!(await canManageGroup(actorUserId, resolvedParams.id, organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
   const group = await prisma.ldapSyncGroup.findUnique({
-    where: { id: resolvedParams.id },
+    where: { id: resolvedParams.id, organizationId },
     select: { id: true, deletedAt: true },
   });
   if (!group || group.deletedAt) {
@@ -31,6 +31,7 @@ export async function DELETE(
   }
 
   await logAudit({
+    organizationId,
     actorUserId,
     action: "group_member_removed",
     entityType: "group",

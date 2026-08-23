@@ -13,6 +13,7 @@ export async function GET(request: Request) {
   if (guardResult) return guardResult;
 
   const cards = await prisma.rateCard.findMany({
+    where: { organizationId: authResult.organizationId },
     orderBy: { effectiveFrom: "desc" },
     include: { user: { select: { id: true, displayName: true, email: true } } },
   });
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const guard = requirePermission("timesheet.manage_rates");
   const guardResult = await guard(request, { params: {} });
@@ -36,6 +37,7 @@ export async function POST(request: Request) {
 
   const card = await prisma.rateCard.create({
     data: {
+      organizationId,
       scope: parsed.data.scope,
       userId: parsed.data.userId ?? null,
       roleType: parsed.data.roleType ?? null,
@@ -48,6 +50,7 @@ export async function POST(request: Request) {
   });
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "rate_card_created",
     entityType: "rate_card",

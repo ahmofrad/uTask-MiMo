@@ -129,6 +129,7 @@ if [[ "$CHECK_ONLY" = true ]]; then
   exit 0
 fi
 
+recreate_app=false
 if [[ "$BUILD" = true ]]; then
   app_image=$("${compose[@]}" config --images | while IFS= read -r image; do
     case "$image" in
@@ -138,7 +139,14 @@ if [[ "$BUILD" = true ]]; then
   [[ -n "$app_image" ]] || { echo "Unable to determine the app image from Compose" >&2; exit 1; }
   echo "Building $app_image"
   docker build --tag "$app_image" "$ROOT_DIR"
+  # A rebuilt image may keep the same APP_VERSION tag. Force the app replicas
+  # to recreate so they cannot continue serving an older .next asset tree.
+  recreate_app=true
 fi
 
-"${compose[@]}" up -d --wait
+if [[ "$recreate_app" = true ]]; then
+  "${compose[@]}" up -d --wait --force-recreate nginx app-1 app-2 worker
+else
+  "${compose[@]}" up -d --wait
+fi
 "${compose[@]}" ps

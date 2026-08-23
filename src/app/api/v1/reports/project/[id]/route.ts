@@ -11,14 +11,14 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  const project = await prisma.project.findUnique({ where: { id: resolvedParams.id } });
+  const project = await prisma.project.findFirst({ where: { id: resolvedParams.id, organizationId } });
   if (!project) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
-  if (!(await canProject(userId, "org:reports", resolvedParams.id))) {
+  if (!(await canProject(userId, "org:reports", resolvedParams.id, organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
   }
 
-  const report = await getProjectReport(resolvedParams.id);
+  const report = await getProjectReport(resolvedParams.id, organizationId);
   return NextResponse.json({ data: report });
 }

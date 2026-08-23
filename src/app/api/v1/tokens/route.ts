@@ -5,13 +5,13 @@ import { createApiToken } from "@/lib/api-token";
 import { logAudit } from "@/lib/audit/log";
 import { publicTokenCreateSchema, readJsonBody, validationError } from "@/lib/validation/api";
 
-export async function GET() {
-  const authResult = await requireAuth(new Request("http://localhost"), { params: {} });
+export async function GET(request: Request) {
+  const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const tokens = await prisma.apiToken.findMany({
-    where: { userId },
+    where: { userId, organizationId },
     select: {
       id: true, name: true, prefix: true, scopes: true,
       expiresAt: true, lastUsedAt: true, createdAt: true, revokedAt: true,
@@ -25,7 +25,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const parsed = publicTokenCreateSchema.safeParse(await readJsonBody(request));
   if (!parsed.success) {
@@ -35,12 +35,14 @@ export async function POST(request: Request) {
 
   const { raw, prefix, id } = await createApiToken({
     userId,
+    organizationId,
     name,
     scopes,
     expiresAt: expiresAt ? new Date(expiresAt) : null,
   });
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "api_token_created",
     entityType: "api_token",

@@ -13,9 +13,10 @@ export type ResolvedRate = {
  * Precedence: a user-scoped rate card wins; otherwise the card for the user's
  * global role; otherwise a zero-rate fallback in USD.
  */
-export async function resolveCostRate(userId: string, at: Date = new Date()): Promise<ResolvedRate> {
+export async function resolveCostRate(userId: string, at: Date = new Date(), organizationId?: string): Promise<ResolvedRate> {
   const userCard = await prisma.rateCard.findFirst({
     where: {
+      ...(organizationId ? { organizationId } : {}),
       scope: "user",
       userId,
       effectiveFrom: { lte: at },
@@ -27,12 +28,13 @@ export async function resolveCostRate(userId: string, at: Date = new Date()): Pr
   if (userCard) return { ...userCard, billRateMinor: userCard.billRateMinor ?? null };
 
   const role = await prisma.role.findFirst({
-    where: { userId, scopeType: "global", scopeId: null },
+    where: { userId, ...(organizationId ? { organizationId } : {}), scopeType: "global", scopeId: null },
     select: { type: true },
   });
   if (role) {
     const roleCard = await prisma.rateCard.findFirst({
       where: {
+        ...(organizationId ? { organizationId } : {}),
         scope: "role",
         roleType: role.type,
         effectiveFrom: { lte: at },

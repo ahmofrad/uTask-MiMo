@@ -6,6 +6,7 @@ import { ldapConfigSchema, type LdapConfig } from "../ldap-schema";
 import { getEnabledLdapSources, getFirstEnabledLdapSource, getLdapSource, sourceToLdapConfig } from "../ldap-sources";
 import { decryptSecret } from "@/lib/webhook";
 import { bindAdmin } from "./ldap-helpers";
+import { ensureDefaultOrganizationMembership } from "@/lib/organizations/context";
 
 // Re-export sync functions
 export { syncLdapGroup, syncLdapSource, syncAllLdapSources } from "./ldap-sync";
@@ -173,6 +174,8 @@ export async function ldapAuth(
         after: { email, provider: "ldap" },
       });
     }
+
+    await ensureDefaultOrganizationMembership(user.id);
 
     const existingIdentity = await prisma.authIdentity.findFirst({
       where: { provider: "ldap", providerSubject: email },

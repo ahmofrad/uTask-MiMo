@@ -11,9 +11,9 @@ type ProjectListItem = Awaited<
   ReturnType<typeof prisma.project.findMany>
 >[number];
 
-export async function getProjectById(id: string) {
-  return prisma.project.findUnique({
-    where: { id },
+export async function getProjectById(id: string, organizationId?: string) {
+  return prisma.project.findFirst({
+    where: { id, ...(organizationId ? { organizationId } : {}) },
     include: {
       _count: { select: { tasks: true, members: true } },
       owner: { select: { id: true, displayName: true, email: true } },
@@ -26,6 +26,7 @@ export async function getProjectById(id: string) {
 }
 
 export type ListProjectsParams = CursorPaginationParams & {
+  organizationId?: string;
   departmentId?: string;
   status?: string;
   /** Restrict results to these project IDs (used for per-user scoping). */
@@ -37,18 +38,19 @@ export type ListProjectsParams = CursorPaginationParams & {
  * projects" (owners and admins). Managers are restricted to projects in their
  * managed departments plus explicit project memberships.
  */
-export async function getUserReadableProjectIds(userId: string): Promise<string[] | null> {
-  const { globalRole } = await getUserRole(userId);
+export async function getUserReadableProjectIds(userId: string, organizationId?: string): Promise<string[] | null> {
+  const { globalRole } = await getUserRole(userId, organizationId);
   if (globalRole === "owner" || globalRole === "admin") return null;
   const memberships = await prisma.projectMember.findMany({
-    where: { userId, disabledAt: null, project: { archivedAt: null } },
+    where: { userId, disabledAt: null, project: { ...(organizationId ? { organizationId } : {}), archivedAt: null } },
     select: { projectId: true },
   });
-  const managedDepartmentIds = await getManagedDepartmentIds(userId);
+  const managedDepartmentIds = await getManagedDepartmentIds(userId, organizationId);
   if (managedDepartmentIds.length === 0) return memberships.map((m) => m.projectId);
 
   const managedProjects = await prisma.project.findMany({
     where: {
+      ...(organizationId ? { organizationId } : {}),
       archivedAt: null,
       OR: [
         { departmentId: { in: managedDepartmentIds } },
@@ -66,7 +68,7 @@ export async function listProjects(
 ): Promise<PaginatedResult<ProjectListItem>> {
   const { take, skip, cursor, limit } = parsePaginationParams(params);
 
-  const where: Record<string, unknown> = { archivedAt: null };
+  const where: Record<string, unknown> = { ...(params.organizationId ? { organizationId: params.organizationId } : {}), archivedAt: null };
   if (params.departmentId) {
     where.OR = [
       { departmentId: params.departmentId },

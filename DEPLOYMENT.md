@@ -498,12 +498,14 @@ Runs nightly via cron / CronJob:
 
 ### 7.1 Docker Compose
 
-1. Pull new image: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml pull app-1 app-2 worker migrate`.
+1. Pull the new image with a new `APP_VERSION` tag: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml pull app-1 app-2 worker migrate`.
+   Do not reuse an image tag for a rebuilt Next.js image. Reused tags can leave one replica serving an older `.next` asset tree, which produces 404s for the JS/CSS referenced by newer HTML.
 2. Maintenance window (optional; many upgrades are zero-downtime):
    - If DB migration: `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml run --rm migrate` (runs `prisma migrate deploy` through the image entrypoint).
    - If breaking: set `app.MAINTENANCE_MODE=true`, take brief downtime.
-3. `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d app-1 app-2 worker`.
-4. Run `scripts/smoke.sh`.
+3. `docker compose --env-file .env.prod -f ops/docker/docker-compose.prod.yml up -d --force-recreate app-1 app-2 worker nginx`.
+   The repository helper `bash scripts/deploy-compose.sh --env-file .env.prod --build` performs the build and forced recreation automatically.
+4. After deployment, unregister any old service worker once if the browser still shows old chunk URLs, then reload. Run `scripts/smoke.sh`.
 5. If broken: restore the previous image tag and run the same Compose command again; Docker Compose has no `rollback` subcommand.
 
 ### 7.2 Kubernetes

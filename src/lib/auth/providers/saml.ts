@@ -4,6 +4,7 @@ import { samlConfigSchema, type SamlConfig } from "../saml-schema";
 import { logger } from "@/lib/logging";
 import { decryptSecret } from "@/lib/webhook";
 import { SignedXml } from "xml-crypto";
+import { ensureDefaultOrganizationMembership } from "@/lib/organizations/context";
 
 interface SamlAuthResult {
   success: boolean;
@@ -100,6 +101,8 @@ export const samlProvider = {
           after: { email, provider: "saml" },
         });
       }
+
+      await ensureDefaultOrganizationMembership(user.id);
 
       const existingIdentity = await prisma.authIdentity.findFirst({
         where: {

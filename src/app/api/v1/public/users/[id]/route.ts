@@ -8,12 +8,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const resolvedParams = await params;
-  const { userId, rateLimit, error } = await authenticatePublicApi(request, "users:read");
+  const { userId, organizationId, rateLimit, error } = await authenticatePublicApi(request, "users:read");
   if (error) return error;
-  if (!(await can(userId, "user:manage"))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
+  if (!(await can(userId, "user:manage", organizationId))) return NextResponse.json({ error: { code: "FORBIDDEN" } }, { status: 403 });
 
   const user = await prisma.user.findUnique({
-    where: { id: resolvedParams.id },
+    where: { id: resolvedParams.id, organizationMemberships: { some: { organizationId } } },
     select: { id: true, email: true, displayName: true, avatarUrl: true, createdAt: true },
   });
 

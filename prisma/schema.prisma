@@ -267,6 +267,48 @@ enum SettingsScope {
   org
 }
 
+enum OrganizationMembershipRole {
+  owner
+  admin
+  member
+}
+
+model Organization {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(255)
+  slug        String   @unique @db.VarChar(100)
+  createdAt   DateTime @default(now()) @db.Timestamptz
+  updatedAt   DateTime @updatedAt @db.Timestamptz
+
+  memberships  OrganizationMembership[]
+  roles        Role[]
+  departments  Department[]               @relation("OrganizationDepartments")
+  projects     Project[]                  @relation("OrganizationProjects")
+  ldapSources  LdapSource[]               @relation("OrganizationLdapSources")
+  ldapGroups   LdapSyncGroup[]            @relation("OrganizationLdapGroups")
+  auditLogs    AuditLog[]                 @relation("OrganizationAuditLogs")
+  apiTokens    ApiToken[]                 @relation("OrganizationApiTokens")
+  webhooks     Webhook[]                  @relation("OrganizationWebhooks")
+  templates    ProjectTemplate[]          @relation("OrganizationTemplates")
+  rateCards    RateCard[]                 @relation("OrganizationRateCards")
+
+  @@map("Organization")
+}
+
+model OrganizationMembership {
+  organizationId String                       @db.Uuid
+  userId         String                       @db.Uuid
+  role           OrganizationMembershipRole   @default(member)
+  createdAt      DateTime                     @default(now()) @db.Timestamptz
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organizationId, userId])
+  @@index([userId, organizationId])
+  @@map("OrganizationMembership")
+}
+
 model User {
   id            String     @id @default(uuid()) @db.Uuid
   email         String     @unique @db.Citext
@@ -313,6 +355,7 @@ model User {
   rateCards                             RateCard[]                     @relation("RateCardUser")
   timesheetPeriods                      TimesheetPeriod[]              @relation("TimesheetPeriodOwner")
   timeEntries                           TimeEntry[]                    @relation("TimeEntryUser")
+  organizationMemberships                OrganizationMembership[]
 
   @@index([displayName, id], map: "User_displayName_id_idx")
   @@map("User")
@@ -339,17 +382,21 @@ model Role {
   type      RoleType
   scopeType RoleScope @default(global)
   scopeId   String?   @db.Uuid
-  grantedBy String?   @db.Uuid
-  grantedAt DateTime  @default(now()) @db.Timestamptz
+  grantedBy      String?       @db.Uuid
+  grantedAt      DateTime      @default(now()) @db.Timestamptz
+  organizationId String        @default("00000000-0000-4000-8000-0000000000a1") @db.Uuid
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, type, scopeType, scopeId])
+  @@unique([userId, type, scopeType, scopeId, organizationId])
+  @@index([organizationId, type])
   @@map("Role")
 }
 
 model Department {
   id              String                   @id @default(uuid()) @db.Uuid
+  organizationId  String                   @default("00000000-0000-4000-8000-0000000000a1") @db.Uuid
   name            String                   @db.VarChar(255)
   parentId        String?                  @db.Uuid
   managerUserId   String?                  @db.Uuid
@@ -370,7 +417,9 @@ model Department {
   departmentLinkRequests ProjectDepartmentLinkRequest[]
   timesheetPeriods       TimesheetPeriod[]
   members                DepartmentMembership[]
+  organization           Organization                  @relation("OrganizationDepartments", fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
   @@map("Department")
 }
 
@@ -389,6 +438,7 @@ model DepartmentMembership {
 
 model Project {
   id              String            @id @default(uuid()) @db.Uuid
+  organizationId  String            @default("00000000-0000-4000-8000-0000000000a1") @db.Uuid
   name            String            @db.VarChar(255)
   description     String?           @db.Text
   color           String            @default("#2563eb") @db.VarChar(7)
@@ -414,7 +464,9 @@ model Project {
   tasks                  Task[]
   tags                   Tag[]
   timeEntries            TimeEntry[]
+  organization           Organization                    @relation("OrganizationProjects", fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
   @@index([ownerId])
   @@index([createdAt, id], map: "Project_createdAt_id_idx")
   @@index([departmentId])
@@ -730,6 +782,7 @@ model Notification {
 
 model AuditLog {
   id          String      @id @default(uuid()) @db.Uuid
+  organizationId String   @default("00000000-0000-4000-8000-0000000000a1") @db.Uuid
   actorUserId String?     @db.Uuid
   actorIp     String?     @db.VarChar(45)
   action      AuditAction
@@ -743,7 +796,9 @@ model AuditLog {
   requestId   String?     @db.VarChar(100)
 
   actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  organization Organization @relation("OrganizationAuditLogs", fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId, occurredAt])
   @@index([entityType, entityId, occurredAt])
   @@index([actorUserId, occurredAt])
   @@index([occurredAt])
@@ -752,6 +807,7 @@ model AuditLog {
 
 model ApiToken {
   id          String    @id @default(uuid()) @db.Uuid
+  organizationId String @default("00000000-0000-4000-8000-0000000000a1") @db.Uuid
   userId      String    @db.Uuid
   name        String    @db.VarChar(255)
   hashedToken String    @unique @db.VarChar(64)
@@ -763,7 +819,9 @@ model ApiToken {
   revokedAt   DateTime? @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation("OrganizationApiTokens", fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId, userId])
   @@index([hashedToken])
   @@index([userId])
   @@map("ApiToken")
@@ -771,6 +829,7 @@ model ApiToken {
 
 model Webhook {
   id             String    @id @default(uuid()) @db.Uuid
+  organizationId  String    @default("00000000-0000-4000-8000-0000000000a1") @db.Uuid
   name           String    @db.VarChar(255)
   url            String    @db.VarChar(2000)
   secret         String    @db.VarChar(500)
@@ -785,7 +844,9 @@ model Webhook {
 
   createdBy  User              @relation(fields: [createdById], references: [id])
   deliveries WebhookDelivery[]
+  organization Organization    @relation("OrganizationWebhooks", fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId, deletedAt])
   @@index([createdById])
   @@index([active, deletedAt])
   @@index([deletedAt])
@@ -795,6 +856,7 @@ model Webhook {
 
 model ProjectTemplate {
   id           String   @id @default(uuid()) @db.Uuid
+  organizationId String  @default("00000000-0000-4000-8000-0000000000a1") @db.Uuid
   name         String   @db.VarChar(255)
   description  String?  @db.Text
   color        String   @default("#2563eb") @db.VarChar(7)
@@ -804,7 +866,9 @@ model ProjectTemplate {
   updatedAt    DateTime @updatedAt @db.Timestamptz
 
   createdBy User @relation(fields: [createdById], references: [id])
+  organization Organization @relation("OrganizationTemplates", fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId])
   @@index([createdById])
   @@map("ProjectTemplate")
 }
@@ -850,6 +914,7 @@ model Settings {
 /// source they came from via `LdapSyncGroup.sourceId`.
 model LdapSource {
   id                String    @id @default(uuid()) @db.Uuid
+  organizationId    String    @default("00000000-0000-4000-8000-0000000000a1") @db.Uuid
   name              String    @db.VarChar(255)
   enabled           Boolean   @default(false)
   url               String    @db.VarChar(512)
@@ -875,13 +940,16 @@ model LdapSource {
   updatedAt         DateTime  @updatedAt @db.Timestamptz
 
   groups LdapSyncGroup[]
+  organization Organization @relation("OrganizationLdapSources", fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId, deletedAt])
   @@index([deletedAt])
   @@map("LdapSource")
 }
 
 model LdapSyncGroup {
   id                String      @id @default(uuid()) @db.Uuid
+  organizationId    String      @default("00000000-0000-4000-8000-0000000000a1") @db.Uuid
   name              String      @db.VarChar(255)
   dn                String?     @unique @db.VarChar(512)
   objectGuid        String?     @unique @db.VarChar(128)
@@ -900,7 +968,9 @@ model LdapSyncGroup {
   memberships     LdapGroupMembership[]
   assignedTasks   Task[]                @relation("TaskAssigneeGroup")
   projectGrants   ProjectGroupGrant[]
+  organization    Organization @relation("OrganizationLdapGroups", fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId, deletedAt])
   @@index([sourceId])
   @@index([ownerDepartmentId])
   @@index([deletedAt])
@@ -969,6 +1039,7 @@ model VerificationToken {
 /// actuals never drift when a rate changes later.
 model RateCard {
   id            String        @id @default(uuid()) @db.Uuid
+  organizationId String       @default("00000000-0000-4000-8000-0000000000a1") @db.Uuid
   scope         RateCardScope
   userId        String?       @db.Uuid
   roleType      RoleType?
@@ -981,7 +1052,9 @@ model RateCard {
   updatedAt     DateTime      @updatedAt @db.Timestamptz
 
   user User? @relation("RateCardUser", fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation("OrganizationRateCards", fields: [organizationId], references: [id], onDelete: Cascade)
 
+  @@index([organizationId, scope, userId])
   @@index([scope, userId])
   @@index([scope, roleType])
   @@index([effectiveFrom])

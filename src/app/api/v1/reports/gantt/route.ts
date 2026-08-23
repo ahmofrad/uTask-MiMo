@@ -7,7 +7,7 @@ import { ganttBatchQuerySchema, validationError } from "@/lib/validation/api";
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const url = new URL(request.url);
   const parsed = ganttBatchQuerySchema.safeParse({
@@ -26,9 +26,9 @@ export async function GET(request: Request) {
     parsed.data.projectIds.map(async (projectId) => ({
       projectId,
       permitted:
-        (await canProject(userId, "task:edit_any", projectId)) ||
-        (await canProject(userId, "task:edit_own", projectId)) ||
-        (await canProject(userId, "comment:create", projectId)),
+        (await canProject(userId, "task:edit_any", projectId, organizationId)) ||
+        (await canProject(userId, "task:edit_own", projectId, organizationId)) ||
+        (await canProject(userId, "comment:create", projectId, organizationId)),
     })),
   );
   if (permissions.some(({ permitted }) => !permitted)) {
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
     parsed.data.projectIds.map(async (projectId) => {
       const [report, canEdit] = await Promise.all([
         buildGanttReport(projectId, withCritical),
-        canProject(userId, "task:edit_any", projectId),
+        canProject(userId, "task:edit_any", projectId, organizationId),
       ]);
       return [projectId, { ...report, canEdit }] as const;
     }),

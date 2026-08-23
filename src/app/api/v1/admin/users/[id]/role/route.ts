@@ -11,7 +11,7 @@ export async function PATCH(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const guard = requirePermission("user:manage");
   const guardResult = await guard(request, { params: resolvedParams });
@@ -25,7 +25,7 @@ export async function PATCH(
 
   // Find current global role
   const currentRole = await prisma.role.findFirst({
-    where: { userId: resolvedParams.id, scopeType: "global" },
+    where: { userId: resolvedParams.id, organizationId, scopeType: "global" },
   });
 
   const oldRoleType = currentRole?.type ?? null;
@@ -41,6 +41,7 @@ export async function PATCH(
     await prisma.role.create({
       data: {
         userId: resolvedParams.id,
+        organizationId,
         type: role,
         scopeType: "global",
         scopeId: null,
@@ -50,6 +51,7 @@ export async function PATCH(
   }
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "updated",
     entityType: "user",

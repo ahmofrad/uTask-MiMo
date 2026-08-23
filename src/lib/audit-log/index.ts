@@ -22,10 +22,13 @@ export async function listAuditLogs(params: {
   entityType?: string;
   action?: string;
   groupAccess?: boolean;
+  organizationId?: string;
 }): Promise<PaginatedResult<Record<string, unknown>>> {
   const { take, skip, cursor, limit } = parsePaginationParams(params);
 
-  const where: Record<string, unknown> = {};
+  const where: Record<string, unknown> = {
+    ...(params.organizationId ? { organizationId: params.organizationId } : {}),
+  };
   if (params.entityType) where.entityType = params.entityType;
   if (params.action) where.action = params.action;
   if (params.groupAccess) where.action = { in: [...GROUP_ACCESS_ACTIONS] };

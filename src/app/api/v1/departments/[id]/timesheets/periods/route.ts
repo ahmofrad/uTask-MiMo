@@ -12,13 +12,13 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
-  if (!(await canAccessDepartment(userId, resolvedParams.id))) {
+  const { userId, organizationId } = authResult;
+  if (!(await canAccessDepartment(userId, resolvedParams.id, organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient department permissions" } }, { status: 403 });
   }
 
   // Approvers see every period in the department; others see only their own.
-  const isApprover = await can(userId, "timesheet.approve");
+  const isApprover = await can(userId, "timesheet.approve", organizationId);
   const periods = await listPeriods({
     departmentId: resolvedParams.id,
     ...(isApprover ? {} : { ownerId: userId }),
@@ -34,8 +34,8 @@ export async function POST(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
-  if (!(await canAccessDepartment(userId, resolvedParams.id))) {
+  const { userId, organizationId } = authResult;
+  if (!(await canAccessDepartment(userId, resolvedParams.id, organizationId))) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient department permissions" } }, { status: 403 });
   }
 
@@ -52,6 +52,7 @@ export async function POST(
   });
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "timesheet_period_created",
     entityType: "timesheet_period",

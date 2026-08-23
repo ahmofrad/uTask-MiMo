@@ -13,13 +13,13 @@ export async function GET(
   const resolvedParams = await params;
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
-  if (!(await canReadProject(userId, resolvedParams.projectId))) {
+  if (!(await canReadProject(userId, resolvedParams.projectId, organizationId))) {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, { status: 404 });
   }
 
-  const project = await getProjectById(resolvedParams.projectId);
+  const project = await getProjectById(resolvedParams.projectId, organizationId);
 
   if (!project) {
     return NextResponse.json({ error: { code: "NOT_FOUND", message: "Project not found" } }, { status: 404 });
@@ -35,11 +35,11 @@ export async function PATCH(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const permitted =
-    (await canProject(userId, "project:update", resolvedParams.projectId)) ||
-    (await isProjectOwner(userId, resolvedParams.projectId));
+    (await canProject(userId, "project:update", resolvedParams.projectId, organizationId)) ||
+    (await isProjectOwner(userId, resolvedParams.projectId, organizationId));
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
@@ -50,7 +50,7 @@ export async function PATCH(
   }
   const { name, description, color, status, visibility } = parsed.data;
 
-  const before = await getProjectById(resolvedParams.projectId);
+  const before = await getProjectById(resolvedParams.projectId, organizationId);
 
   const project = await updateProject(resolvedParams.projectId, {
     ...(name !== undefined ? { name } : {}),
@@ -60,7 +60,7 @@ export async function PATCH(
     ...(visibility !== undefined ? { visibility } : {}),
   });
 
-  await logAudit({ actorUserId: userId, action: "project_updated", entityType: "project", entityId: resolvedParams.projectId, before: before as never, after: project as never });
+  await logAudit({ organizationId, actorUserId: userId, action: "project_updated", entityType: "project", entityId: resolvedParams.projectId, before: before as never, after: project as never });
 
   await emitTaskEvent("project.updated", resolvedParams.projectId, { id: resolvedParams.projectId, name: project.name }, userId);
 
@@ -74,20 +74,20 @@ export async function DELETE(
   const resolvedParams = await params;
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const permitted =
-    (await canProject(userId, "project:delete", resolvedParams.projectId)) ||
-    (await isProjectOwner(userId, resolvedParams.projectId));
+    (await canProject(userId, "project:delete", resolvedParams.projectId, organizationId)) ||
+    (await isProjectOwner(userId, resolvedParams.projectId, organizationId));
   if (!permitted) {
     return NextResponse.json({ error: { code: "FORBIDDEN", message: "Insufficient permissions" } }, { status: 403 });
   }
 
-  const before = await getProjectById(resolvedParams.projectId);
+  const before = await getProjectById(resolvedParams.projectId, organizationId);
 
   await archiveProject(resolvedParams.projectId);
 
-  await logAudit({ actorUserId: userId, action: "project_archived", entityType: "project", entityId: resolvedParams.projectId, before: before as never });
+  await logAudit({ organizationId, actorUserId: userId, action: "project_archived", entityType: "project", entityId: resolvedParams.projectId, before: before as never });
 
   return NextResponse.json({ data: { success: true } });
 }

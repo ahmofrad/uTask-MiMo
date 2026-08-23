@@ -1,3 +1,5 @@
+import { getBackupMetrics } from "@/lib/backup-metrics";
+
 type MetricState = {
   httpRequests: Map<string, number>;
   httpDuration: Map<string, { count: number; sum: number }>;
@@ -75,7 +77,20 @@ function labels(values: Record<string, string>): string {
 
 export function renderApplicationMetrics(): string {
   const current = state();
+  const backup = getBackupMetrics();
   const lines: string[] = [
+    "# HELP taskapp_backup_success_total Successful backup runs",
+    "# TYPE taskapp_backup_success_total counter",
+    `taskapp_backup_success_total ${backup.successCount}`,
+    "# HELP taskapp_backup_failure_total Failed backup runs",
+    "# TYPE taskapp_backup_failure_total counter",
+    `taskapp_backup_failure_total ${backup.failureCount}`,
+    "# HELP taskapp_backup_last_success_timestamp_seconds Last successful backup timestamp",
+    "# TYPE taskapp_backup_last_success_timestamp_seconds gauge",
+    `taskapp_backup_last_success_timestamp_seconds ${backup.lastSuccessAt ? backup.lastSuccessAt / 1000 : 0}`,
+    "# HELP taskapp_backup_last_failure_timestamp_seconds Last failed backup timestamp",
+    "# TYPE taskapp_backup_last_failure_timestamp_seconds gauge",
+    `taskapp_backup_last_failure_timestamp_seconds ${backup.lastFailureAt ? backup.lastFailureAt / 1000 : 0}`,
     "# HELP taskapp_worker_ready Whether the standalone worker is ready",
     "# TYPE taskapp_worker_ready gauge",
     `taskapp_worker_ready${labels({ worker: "bullmq" })} ${current.workerReady ? 1 : 0}`,

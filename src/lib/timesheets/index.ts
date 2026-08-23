@@ -83,6 +83,7 @@ export async function addEntry(input: {
   taskId?: string | null;
   minutes: number;
   billable: boolean;
+  organizationId?: string;
 }) {
   const period = await prisma.timesheetPeriod.findUnique({
     where: { id: input.periodId },
@@ -99,7 +100,7 @@ export async function addEntry(input: {
     throw err;
   }
 
-  const rate = await resolveCostRate(input.userId);
+  const rate = await resolveCostRate(input.userId, new Date(), input.organizationId);
 
   return prisma.timeEntry.create({
     data: {

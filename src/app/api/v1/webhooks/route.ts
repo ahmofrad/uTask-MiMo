@@ -10,13 +10,14 @@ import { publicWebhookCreateSchema, readJsonBody, validationError } from "@/lib/
 export async function GET(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
+  const { organizationId } = authResult;
 
   const guard = requirePermission("webhook:manage");
   const guardResult = await guard(request, { params: {} });
   if (guardResult) return guardResult;
 
   const webhooks = await prisma.webhook.findMany({
-    where: { deletedAt: null },
+    where: { organizationId, deletedAt: null },
     orderBy: { createdAt: "desc" },
     select: { id: true, name: true, url: true, events: true, active: true, createdAt: true, secret: true },
   });
@@ -30,7 +31,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const authResult = await requireAuth(request, { params: {} });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const guard = requirePermission("webhook:manage");
   const guardResult = await guard(request, { params: {} });
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
 
   const webhook = await prisma.webhook.create({
     data: {
+      organizationId,
       name,
       url,
       secret: `${iv}:${ciphertext}:${tag}`,
@@ -60,6 +62,7 @@ export async function POST(request: Request) {
   });
 
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "webhook_created",
     entityType: "webhook",

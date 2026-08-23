@@ -12,7 +12,7 @@ export async function PATCH(
   const resolvedParams = await params;
   const authResult = await requireAuth(request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const guard = requirePermission("webhook:manage");
   const guardResult = await guard(request, { params: resolvedParams });
@@ -39,7 +39,7 @@ export async function PATCH(
     return NextResponse.json({ error: { code: "VALIDATION_ERROR", message: "At least one field is required" } }, { status: 400 });
   }
 
-  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, deletedAt: null } });
+  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, organizationId, deletedAt: null } });
   if (!before) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
 
   const webhook = await prisma.webhook.update({
@@ -52,6 +52,7 @@ export async function PATCH(
   void _beforeSecret;
   void _afterSecret;
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "webhook_updated",
     entityType: "webhook",
@@ -72,13 +73,13 @@ export async function DELETE(
   const resolvedParams = await params;
   const authResult = await requireAuth(_request, { params: resolvedParams });
   if (authResult instanceof NextResponse) return authResult;
-  const { userId } = authResult;
+  const { userId, organizationId } = authResult;
 
   const guard = requirePermission("webhook:manage");
   const guardResult = await guard(_request, { params: resolvedParams });
   if (guardResult) return guardResult;
 
-  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, deletedAt: null } });
+  const before = await prisma.webhook.findFirst({ where: { id: resolvedParams.id, organizationId, deletedAt: null } });
   if (!before) return NextResponse.json({ error: { code: "NOT_FOUND" } }, { status: 404 });
 
   await prisma.webhook.update({
@@ -89,6 +90,7 @@ export async function DELETE(
   const { secret: _secret, ...beforeAudit } = before;
   void _secret;
   await logAudit({
+    organizationId,
     actorUserId: userId,
     action: "webhook_deleted",
     entityType: "webhook",
