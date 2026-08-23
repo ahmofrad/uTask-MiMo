@@ -101,10 +101,14 @@ test.describe("Two-factor authentication", () => {
     await page.getByLabel("Verification code").fill(code);
     await page.getByRole("button", { name: "Verify and enable" }).click();
 
-    // Recovery codes appear exactly once.
-    await expect(page.getByTestId("recovery-codes")).toBeVisible();
-    const codesText = await page.getByTestId("recovery-codes").textContent();
-    expect((codesText ?? "").split(/\s+/).filter(Boolean)).toHaveLength(8);
+    // Recovery codes appear exactly once. React strips inter-element
+    // whitespace, so textContent has no separators — count the spans instead.
+    const codes = page.getByTestId("recovery-codes");
+    await expect(codes).toBeVisible();
+    await expect(codes.locator("span")).toHaveCount(8);
+    // Each code should be a 12-character token.
+    const firstCode = (await codes.locator("span").first().textContent())?.trim() ?? "";
+    expect(firstCode).toHaveLength(12);
 
     await page.getByRole("button", { name: "Done" }).click();
     await expect(page.getByText("Two-factor authentication is enabled")).toBeVisible();

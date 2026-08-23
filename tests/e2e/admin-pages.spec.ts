@@ -9,6 +9,7 @@ const ADMIN_PAGES: ReadonlyArray<{ path: string; heading: string | RegExp }> = [
   { path: "/admin/departments", heading: "Departments" },
   { path: "/admin/insights", heading: "Organization Insights" },
   { path: "/admin/ldap-sync", heading: "LDAP Sync Dashboard" },
+  { path: "/admin/health", heading: "Health" },
   { path: "/admin/rate-cards", heading: /rate cards/i },
   { path: "/admin/sso", heading: "SSO Configuration" },
   { path: "/admin/storage", heading: "Storage Configuration" },

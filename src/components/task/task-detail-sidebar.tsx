@@ -1,17 +1,16 @@
 "use client";
 
 import { memo, useEffect, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
-import { formatDateTime } from "@/lib/date/format";
-import { estimatedDaysToHours, estimatedHoursToDays } from "@/lib/date/estimated-time";
 import { TagPicker } from "@/components/tags/tag-picker";
-import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { TaskCustomFieldsCard } from "@/components/task/task-custom-fields-card";
-import { AssigneeSelect } from "@/components/task/assignee-select";
 import { TaskRecurrenceEditor } from "@/components/task/task-recurrence-editor";
 import type { RecurrenceRule } from "@/lib/tasks/recurrence";
 import { TaskWatchersCard } from "@/components/task/task-watchers-card";
+import { TaskDetailsCard } from "@/components/task/task-detail-details-card";
+import { TaskApprovalCard } from "@/components/task/task-detail-approval-card";
+import { TaskDatesCard } from "@/components/task/task-detail-dates-card";
 
 type TaskStatus = "open" | "in_progress" | "pending_approval" | "done" | "cancelled";
 type TaskPriority = "low" | "med" | "high" | "urgent";
@@ -105,8 +104,7 @@ export const TaskDetailSidebar = memo(function TaskDetailSidebar({
   onAddWatcher,
   onRemoveWatcher,
 }: TaskDetailSidebarProps) {
-  const t = useTranslations();
-  const locale = useLocale() as "fa-IR" | "en-US";
+  const t = useTranslations("task");
   const [groups, setGroups] = useState<{ id: string; name: string }[] | null>(null);
 
   // The group picker is available to users who can list groups (group:manage
@@ -134,202 +132,48 @@ export const TaskDetailSidebar = memo(function TaskDetailSidebar({
   return (
     <div className="space-y-4">
       {/* Details card */}
-      <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-4">
-        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">
-          {t("task.fields.assignees")}
-        </h4>
-        <AssigneeSelect
-          members={projectMembers}
-          value={task.assignees.map((a) => a.id)}
-          onChange={onAssigneeChange}
-          placeholder={t("task.searchMembers")}
-        />
-
-        {groups !== null && (
-          <div className="border-t border-border-secondary pt-3">
-            <h4 className="text-xs text-fg-muted font-medium mb-1">
-              {t("task.fields.assigneeGroup")}
-            </h4>
-            <select
-              value={task.assigneeGroup?.id ?? ""}
-              onChange={(e) => onGroupChange(e.target.value || null)}
-              className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
-            >
-              <option value="">{t("task.fields.noAssigneeGroup")}</option>
-              {groups.some(
-                (group) => group.id === task.assigneeGroup?.id,
-              ) ? null : task.assigneeGroup ? (
-                <option key={task.assigneeGroup.id} value={task.assigneeGroup.id}>
-                  {task.assigneeGroup.name}
-                </option>
-              ) : null}
-              {groups.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {task.reporter && (
-          <>
-            <div className="border-t border-border-secondary pt-3">
-              <h4 className="text-xs font-medium text-fg-muted mb-1">{t("task.reporter")}</h4>
-              <p className="text-sm text-fg">{task.reporter.displayName}</p>
-            </div>
-          </>
-        )}
-
-        {task.spentHours != null && (
-          <div className="border-t border-border-secondary pt-3">
-            <h4 className="text-xs text-fg-muted font-medium mb-1">{t("task.spent")}</h4>
-            <input
-              type="number"
-              value={task.spentHours ?? ""}
-              onChange={(e) => {
-                const val = e.target.value ? Number(e.target.value) : null;
-                onSpentChange(val);
-              }}
-              className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1 text-fg"
-            />
-          </div>
-        )}
-      </div>
+      <TaskDetailsCard
+        assignees={task.assignees}
+        assigneeGroup={task.assigneeGroup}
+        groups={groups}
+        reporter={task.reporter}
+        spentHours={task.spentHours ?? null}
+        projectMembers={projectMembers}
+        onAssigneeChange={onAssigneeChange}
+        onGroupChange={onGroupChange}
+        onSpentChange={onSpentChange}
+      />
 
       {/* Approval card */}
-      <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-3">
-        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">
-          {t("approval.title")}
-        </h4>
-        <label className="flex items-center gap-2 text-sm text-fg cursor-pointer">
-          <input
-            type="checkbox"
-            checked={task.requiresApproval ?? false}
-            onChange={(e) => onRequiresApprovalChange(e.target.checked)}
-            className="w-4 h-4 accent-[var(--accent)]"
-          />
-          {t("approval.requiresApproval")}
-        </label>
-        {task.requiresApproval && (
-          <div>
-            <label className="text-xs text-fg-muted block mb-1">{t("approval.approver")}</label>
-            <select
-              value={task.approverId ?? ""}
-              onChange={(e) => onApproverChange(e.target.value || null)}
-              className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1 text-fg"
-            >
-              <option value="">{t("approval.anyFinalizer")}</option>
-              {projectMembers.map((member) => (
-                <option key={member.id} value={member.id}>
-                  {member.displayName}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
+      <TaskApprovalCard
+        requiresApproval={task.requiresApproval ?? false}
+        approverId={task.approverId ?? null}
+        projectMembers={projectMembers}
+        onRequiresApprovalChange={onRequiresApprovalChange}
+        onApproverChange={onApproverChange}
+      />
 
       {/* Date & Duration card */}
-      <div className="border border-border-primary rounded-xl bg-bg-surface p-5 space-y-3">
-        <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide">
-          {t("task.dateAndDuration")}
-        </h4>
-        <div className="space-y-2">
-          <div>
-            <label className="text-xs text-fg-muted block mb-1">{t("task.startDate")}</label>
-            <JalaliDatePicker
-              value={task.startDate?.split("T")[0] ?? null}
-              onChange={onStartDateChange}
-              placeholder={t("task.selectDate")}
-              className="w-full"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-fg-muted block mb-1">{t("task.fields.dueDate")}</label>
-            <JalaliDatePicker
-              value={task.dueDate?.split("T")[0] ?? null}
-              onChange={onDueDateChange}
-              placeholder={t("task.selectDate")}
-              className="w-full"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-fg-muted block mb-1">{t("task.endDate")}</label>
-            <JalaliDatePicker
-              value={task.endDate?.split("T")[0] ?? null}
-              onChange={onEndDateChange}
-              placeholder={t("task.selectDate")}
-              className="w-full"
-            />
-          </div>
-        </div>
-        <div className="border-t border-border-secondary pt-2">
-          <label className="text-xs text-fg-muted block mb-1">{t("task.duration")}</label>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <input
-                type="number"
-                min={0}
-                value={durationDays}
-                onChange={(e) => {
-                  const days = Math.max(0, Number(e.target.value) || 0);
-                  onDurationChange(days, durationHours);
-                }}
-                className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
-                placeholder="0"
-              />
-              <span className="text-xs text-fg-subtle block mt-0.5">{t("task.days")}</span>
-            </div>
-            <div className="flex-1">
-              <input
-                type="number"
-                min={0}
-                max={23}
-                value={durationHours}
-                onChange={(e) => {
-                  const hours = Math.max(0, Math.min(23, Number(e.target.value) || 0));
-                  onDurationChange(durationDays, hours);
-                }}
-                className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1.5 text-fg"
-                placeholder="0"
-              />
-              <span className="text-xs text-fg-subtle block mt-0.5">{t("task.hours")}</span>
-            </div>
-          </div>
-        </div>
-        {task.estimatedHours != null && (
-          <div className="border-t border-border-secondary pt-3">
-            <h4 className="text-xs text-fg-muted font-medium mb-1">{t("task.estimated")}</h4>
-            <input
-              type="number"
-              min={0}
-              step={0.5}
-              value={estimatedHoursToDays(task.estimatedHours) ?? ""}
-              onChange={(e) => {
-                const days = e.target.value ? Number(e.target.value) : null;
-                const val = estimatedDaysToHours(days) ?? null;
-                onEstimatedChange(val);
-              }}
-              className="w-full text-sm bg-bg-primary border border-border rounded-lg px-2 py-1 text-fg"
-            />
-            <span className="text-xs text-fg-subtle block mt-0.5">{t("task.days")}</span>
-          </div>
-        )}
-        <div className="border-t border-border-secondary pt-3 text-xs text-fg-muted space-y-1">
-          <p>
-            {t("task.createdAt")}: {formatDateTime(new Date(task.createdAt), locale)}
-          </p>
-          <p>
-            {t("task.updatedAt")}: {formatDateTime(new Date(task.updatedAt), locale)}
-          </p>
-        </div>
-      </div>
+      <TaskDatesCard
+        startDate={task.startDate}
+        endDate={task.endDate}
+        dueDate={task.dueDate}
+        estimatedHours={task.estimatedHours ?? null}
+        durationDays={durationDays}
+        durationHours={durationHours}
+        createdAt={task.createdAt}
+        updatedAt={task.updatedAt}
+        onStartDateChange={onStartDateChange}
+        onDueDateChange={onDueDateChange}
+        onEndDateChange={onEndDateChange}
+        onDurationChange={onDurationChange}
+        onEstimatedChange={onEstimatedChange}
+      />
 
       {/* Recurrence card */}
       <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
         <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">
-          {t("task.recurrence.title")}
+          {t("recurrence.title")}
         </h4>
         <TaskRecurrenceEditor
           recurrenceRule={task.recurrenceRule ?? null}
@@ -341,7 +185,7 @@ export const TaskDetailSidebar = memo(function TaskDetailSidebar({
       {/* Tags card */}
       <div className="border border-border-primary rounded-xl bg-bg-surface p-5">
         <h4 className="text-xs font-medium text-fg-muted uppercase tracking-wide mb-2">
-          {t("task.tags")}
+          {t("tags")}
         </h4>
         <TagPicker projectId={task.projectId} value={taskTagIds} onChange={onTagsChange} />
       </div>
