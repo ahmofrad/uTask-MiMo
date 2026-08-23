@@ -30,6 +30,9 @@ COPY public/ ./public/
 COPY src/ ./src/
 COPY server.ts ./
 COPY scripts/ ./scripts/
+# Explicit production env so the build writes to .next-prod (next.config.mjs
+# distDir), keeping it separate from any dev .next artifacts.
+ENV NODE_ENV=production
 RUN pnpm build
 
 # Bundle server + worker entrypoints (Next + Socket.IO in server, BullMQ in worker)
@@ -56,7 +59,8 @@ RUN mkdir -p /app/src/app
 
 # node:20-bookworm-slim ships user `node` (uid/gid 1000) — run unprivileged
 USER node
-COPY --from=builder --chown=node:node /app/.next ./.next
+# Production build lives in .next-prod (see distDir in next.config.mjs).
+COPY --from=builder --chown=node:node /app/.next-prod ./.next-prod
 COPY --from=builder --chown=node:node /app/public ./public
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules
 COPY --from=builder --chown=node:node /app/prisma ./prisma

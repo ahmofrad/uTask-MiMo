@@ -37,20 +37,22 @@ async function ensurePortFree(host: string, p: number): Promise<void> {
 }
 
 /**
- * Warn when a production `.next` build directory is present while NODE_ENV
- * is not "production". This is the single most common cause of "JS/CSS 404
- * in dev" — the dev server picks up stale production build artifacts and the
- * RSC manifest / webpack cache becomes corrupted. The dev server still starts,
- * but the log makes the root cause obvious.
+ * Production builds write to `.next-prod` (see next.config.mjs distDir), so
+ * `next build` can never clobber the `.next` directory a running dev server
+ * is serving. This guard still warns when a production artifact tree is found
+ * during a dev run (e.g. from an older deployment copy) so the root cause of
+ * "JS/CSS 404 in dev" stays obvious.
  */
+const PROD_BUILD_DIR = ".next-prod";
+
 function warnProductionArtifactsInDev(): void {
-  const buildId = join(".next", "BUILD_ID");
-  const prodServer = join(".next", "standalone");
+  const buildId = join(PROD_BUILD_DIR, "BUILD_ID");
+  const prodServer = join(PROD_BUILD_DIR, "standalone");
   if (dev && (existsSync(buildId) || existsSync(prodServer))) {
     console.warn(
-      "\n⚠  WARNING: A production .next build directory was detected while NODE_ENV is not \"production\".\n" +
-        "   The dev server may serve stale chunks, produce 404s for JS/CSS, or corrupt the RSC manifest.\n" +
-        "   Recommended: rm -rf .next && pnpm dev\n",
+      `\n⚠  WARNING: A production ${PROD_BUILD_DIR} directory was detected while NODE_ENV is not "production".\n` +
+        `   The dev server uses ./next and is unaffected, but the production build lives in ${PROD_BUILD_DIR}.\n` +
+        "   If you meant to run production, use NODE_ENV=production.\n",
     );
   }
 }

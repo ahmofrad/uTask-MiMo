@@ -140,7 +140,8 @@ if [[ "$BUILD" = true ]]; then
   echo "Building $app_image"
   docker build --tag "$app_image" "$ROOT_DIR"
   # A rebuilt image may keep the same APP_VERSION tag. Force the app replicas
-  # to recreate so they cannot continue serving an older .next asset tree.
+  # to recreate so they cannot continue serving an older asset tree
+  # (production builds now land in .next-prod; dev uses .next).
   recreate_app=true
 fi
 

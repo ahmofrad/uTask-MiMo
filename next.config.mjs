@@ -32,6 +32,11 @@ function getConfiguredDevOrigins() {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Production builds write to `.next-prod`, development to `.next`. Keeping
+  // them apart means `next build` can never clobber the dev artifacts a
+  // running `next dev` process is serving (the cause of "JS/CSS 404 in dev"
+  // after a production build), and vice versa.
+  distDir: process.env.NODE_ENV === "production" ? ".next-prod" : ".next",
   // Next 15 blocks cross-origin /_next requests in development. Keep this
   // host-only and opt-in so production does not gain a broader origin policy.
   allowedDevOrigins: getConfiguredDevOrigins(),
