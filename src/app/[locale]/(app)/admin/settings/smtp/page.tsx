@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
+import { apiFetch } from "@/lib/api-fetch";
 
 export default function SmtpConfigPage() {
   const t = useTranslations("smtp");
@@ -12,7 +13,7 @@ export default function SmtpConfigPage() {
   const [msg, setMsg] = useState("");
 
   useEffect(() => {
-    fetch("/api/v1/admin/settings/smtp")
+    apiFetch("/api/v1/admin/settings/smtp")
       .then((r) => r.json())
       .then((j) => {
         const map: Record<string, string> = {};
@@ -28,7 +29,7 @@ export default function SmtpConfigPage() {
     setSaving(true);
     setMsg("");
     try {
-      const res = await fetch("/api/v1/admin/settings/smtp", {
+      const res = await apiFetch("/api/v1/admin/settings/smtp", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),

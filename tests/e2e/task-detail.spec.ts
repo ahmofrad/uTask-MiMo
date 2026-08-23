@@ -1,10 +1,13 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Task detail page", () => {
-  test("redirects to login when unauthenticated", async ({ page }) => {
+  test("redirects to login when unauthenticated", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const page = await context.newPage();
     await page.goto("/en-US/tasks/nonexistent-id");
     // Should redirect to login or show a not-found state
     await expect(page).not.toHaveURL(/\/tasks\/nonexistent-id/);
+    await context.close();
   });
 
   test("page loads without crashing", async ({ request }) => {

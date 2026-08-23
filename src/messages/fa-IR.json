@@ -182,6 +182,7 @@
     "contributor": "مشارکت‌کننده",
     "viewer": "بازدیدکننده",
     "saving": "در حال ذخیره...",
+    "loading": "در حال بارگذاری...",
     "backups": "نسخه‌های پشتیبان",
     "webhookDeliveries": "ارسال‌های Webhook",
     "deliveries": {
@@ -702,6 +703,12 @@
     "placeholderDesc": "توضیحات اختیاری",
     "creating": "در حال ایجاد...",
     "customFields": "فیلدهای سفارشی",
+    "priority": {
+      "low": "کم",
+      "med": "متوسط",
+      "high": "بالا",
+      "urgent": "فوری"
+    },
     "members": {
       "title": "اعضای پروژه",
       "addMember": "افزودن عضو",
@@ -953,6 +960,8 @@
     "importBtn": "وارد کردن",
     "importing": "در حال وارد کردن…",
     "importResult": "{imported} تعطیلات اضافه شد ({skipped} تکراری نادیده گرفته شد).",
+    "importDone": "{imported} تعطیلات اضافه شد ({skipped} تکراری نادیده گرفته شد).",
+    "importPartial": "{imported} تعطیلات اضافه شد ({skipped} تکراری نادیده گرفته شد)؛ {errors} ردیف خطا داشت.",
     "importFailed": "وارد کردن انجام نشد. دوباره تلاش کنید.",
     "regionIr": "ایران (رسمی)",
     "regionUs": "ایالات متحده (عمومی)",
@@ -961,6 +970,9 @@
     "csvPlaceholder": "2026-03-20,نوروز\n2026-08-24,اربعین",
     "csvImportBtn": "وارد کردن CSV",
     "csvPartialError": "ردیف‌های معتبر وارد شد، اما {count} ردیف خوانده نشد. آن‌ها را اصلاح و دوباره وارد کنید.",
+    "csvImportDone": "{imported} تعطیلات اضافه شد.",
+    "csvImportPartial": "{imported} تعطیلات اضافه شد؛ {errors} ردیف خطا داشت.",
+    "csvImportFailed": "وارد کردن CSV انجام نشد. دوباره تلاش کنید.",
     "egressTitle": "دانلود از API تعطیلات",
     "egressHint": "اختیاری و به‌طور پیش‌فرض غیرفعال است: نصب استاندارد ترافیک خروجی ندارد. فقط اگر شبکه اجازه HTTPS خروجی به ارائه‌دهنده را می‌دهد فعال و ذخیره کنید.",
     "egressEnabled": "فعال‌سازی دانلود",
@@ -974,6 +986,8 @@
     "egressKeyBroken": "کلید API ذخیره‌شده Calendarific قابل رمزگشایی نیست — احتمالاً کلید رمزنگاری سرور بین راه‌اندازی‌ها تغییر کرده است. برای بازیابی دانلودها، کلید را دوباره وارد کنید.",
     "downloadFailed": "دانلود انجام نشد. مطمئن شوید HTTPS خروجی به ارائه‌دهنده مجاز است.",
     "downloadResult": "{imported} تعطیلات دانلود و اضافه شد ({skipped} تکراری نادیده گرفته شد).",
+    "downloadDone": "{count} تعطیلات دانلود و اضافه شد.",
+    "downloadFailedReason": "دانلود انجام نشد: {reason}",
     "downloadResultDetailed": "{imported} تعطیلات دانلود و اضافه شد ({skipped} تکراری نادیده گرفته شد) — {dayOffs} روز تعطیل و {observances} مناسبت نادیده گرفته شد.",
     "onlyDayOffs": "فقط تعطیلات واقعی را وارد کن (مناسبت‌ها نادیده گرفته شوند)",
     "egressProvider": "ارائه‌دهنده",

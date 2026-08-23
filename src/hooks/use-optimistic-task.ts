@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { AssigneeUser } from "@/components/task/assignee-stack";
+import { apiFetch } from "@/lib/api-fetch";
 
 export type Task = {
   id: string;
@@ -28,7 +29,7 @@ export function useOptimisticTasks(initialTasks: Task[]) {
     );
 
     try {
-      const res = await fetch(`/api/v1/tasks/${taskId}`, {
+      const res = await apiFetch(`/api/v1/tasks/${taskId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -53,7 +54,7 @@ export function useOptimisticTasks(initialTasks: Task[]) {
 
     try {
       const allIds = prevTasks.map((t) => t.id);
-      const res = await fetch("/api/v1/tasks/reorder", {
+      const res = await apiFetch("/api/v1/tasks/reorder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ projectId, taskIds: allIds }),
@@ -71,7 +72,7 @@ export function useOptimisticTasks(initialTasks: Task[]) {
     setTasks((prev) => prev.filter((t) => t.id !== taskId));
 
     try {
-      const res = await fetch(`/api/v1/tasks/${taskId}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/v1/tasks/${taskId}`, { method: "DELETE" });
       if (!res.ok) throw new Error("Failed");
     } catch {
       setTasks((prev) => [...prev, task].sort((a, b) => a.orderIndex - b.orderIndex));
@@ -81,7 +82,7 @@ export function useOptimisticTasks(initialTasks: Task[]) {
     return async () => {
       setTasks((prev) => [...prev, task].sort((a, b) => a.orderIndex - b.orderIndex));
       try {
-        await fetch(`/api/v1/tasks/${taskId}`, {
+        await apiFetch(`/api/v1/tasks/${taskId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ deletedAt: null }),

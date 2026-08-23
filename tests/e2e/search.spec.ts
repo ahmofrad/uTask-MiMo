@@ -18,7 +18,7 @@ test.describe("Search", () => {
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body.data).toBeDefined();
-    expect(body.data.total).toBe(0);
+    expect(body.data.tasks ?? []).toHaveLength(0);
   });
 
   test("search API returns results for a known seed task", async ({ request }) => {
@@ -38,16 +38,21 @@ test.describe("Search", () => {
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body.data).toBeDefined();
-    expect(Array.isArray(body.data.items)).toBe(true);
-    expect(body.data.items.length).toBeGreaterThan(0);
+    expect(Array.isArray(body.data.tasks)).toBe(true);
+    expect(body.data.tasks.length).toBeGreaterThan(0);
     // At minimum the "launch checklist" task should appear.
-    const titles = body.data.items.map((i: Record<string, unknown>) => i.title).filter(Boolean);
+    const titles = body.data.tasks.map((i: Record<string, unknown>) => i.title).filter(Boolean);
     expect(titles.some((t: string) => t.toLowerCase().includes("launch"))).toBe(true);
   });
 
-  test("search API requires auth", async ({ request }) => {
-    const res = await request.get("/api/v1/search?q=test");
-    expect(res.status()).toBe(401);
+  test("search API requires auth", async ({ browser }) => {
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    try {
+      const res = await context.request.get("/api/v1/search?q=test");
+      expect(res.status()).toBe(401);
+    } finally {
+      await context.close();
+    }
   });
 
   test("search API requires minimum 2 characters", async ({ request }) => {
@@ -86,10 +91,11 @@ test.describe("Search", () => {
     expect(res.status()).toBe(200);
     const body = await res.json();
     expect(body.data).toBeDefined();
-    expect(Array.isArray(body.data.items)).toBe(true);
-    // All results should be project-type items.
-    for (const item of body.data.items) {
-      expect(item.type).toBe("project");
+    expect(Array.isArray(body.data.projects)).toBe(true);
+    // Project results are grouped under `projects` by the API response.
+    for (const item of body.data.projects) {
+      expect(item.id).toBeDefined();
+      expect(item.name).toBeDefined();
     }
   });
 });

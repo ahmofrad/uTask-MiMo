@@ -5,9 +5,9 @@ import { useTranslations } from "next-intl";
 import { apiFetch } from "@/lib/api-fetch";
 import { normalizeTaskDate } from "@/lib/date/task-date";
 import { estimatedDaysToHours, estimatedHoursToDays } from "@/lib/date/estimated-time";
-import { JalaliDatePicker } from "@/components/ui/jalali-date-picker";
 import { TagPicker } from "@/components/tags/tag-picker";
 import { AssigneeSelect } from "@/components/task/assignee-select";
+import { TaskScheduleFields } from "@/components/task/task-schedule-fields";
 
 type Member = { id: string; displayName: string; avatarUrl?: string | null };
 type GroupOption = { id: string; name: string };
@@ -244,52 +244,19 @@ export const TaskForm = memo(function TaskForm({ projectId, initialMembers, init
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4">
-        {createMode && (
-          <div>
-            <label className="block text-sm font-medium text-fg-secondary mb-1.5">
-              {t("fields.startDate")}
-            </label>
-            <JalaliDatePicker
-              testId="task-form-start-date"
-              value={startDate}
-              onChange={(val) => {
-                setStartDate(val ?? "");
-                setSuggestedByDependency(false);
-              }}
-            />
-            {suggestedByDependency && (
-              <span data-testid="task-form-suggested-date" className="text-xs text-accent block mt-1">
-                {t("suggestedFromDependency")}
-              </span>
-            )}
-          </div>
-        )}
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1.5">
-            {t("fields.dueDate")}
-          </label>
-          <JalaliDatePicker
-            value={dueDate}
-            onChange={(val) => setDueDate(val ?? "")}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-fg-secondary mb-1.5">
-            {t("fields.estimatedHours")}
-          </label>
-          <input
-            type="number"
-            value={estimatedDays}
-            onChange={(e) => setEstimatedDays(e.target.value)}
-            min="0"
-            step="0.5"
-            className="w-full px-3 py-2 border border-border-primary rounded-lg bg-bg-surface text-fg-primary text-sm"
-          />
-          <span className="text-xs text-fg-subtle block mt-0.5">{t("days")}</span>
-        </div>
-      </div>
+      <TaskScheduleFields
+        createMode={createMode}
+        startDate={startDate}
+        dueDate={dueDate}
+        estimatedDays={estimatedDays}
+        suggestedByDependency={suggestedByDependency}
+        onStartDateChange={(value) => {
+          setStartDate(value ?? "");
+          setSuggestedByDependency(false);
+        }}
+        onDueDateChange={(value) => setDueDate(value ?? "")}
+        onEstimatedDaysChange={setEstimatedDays}
+      />
 
       {projectId && (
         <div>

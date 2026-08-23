@@ -290,7 +290,7 @@ export const ProjectDetailPage = memo(function ProjectDetailPage({ project, init
       <ProjectTabBar
         tabs={tabs}
         activeTab={activeTab}
-        canCreate={canEdit}
+        canCreate={canManage}
         onCreate={() => setShowCreateForm(true)}
         onTabChange={setActiveTab}
       />

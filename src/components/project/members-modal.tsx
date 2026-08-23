@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Avatar } from "@/components/ui/avatar";
 import { Dialog } from "@/components/ui/dialog";
 import { apiFetch } from "@/lib/api-fetch";
+import { GroupGrantsPanel, type GroupOption } from "./group-grants-panel";
 
 type Member = {
   userId: string;
@@ -26,13 +27,6 @@ type GroupGrant = {
   grantedAt: string;
   memberCount: number;
   group: { id: string; name: string; source: "ldap" | "manual" };
-};
-
-type GroupOption = {
-  id: string;
-  name: string;
-  source: "ldap" | "manual";
-  memberCount: number;
 };
 
 export const MembersModal = memo(function MembersModal({
@@ -290,88 +284,21 @@ export const MembersModal = memo(function MembersModal({
             ))
           )}
 
-          {/* Group grants */}
-          <div className="pt-4 mt-4 border-t border-border-secondary space-y-3">
-            <div>
-              <h3 className="text-sm font-semibold text-fg">{t("groupGrants")}</h3>
-              <p className="text-xs text-fg-muted mt-0.5">{t("groupGrantsNote")}</p>
-            </div>
-
-            {grantsLoading ? (
-              <p className="text-sm text-fg-muted text-center py-3">{t("loading")}</p>
-            ) : grants.length === 0 ? (
-              <p className="text-sm text-fg-muted text-center py-3">{t("noGroupGrants")}</p>
-            ) : (
-              <div className="space-y-2">
-                {grants.map((grant) => (
-                  <div
-                    key={grant.groupId}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border-secondary"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-fg-primary truncate">{grant.group.name}</p>
-                      <p className="text-xs text-fg-muted truncate">
-                        {t("membersCount", { count: grant.memberCount })}
-                        {" · "}
-                        {grant.group.source === "manual" ? t("sourceManual") : t("sourceLdap")}
-                      </p>
-                    </div>
-                    {canAssignRoles && (
-                      <>
-                        <select
-                          value={grant.role}
-                          onChange={(e) => changeGrantRole(grant.groupId, e.target.value)}
-                          className="text-xs px-2 py-1 border border-border-primary rounded-lg bg-bg-primary text-fg-primary focus:outline-none focus:ring-1 focus:ring-accent shrink-0"
-                        >
-                          {ROLES.map((r) => (
-                            <option key={r.value} value={r.value}>{r.label}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => revokeGrant(grant.groupId)}
-                          className="text-xs text-fg-muted hover:text-destructive transition-colors shrink-0"
-                        >
-                          {t("revoke")}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {canAssignRoles && groupOptions.length > 0 && (
-              <div className="flex gap-2">
-                <select
-                  value={grantGroupId}
-                  onChange={(e) => setGrantGroupId(e.target.value)}
-                  aria-label={t("selectGroup")}
-                  className="flex-1 px-2 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  <option value="">{t("selectGroup")}</option>
-                  {groupOptions.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-                <select
-                  value={grantRole}
-                  onChange={(e) => setGrantRole(e.target.value)}
-                  className="px-2 py-2 border border-border-primary rounded-lg bg-bg-primary text-fg-primary text-sm focus:outline-none focus:ring-1 focus:ring-accent"
-                >
-                  {ROLES.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </select>
-                <button
-                  onClick={() => void grantAccess()}
-                  disabled={!grantGroupId || granting}
-                  className="px-4 py-2 text-sm font-medium rounded-md bg-accent text-fg-inverse hover:opacity-90 transition-opacity disabled:opacity-40 shrink-0"
-                >
-                  {granting ? t("saving") : t("grant")}
-                </button>
-              </div>
-            )}
-          </div>
+          <GroupGrantsPanel
+            grants={grants}
+            groupOptions={groupOptions}
+            roles={ROLES}
+            canAssignRoles={canAssignRoles}
+            loading={grantsLoading}
+            groupId={grantGroupId}
+            role={grantRole}
+            granting={granting}
+            onGroupChange={setGrantGroupId}
+            onRoleChange={setGrantRole}
+            onGrant={() => void grantAccess()}
+            onChangeGrantRole={(groupId, role) => void changeGrantRole(groupId, role)}
+            onRevoke={(groupId) => void revokeGrant(groupId)}
+          />
         </div>
     </Dialog>
   );

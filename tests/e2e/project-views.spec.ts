@@ -14,7 +14,7 @@ test.describe("Project views", () => {
       data: { name: `Project Views E2E ${Date.now()}`, ownerId: admin.id, visibility: "org" },
     });
     await prisma.projectMember.create({
-      data: { projectId: project.id, userId: admin.id, projectRole: "owner", addedBy: admin.id },
+      data: { projectId: project.id, userId: admin.id, projectRole: "lead", addedBy: admin.id },
     });
 
     try {

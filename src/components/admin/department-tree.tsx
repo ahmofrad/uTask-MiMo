@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { apiFetch } from "@/lib/api-fetch";
@@ -47,9 +47,11 @@ export function DepartmentTree({ departments: initial }: Props) {
   const [expandedMembers, setExpandedMembers] = useState<Set<string>>(new Set());
   const [deptMembers, setDeptMembers] = useState<Record<string, DepartmentMember[]>>({});
   const [allUsers, setAllUsers] = useState<DepartmentMember[]>([]);
+  const usersLoadStarted = useRef(false);
 
   useEffect(() => {
-    if (allUsers.length > 0) return;
+    if (usersLoadStarted.current) return;
+    usersLoadStarted.current = true;
     apiFetch("/api/v1/users/search?q&limit=500")
       .then((r) => r.json())
       .then((j) => {

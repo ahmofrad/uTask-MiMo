@@ -166,7 +166,7 @@ test.describe("Dependency flows", () => {
     let createdTaskId = "";
 
     await page.goto(`/en-US/projects/${PROJECT}`);
-    await page.getByRole("button", { name: "+ Create task" }).click();
+    await page.getByRole("button", { name: /create task/i }).click();
 
     const titleInput = page.getByTestId("task-form-title");
     await titleInput.fill("E2E dependent task");

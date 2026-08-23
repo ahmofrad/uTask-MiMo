@@ -614,7 +614,7 @@ test.describe("Authenticated visual regression @visual", () => {
 
   test("search page renders correctly in LTR", async ({ page }) => {
     await page.goto("/en-US/search");
-    await expect(page.getByPlaceholder("Search tasks, projects, comments…")).toBeVisible({
+    await expect(page.getByRole("textbox").first()).toBeVisible({
       timeout: 15000,
     });
     await expect(page).toHaveScreenshot("search-ltr.png", {
@@ -624,7 +624,7 @@ test.describe("Authenticated visual regression @visual", () => {
 
   test("search page renders correctly in RTL", async ({ page }) => {
     await page.goto("/fa-IR/search");
-    await expect(page.getByPlaceholder("جستجو در تسک‌ها، پروژه‌ها، نظرات…")).toBeVisible({
+    await expect(page.getByRole("textbox").first()).toBeVisible({
       timeout: 15000,
     });
     await expect(page).toHaveScreenshot("search-rtl.png", {

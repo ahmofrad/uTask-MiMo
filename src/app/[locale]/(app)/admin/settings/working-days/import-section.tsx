@@ -107,7 +107,13 @@ export function WorkingDaysImportSection({ onImported }: ImportSectionProps) {
   async function saveEgress() {
     setSavingEgress(true);
     try {
-      const egressBody = { ...egress };
+      const egressBody = {
+        enabled: egress.enabled,
+        provider: egress.provider,
+        countryCode: egress.countryCode,
+        baseUrl: egress.baseUrl,
+        apiKey: egress.apiKey,
+      };
       const res = await apiFetch("/api/v1/admin/settings/working-days/egress", {
         method: "PUT",
         body: JSON.stringify(egressBody),

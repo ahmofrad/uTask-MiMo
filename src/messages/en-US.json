@@ -182,6 +182,7 @@
     "contributor": "Contributor",
     "viewer": "Viewer",
     "saving": "Saving...",
+    "loading": "Loading...",
     "backups": "Backups",
     "webhookDeliveries": "Webhook Deliveries",
     "deliveries": {
@@ -702,6 +703,12 @@
     "placeholderDesc": "Optional description",
     "creating": "Creating...",
     "customFields": "Custom Fields",
+    "priority": {
+      "low": "Low",
+      "med": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
     "members": {
       "title": "Project Members",
       "addMember": "Add member",
@@ -953,6 +960,8 @@
     "importBtn": "Import",
     "importing": "Importing…",
     "importResult": "Added {imported} holidays ({skipped} duplicates skipped).",
+    "importDone": "Added {imported} holidays ({skipped} duplicates skipped).",
+    "importPartial": "Added {imported} holidays ({skipped} duplicates skipped); {errors} rows had errors.",
     "importFailed": "The import failed. Please try again.",
     "regionIr": "Iran (official)",
     "regionUs": "United States (common)",
@@ -961,6 +970,9 @@
     "csvPlaceholder": "2026-03-20,Nowruz\n2026-08-24,Arbaeen",
     "csvImportBtn": "Import CSV",
     "csvPartialError": "Imported the valid rows, but {count} rows could not be read. Fix them and import again.",
+    "csvImportDone": "Added {imported} holidays.",
+    "csvImportPartial": "Added {imported} holidays; {errors} rows had errors.",
+    "csvImportFailed": "The CSV import failed. Please try again.",
     "egressTitle": "Download from a holiday API",
     "egressHint": "Optional and disabled by default: the standard install has no outbound traffic. Enable this only if the network allows outbound HTTPS to the provider, then save and download.",
     "egressEnabled": "Enable downloads",
@@ -974,6 +986,8 @@
     "egressKeyBroken": "The stored Calendarific API key can't be decrypted — the server's encryption key may have changed between restarts. Re-enter the key to restore downloads.",
     "downloadFailed": "The download failed. Check that outbound HTTPS is allowed to the provider.",
     "downloadResult": "Downloaded and added {imported} holidays ({skipped} duplicates skipped).",
+    "downloadDone": "Downloaded and added {count} holidays.",
+    "downloadFailedReason": "The download failed: {reason}",
     "downloadResultDetailed": "Downloaded and added {imported} holidays ({skipped} duplicates skipped) — {dayOffs} day offs imported, {observances} observances filtered out.",
     "onlyDayOffs": "Only import actual days off (skip observances)",
     "egressProvider": "Provider",

@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import { defaultCache } from "@serwist/next/worker";
-import { NetworkFirst, NetworkOnly, Serwist } from "serwist";
+import { NetworkOnly, Serwist } from "serwist";
 import type { PrecacheEntry, RuntimeCaching, SerwistGlobalConfig } from "serwist";
 
 declare global {

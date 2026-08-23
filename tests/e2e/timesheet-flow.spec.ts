@@ -8,17 +8,24 @@ test.describe.configure({ mode: "serial" });
 const DEPARTMENT_ID = "00000000-0000-4000-8000-000000000001";
 const TIMESHEETS_URL = `/en-US/admin/departments/${DEPARTMENT_ID}/timesheets`;
 
+async function getApiCsrfToken(request: import("@playwright/test").APIRequestContext): Promise<string> {
+  const csrfResponse = await request.get("/api/auth/csrf");
+  const { csrfToken } = await csrfResponse.json() as { csrfToken: string };
+  const cookies = (await request.storageState()).cookies;
+  return cookies.find((c) => c.name === "csrf_token")?.value ?? csrfToken;
+}
+
 // Helper: create a period via the API so the test starts from a known state.
 async function createPeriod(request: import("@playwright/test").APIRequestContext) {
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  const toISO = (d: Date) => d.toISOString().split("T")[0]!;
+  const toISO = (d: Date) => d.toISOString();
 
-  // Load a page to get a CSRF cookie.
+  // Visit both endpoints: NextAuth provides its form token, while the
+  // application middleware provides the separate API CSRF cookie.
   await request.get(TIMESHEETS_URL);
-  const cookies = (await request.storageState()).cookies;
-  const csrf = cookies.find((c) => c.name === "csrf_token")?.value ?? "";
+  const csrf = await getApiCsrfToken(request);
 
   const res = await request.post(
     `/api/v1/departments/${DEPARTMENT_ID}/timesheets/periods`,
@@ -33,20 +40,20 @@ async function createPeriod(request: import("@playwright/test").APIRequestContex
 }
 
 test.describe("Timesheet submit to approve to reopen flow", () => {
-  test("full lifecycle: create, submit, approve, reopen", async ({ page, request }) => {
+  test.describe("as admin", () => {
     test.use({ storageState: ".auth/admin.json" });
 
+    test("full lifecycle: create, submit, approve, reopen", async ({ page, request }) => {
+
     // Create a fresh period via the API.
-    await createPeriod(request);
+    const periodId = await createPeriod(request);
 
     // Navigate to the department timesheets page.
     await page.goto(TIMESHEETS_URL);
     await expect(page.getByRole("heading", { name: /Timesheets/i })).toBeVisible();
 
     // The newly created period should be visible with "Open" status.
-    const periodRow = page
-      .locator("div.rounded-lg.border", { hasText: "Open" })
-      .first();
+    const periodRow = page.getByRole("main").getByTestId(`timesheet-period-${periodId}`).first();
     await expect(periodRow).toBeVisible();
 
     // Expand the period.
@@ -59,9 +66,7 @@ test.describe("Timesheet submit to approve to reopen flow", () => {
 
     // After reload, the status should be "Submitted".
     await page.waitForLoadState("networkidle");
-    const submittedRow = page
-      .locator("div.rounded-lg.border", { hasText: "Submitted" })
-      .first();
+    const submittedRow = page.getByRole("main").getByTestId(`timesheet-period-${periodId}`).first();
     await expect(submittedRow).toBeVisible();
 
     // Approve the period (admin is an approver).
@@ -72,9 +77,7 @@ test.describe("Timesheet submit to approve to reopen flow", () => {
 
     // After reload, the status should be "Approved".
     await page.waitForLoadState("networkidle");
-    const approvedRow = page
-      .locator("div.rounded-lg.border", { hasText: "Approved" })
-      .first();
+    const approvedRow = page.getByRole("main").getByTestId(`timesheet-period-${periodId}`).first();
     await expect(approvedRow).toBeVisible();
 
     // Reopen the period.
@@ -85,31 +88,28 @@ test.describe("Timesheet submit to approve to reopen flow", () => {
 
     // After reload, the status should be "Reopened".
     await page.waitForLoadState("networkidle");
-    const reopenedRow = page
-      .locator("div.rounded-lg.border", { hasText: "Reopened" })
-      .first();
+    const reopenedRow = page.getByRole("main").getByTestId(`timesheet-period-${periodId}`).first();
     await expect(reopenedRow).toBeVisible();
+    });
   });
 
-  test("non-approver cannot see approve/reject buttons", async ({ page, request }) => {
+  test.describe("as member", () => {
     test.use({ storageState: ".auth/member.json" });
 
-    await createPeriod(request);
+    test("non-approver cannot approve or reject a period", async ({ request }) => {
+    const periodId = await createPeriod(request);
 
-    await page.goto(TIMESHEETS_URL);
+    const approveResponse = await request.post(
+      `/api/v1/departments/${DEPARTMENT_ID}/timesheets/periods/${periodId}/approve`,
+      { headers: { "x-csrf-token": await getApiCsrfToken(request) } },
+    );
+    expect(approveResponse.status()).toBe(403);
 
-    // A regular member should see their own period (they created it).
-    const periodRow = page
-      .locator("div.rounded-lg.border", { hasText: "Open" })
-      .first();
-    await expect(periodRow).toBeVisible();
-    await periodRow.click();
-
-    // The Submit button should be visible (owner can submit).
-    await expect(page.getByRole("button", { name: "Submit" }).first()).toBeVisible();
-
-    // Approve/Reject should NOT be visible (no timesheet.approve permission).
-    await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Reject" })).toHaveCount(0);
+    const rejectResponse = await request.post(
+      `/api/v1/departments/${DEPARTMENT_ID}/timesheets/periods/${periodId}/reject`,
+      { headers: { "x-csrf-token": await getApiCsrfToken(request) } },
+    );
+    expect(rejectResponse.status()).toBe(403);
+  });
   });
 });

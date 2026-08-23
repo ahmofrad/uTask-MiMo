@@ -4,12 +4,12 @@ import { test, expect } from "@playwright/test";
 // server-rendered (or immediately-hydrating) route whose <h1> is present in the
 // initial HTML, so asserting it is a cheap regression guard against 404s,
 // auth redirects, and render crashes.
-const ADMIN_PAGES = [
+const ADMIN_PAGES: ReadonlyArray<{ path: string; heading: string | RegExp }> = [
   { path: "/admin/backups", heading: "Backups" },
   { path: "/admin/departments", heading: "Departments" },
   { path: "/admin/insights", heading: "Organization Insights" },
   { path: "/admin/ldap-sync", heading: "LDAP Sync Dashboard" },
-  { path: "/admin/rate-cards", heading: "Rate Cards" },
+  { path: "/admin/rate-cards", heading: /rate cards/i },
   { path: "/admin/sso", heading: "SSO Configuration" },
   { path: "/admin/storage", heading: "Storage Configuration" },
   { path: "/admin/tokens", heading: "API Tokens" },

@@ -41,10 +41,10 @@ type PeriodRowProps = {
 
 const STATUS_TONE: Record<string, string> = {
   open: "bg-accent-bg text-accent",
-  submitted: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
-  approved: "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300",
-  rejected: "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
-  reopened: "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300",
+  submitted: "bg-warning-bg text-warning",
+  approved: "bg-success-bg text-success",
+  rejected: "bg-danger-bg text-danger",
+  reopened: "bg-info-bg text-info",
 };
 
 const EDITABLE_STATUSES = ["open", "rejected", "reopened"];
@@ -90,7 +90,10 @@ export const PeriodRow = memo(function PeriodRow({
   }
 
   return (
-    <div className="rounded-lg border border-border-primary overflow-hidden">
+    <div
+      data-testid={`timesheet-period-${period.id}`}
+      className="rounded-lg border border-border-primary overflow-hidden"
+    >
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between ps-4 pe-3 py-3 hover:bg-bg-surface transition-colors"

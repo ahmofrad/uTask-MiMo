@@ -21,6 +21,32 @@ describe("apiFetch", () => {
     expect(((options as RequestInit).headers as Headers).has("content-type")).toBe(false);
   });
 
+  it("adds the CSRF token to state-changing requests", async () => {
+    vi.stubGlobal("document", { cookie: "csrf_token=test-csrf-token" });
+
+    await apiFetch("/api/v1/tasks/t1", {
+      method: "PATCH",
+      body: JSON.stringify({ status: "done" }),
+    });
+
+    const [, options] = fetchMock.mock.calls[0] ?? [];
+    const headers = (options as RequestInit).headers as Headers;
+    expect(headers.get("x-csrf-token")).toBe("test-csrf-token");
+  });
+
+  it("adds idempotency keys to task creation requests", async () => {
+    vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "request-id") });
+
+    await apiFetch("/api/v1/tasks", {
+      method: "POST",
+      body: JSON.stringify({ title: "Task" }),
+    });
+
+    const [, options] = fetchMock.mock.calls[0] ?? [];
+    const headers = (options as RequestInit).headers as Headers;
+    expect(headers.get("Idempotency-Key")).toBe("request-id");
+  });
+
   it("sets JSON content type for string request bodies", async () => {
     await apiFetch("/api/v1/auth/forgot-password", {
       method: "POST",

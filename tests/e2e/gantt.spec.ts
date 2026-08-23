@@ -279,11 +279,10 @@ test.describe("Gantt timeline", () => {
   test("renders a multi-day task bar through the end of its due date", async ({ page }) => {
     let injectedTaskId: string | null = null;
     await page.route("**/api/v1/reports/gantt**", async (route) => {
-      // Fetch via page.request so the session cookies travel along, bypassing
-      // the browser HTTP cache that otherwise serves the stale pre-mutation
-      // report to the refetch after a dependency create/delete.
-      const response = await page.request.fetch(route.request().url());
-      const payload = await response.json() as GanttTestResponse;
+      // Read the intercepted response before fulfilling it. Playwright can
+      // dispose the response after route.fulfill, so parsing afterward races.
+      const response = await route.fetch();
+      const payload = JSON.parse(await response.text()) as GanttTestResponse;
       const report = Object.values(payload.data)[0];
       const task = report?.tasks.find((candidate) => !candidate.isSummary) ?? report?.tasks[0];
       if (!task) throw new Error("No Gantt task available for the multi-day regression");
