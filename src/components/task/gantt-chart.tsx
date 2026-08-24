@@ -1,19 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useLocale, useTranslations } from "next-intl";
-import { toJalali, toGregorian, getMonthName, getDaysInMonth } from "@/lib/date/jalali";
-import { formatNumber, type Locale } from "@/lib/date/format";
-import {
-  diffCalendarDays,
-  normalizeStoredDayMarker,
-  parseDateOnly,
-  startOfCalendarDay,
-  timelineDayStart,
-  toDateOnly,
-} from "@/lib/date/day-marker";
+import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useWorkingDayConfig } from "@/hooks/use-working-day-config";
-import { createWorkingDayCalendar } from "@/lib/date/working-day-calendar";
 import { apiFetch } from "@/lib/api-fetch";
 import { useToast } from "@/components/ui/toast";
 import { GanttCriticalPanel } from "./gantt-critical-panel";
@@ -24,10 +13,14 @@ import { GanttToolbar } from "./gantt-toolbar";
 import { GanttExportDialog } from "./gantt-export-dialog";
 import { GanttLinkDialog, type LinkType } from "./gantt-link-dialog";
 import { GanttLegend } from "./gantt-legend";
+import { GanttLinkArrows, GANTT_CONSTANTS, linkErrorKey } from "./gantt-link-arrows";
+import { useGanttTimeline, currentMonthRange } from "./use-gantt-timeline";
 import type { GanttLink, GanttReport, GanttRow } from "@/lib/gantt-types";
-import { linkShortLabel, linkLagSuffix } from "@/lib/gantt/links";
+import { linkLagSuffix } from "@/lib/gantt/links";
 import { criticalDescendants, criticalPredecessors } from "@/lib/gantt/chain";
+import { formatNumber, type Locale } from "@/lib/date/format";
 import { exportGanttAsPdf, exportGanttAsPng } from "@/lib/gantt/export-raster";
+import { parseDateOnly } from "@/lib/date/day-marker";
 import {
   applyDragDelta,
   createDragState,
@@ -36,54 +29,10 @@ import {
   type DragMode,
   type DragState,
 } from "@/lib/gantt/drag";
-import {
-  getTimelineDragRawDeltaDays,
-  getTimelinePosition,
-  type TimelineDirection,
-} from "@/lib/gantt/timeline";
-
-type TimelineDay = {
-  date: Date;
-  offset: number;
-  label: string;
-  isMonthStart: boolean;
-  isToday: boolean;
-  isNonWorking: boolean;
-  isDayOff: boolean;
-  holidayName: string;
-};
-
-type TimelineMonth = {
-  key: string;
-  label: string;
-  startOffset: number;
-  dayCount: number;
-};
+import { getTimelineDragRawDeltaDays } from "@/lib/gantt/timeline";
 
 const DEP_TYPES = ["FINISH_TO_START", "START_TO_START", "FINISH_TO_FINISH", "RELATES_TO"] as const;
-
-type LinkErrorKey =
-  | "loadError"
-  | "cycleError"
-  | "selfError"
-  | "sameProjectError"
-  | "duplicateError"
-  | "blocked";
-
-function linkErrorKey(code?: string): LinkErrorKey {
-  switch (code) {
-    case "SELF": return "selfError";
-    case "DUPLICATE": return "duplicateError";
-    case "CROSS_PROJECT": return "sameProjectError";
-    case "DEPENDENCY_CYCLE": return "cycleError";
-    case "DEPENDENCY_BLOCKED": return "blocked";
-    default: return "loadError";
-  }
-}
-
-const BOX_WIDTH = 64;
-const LEFT_WIDTH = 288;
-const ROW_HEIGHT = 52;
+const { ROW_HEIGHT } = GANTT_CONSTANTS;
 const GANTT_PREFS_KEY = "ganttPrefs:v1";
 const ZOOM_OPTIONS = [
   { width: 36, label: "ganttZoomSmall" },
@@ -91,13 +40,7 @@ const ZOOM_OPTIONS = [
   { width: 72, label: "ganttZoomLarge" },
 ] as const;
 
-function currentMonthRange(): { start: string; end: string } {
-  const now = toJalali(new Date());
-  return {
-    start: toDateOnly(toGregorian(now.jy, now.jm, 1)),
-    end: toDateOnly(toGregorian(now.jy, now.jm, getDaysInMonth(now.jy, now.jm))),
-  };
-}
+type LinkErrorKey = import("./gantt-link-arrows").LinkErrorKey;
 
 export function GanttChart({
   report,
@@ -110,7 +53,6 @@ export function GanttChart({
 }) {
   const t = useTranslations("task");
   const tc = useTranslations();
-  const locale = useLocale() as Locale;
   const { addToast } = useToast();
   const workingDays = useWorkingDayConfig();
   const dragRef = useRef<DragState | null>(null);
@@ -183,105 +125,14 @@ export function GanttChart({
   const canEdit = report.canEdit ?? false;
   const rows = report.tasks;
 
-  // --- Timeline computation ---
-  const { rangeStart, totalDays, dayCount, days, months, todayOffset } = useMemo(() => {
-    const calendar = createWorkingDayCalendar(workingDays, locale);
-    const today = startOfCalendarDay(new Date());
-    const withDates = rows.flatMap((r) => {
-      const s = r.startDate ?? r.summaryStart;
-      const e = r.dueDate ?? r.summaryEnd;
-      return [s, e].filter(Boolean).map((d) => new Date(d as string));
-    });
-    let start = withDates.length ? new Date(Math.min(...withDates.map((d) => d.getTime()))) : today;
-    let end = withDates.length ? new Date(Math.max(...withDates.map((d) => d.getTime()))) : today;
-    start = timelineDayStart(start);
-    end = timelineDayStart(end);
-    start.setDate(start.getDate() - 7);
-    end.setDate(end.getDate() + 90);
-    const total = Math.max(diffCalendarDays(start, end), 14);
-    const dc = total + 1;
-    const genDays: TimelineDay[] = [];
-    const genMonths: TimelineMonth[] = [];
-    const cursor = new Date(start);
-    let prevKey = "";
-    for (let offset = 0; offset < dc; offset++) {
-      const date = new Date(cursor);
-      const jalali = toJalali(date);
-      const monthKey = `${jalali.jy}-${jalali.jm}`;
-      const isMonthStart = monthKey !== prevKey;
-      genDays.push({
-        date, offset,
-        label: formatNumber(jalali.jd, locale, locale === "fa-IR"),
-        isMonthStart,
-        isToday: date.getTime() === today.getTime(),
-        isNonWorking: calendar.isNonWorking(date),
-        isDayOff: calendar.isDayOff(date),
-        holidayName: calendar.holidayName(date) ?? "",
-      });
-      const cur = genMonths[genMonths.length - 1];
-      if (isMonthStart || !cur) {
-        genMonths.push({
-          key: monthKey,
-          label: `${getMonthName(jalali.jm, locale)} ${formatNumber(jalali.jy, locale, locale === "fa-IR", false)}`,
-          startOffset: offset, dayCount: 1,
-        });
-      } else { cur.dayCount += 1; }
-      prevKey = monthKey;
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    const todayOff = diffCalendarDays(start, today);
-    return {
-      rangeStart: start, totalDays: total, dayCount: dc,
-      days: genDays, months: genMonths,
-      todayOffset: todayOff >= 0 && todayOff < dc ? todayOff : null,
-    };
-  }, [locale, rows, workingDays]);
+  // --- Timeline geometry via hook ---
+  const geo = useGanttTimeline(rows, overrides, workingDays, dayWidth);
+  const { rangeStart, dayCount, days, months, todayOffset, direction, dayPos, timelineXForOffset, dateFor, isDelayed, delayedDays } = geo;
+  const locale: Locale = direction === "rtl" ? "fa-IR" : "en-US";
 
-  const direction: TimelineDirection = locale === "fa-IR" ? "rtl" : "ltr";
-
-  // --- Geometry helpers ---
-  const dayOffset = (date: Date | string | null): number | null => {
-    if (!date) return null;
-    return Math.max(0, Math.min(totalDays, diffCalendarDays(rangeStart, timelineDayStart(new Date(date)))));
-  };
-  const dayPos = (date: Date | string | null, itemWidth = dayWidth): number => {
-    const offset = dayOffset(date);
-    if (offset == null) return 0;
-    return getTimelinePosition(offset, totalDays, dayWidth, direction, itemWidth);
-  };
-  const timelineXForOffset = (offset: number, itemWidth = 0): number =>
-    getTimelinePosition(offset, totalDays, dayWidth, direction, itemWidth);
-
-  const dateFor = (r: GanttRow): { start: Date | null; end: Date | null } => {
-    const o = overrides[r.id];
-    const startStr = (o?.startDate ?? r.startDate ?? r.summaryStart ?? null);
-    const endStr = (o?.dueDate ?? r.dueDate ?? r.summaryEnd ?? null);
-    const s = startStr ?? endStr;
-    const e = endStr ?? startStr;
-    return {
-      start: s ? normalizeStoredDayMarker(new Date(s)) : null,
-      end: e ? normalizeStoredDayMarker(new Date(e)) : null,
-    };
-  };
-
-  const todayStart = startOfCalendarDay(new Date());
-  const isDelayed = (r: GanttRow): boolean => {
-    if (r.status === "done") return false;
-    const { end } = dateFor(r);
-    if (!end) return false;
-    return timelineDayStart(end).getTime() < todayStart.getTime();
-  };
-  const delayedDays = (r: GanttRow): number => {
-    const { end } = dateFor(r);
-    if (!end) return 0;
-    return Math.max(0, diffCalendarDays(todayStart, timelineDayStart(end)));
-  };
-  const isInvalidLink = (source: GanttRow, target: GanttRow): boolean => {
-    const sEnd = dateFor(source).end;
-    const tStart = dateFor(target).start;
-    if (!sEnd || !tStart) return false;
-    return sEnd > tStart;
-  };
+  // Row index for SVG arrows
+  const rowIndex = new Map<string, number>();
+  rows.forEach((r, i) => rowIndex.set(r.id, i));
 
   // --- Drag handlers ---
   const onPointerDown = (e: React.PointerEvent, r: GanttRow, mode: DragMode = "move") => {
@@ -434,8 +285,8 @@ export function GanttChart({
     const parts: string[] = [];
     if (isDelayed(row)) parts.push(t("ganttDelayedDays", { count: delayedDays(row) }));
     if (row.critical === true && row.floatDays != null) parts.push(floatPhrase(row.floatDays));
-    if (parts.length > 0) return parts.join(" · ");
-    return row.isSummary || row.isMilestone ? row.title : "";
+    if (parts.length > 0) parts.join(" · ");
+    return row.isSummary || row.isMilestone ? row.title : (parts.length > 0 ? parts.join(" · ") : "");
   };
   const criticalChainInfo = (row: GanttRow): string => {
     if (row.isSummary) {
@@ -460,13 +311,9 @@ export function GanttChart({
   const noDateTasks = rows.filter((r) => !r.startDate && !r.dueDate && !r.summaryStart && !r.summaryEnd);
   const totalWidth = dayCount * dayWidth;
   const rowsHeight = rows.length * ROW_HEIGHT;
-  const timelineOrigin = direction === "rtl" ? 0 : LEFT_WIDTH;
-  const rowIndex = new Map<string, number>();
-  rows.forEach((r, i) => rowIndex.set(r.id, i));
 
   return (
     <div className="space-y-4">
-      {/* Toolbar */}
       <GanttToolbar
         canEdit={canEdit}
         linkMode={linkMode}
@@ -488,7 +335,6 @@ export function GanttChart({
         onToggleExport={toggleExportDialog}
       />
 
-      {/* Export dialog */}
       {exportOpen && (
         <GanttExportDialog
           exportFormat={exportFormat}
@@ -503,7 +349,6 @@ export function GanttChart({
         />
       )}
 
-      {/* Link dialog */}
       {pendingLink && (
         <GanttLinkDialog
           linkType={linkType}
@@ -520,7 +365,6 @@ export function GanttChart({
         />
       )}
 
-      {/* Critical panel */}
       {criticalListOpen && hasCritical && (
         <GanttCriticalPanel
           criticalRows={criticalRows}
@@ -530,7 +374,6 @@ export function GanttChart({
         />
       )}
 
-      {/* Dependencies panel */}
       {depsOpen && (
         <GanttDepsPanel
           links={report.links}
@@ -548,9 +391,8 @@ export function GanttChart({
         />
       )}
 
-      {/* Chart area */}
       <div data-testid="gantt-scroll-container" className="overflow-x-auto border border-border-primary rounded-lg">
-        <div style={{ minWidth: totalWidth + LEFT_WIDTH }}>
+        <div style={{ minWidth: totalWidth + 288 }}>
           <GanttHeader
             days={days}
             months={months}
@@ -561,58 +403,15 @@ export function GanttChart({
           />
 
           <div className="relative" style={{ height: rowsHeight }}>
-            <svg
-              className={`absolute inset-0 pointer-events-none ${linkMode ? "z-30" : ""}`}
-              width={totalWidth + LEFT_WIDTH}
-              height={rowsHeight}
-            >
-              <defs>
-                <marker id="gantt-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-                  <path d="M0,0 L6,3 L0,6 Z" className="fill-fg-muted" />
-                </marker>
-              </defs>
-              {report.links.map((link) => {
-                const sRow = rowIndex.get(link.source);
-                const tRow = rowIndex.get(link.target);
-                if (sRow == null || tRow == null) return null;
-                const sTask = rows[sRow];
-                const tTask = rows[tRow];
-                if (!sTask || !tTask) return null;
-                const sEnd = dateFor(sTask).end ?? dateFor(sTask).start;
-                const tStart = dateFor(tTask).start ?? dateFor(tTask).end;
-                if (!sEnd || !tStart) return null;
-                const x1 = timelineOrigin + (direction === "rtl" ? dayPos(sEnd, BOX_WIDTH) : dayPos(sEnd, BOX_WIDTH) + BOX_WIDTH);
-                const y1 = sRow * ROW_HEIGHT + ROW_HEIGHT / 2;
-                const x2 = timelineOrigin + dayPos(tStart, 0);
-                const y2 = tRow * ROW_HEIGHT + ROW_HEIGHT / 2;
-                const mx = (x1 + x2) / 2;
-                const invalid = isInvalidLink(sTask, tTask);
-                return (
-                  <g key={link.id} data-testid="gantt-link-arrow"
-                    data-link-source={link.source} data-link-target={link.target}
-                    className={linkMode ? "cursor-pointer" : ""}
-                    onClick={linkMode ? () => void removeLink(link) : undefined}
-                    role={linkMode ? "button" : undefined}
-                    aria-label={linkMode ? t("dependencies.remove") : undefined}
-                  >
-                    {linkMode && <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke="transparent" strokeWidth={12} style={{ pointerEvents: "stroke" }} />}
-                    <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`} fill="none" stroke="currentColor"
-                      strokeWidth={invalid ? 1.5 : 1}
-                      className={`${invalid ? "text-danger" : "text-fg-subtle"} ${linkMode ? "hover:opacity-70" : ""}`}
-                      markerEnd="url(#gantt-arrow)"
-                    >
-                      {invalid ? <title>{t("ganttInvalidDep")}</title> : null}
-                    </path>
-                    <text x={mx} y={(y1 + y2) / 2 - 5} textAnchor="middle"
-                      className="fill-fg-subtle stroke-bg-primary font-mono"
-                      style={{ fontSize: 10, paintOrder: "stroke", strokeWidth: 3, strokeLinejoin: "round", pointerEvents: "none" }}
-                    >
-                      {linkShortLabel(link)}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
+            <GanttLinkArrows
+              links={report.links}
+              rows={rows}
+              rowIndex={rowIndex}
+              linkMode={linkMode}
+              geo={geo}
+              t={t}
+              onRemoveLink={removeLink}
+            />
 
             {rows.map((row, i) => (
               <GanttTaskRow
