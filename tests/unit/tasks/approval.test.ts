@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
+vi.mock("@/lib/automation", () => ({
+  evaluateAndRun: vi.fn(() => Promise.resolve([])),
+}));
+
 vi.mock("@/lib/db", () => ({
   prisma: {
     task: {

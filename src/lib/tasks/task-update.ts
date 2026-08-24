@@ -182,6 +182,26 @@ export async function updateTask(id: string, data: UpdateTaskData, actorId?: str
     await notifyUnblocked(task.id, actorId ?? task.createdById);
   }
 
+  // Automation: fire matching rules when the status actually changed.
+  if (data.status !== undefined && before && before.status !== task.status) {
+    const { evaluateAndRun } = await import("@/lib/automation");
+    const assigneeIds = (
+      await prisma.taskAssignee.findMany({ where: { taskId: id }, select: { userId: true } })
+    ).map((a) => a.userId);
+    await evaluateAndRun(
+      {
+        id: task.id,
+        status: task.status,
+        priority: task.priority,
+        title: task.title,
+        projectId: task.projectId,
+        dueDate: task.dueDate,
+        assigneeIds,
+      },
+      "STATUS_CHANGED",
+    );
+  }
+
   // Recurring tasks: completing the current occurrence spawns the next one
   // (the approval gate may have rerouted a `done` request, so only spawn when
   // the task actually landed on `done`).

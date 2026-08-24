@@ -302,6 +302,142 @@ const endpoints: EndpointEntry[] = [
       { name: "cursor", in: "query", schema: { type: "string" } },
     ],
   },
+  // ── Baselines & EVM ──
+  {
+    method: "GET",
+    path: "/projects/{id}/baselines",
+    summary: "List project baselines",
+    security: ["projects:read"],
+    parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+  },
+  {
+    method: "POST",
+    path: "/projects/{id}/baselines",
+    summary: "Capture project baseline",
+    security: ["projects:write"],
+    parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              description: { type: "string" },
+            },
+            required: ["name"],
+          },
+        },
+      },
+    },
+  },
+  {
+    method: "GET",
+    path: "/projects/{id}/evm",
+    summary: "Get EVM metrics",
+    security: ["projects:read"],
+    parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+  },
+  // ── Risk Register ──
+  {
+    method: "GET",
+    path: "/projects/{id}/risks",
+    summary: "List project risks",
+    security: ["projects:read"],
+    parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+  },
+  {
+    method: "POST",
+    path: "/projects/{id}/risks",
+    summary: "Create risk record",
+    security: ["projects:write"],
+    parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              description: { type: "string" },
+              probability: { type: "string", enum: ["low", "medium", "high"] },
+              impact: { type: "string", enum: ["low", "medium", "high"] },
+              response: { type: "string", enum: ["mitigate", "accept", "transfer", "avoid"] },
+              ownerId: { type: "string" },
+            },
+            required: ["title", "probability", "impact"],
+          },
+        },
+      },
+    },
+  },
+  // ── Change Requests ──
+  {
+    method: "GET",
+    path: "/projects/{id}/change-requests",
+    summary: "List change requests",
+    security: ["projects:read"],
+    parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+  },
+  {
+    method: "POST",
+    path: "/projects/{id}/change-requests",
+    summary: "Create change request",
+    security: ["projects:write"],
+    parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              description: { type: "string" },
+              reference: { type: "string" },
+            },
+            required: ["title"],
+          },
+        },
+      },
+    },
+  },
+  // ── Automation Rules ──
+  {
+    method: "GET",
+    path: "/automation/rules",
+    summary: "List automation rules",
+    security: ["projects:read"],
+    parameters: [
+      { name: "projectId", in: "query", schema: { type: "string" } },
+    ],
+  },
+  {
+    method: "POST",
+    path: "/automation/rules",
+    summary: "Create automation rule",
+    security: ["projects:write"],
+    requestBody: {
+      required: true,
+      content: {
+        "application/json": {
+          schema: {
+            type: "object",
+            properties: {
+              projectId: { type: "string" },
+              name: { type: "string" },
+              trigger: { type: "string", enum: ["STATUS_CHANGED", "PRIORITY_CHANGED", "ASSIGNMENT_ADDED", "COMMENT_ADDED", "DUE_DATE_APPROACHING"] },
+              conditions: { type: "array", items: { type: "object" } },
+              actions: { type: "array", items: { type: "object" } },
+            },
+            required: ["name", "trigger", "conditions", "actions"],
+          },
+        },
+      },
+    },
+  },
 ];
 
 export function getEndpoints(): EndpointEntry[] {

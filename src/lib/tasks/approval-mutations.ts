@@ -75,6 +75,16 @@ export async function approveTask(id: string, actorId: string) {
     await spawnNextRecurrence(task, actorId);
   }
 
+  // Automation: fire matching rules on approval status change.
+  const { evaluateAndRun } = await import("@/lib/automation");
+  const assigneeIds = (
+    await prisma.taskAssignee.findMany({ where: { taskId: id }, select: { userId: true } })
+  ).map((a) => a.userId);
+  await evaluateAndRun(
+    { id: task.id, status: task.status, priority: task.priority, title: task.title, projectId: task.projectId, dueDate: task.dueDate, assigneeIds },
+    "STATUS_CHANGED",
+  );
+
   return { before, task };
 }
 
@@ -88,6 +98,16 @@ export async function rejectTask(id: string, actorId: string, reason: string) {
     where: { id },
     data: { status: "in_progress", completedAt: null, approvalNote: reason },
   });
+
+  // Automation: fire matching rules on rejection status change.
+  const { evaluateAndRun } = await import("@/lib/automation");
+  const assigneeIds = (
+    await prisma.taskAssignee.findMany({ where: { taskId: id }, select: { userId: true } })
+  ).map((a) => a.userId);
+  await evaluateAndRun(
+    { id: task.id, status: task.status, priority: task.priority, title: task.title, projectId: task.projectId, dueDate: task.dueDate, assigneeIds },
+    "STATUS_CHANGED",
+  );
 
   return { before, task };
 }
