@@ -470,6 +470,8 @@ model Project {
   tasks                  Task[]
   tags                   Tag[]
   timeEntries            TimeEntry[]
+  baselines              ProjectBaseline[]
+  evmSnapshots           EvmSnapshot[]
   organization           Organization                    @relation("OrganizationProjects", fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
@@ -1065,6 +1067,77 @@ model RateCard {
   @@index([scope, roleType])
   @@index([effectiveFrom])
   @@map("RateCard")
+}
+
+enum BaselineSource {
+  MANUAL
+  CHANGE_REQUEST
+}
+
+enum EacMethod {
+  CPI_BASED
+  SPI_BASED
+  TCPI_BASED
+}
+
+model ProjectBaseline {
+  id         String         @id @default(cuid())
+  projectId  String
+  teamId     String
+  name       String
+  source     BaselineSource @default(MANUAL)
+  isCurrent  Boolean        @default(false)
+  snapshot   Json
+  capturedBy String
+  capturedAt DateTime       @default(now())
+
+  project  Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  entries  BaselineEntry[]
+
+  @@unique([projectId, isCurrent])
+  @@index([projectId])
+  @@map("ProjectBaseline")
+}
+
+model BaselineEntry {
+  id               String  @id @default(cuid())
+  baselineId       String
+  taskId           String
+  startDate        DateTime?
+  endDate          DateTime?
+  percentComplete  Int?
+  budgetLineMinor  Int     @default(0)
+
+  baseline ProjectBaseline @relation(fields: [baselineId], references: [id], onDelete: Cascade)
+
+  @@index([baselineId])
+  @@index([taskId])
+  @@map("BaselineEntry")
+}
+
+model EvmSnapshot {
+  id           String   @id @default(cuid())
+  projectId    String
+  snapshotDate DateTime
+  bac          Float
+  pv           Float
+  ev           Float
+  ac           Float
+  cv           Float
+  sv           Float
+  cpi          Float
+  spi          Float
+  eac          Float
+  vac          Float
+  tcpi         Float
+  eacMethod    EacMethod @default(CPI_BASED)
+  currency     String   @default("USD")
+  createdAt    DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, snapshotDate])
+  @@map("EvmSnapshot")
 }
 
 model TimesheetPeriod {

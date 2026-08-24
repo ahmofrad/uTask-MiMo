@@ -1405,5 +1405,41 @@
     "billRate": "Bill rate",
     "report": "Cost and bill report",
     "downloadReport": "Download CSV report"
+  },
+  "baselines": {
+    "capture": "Capture Baseline",
+    "activate": "Activate",
+    "name": "Baseline Name",
+    "source": "Source",
+    "current": "Current",
+    "compare": "Compare",
+    "noBaselines": "No baselines captured yet",
+    "capturedAt": "Captured",
+    "entries": "entries"
+  },
+  "evm": {
+    "title": "Earned Value Management",
+    "bac": "Budget at Completion",
+    "pv": "Planned Value",
+    "ev": "Earned Value",
+    "ac": "Actual Cost",
+    "cv": "Cost Variance",
+    "sv": "Schedule Variance",
+    "cpi": "Cost Performance Index",
+    "spi": "Schedule Performance Index",
+    "eac": "Estimate at Completion",
+    "vac": "Variance at Completion",
+    "tcpi": "To-Complete Performance Index",
+    "snapshot": "Snapshot",
+    "series": "S-Curve",
+    "method": "EAC Method"
+  },
+  "variance": {
+    "title": "Variance Report",
+    "planned": "Planned",
+    "actual": "Actual",
+    "earned": "Earned",
+    "costVariance": "Cost Variance",
+    "scheduleVariance": "Schedule Variance"
   }
 }
