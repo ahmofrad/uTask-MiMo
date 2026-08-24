@@ -2,10 +2,11 @@
 
 import { memo, useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { useFormattedDate } from "@/lib/date/useFormattedDate";
 import { apiFetch } from "@/lib/api-fetch";
 import { Button } from "@/components/ui/button";
 import { LogDiffDetails } from "./audit-log-diff";
+import { AuditFilterBar } from "./audit-filter-bar";
+import { AuditLogTable } from "./audit-log-table";
 
 type AuditEntry = {
   id: string;
@@ -19,61 +20,18 @@ type AuditEntry = {
   actor?: { id: string; displayName: string; email: string } | null;
 };
 
-const ACTION_OPTIONS = [
-  "task_created",
-  "task_updated",
-  "task_deleted",
-  "comment_created",
-  "comment_updated",
-  "comment_deleted",
-  "project_created",
-  "project_updated",
-  "project_archived",
-  "custom_field_created",
-  "custom_field_updated",
-  "custom_field_archived",
-  "project_member_added",
-  "project_member_removed",
-  "group_created",
-  "group_updated",
-  "group_deleted",
-  "group_member_added",
-  "group_member_removed",
-  "group_grant_created",
-  "group_grant_revoked",
-  "login_success",
-  "login_failed",
-  "logout",
-  "settings_updated",
-  "user_updated",
-  "user_suspended",
-  "user_unsuspended",
-  "invite_sent",
-  "invite_accepted",
-  "api_token_created",
-  "api_token_revoked",
-  "webhook_created",
-  "webhook_updated",
-  "webhook_deleted",
-  "watcher_added",
-  "watcher_removed",
-  "ldap_sync",
-  "mail_test_sent",
-  "session_revoked",
-  "department_created",
-  "department_updated",
-  "department_deleted",
-] as const;
-
 type AuditLogViewerProps = {
   initialLogs: AuditEntry[];
   initialHasMore: boolean;
   initialNextCursor: string | null;
 };
 
-export const AuditLogViewer = memo(function AuditLogViewer({ initialLogs, initialHasMore, initialNextCursor }: AuditLogViewerProps) {
+export const AuditLogViewer = memo(function AuditLogViewer({
+  initialLogs,
+  initialHasMore,
+  initialNextCursor,
+}: AuditLogViewerProps) {
   const t = useTranslations("audit");
-  const { dateTime } = useFormattedDate();
   const [logs, setLogs] = useState(initialLogs);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [nextCursor, setNextCursor] = useState(initialNextCursor);
@@ -126,7 +84,20 @@ export const AuditLogViewer = memo(function AuditLogViewer({ initialLogs, initia
     if (nextCursor) void fetchLogs(nextCursor, false);
   }
 
-  // Client-side date filtering
+  function handleClearFilters() {
+    setActionFilter("");
+    setEntityFilter("");
+    setDateFrom("");
+    setDateTo("");
+    setSearchQuery("");
+    void fetchLogs(undefined, true);
+  }
+
+  function handleToggleExpand(id: string) {
+    setExpandedId((prev) => (prev === id ? null : id));
+  }
+
+  // Client-side date + search filtering
   const filtered = logs.filter((log) => {
     if (dateFrom && log.occurredAt < dateFrom) return false;
     if (dateTo && log.occurredAt > dateTo + "T23:59:59.999Z") return false;
@@ -134,7 +105,11 @@ export const AuditLogViewer = memo(function AuditLogViewer({ initialLogs, initia
       const q = searchQuery.toLowerCase();
       const actorName = log.actor?.displayName ?? log.actor?.email ?? "";
       const entityName = log.entityType;
-      if (!actorName.toLowerCase().includes(q) && !entityName.toLowerCase().includes(q) && !log.action.includes(q)) {
+      if (
+        !actorName.toLowerCase().includes(q) &&
+        !entityName.toLowerCase().includes(q) &&
+        !log.action.includes(q)
+      ) {
         return false;
       }
     }
@@ -145,153 +120,29 @@ export const AuditLogViewer = memo(function AuditLogViewer({ initialLogs, initia
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="rounded-lg border border-border-primary bg-bg-surface p-3 space-y-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">{t("filters")}</span>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-1.5 text-xs text-fg-secondary">
-            <span className="shrink-0">{t("action")}</span>
-            <select
-              value={actionFilter}
-              onChange={(e) => { setActionFilter(e.target.value); }}
-              className="text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary"
-            >
-              <option value="">{t("all")}</option>
-              {ACTION_OPTIONS.map((a) => (
-                <option key={a} value={a}>{t.has(`actions.${a}`) ? t(`actions.${a}` as never) : a}</option>
-              ))}
-            </select>
-          </label>
+      <AuditFilterBar
+        actionFilter={actionFilter}
+        entityFilter={entityFilter}
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        searchQuery={searchQuery}
+        entityTypeOptions={entityTypeOptions}
+        onActionFilterChange={setActionFilter}
+        onEntityFilterChange={setEntityFilter}
+        onDateFromChange={setDateFrom}
+        onDateToChange={setDateTo}
+        onSearchQueryChange={setSearchQuery}
+        onApply={handleFilterChange}
+        onClear={handleClearFilters}
+      />
 
-          <label className="flex items-center gap-1.5 text-xs text-fg-secondary">
-            <span className="shrink-0">{t("entity")}</span>
-            <select
-              value={entityFilter}
-              onChange={(e) => { setEntityFilter(e.target.value); }}
-              className="text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary"
-            >
-              <option value="">{t("all")}</option>
-              {entityTypeOptions.map((et) => (
-                <option key={et} value={et}>{et}</option>
-              ))}
-            </select>
-          </label>
+      <AuditLogTable
+        logs={filtered}
+        expandedId={expandedId}
+        loading={loading}
+        onToggleExpand={handleToggleExpand}
+      />
 
-          <label className="flex items-center gap-1.5 text-xs text-fg-secondary">
-            <span className="shrink-0">{t("from")}</span>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary"
-            />
-          </label>
-
-          <label className="flex items-center gap-1.5 text-xs text-fg-secondary">
-            <span className="shrink-0">{t("to")}</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary"
-            />
-          </label>
-
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t("searchPlaceholder")}
-            className="text-xs bg-bg-primary border border-border rounded px-2 py-1 text-fg-primary placeholder:text-fg-tertiary w-48"
-          />
-
-          <Button variant="outline" size="sm" onClick={handleFilterChange}>
-            {t("apply")}
-          </Button>
-
-          {(actionFilter || entityFilter || dateFrom || dateTo || searchQuery) && (
-            <button
-              type="button"
-              onClick={() => {
-                setActionFilter("");
-                setEntityFilter("");
-                setDateFrom("");
-                setDateTo("");
-                setSearchQuery("");
-                void fetchLogs(undefined, true);
-              }}
-              className="text-xs font-medium text-accent hover:underline"
-            >
-              {t("clearFilters")}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border-primary">
-              <th className="text-start p-2 text-fg-secondary">{t("time")}</th>
-              <th className="text-start p-2 text-fg-secondary">{t("actor")}</th>
-              <th className="text-start p-2 text-fg-secondary">{t("action")}</th>
-              <th className="text-start p-2 text-fg-secondary">{t("entity")}</th>
-              <th className="text-start p-2 text-fg-secondary w-8"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((log) => {
-              const actionLabel = t.has(`actions.${log.action}`)
-                ? t(`actions.${log.action}` as never)
-                : log.action.replace(/_/g, " ");
-              const isExpanded = expandedId === log.id;
-              const hasChanges = log.beforeJson != null || log.afterJson != null;
-
-              return (
-                <tr key={log.id} className="border-b border-border-primary hover:bg-bg-secondary/50">
-                  <td className="p-2 text-fg-primary whitespace-nowrap font-mono text-xs">
-                    {dateTime(log.occurredAt)}
-                  </td>
-                  <td className="p-2 text-fg-primary whitespace-nowrap">
-                    {log.actor?.displayName ?? log.actor?.email ?? "system"}
-                  </td>
-                  <td className="p-2">
-                    <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent">
-                      {actionLabel}
-                    </span>
-                  </td>
-                  <td className="p-2 text-fg-secondary">
-                    <span className="text-xs text-fg-muted">{log.entityType}</span>
-                    <span className="font-mono text-xs text-fg-tertiary ms-2">{log.entityId.slice(0, 8)}…</span>
-                  </td>
-                  <td className="p-2">
-                    {hasChanges && (
-                      <button
-                        type="button"
-                        onClick={() => setExpandedId(isExpanded ? null : log.id)}
-                        className="text-xs text-accent hover:underline"
-                        aria-label={isExpanded ? t("hideDetails") : t("showDetails")}
-                      >
-                        {isExpanded ? "▲" : "▼"}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-            {filtered.length === 0 && !loading && (
-              <tr>
-                <td colSpan={5} className="p-4 text-center text-fg-tertiary">{t("empty")}</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Expanded detail rows */}
       {expandedId && (() => {
         const log = filtered.find((l) => l.id === expandedId);
         if (!log) return null;
@@ -306,7 +157,6 @@ export const AuditLogViewer = memo(function AuditLogViewer({ initialLogs, initia
         );
       })()}
 
-      {/* Load more */}
       {hasMore && (
         <div className="text-center">
           <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loading}>
