@@ -1,336 +1,287 @@
-# TaskApp — Enterprise Task Management Platform
+<div align="center">
 
-> **Self-hosted, on-premise task management for companies.**
-> Local accounts, LDAP, and SAML SSO. Persian + English with full RTL.
-> Public REST API and webhooks for third-party integrations.
-> Per-project custom fields. Built to handle 1k–10k concurrent users per organization.
+# 🚀 TaskApp
 
-> ✅ **Status:** v1.0.0 GA — all 12 build phases complete. See [`SPEC.md`](./SPEC.md) for the full product spec, [`TASKS.md`](./TASKS.md) for the build plan.
+**Enterprise Task Management Platform — Self-Hosted**
+
+[![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?logo=typescript)](https://www.typescriptlang.org/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql)](https://www.postgresql.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-TBD-blue)](#license)
+
+Persian 🇮🇷 · English 🇺🇸 — Full RTL support, Jalali calendar
+
+[English](./README.md) | [فارسی](./README.fa.md)
+
+</div>
 
 ---
 
-## What is this?
+## What is TaskApp?
 
-A multi-user, multi-project task management platform designed for companies that run their own infrastructure. The platform supports:
+TaskApp is a **self-hosted, enterprise task management platform** built for companies that run their own infrastructure. It combines a modern task/project management UI with project management information system (PMIS) capabilities — baselines, earned value, risk tracking, change requests, and automation.
 
-### Core features
-- **Three authentication modes** — local email/password, LDAP/Active Directory, and SAML 2.0 SSO (switchable per organization).
-- **Projects + tasks + subtasks** with drag-to-reorder, mentions, comments, attachments.
-- **Custom fields per project** — admins define a schema per project (text, number, date, select, multi-select, user, checkbox, URL); users fill values on tasks; filterable and searchable.
-- **Bilingual UI** — Persian (default, RTL, Jalali calendar) and English.
-- **Per-user theming** — accent color customization, light/dark mode.
-- **RBAC** — Owner, Admin, Manager, Member, Guest roles with project-scoped permissions.
-- **Two-factor authentication (TOTP)** — per-user enrollment with QR code, encrypted secret at rest, single-use recovery codes, and a second login step for local accounts. Password brute-force lockout with configurable attempts/window.
-- **Per-user datetime preferences** — IANA timezone, 12/24-hour format, and an optional dual Jalali/Gregorian display.
-- **Audit logging** — every action captured, queryable by admin.
-- **Notifications** — in-app notifications (assigned, mentioned, commented, status changed, due soon). Email + daily digest is V1.1 backlog.
-- **Installable PWA** — add to the home screen; the app shell works offline while live data stays network-only. Web app manifest + maskable icons; service worker via Serwist.
+**Key highlights:**
 
-### PMIS / EPM features
-- **Baselines & EVM** — freeze project baselines and compute earned value metrics (CPI/SPI/EAC, S-curves, variance reports).
-- **Risk register** — per-project risk log with probability × impact scoring and response plans.
-- **Change requests** — formal CR lifecycle (DRAFT → SUBMITTED → APPROVED → APPLIED) with automatic baseline snapshot on apply.
-- **Automation rules** — trigger → condition → action engine for task status changes, assignments, and custom field updates.
+- 🔐 **3 auth modes** — Local (email/password), LDAP/AD, SAML 2.0 SSO
+- 🌐 **Bilingual** — Persian (default, RTL, Jalali calendar) + English
+- 📊 **PMIS** — Baselines, EVM, risk register, change requests
+- 🤖 **Automation** — Trigger → condition → action engine
+- 🌙 **Theming** — Light/dark mode, 8 accent colors + custom hex
+- 🔌 **Public REST API** — Bearer tokens, OpenAPI 3.1, Swagger UI
+- 📡 **Webhooks** — HMAC-SHA256 signed, auto-retry, dead-letter
+- 🏠 **On-prem** — Docker Compose for small, Helm for large. No telemetry.
+
+---
+
+## ✨ Features
+
+### Core Task Management
+- Projects, tasks, subtasks with drag-to-reorder
+- Comments, mentions, attachments
+- Rich custom fields per project (text, number, date, select, user, checkbox, URL)
+- Kanban board, list, Gantt chart, WBS, calendar views
+- Working days / holidays / capacity planning
+
+### PMIS & EPM
+- **Baselines & EVM** — Snapshot project schedules, compute CPI/SPI/EAC, S-curves, variance reports
+- **Risk Register** — Probability × impact scoring, response plans (mitigate/accept/transfer/avoid)
+- **Change Requests** — Formal CR lifecycle with automatic baseline snapshot on apply
+- **Automation Rules** — Trigger on status change, assignment, due date → execute actions
+
+### Authentication & Security
+- Local accounts with bcrypt hashing + brute-force lockout
+- LDAP / Active Directory integration with group-based provisioning
+- SAML 2.0 SSO (Azure AD, Okta, Keycloak, AD FS)
+- TOTP 2FA with QR enrollment, encrypted secrets, recovery codes
+- RBAC — Owner, Admin, Manager, Member, Guest with project-scoped permissions
 
 ### Integrations
-- **Public REST API** — programmatic access via personal API tokens with per-token scopes. Full OpenAPI 3.1 spec and Swagger UI.
-- **Webhooks** — push event notifications (task created/updated/deleted/assigned, comment created, etc.) with HMAC-SHA256 signing, automatic retry with exponential backoff, and dead-letter handling.
+- Public REST API with per-user bearer tokens and per-token scopes
+- Webhooks with HMAC-SHA256 signing and automatic retry
+- Real-time via Socket.IO
 
 ### Deployment
-- **On-prem installable** — single `docker compose up` for small deployments, Helm chart for k8s at scale.
-- **No outbound traffic** — no telemetry, no third-party analytics, no SaaS dependencies.
+- Docker Compose for single-VM deployments (< 500 users)
+- Helm chart for Kubernetes (1k–10k users)
+- No outbound traffic, no telemetry, no third-party dependencies
 
 ---
 
-## Documentation
+## 📚 Documentation
 
-| File | Purpose |
-|------|---------|
-| [`SPEC.md`](./SPEC.md) | Full product spec — read this first |
-| [`AGENTS.md`](./AGENTS.md) | Briefing for AI coding agents working in this repo |
-| [`TASKS.md`](./TASKS.md) | Phased build plan (Phases 0–12) |
-| [`AUTH.md`](./AUTH.md) | Local + LDAP + SAML SSO integration guide |
-| [`i18n.md`](./i18n.md) | Persian + English, RTL, Jalali calendar guide |
-| [`DEPLOYMENT.md`](./DEPLOYMENT.md) | On-prem deployment (Docker Compose + Helm) |
-| [`DESIGN.md`](./DESIGN.md) | Design system — tokens, typography, components, RTL |
-| [`INSTALL.md`](./INSTALL.md) | Installation guide (single-VM, k8s, HA, backup) |
-| [`docs/admin-guide.md`](./docs/admin-guide.md) | System administration guide |
+| Document | Description |
+|----------|-------------|
+| [`SPEC.md`](./SPEC.md) | Full product specification |
+| [`AGENTS.md`](./AGENTS.md) | Briefing for AI coding agents |
+| [`TASKS.md`](./TASKS.md) | Phased build plan |
+| [`AUTH.md`](./AUTH.md) | Local + LDAP + SAML SSO guide |
+| [`i18n.md`](./i18n.md) | Persian + English, RTL, Jalali calendar |
+| [`DEPLOYMENT.md`](./DEPLOYMENT.md) | On-prem deployment (Docker + Helm) |
+| [`DESIGN.md`](./DESIGN.md) | Design system — tokens, typography, components |
+| [`INSTALL.md`](./INSTALL.md) | Installation guide |
+| [`docs/admin-guide.md`](./docs/admin-guide.md) | System administration |
 | [`docs/user-guide.md`](./docs/user-guide.md) | End-user documentation |
-| [`docs/api-integration.md`](./docs/api-integration.md) | Public REST API integration guide |
-| [`docs/webhook-integration.md`](./docs/webhook-integration.md) | Webhook receiver integration guide |
+| [`docs/api-integration.md`](./docs/api-integration.md) | REST API integration |
+| [`docs/webhook-integration.md`](./docs/webhook-integration.md) | Webhook integration |
+| [`docs/roadmap-pmis.md`](./docs/roadmap-pmis.md) | PMIS feature roadmap |
 
 ---
 
-## Tech Stack
+## 🛠 Tech Stack
 
-| Layer | Choice |
-|-------|--------|
-| Framework | Next.js 15 (App Router) + React 19 + TypeScript strict |
-| Runtime | Node.js 20 LTS |
-| Database | PostgreSQL 16 + PgBouncer |
-| Cache / queue / sessions | Redis 7 |
-| Background jobs | BullMQ |
-| Realtime | Socket.IO with Redis adapter |
-| Auth | Auth.js v5 + LDAP (`ldapts`) + SAML (`@node-saml/node-saml`) |
-| i18n | `next-intl` + `date-fns-jalali` |
-| UI | Tailwind CSS + shadcn/ui (theme-able via CSS variables per `DESIGN.md`) |
-| Public API | REST with bearer tokens, OpenAPI 3.1 generated from Zod schemas |
-| Webhooks | HMAC-SHA256 signed, BullMQ-delivered, retry + dead-letter |
-| Object storage | S3-compatible (MinIO bundled) |
-| Email | SMTP (customer-provided) |
-| Logging | Pino → Loki |
-| Metrics | prom-client → Prometheus → Grafana |
-| Tracing | OpenTelemetry (optional Tempo export) |
-| PWA | Serwist service worker + web app manifest (installable, offline app shell) |
-| Testing | Vitest + Playwright + Testcontainers |
-| Deployment | Docker Compose (small) + Helm (large) |
-
-See [`SPEC.md` § 6](./SPEC.md) for the rationale.
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | Next.js 15 (App Router) · React 19 · TypeScript strict · Tailwind CSS · shadcn/ui |
+| **Backend** | Node.js 20 LTS · Fastify (optional) |
+| **Database** | PostgreSQL 16 · PgBouncer · Prisma ORM |
+| **Cache / Queue** | Redis 7 · BullMQ |
+| **Realtime** | Socket.IO with Redis adapter |
+| **Auth** | Auth.js v5 · `ldapts` · `@node-saml/node-saml` |
+| **i18n** | `next-intl` · `date-fns-jalali` |
+| **Storage** | S3-compatible (MinIO) |
+| **Logging** | Pino → Loki |
+| **Metrics** | prom-client → Prometheus → Grafana |
+| **Tracing** | OpenTelemetry → Tempo |
+| **PWA** | Serwist service worker |
+| **Testing** | Vitest · Playwright · Testcontainers |
+| **Deployment** | Docker Compose · Helm |
 
 ---
 
-## Quick Start (development)
-
-```bash
-# 1. Install dependencies
-pnpm install
-
-# 2. Bring up the local stack (Postgres, Redis, MinIO, Mailhog, WireMock)
-pnpm docker:up
-
-# 3. Initialize environment
-# Prisma CLI reads .env; Next.js also loads it for local development.
-cp .env.example .env
-# Edit .env if you need non-default local endpoints
-
-# 4. Initialize the database
-pnpm db:baseline    # Sync schema (db push) + baseline migration history
-pnpm db:seed        # Creates admin@utask.local (password: password; local only)
-pnpm db:sample      # Optional: adds sample users, projects, tasks
-
-# 5. Run the dev server
-pnpm dev
-
-# Open http://localhost:3000
-# When opening the dev server through another hostname or IP, set
-# NEXT_ALLOWED_DEV_ORIGINS=your-server-hostname,192.0.2.10 in .env first.
-# Mailhog UI: http://localhost:8025
-# MinIO console: http://localhost:9001
-
-# 6. First login
-# After the optional sample seed, log in with one of these local-only accounts:
-#
-#   Role     Email                  Password
-#   ──────   ─────────────────────  ──────────
-#   Owner    owner@utask.local      password
-#   Admin    admin@utask.local      password
-#   Manager  manager@utask.local    password
-#   Member   sara@utask.local       password
-#   Member   ali@utask.local        password
-#   Guest    guest@utask.local      password
-#   Member   john@utask.local       password
-#
-# The Owner account has full permissions. Use it to set up
-# your first admin or invite team members.
-```
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - **Node.js** ≥ 20
 - **pnpm** ≥ 9 (`npm i -g pnpm`)
-- **Docker** + Docker Compose v2.20 or newer (`docker compose up --wait`)
-- 4 GB RAM free for the dev stack
+- **Docker** + Docker Compose v2.20+
+- 4 GB RAM free
+
+### Development Setup
+
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Start the local stack (Postgres, Redis, MinIO, Mailhog)
+pnpm docker:up
+
+# 3. Set up environment
+cp .env.example .env
+
+# 4. Initialize database
+pnpm db:baseline    # Sync schema + baseline migration history
+pnpm db:seed        # Create admin@utask.local (password: password)
+pnpm db:sample      # Optional: add sample data
+
+# 5. Start dev server
+pnpm dev
+```
+
+Open **http://localhost:3000** 🎉
+
+### Default Accounts (after `db:sample`)
+
+| Role | Email | Password |
+|------|-------|----------|
+| Owner | owner@utask.local | password |
+| Admin | admin@utask.local | password |
+| Manager | manager@utask.local | password |
+| Member | sara@utask.local | password |
+| Member | ali@utask.local | password |
+| Guest | guest@utask.local | password |
 
 ---
 
-## Project Structure
+## 📦 Available Commands
 
-```
-.
-├── SPEC.md              # Product spec
-├── AGENTS.md            # AI agent briefing
-├── TASKS.md             # Build plan
-├── AUTH.md              # Auth integration guide
-├── i18n.md              # i18n / RTL / Jalali guide
-├── DEPLOYMENT.md        # On-prem deployment guide
-├── DESIGN.md            # Design system — tokens, typography, components
-├── README.md            # You are here
-├── src/
-│   ├── app/             # Next.js App Router
-│   │   ├── api/v1/      # Internal REST
-│   │   ├── api/v1/public/  # Public REST API (bearer tokens)
-│   │   └── [locale]/    # i18n routing
-│   ├── components/      # UI components
-│   ├── lib/             # Domain logic
-│   │   ├── auth/        # Local + LDAP + SAML
-│   │   ├── custom-fields/  # Schema + value resolvers
-│   │   ├── api-token/   # Token issue + scope check
-│   │   ├── webhook/     # Event emitter + dispatcher + signing
-│   │   ├── openapi/     # Spec generator
-│   │   └── ...
-│   ├── styles/
-│   │   └── tokens.css   # Design tokens (CSS variables)
-│   └── messages/        # ICU translation files (fa-IR, en-US)
-├── prisma/
-│   ├── schema.prisma
-│   └── migrations/
-├── ops/
-│   ├── docker/
-│   ├── helm/
-│   ├── grafana/
-│   └── prometheus/
-├── scripts/
-│   ├── backup.sh
-│   ├── restore.sh
-│   └── smoke.sh
-└── tests/
-    ├── unit/
-    ├── integration/     # Testcontainers
-    └── e2e/             # Playwright
-```
-
----
-
-## Available Commands
-
-| Command | Purpose |
-|---------|---------|
-| `pnpm dev` | Run the dev server |
-| `pnpm worker` | Run the background worker (BullMQ queues + LDAP sync + due-soon schedulers) |
+| Command | Description |
+|---------|-------------|
+| `pnpm dev` | Dev server |
+| `pnpm worker` | Background worker (BullMQ + LDAP sync) |
 | `pnpm build` | Production build |
-| `pnpm start` | Run the production build |
+| `pnpm start` | Production server |
 | `pnpm lint` | ESLint |
 | `pnpm typecheck` | TypeScript check |
-| `pnpm test` | Vitest unit + integration |
-| `pnpm test:e2e` | Playwright e2e |
-| `pnpm test:a11y` | `@axe-core/playwright` |
-| `pnpm test:visual` | Visual regression |
+| `pnpm test` | Unit + integration tests |
+| `pnpm test:e2e` | Playwright E2E tests |
+| `pnpm test:a11y` | Accessibility tests |
+| `pnpm test:visual` | Visual regression tests |
 | `pnpm docker:up` | Start dev stack |
 | `pnpm docker:down` | Stop dev stack |
-| `pnpm prisma studio` | Browse the local DB |
-| `pnpm prisma migrate dev` | Create/apply a new development migration |
-| `pnpm prisma:deploy` | Apply tracked migrations non-interactively |
 | `pnpm db:seed` | Seed sample data |
-| `pnpm db:baseline` | Sync dev schema via `db push` and record migration history |
-| `pnpm i18n:extract` | Extract i18n keys from code |
-| `pnpm i18n:check` | Fail CI if `fa-IR` has missing keys |
-| `pnpm design:check` | Lint for hardcoded colors / physical CSS properties |
-| `pnpm pwa:gen-icons` | Regenerate PWA icons from `public/icon.svg` (`@resvg/resvg-js`) |
-| `pnpm pwa:check` | Validate PWA manifest + icons + offline page for CI |
+| `pnpm db:baseline` | Sync dev schema |
+| `pnpm dev:clean` | Clear cache + restart dev |
+| `pnpm i18n:check` | Check translation completeness |
+| `pnpm design:check` | Lint design token violations |
 
 ---
 
-## Public REST API (V1)
+## 🔌 Public REST API
 
-Base URL: `/api/v1/public/`. Auth via `Authorization: Bearer <token>`.
+Base: `/api/v1/public/` · Auth: `Authorization: Bearer <token>`
 
-Personal API tokens are issued per user (`tk_` prefix, shown once on creation, hashed at rest, scope-limited, revocable).
+| Endpoint | Scopes | Description |
+|----------|--------|-------------|
+| `GET /me` | — | Current identity |
+| `GET/POST /tasks` | `tasks:read` / `tasks:write` | List / create |
+| `GET/PATCH/DELETE /tasks/:id` | as above | Read / update / delete |
+| `GET/POST /projects` | `projects:read` / `projects:write` | List / create |
+| `GET/POST /webhooks` | `webhooks:manage` | Webhook CRUD |
+| `GET/POST/DELETE /tokens` | — | Manage own tokens |
 
-| Endpoint | Scopes | Purpose |
-|----------|--------|---------|
-| `GET /api/v1/public/me` | (token) | Current identity |
-| `GET POST /api/v1/public/tasks` | `tasks:read` / `tasks:write` | List / create |
-| `GET PATCH DELETE /api/v1/public/tasks/:id` | as above | Read / update / delete |
-| `GET POST /api/v1/public/projects` | `projects:read` / `projects:write` | List / create |
-| `GET /api/v1/public/projects/:id/custom-fields` | `projects:read` | Get schema |
-| `GET POST /api/v1/public/webhooks` | `webhooks:manage` | Webhook CRUD |
-| `POST /api/v1/public/webhooks/:id/test` | `webhooks:manage` | Send test event |
-| `GET POST DELETE /api/v1/public/tokens` | (none) | Manage own tokens |
+📋 Full spec: [`/api/v1/public/openapi.json`](/api/v1/public/openapi.json)
+📖 Swagger UI: [`/api/v1/public/docs`](/api/v1/public/docs)
 
-Full spec: `GET /api/v1/public/openapi.json`. Swagger UI: `/api/v1/public/docs`.
-
-See the [API Integration Guide](./docs/api-integration.md) for complete documentation, code examples (cURL, Node.js, Python, Go), rate limiting, pagination, and error handling.
+See the [API Integration Guide](./docs/api-integration.md) for code examples and best practices.
 
 ---
 
-## Webhooks (V1)
+## 🌐 Internationalization
 
-Subscribe to events from the admin panel. Each webhook receives HMAC-SHA256-signed POST requests with:
-
-```
-Headers:
-  Content-Type: application/json
-  X-TaskApp-Event-Id: evt_<uuid>
-  X-TaskApp-Event-Type: task.created
-  X-TaskApp-Delivery-Id: <id>
-  X-TaskApp-Signature: sha256=<hex>
-  X-TaskApp-Timestamp: <unix_seconds>
-```
-
-Subscribed events: `task.created`, `task.updated`, `task.deleted`, `task.status_changed`, `task.assigned`, `comment.created`, `project.created`, `project.updated`, `user.created`, `custom_field.updated`.
-
-Retry on transient failures with exponential backoff (5 s → 80 s, 5 attempts). Permanent failures land in dead-letter view.
-
-See the [Webhook Integration Guide](./docs/webhook-integration.md) for signature verification code examples (Node.js, Python, Go), best practices, and event reference.
+- **Default:** Persian (fa-IR) — RTL, Jalali calendar
+- **Secondary:** English (en-US) — LTR, Gregorian calendar
+- Per-user locale preference
+- Zero hardcoded strings — all UI text via `useTranslations()`
+- Full RTL with CSS logical properties
 
 ---
 
-## Authentication Modes
+## 🎨 Design System
 
-Three modes, configurable per organization:
+Defined in [`DESIGN.md`](./DESIGN.md):
 
-1. **Local** — email + password, magic-link recovery, optional per-user TOTP 2FA (enrolled from Settings → Security), and automatic lockout after `AUTH_MAX_FAILED_ATTEMPTS` (default 5) failed attempts for `AUTH_LOCKOUT_MINUTES` (default 15).
-2. **LDAP / Active Directory** — UPN-based bind (full UPN or `sAMAccountName`); selected groups provision users and soft-de-provision them (`ldapGroupRemoved`) on a schedule. Configured via the admin SSO page.
-3. **SAML 2.0 SSO** — integrate with Azure AD, Okta, AD FS, Keycloak, or any SAML IdP.
-
-A single user can be linked to multiple identities. See [`AUTH.md`](./AUTH.md) for the full integration guide.
-
----
-
-## Internationalization
-
-- **Default locale:** `fa-IR` (Persian, RTL, Jalali calendar).
-- **Secondary locale:** `en-US` (English, LTR, Gregorian calendar).
-- **Per-user preference** stored in the user profile.
-- **No hardcoded strings** in components — every label goes through `useTranslations()`.
-- **RTL-ready** layout uses CSS logical properties throughout.
-- **Jalali date picker** with Gregorian toggle.
-
-See [`i18n.md`](./i18n.md) for the full guide.
+- Token-based CSS variables for colors, spacing, typography, motion
+- Light + dark mode with per-user override
+- 8 accent colors + custom hex picker (WCAG AA contrast)
+- RTL-ready with logical CSS properties
+- Component library on shadcn/ui primitives
 
 ---
 
-## Design System
-
-The visual language is defined in [`DESIGN.md`](./DESIGN.md):
-- **Token-based** — all colors, spacing, typography, motion defined as CSS variables in `src/styles/tokens.css`.
-- **Light + dark mode** with per-user override.
-- **Per-user accent color** (8 presets + custom hex picker) verified for WCAG AA contrast.
-- **Logical CSS properties** for clean RTL mirroring.
-- **Component library** built on shadcn/ui primitives, extended with enterprise-specific components.
-
----
-
-## Deployment
-
-Two deployment topologies are supported:
+## 🚢 Deployment
 
 | Scale | Approach |
 |-------|----------|
-| Small (< 500 users, single VM) | Docker Compose — single host with Postgres, Redis, MinIO |
-| Large (1k–10k users, k8s) | Helm chart on Kubernetes with HA (active-passive) |
+| Small (< 500 users) | Docker Compose — single VM |
+| Large (1k–10k users) | Helm chart on Kubernetes |
 
-See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for full installation instructions, hardware sizing, HA topology, backup/restore procedures, upgrade paths, and webhook egress requirements.
+No outbound traffic. No telemetry. No third-party dependencies.
 
----
-
-## Observability
-
-- **Logs:** structured JSON via Pino, shipped to Loki.
-- **Metrics:** Prometheus scrapes `/metrics` from each app instance. Includes custom metrics for API token usage and webhook delivery success/failure.
-- **Tracing:** OpenTelemetry SDK, OTLP exporter (optional Tempo).
-- **Pre-built Grafana dashboards** in `ops/grafana/`.
+See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for details.
 
 ---
 
-## License
+## 📊 Observability
+
+- **Logs:** Pino → Loki (structured JSON)
+- **Metrics:** prom-client → Prometheus → Grafana dashboards
+- **Tracing:** OpenTelemetry → Tempo (optional)
+- Pre-built Grafana dashboards in `ops/grafana/`
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/v1/             # Internal REST API
+│   ├── api/v1/public/      # Public REST API (bearer tokens)
+│   └── [locale]/           # i18n routes
+├── components/             # UI components
+├── lib/                    # Domain logic
+│   ├── auth/               # Local + LDAP + SAML
+│   ├── baselines/          # EVM & baselines
+│   ├── risks/              # Risk register
+│   ├── change-requests/    # CR lifecycle
+│   ├── automation/         # Automation engine
+│   ├── custom-fields/      # Field schema & values
+│   ├── api-token/          # Token management
+│   ├── webhook/            # Event dispatch + signing
+│   └── openapi/            # Spec generator
+├── styles/tokens.css       # Design tokens
+└── messages/               # ICU translations (fa-IR, en-US)
+
+prisma/                     # Schema + migrations + seed
+ops/                        # Docker, Helm, Grafana, Prometheus
+scripts/                    # Backup, restore, smoke tests
+tests/                      # Unit, integration, E2E
+```
+
+---
+
+## 📄 License
 
 TBD by the organization deploying this.
 
-## Status
+---
 
-This project is **v1.0.0 GA** — all 12 build phases complete. See [`TASKS.md`](./TASKS.md) for the build plan and [`docs/admin-guide.md`](./docs/admin-guide.md) for administration.
+<div align="center">
 
-## Roadmap (post-V1)
+**Built with ❤️ for enterprise teams that value data sovereignty.**
 
-See [`SPEC.md` § 18](./SPEC.md) for the explicit out-of-scope list and [`TASKS.md` § Backlog](./TASKS.md) for candidate V1.1 / V2 features.
+</div>
