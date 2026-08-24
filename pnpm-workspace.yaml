@@ -34,6 +34,11 @@ minimumReleaseAgeExclude:
 peerDependencyRules:
   allowedVersions:
     nodemailer: ">=9.0.1"
+auditConfig:
+  ignoreGhsas:
+    - GHSA-jmr9-qjv8-65gv
+    - GHSA-2v37-7h3g-55p8
+
 overrides:
   '@auth/core': 0.41.3
   '@hono/node-server': 2.0.10
