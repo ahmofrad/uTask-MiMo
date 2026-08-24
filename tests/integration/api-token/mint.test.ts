@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { prisma } from "@/lib/db";
 import { createApiToken, normalizeScopes, invalidScopes, userCanGrantScope } from "@/lib/api-token";
 import { POST } from "@/app/api/v1/public/tokens/route";
+import { DEFAULT_ORGANIZATION_ID } from "@/lib/organizations/context";
 
 const hasDb = !!process.env.DATABASE_URL;
 const maybe = hasDb ? describe : describe.skip;
@@ -27,7 +28,10 @@ maybe("api token minting security", () => {
     });
     memberId = u.id;
     await prisma.role.create({
-      data: { userId: u.id, scopeType: "global", scopeId: null, type: "member" },
+      data: { userId: u.id, scopeType: "global", scopeId: null, type: "member", organizationId: DEFAULT_ORGANIZATION_ID },
+    });
+    await prisma.organizationMembership.create({
+      data: { organizationId: DEFAULT_ORGANIZATION_ID, userId: u.id, role: "member" },
     });
     const tok = await createApiToken({ userId: u.id, name: "caller", scopes: ["tasks:read"] });
     bearer = tok.raw;
@@ -36,6 +40,7 @@ maybe("api token minting security", () => {
   afterAll(async () => {
     await prisma.apiToken.deleteMany({ where: { userId: memberId } });
     await prisma.role.deleteMany({ where: { userId: memberId } });
+    await prisma.organizationMembership.deleteMany({ where: { userId: memberId } });
     await prisma.user.deleteMany({ where: { id: memberId } });
   });
 

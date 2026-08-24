@@ -21,7 +21,7 @@ import { exit, argv } from "node:process";
 
 const DELAY_ARG = argv.indexOf("--delay");
 const FIXED_DELAY =
-  DELAY_ARG !== -1 && DELAY_ARG + 1 < argv.length ? parseInt(argv[DELAY_ARG + 1]!, 10) : null;
+  DELAY_ARG !== -1 && DELAY_ARG + 1 < argv.length ? parseInt(argv[DELAY_ARG + 1], 10) : null;
 const MAX_DELAY = parseInt(process.env.MAX_RESTART_DELAY_MS ?? "15000", 10);
 const MAX_RESTARTS = parseInt(process.env.MAX_RESTARTS ?? "30", 10);
 

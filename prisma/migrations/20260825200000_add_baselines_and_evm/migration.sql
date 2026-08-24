@@ -6,14 +6,14 @@ CREATE TYPE "EacMethod" AS ENUM ('CPI_BASED', 'SPI_BASED', 'TCPI_BASED');
 
 -- CreateTable
 CREATE TABLE "ProjectBaseline" (
-    "id" TEXT NOT NULL,
-    "projectId" TEXT NOT NULL,
-    "teamId" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "projectId" UUID NOT NULL,
+    "teamId" UUID NOT NULL,
     "name" TEXT NOT NULL,
     "source" "BaselineSource" NOT NULL DEFAULT 'MANUAL',
     "isCurrent" BOOLEAN NOT NULL DEFAULT false,
     "snapshot" JSONB NOT NULL,
-    "capturedBy" TEXT NOT NULL,
+    "capturedBy" UUID NOT NULL,
     "capturedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ProjectBaseline_pkey" PRIMARY KEY ("id")
@@ -21,9 +21,9 @@ CREATE TABLE "ProjectBaseline" (
 
 -- CreateTable
 CREATE TABLE "BaselineEntry" (
-    "id" TEXT NOT NULL,
-    "baselineId" TEXT NOT NULL,
-    "taskId" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "baselineId" UUID NOT NULL,
+    "taskId" UUID NOT NULL,
     "startDate" TIMESTAMP(3),
     "endDate" TIMESTAMP(3),
     "percentComplete" INTEGER,
@@ -34,8 +34,8 @@ CREATE TABLE "BaselineEntry" (
 
 -- CreateTable
 CREATE TABLE "EvmSnapshot" (
-    "id" TEXT NOT NULL,
-    "projectId" TEXT NOT NULL,
+    "id" UUID NOT NULL,
+    "projectId" UUID NOT NULL,
     "snapshotDate" TIMESTAMP(3) NOT NULL,
     "bac" DOUBLE PRECISION NOT NULL,
     "pv" DOUBLE PRECISION NOT NULL,

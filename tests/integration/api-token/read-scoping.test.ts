@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { createApiToken } from "@/lib/api-token";
 import { GET as getTasks } from "@/app/api/v1/public/tasks/route";
 import { GET as getProjects } from "@/app/api/v1/public/projects/route";
+import { DEFAULT_ORGANIZATION_ID } from "@/lib/organizations/context";
 
 const hasDb = !!process.env.DATABASE_URL;
 const maybe = hasDb ? describe : describe.skip;
@@ -41,9 +42,12 @@ maybe("public API read scoping", () => {
     userA = a.id;
     userB = b.id;
     owner = o.id;
-    await prisma.role.create({ data: { userId: a.id, scopeType: "global", scopeId: null, type: "member" } });
-    await prisma.role.create({ data: { userId: b.id, scopeType: "global", scopeId: null, type: "member" } });
-    await prisma.role.create({ data: { userId: o.id, scopeType: "global", scopeId: null, type: "owner" } });
+    await prisma.role.create({ data: { userId: a.id, scopeType: "global", scopeId: null, type: "member", organizationId: DEFAULT_ORGANIZATION_ID } });
+    await prisma.role.create({ data: { userId: b.id, scopeType: "global", scopeId: null, type: "member", organizationId: DEFAULT_ORGANIZATION_ID } });
+    await prisma.role.create({ data: { userId: o.id, scopeType: "global", scopeId: null, type: "owner", organizationId: DEFAULT_ORGANIZATION_ID } });
+    await prisma.organizationMembership.create({ data: { organizationId: DEFAULT_ORGANIZATION_ID, userId: a.id, role: "member" } });
+    await prisma.organizationMembership.create({ data: { organizationId: DEFAULT_ORGANIZATION_ID, userId: b.id, role: "member" } });
+    await prisma.organizationMembership.create({ data: { organizationId: DEFAULT_ORGANIZATION_ID, userId: o.id, role: "owner" } });
 
     const pA = await prisma.project.create({ data: { name: "ProjA", ownerId: a.id } });
     const pB = await prisma.project.create({ data: { name: "ProjB", ownerId: b.id } });
@@ -67,6 +71,7 @@ maybe("public API read scoping", () => {
     await prisma.projectMember.deleteMany({ where: { projectId: { in: [projA, projB] } } });
     await prisma.project.deleteMany({ where: { id: { in: [projA, projB] } } });
     await prisma.apiToken.deleteMany({ where: { userId: { in: [userA, userB, owner] } } });
+    await prisma.organizationMembership.deleteMany({ where: { userId: { in: [userA, userB, owner] } } });
     await prisma.role.deleteMany({ where: { userId: { in: [userA, userB, owner] } } });
     await prisma.user.deleteMany({ where: { id: { in: [userA, userB, owner] } } });
   });
