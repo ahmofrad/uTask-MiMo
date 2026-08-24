@@ -1193,7 +1193,18 @@
       "timesheet_entry_created": "زمان ثبت کرد",
       "rate_card_created": "کارت نرخ ایجاد کرد",
       "rate_card_updated": "کارت نرخ را ویرایش کرد",
-      "rate_card_deleted": "کارت نرخ را حذف کرد"
+      "rate_card_deleted": "کارت نرخ را حذف کرد",
+      "risk_created": "ریسک ایجاد کرد",
+      "risk_updated": "ریسک را ویرایش کرد",
+      "risk_deleted": "ریسک را حذف کرد",
+      "change_request_created": "درخواست تغییر ایجاد کرد",
+      "change_request_updated": "درخواست تغییر را ویرایش کرد",
+      "change_request_deleted": "درخواست تغییر را حذف کرد",
+      "change_request_applied": "درخواست تغییر را اعمال کرد",
+      "automation_rule_created": "قانون خودکارسازی ایجاد کرد",
+      "automation_rule_updated": "قانون خودکارسازی را ویرایش کرد",
+      "automation_rule_deleted": "قانون خودکارسازی را حذف کرد",
+      "automation_rule_ran": "قانون خودکارسازی را اجرا کرد"
     },
     "diff": {
       "before": "قبل",

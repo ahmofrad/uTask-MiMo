@@ -1192,7 +1192,18 @@
       "timesheet_entry_created": "logged time",
       "rate_card_created": "created a rate card",
       "rate_card_updated": "updated a rate card",
-      "rate_card_deleted": "deleted a rate card"
+      "rate_card_deleted": "deleted a rate card",
+      "risk_created": "created risk",
+      "risk_updated": "updated risk",
+      "risk_deleted": "deleted risk",
+      "change_request_created": "created change request",
+      "change_request_updated": "updated change request",
+      "change_request_deleted": "deleted change request",
+      "change_request_applied": "applied change request",
+      "automation_rule_created": "created automation rule",
+      "automation_rule_updated": "updated automation rule",
+      "automation_rule_deleted": "deleted automation rule",
+      "automation_rule_ran": "ran automation rule"
     },
     "diff": {
       "before": "Before",
