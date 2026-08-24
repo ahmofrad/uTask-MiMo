@@ -552,7 +552,7 @@ Navigate to **Admin → Automation Rules** (or project-level if scoped).
 
 ### 17.3 How It Works
 
-- Rules fire after the triggering mutation commits.
+- Rules fire after the triggering mutation commits — specifically on `task.status_changed` events from `updateTask`, `approveTask`, and `rejectTask` mutations.
 - A **loop guard** prevents infinite chains (max depth 5 per rule+task pair).
 - Each execution is logged as a `AutomationRun` with status and error.
 

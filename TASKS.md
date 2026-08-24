@@ -308,7 +308,7 @@
 - **G12 — Records framework** (generic issue/RFI/document/stakeholder/MoM record types).
 - **G13 — Portfolio / Program / Org units** (HOLDING/COMPANY/PORTFOLIO/PROGRAM tree, subtree rollups).
 - **G14 — Project profiles + module registry** (enable/disable modules per project/team with dependency DAG).
-- **G15 — Cross-cutting collaboration/UX:** full RACI (Consulted/Informed), task approval gate, project RAG/health, automation rules engine (G15d ✅ shipped), public intake forms, standalone personal tasks, holidays + working-day calendar.
+- **G15 — Cross-cutting collaboration/UX:** full RACI (Consulted/Informed), task approval gate, project RAG/health, automation rules engine (G15d ✅ shipped, wired into task mutations), public intake forms, standalone personal tasks, holidays + working-day calendar.
 - **G16 — Platform/ops:** multiple themes (Midnight/Solarized/High-Contrast/Nord), PWA/installable (G16b ✅ shipped), 2FA (TOTP) (G16c ✅ shipped), SCIM provisioning, password policy + lockout + SecurityAuditEvent (G16e ✅ shipped), in-app backup scheduler + Kopia/offsite, self-updater sidecar, per-user datetime prefs (timezone/12-24h/dual calendar) (G16h ✅ shipped).
 
 > **Shipped (implemented ahead of schedule):**
@@ -320,7 +320,7 @@
 > - **G4 — Baselines & EVM** ✅ — `ProjectBaseline`/`BaselineEntry`/`EvmSnapshot` models, core lib with capture/compute/snapshot/series/variance/compare, 5 REST endpoints, i18n, 10 unit tests. See `lib/baselines/`.
 > - **G8 — Risk register** ✅ — `RiskRecord` model (prob×impact scoring, RISK-NNN sequencing, MITIGATE/ACCEPT/TRANSFER/AVOID), `lib/risks/` CRUD, 2 REST endpoints, i18n, 6 unit tests. See `lib/risks/`.
 > - **G9 — Change requests** ✅ — `ChangeRequest` model (DRAFT→SUBMITTED→APPROVED→REJECTED→APPLIED, CR-NNN sequencing), `lib/change-requests/` with baseline snapshot on apply, 2 REST endpoints, i18n, 5 unit tests. See `lib/change-requests/`.
-> - **G15d — Automation rules** ✅ — `AutomationRule`+`Condition`+`Action`+`Run`+`TriggerEvent` models, `lib/automation/` with trigger→condition→action engine (loop guard, max depth 5), 2 REST endpoints, i18n, 10 unit tests. See `lib/automation/`.
+> - **G15d — Automation rules** ✅ — `AutomationRule`+`Condition`+`Action`+`Run`+`TriggerEvent` models, `lib/automation/` with trigger→condition→action engine (loop guard, max depth 5), wired into `updateTask`/`approveTask`/`rejectTask` mutations (fires `TASK_STATUS_CHANGED`), 2 REST endpoints, OpenAPI spec, i18n, 21 unit tests. See `lib/automation/`.
 > - **G16c — 2FA (TOTP)** ✅ — per-user TOTP enrollment + recovery codes; login second step; encrypted secret; lockout after N failures. See `lib/auth/two-factor.ts`.
 > - **G16e — Password policy + lockout** ✅ — configurable attempts/window; Redis-backed lockout; audit. See `lib/auth/`.
 > - **G16h — Per-user datetime prefs** ✅ — IANA timezone, 12/24h format, optional dual Jalali/Gregorian display. See `User.timeZone`, `User.timeFormat`, `User.dualCalendar`.

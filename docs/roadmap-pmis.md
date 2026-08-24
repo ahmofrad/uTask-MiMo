@@ -422,7 +422,7 @@ gated project WRITE. Included on every project response. Audit health change. i1
 after-commit beside webhooks; loop guard = shared `(ruleId, taskId)` fired-set + max depth 5; actions call real
 services (tasks, labels, custom fields, comments). Perm `automation.manage`. Audit rule CRUD + runs. i18n `automations.*`.
 
-**Status:** Backend shipped (commit `51cf892`). Models, `lib/automation/` with trigger→condition→action engine, 2 REST endpoints (`GET/POST`, `PATCH/DELETE`), i18n, 10 unit tests.
+**Status:** Backend shipped (commit `51cf892`). Wired into task mutations (commit `29e5771`): `evaluateAndRun` fires on `updateTask`, `approveTask`, `rejectTask` with `TASK_STATUS_CHANGED` trigger. Models, `lib/automation/` with trigger→condition→action engine, 2 REST endpoints (`GET/POST`, `PATCH/DELETE`), OpenAPI spec, i18n, 21 unit tests.
 
 ### G15e — Public intake forms
 `Form { teamId, title, fields Json, mode INTAKE | PUBLIC, token?, honeypot Boolean }`. `POST …/teams/:teamId/forms`;

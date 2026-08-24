@@ -57,6 +57,14 @@ Tokens are issued per user and scoped to specific operations. The token's effect
 | `users:write` | *(reserved)* | Create/update users |
 | `comments:write` | `POST /tasks/:id/comments` | Add comments to tasks |
 | `webhooks:manage` | *(public webhook endpoints — coming soon)* | Manage webhooks via API |
+| `baselines:read` | `GET /projects/:id/baselines`, `GET /projects/:id/baselines/compare`, `GET /projects/:id/evm/series`, `GET /projects/:id/reports/variance` | Read baselines, EVM metrics, and variance reports |
+| `baselines:write` | `POST /projects/:id/baselines`, `POST /projects/:id/baselines/:id/activate` | Capture and activate baselines |
+| `risks:read` | `GET /projects/:id/risks`, `GET /projects/:id/risks/:riskId` | Read risk records |
+| `risks:write` | `POST /projects/:id/risks`, `PATCH /projects/:id/risks/:riskId`, `DELETE /projects/:id/risks/:riskId` | Create, update, delete risk records |
+| `change_requests:read` | `GET /projects/:id/change-requests`, `GET /projects/:id/change-requests/:crId` | Read change requests |
+| `change_requests:write` | `POST /projects/:id/change-requests`, `POST /projects/:id/change-requests/:crId/submit`, `POST .../approve`, `POST .../reject`, `POST .../apply` | Create and manage change requests |
+| `automation:read` | `GET /automation/rules`, `GET /automation/rules/:ruleId` | Read automation rules |
+| `automation:write` | `POST /automation/rules`, `PATCH /automation/rules/:ruleId`, `DELETE /automation/rules/:ruleId` | Create, update, delete automation rules |
 
 ### Scope Check
 

@@ -725,7 +725,7 @@ Summary:
 > - **Baselines & EVM** (G4) — `ProjectBaseline`/`BaselineEntry`/`EvmSnapshot`, 5 REST endpoints, 10 unit tests.
 > - **Risk register** (G8) — `RiskRecord` with prob×impact scoring, 2 REST endpoints, 6 unit tests.
 > - **Change requests** (G9) — `ChangeRequest` lifecycle with baseline snapshot on apply, 2 REST endpoints, 5 unit tests.
-> - **Automation rules** (G15d) — trigger→condition→action engine, 2 REST endpoints, 10 unit tests.
+> - **Automation rules** (G15d) — trigger→condition→action engine, wired into task mutations, 2 REST endpoints, 21 unit tests.
 > - **2FA (TOTP)** (G16c) — per-user TOTP enrollment + recovery codes + lockout.
 > - **Password policy + lockout** (G16e) — configurable attempts/window, Redis-backed.
 > - **Per-user datetime prefs** (G16h) — IANA timezone, 12/24h, dual Jalali/Gregorian.

@@ -289,6 +289,7 @@ tests/
 # Dev
 pnpm install
 pnpm dev
+pnpm dev:clean                # clear .next cache + restart dev
 pnpm docker:up                # postgres + redis + minio + mailhog
 pnpm docker:down
 

@@ -542,6 +542,11 @@ history — all in one idempotent step (`migrate resolve` records history withou
 migrations should be created with `prisma migrate dev --create-only` and hand-edited to preserve that
 raw DDL, as done historically.
 
+#### Dev cache clearing
+
+If the dev server serves stale `.next` assets after a code change (e.g. JS/CSS 404s or stale modules),
+use `pnpm dev:clean` to clear the `.next` cache and restart the dev server in one command.
+
 ---
 
 ### 7.4 Webhook egress requirements
