@@ -219,6 +219,17 @@ enum AuditAction {
   project_created
   project_updated
   project_archived
+  risk_created
+  risk_updated
+  risk_deleted
+  change_request_created
+  change_request_updated
+  change_request_deleted
+  change_request_applied
+  automation_rule_created
+  automation_rule_updated
+  automation_rule_deleted
+  automation_rule_ran
   project_health_updated
   project_department_link_requested
   project_department_link_approved
@@ -362,6 +373,10 @@ model User {
   timesheetPeriods                      TimesheetPeriod[]              @relation("TimesheetPeriodOwner")
   timeEntries                           TimeEntry[]                    @relation("TimeEntryUser")
   organizationMemberships                OrganizationMembership[]
+  riskOwner                             RiskRecord[]                   @relation("RiskOwner")
+  crSubmitted                           ChangeRequest[]                @relation("CRSubmitter")
+  crDecided                             ChangeRequest[]                @relation("CRDecider")
+  automationRulesCreated                AutomationRule[]               @relation("AutomationCreator")
 
   @@index([displayName, id], map: "User_displayName_id_idx")
   @@map("User")
@@ -472,6 +487,9 @@ model Project {
   timeEntries            TimeEntry[]
   baselines              ProjectBaseline[]
   evmSnapshots           EvmSnapshot[]
+  risks                  RiskRecord[]
+  changeRequests         ChangeRequest[]
+  automationRules        AutomationRule[]
   organization           Organization                    @relation("OrganizationProjects", fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@index([organizationId])
@@ -652,6 +670,16 @@ model Task {
   @@index([deletedAt])
   @@index([assigneeGroupId])
   @@map("Task")
+}
+
+model AutomationTriggerEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  ruleId    String   @db.Uuid
+  taskId    String   @db.Uuid
+  firedAt   DateTime @default(now()) @db.Timestamptz
+
+  @@unique([ruleId, taskId])
+  @@map("AutomationTriggerEvent")
 }
 
 model TaskAssignee {
@@ -1091,8 +1119,9 @@ model ProjectBaseline {
   capturedBy String
   capturedAt DateTime       @default(now())
 
-  project  Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  entries  BaselineEntry[]
+  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  entries        BaselineEntry[]
+  changeRequests ChangeRequest[]
 
   @@unique([projectId, isCurrent])
   @@index([projectId])
@@ -1182,4 +1211,184 @@ model TimeEntry {
   @@index([projectId, userId])
   @@index([userId, createdAt])
   @@map("TimeEntry")
+}
+
+// ── G8: Risk Register ──
+
+enum RiskResponse {
+  MITIGATE
+  ACCEPT
+  TRANSFER
+  AVOID
+}
+
+enum RiskStatus {
+  OPEN
+  MONITORING
+  CLOSED
+}
+
+model RiskRecord {
+  id              String       @id @default(uuid()) @db.Uuid
+  projectId       String       @db.Uuid
+  teamId          String       @db.Uuid
+  reference       String       @db.VarChar(20) // RISK-NNN sequential
+  title           String       @db.VarChar(500)
+  description     String?      @db.Text
+  probability     Int          @default(1) // 1-5
+  impact          Int          @default(1) // 1-5
+  score           Int          @default(1) // probability * impact
+  response        RiskResponse @default(MITIGATE)
+  mitigationPlan  String?      @db.Text
+  ownerId         String?      @db.Uuid
+  status          RiskStatus   @default(OPEN)
+  closedAt        DateTime?    @db.Timestamptz
+  deletedAt       DateTime?    @db.Timestamptz
+  createdAt       DateTime     @default(now()) @db.Timestamptz
+  updatedAt       DateTime     @updatedAt @db.Timestamptz
+
+  project Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  owner   User?          @relation("RiskOwner", fields: [ownerId], references: [id])
+
+  @@unique([projectId, reference])
+  @@index([projectId])
+  @@index([ownerId])
+  @@index([score])
+  @@map("RiskRecord")
+}
+
+// ── G9: Change Requests ──
+
+enum ChangeRequestStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  APPLIED
+}
+
+model ChangeRequest {
+  id               String               @id @default(uuid()) @db.Uuid
+  projectId        String               @db.Uuid
+  teamId           String               @db.Uuid
+  reference        String               @db.VarChar(20) // CR-NNN sequential
+  title            String               @db.VarChar(500)
+  description      String?              @db.Text
+  status           ChangeRequestStatus  @default(DRAFT)
+  scheduleDeltaDays Int?
+  costImpactMinor  Int?
+  costCurrency     String?              @db.VarChar(3)
+  submittedById    String?              @db.Uuid
+  submittedAt      DateTime?            @db.Timestamptz
+  decidedById      String?              @db.Uuid
+  decidedAt        DateTime?            @db.Timestamptz
+  baselineId       String?              @db.Uuid
+  deletedAt        DateTime?            @db.Timestamptz
+  createdAt        DateTime             @default(now()) @db.Timestamptz
+  updatedAt        DateTime             @updatedAt @db.Timestamptz
+
+  project  Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  submittedBy User?             @relation("CRSubmitter", fields: [submittedById], references: [id])
+  decidedBy   User?             @relation("CRDecider", fields: [decidedById], references: [id])
+  baseline    ProjectBaseline?  @relation(fields: [baselineId], references: [id], onDelete: SetNull)
+
+  @@unique([projectId, reference])
+  @@index([projectId])
+  @@index([status])
+  @@map("ChangeRequest")
+}
+
+// ── G15d: Automation Rules ──
+
+enum AutomationTrigger {
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  ASSIGNMENT_ADDED
+  COMMENT_ADDED
+  DUE_DATE_APPROACHING
+  DUE_DATE_PASSED
+  TASK_CREATED
+}
+
+enum AutomationConditionOp {
+  EQUALS
+  NOT_EQUALS
+  CONTAINS
+  GREATER_THAN
+  LESS_THAN
+  IS_ONE_OF
+}
+
+enum AutomationActionType {
+  SET_STATUS
+  SET_PRIORITY
+  ADD_ASSIGNEE
+  ADD_COMMENT
+  SET_LABEL
+  SET_CUSTOM_FIELD
+}
+
+model AutomationRule {
+  id          String             @id @default(uuid()) @db.Uuid
+  projectId   String?            @db.Uuid // NULL = team-wide
+  teamId      String             @db.Uuid
+  name        String             @db.VarChar(255)
+  description String?            @db.Text
+  trigger     AutomationTrigger
+  enabled     Boolean            @default(true)
+  createdBy   String             @db.Uuid
+  createdAt   DateTime           @default(now()) @db.Timestamptz
+  updatedAt   DateTime           @updatedAt @db.Timestamptz
+  deletedAt   DateTime?          @db.Timestamptz
+
+  project   Project?             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  conditions AutomationCondition[]
+  actions    AutomationAction[]
+  runs       AutomationRun[]
+  creator   User                 @relation("AutomationCreator", fields: [createdBy], references: [id])
+
+  @@index([projectId])
+  @@index([teamId])
+  @@map("AutomationRule")
+}
+
+model AutomationCondition {
+  id        String                @id @default(uuid()) @db.Uuid
+  ruleId    String                @db.Uuid
+  field     String                @db.VarChar(100) // status, priority, assignee, etc.
+  op        AutomationConditionOp @default(EQUALS)
+  value     String                @db.VarChar(500)
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@map("AutomationCondition")
+}
+
+model AutomationAction {
+  id     String               @id @default(uuid()) @db.Uuid
+  ruleId String               @db.Uuid
+  type   AutomationActionType
+  params Json                 // { value: "...", customFieldKey?: "..." }
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@map("AutomationAction")
+}
+
+model AutomationRun {
+  id        String   @id @default(uuid()) @db.Uuid
+  ruleId    String   @db.Uuid
+  taskId    String   @db.Uuid
+  triggeredBy String?
+  actionsExecuted Int @default(0)
+  error     String?  @db.Text
+  createdAt DateTime @default(now()) @db.Timestamptz
+
+  rule AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([ruleId])
+  @@index([taskId])
+  @@map("AutomationRun")
 }
