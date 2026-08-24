@@ -17,7 +17,11 @@
 11. [Settings](#11-settings)
 12. [Backup & Restore](#12-backup--restore)
 13. [Monitoring](#13-monitoring)
-14. [Troubleshooting](#14-troubleshooting)
+14. [Baselines & EVM](#14-baselines--evm)
+15. [Risk Register](#15-risk-register)
+16. [Change Requests](#16-change-requests)
+17. [Automation Rules](#17-automation-rules)
+18. [Troubleshooting](#18-troubleshooting)
 
 ---
 
@@ -452,6 +456,112 @@ Pre-configured alert rules in `ops/prometheus/`:
 
 ---
 
-## 14. Troubleshooting
+## 14. Baselines & EVM
+
+### 14.1 Capturing a Baseline
+
+Navigate to **Project → Baselines** (or use the API).
+
+1. Click **Capture Baseline**.
+2. Enter a name (e.g. "Sprint 5 baseline").
+3. Click **Save**. The current plan for all tasks is snapshotted.
+
+Only one baseline can be active (`isCurrent`) per project. Activating a new baseline demotes the previous one.
+
+### 14.2 EVM Metrics
+
+The **EVM dashboard** (or API `GET …/evm/series`) shows:
+
+- **PV** (Planned Value), **EV** (Earned Value), **AC** (Actual Cost).
+- **CPI** (Cost Performance Index), **SPI** (Schedule Performance Index).
+- **EAC** (Estimate at Completion), **VAC** (Variance at Completion).
+
+Three EAC methods: CPI-based, SPI-based, TCPI-based.
+
+### 14.3 Variance Report
+
+`GET …/reports/variance` returns planned vs. actual per task with schedule and cost deltas.
+
+---
+
+## 15. Risk Register
+
+### 15.1 Viewing Risks
+
+Navigate to **Project → Risks**. The register shows:
+
+- Risk reference (RISK-NNN), title, probability (1–5), impact (1–5), score (prob × impact).
+- Owner, status, response plan (Mitigate / Accept / Transfer / Avoid).
+
+### 15.2 Creating a Risk
+
+1. Click **Add Risk**.
+2. Fill in: title, description, probability, impact, response plan, owner.
+3. Click **Save**. A sequential `RISK-NNN` reference is assigned.
+
+### 15.3 Updating & Closing Risks
+
+- Edit any field inline.
+- Set status to **Closed** to archive a risk (sets `closedAt`).
+
+---
+
+## 16. Change Requests
+
+### 16.1 Creating a CR
+
+Navigate to **Project → Change Requests**.
+
+1. Click **New Change Request**.
+2. Fill in: title, description, schedule delta (optional), cost impact (optional).
+3. Click **Create**. Status starts as DRAFT with a `CR-NNN` reference.
+
+### 16.2 Lifecycle
+
+| Status | Meaning |
+|--------|---------|
+| DRAFT | Being prepared |
+| SUBMITTED | Sent for review |
+| APPROVED | Approved by a decision-maker |
+| REJECTED | Rejected with reason |
+| APPLIED | Applied — baseline snapshotted automatically |
+
+### 16.3 Applying a CR
+
+Click **Apply** on an APPROVED CR. This:
+1. Snapshots a `CHANGE_REQUEST` baseline (demotes prior baseline).
+2. Optionally posts a cost entry.
+3. Sets the CR status to APPLIED.
+
+---
+
+## 17. Automation Rules
+
+### 17.1 Viewing Rules
+
+Navigate to **Admin → Automation Rules** (or project-level if scoped).
+
+### 17.2 Creating a Rule
+
+1. Click **New Rule**.
+2. Define:
+   - **Trigger**: e.g., `task.status_changed`.
+   - **Conditions**: field, operator, value (all must match).
+   - **Actions**: e.g., assign user, add label, set custom field, add comment.
+3. Click **Create**.
+
+### 17.3 How It Works
+
+- Rules fire after the triggering mutation commits.
+- A **loop guard** prevents infinite chains (max depth 5 per rule+task pair).
+- Each execution is logged as a `AutomationRun` with status and error.
+
+### 17.4 Permissions
+
+Only Admins and Owners can create/edit/delete automation rules (`automation.manage` permission).
+
+---
+
+## 18. Troubleshooting
 
 See the [Installation Guide > Troubleshooting](../INSTALL.md#9-troubleshooting) for common issues.

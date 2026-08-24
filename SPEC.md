@@ -720,7 +720,15 @@ Summary:
 > data model, endpoints, RBAC, audit, i18n, and dependency order. It is **out of
 > scope for V1** and requires explicit approval to schedule.
 >
-> **Post-GA update:** **PWA / installable** (G16b) has shipped — see `docs/roadmap-pmis.md` G16b.
+> **Post-GA updates (shipped):**
+> - **PWA / installable** (G16b) — see `docs/roadmap-pmis.md` G16b.
+> - **Baselines & EVM** (G4) — `ProjectBaseline`/`BaselineEntry`/`EvmSnapshot`, 5 REST endpoints, 10 unit tests.
+> - **Risk register** (G8) — `RiskRecord` with prob×impact scoring, 2 REST endpoints, 6 unit tests.
+> - **Change requests** (G9) — `ChangeRequest` lifecycle with baseline snapshot on apply, 2 REST endpoints, 5 unit tests.
+> - **Automation rules** (G15d) — trigger→condition→action engine, 2 REST endpoints, 10 unit tests.
+> - **2FA (TOTP)** (G16c) — per-user TOTP enrollment + recovery codes + lockout.
+> - **Password policy + lockout** (G16e) — configurable attempts/window, Redis-backed.
+> - **Per-user datetime prefs** (G16h) — IANA timezone, 12/24h, dual Jalali/Gregorian.
 
 ---
 

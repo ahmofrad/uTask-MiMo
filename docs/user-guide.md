@@ -15,7 +15,11 @@
 9. [Quick Add](#9-quick-add)
 10. [Profile & Preferences](#10-profile--preferences)
 11. [Keyboard Shortcuts](#11-keyboard-shortcuts)
-12. [RTL & Locale Tips](#12-rtl--locale-tips)
+12. [Baselines & EVM](#12-baselines--evm)
+13. [Risk Register](#13-risk-register)
+14. [Change Requests](#14-change-requests)
+15. [Automation Rules](#15-automation-rules)
+16. [RTL & Locale Tips](#16-rtl--locale-tips)
 
 ---
 
@@ -361,7 +365,107 @@ See the [API Integration Guide](./api-integration.md) for usage.
 
 ---
 
-## 12. RTL & Locale Tips
+## 12. Baselines & EVM
+
+### 12.1 Capturing a Baseline
+
+Project Managers can capture a snapshot of the current schedule and progress:
+
+1. Navigate to your project → **Baselines**.
+2. Click **Capture Baseline**.
+3. Enter a name (e.g. "Sprint 5 baseline").
+4. Click **Save**.
+
+A baseline freezes the current plan (task start/end dates, progress) so you can compare planned vs. actual over time.
+
+### 12.2 EVM Metrics
+
+The EVM dashboard shows earned value metrics:
+
+- **PV** (Planned Value): what should have been done by now.
+- **EV** (Earned Value): what was actually completed.
+- **AC** (Actual Cost): what was spent.
+- **CPI** (Cost Performance Index): EV/AC. Above 1 = under budget.
+- **SPI** (Schedule Performance Index): EV/PV. Above 1 = ahead of schedule.
+
+### 12.3 Variance Report
+
+The variance report compares planned vs. actual for each task, highlighting schedule and cost deltas.
+
+---
+
+## 13. Risk Register
+
+### 13.1 Viewing Risks
+
+Navigate to your project → **Risks** to see the risk register:
+
+- Each risk has a reference (RISK-NNN), title, probability, impact, and a score (probability × impact).
+- Risks are color-coded by score: low (green), medium (yellow), high (orange), critical (red).
+
+### 13.2 Creating a Risk
+
+1. Click **Add Risk**.
+2. Fill in: title, description, probability (1–5), impact (1–5), response plan, owner.
+3. Click **Save**.
+
+### 13.3 Response Plans
+
+| Response | Meaning |
+|----------|---------|
+| Mitigate | Reduce probability or impact |
+| Accept | Acknowledge the risk, no action |
+| Transfer | Shift responsibility (e.g., insurance) |
+| Avoid | Eliminate the risk entirely |
+
+---
+
+## 14. Change Requests
+
+### 14.1 Creating a Change Request
+
+Navigate to your project → **Change Requests**:
+
+1. Click **New Change Request**.
+2. Fill in: title, description, schedule delta (days), cost impact.
+3. Click **Create**. Status starts as DRAFT.
+
+### 14.2 Submitting for Approval
+
+Click **Submit** to send the CR for review. A decision-maker can then **Approve** or **Reject** it.
+
+### 14.3 Applying a Change Request
+
+Click **Apply** on an approved CR. This automatically captures a baseline snapshot so you can track the change's impact over time.
+
+---
+
+## 15. Automation Rules
+
+### 15.1 How Automation Works
+
+Automation rules let you define triggers, conditions, and actions that run automatically when events occur.
+
+**Example:** When a task's status changes to "Done" → if the task has a custom field "QA Required" set to true → automatically create a follow-up QA task.
+
+### 15.2 Creating a Rule
+
+Navigate to **Admin → Automation Rules**:
+
+1. Click **New Rule**.
+2. Define:
+   - **Trigger**: the event that starts the rule (e.g., task status changed).
+   - **Conditions**: conditions that must be true (e.g., field X equals Y).
+   - **Actions**: what to do (e.g., assign a user, add a label, set a custom field).
+3. Click **Create**.
+
+### 15.3 Execution Log
+
+Each rule execution is logged. Check the **Runs** tab on a rule to see its execution history, including any errors.
+
+---
+
+## 16. RTL & Locale Tips
 
 - In **Persian (fa-IR)** mode, the layout mirrors to RTL: sidebar on the right, content on the left.
 - Logical CSS properties ensure icons and spacing flip correctly.

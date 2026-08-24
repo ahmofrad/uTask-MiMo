@@ -297,19 +297,19 @@
 > This is the *intake* for future PMIS-fit gaps; promote items to G-entries in `roadmap-pmis.md` when built.
 
 ### PMIS / EPM gaps (uTask does not yet have these)
-- **G4 — Baselines & Earned Value Management (EVM)** (frozen baselines, CPI/SPI/EAC, S-curves).
+- **G4 — Baselines & Earned Value Management (EVM)** ✅ shipped — `ProjectBaseline`/`BaselineEntry`/`EvmSnapshot` models, core lib with capture/compute/snapshot/series/variance/compare, 5 REST endpoints (baselines CRUD + activate, compare, EVM metrics + series, variance report), i18n for en-US/fa-IR, and 10 unit tests. See `lib/baselines/`, `docs/roadmap-pmis.md` G4.
 - **G5 — Resource management** (resource catalog, skills, capacity, task resource assignments).
 - **G6 — Timesheets & rate cards** ✅ shipped — `RateCard`/`TimesheetPeriod`/`TimeEntry`, rate snapshot, approval state machine, department-scoped; admin period-creation + rate-card management UI and submit→approve→reopen e2e coverage. See `lib/timesheets/`, `docs/roadmap-pmis.md` G6.
 - **G7 — Cost control ledger** (CostAccount, BudgetLine, Commitment, Expense, append-only ActualCostEntry, FX, multi-currency).
-- **G8 — Risk register** (probability × impact scoring, response plans).
-- **G9 — Change requests** (DRAFT→APPROVED→APPLIED, baseline snapshot on apply).
+- **G8 — Risk register** ✅ shipped — `RiskRecord` model (prob×impact scoring, RISK-NNN sequencing, MITIGATE/ACCEPT/TRANSFER/AVOID responses), `lib/risks/` CRUD, 2 REST endpoints (`GET/POST`, `PATCH/DELETE`), i18n, 6 unit tests. See `lib/risks/`, `docs/roadmap-pmis.md` G8.
+- **G9 — Change requests** ✅ shipped — `ChangeRequest` model (DRAFT→SUBMITTED→APPROVED→REJECTED→APPLIED lifecycle, CR-NNN sequencing), `lib/change-requests/` with baseline snapshot on apply, 2 REST endpoints, i18n, 5 unit tests. See `lib/change-requests/`, `docs/roadmap-pmis.md` G9.
 - **G10 — Procurement** (Vendor / Contract / PurchaseOrder → auto Commitment).
 - **G11 — Quality / NCR** (Non-Conformance Reports + corrective tasks).
 - **G12 — Records framework** (generic issue/RFI/document/stakeholder/MoM record types).
 - **G13 — Portfolio / Program / Org units** (HOLDING/COMPANY/PORTFOLIO/PROGRAM tree, subtree rollups).
 - **G14 — Project profiles + module registry** (enable/disable modules per project/team with dependency DAG).
-- **G15 — Cross-cutting collaboration/UX:** full RACI (Consulted/Informed), task approval gate, project RAG/health, automation rules engine, public intake forms, standalone personal tasks, holidays + working-day calendar.
-- **G16 — Platform/ops:** multiple themes (Midnight/Solarized/High-Contrast/Nord), PWA/installable, 2FA (TOTP), SCIM provisioning, password policy + lockout + SecurityAuditEvent, in-app backup scheduler + Kopia/offsite, self-updater sidecar, per-user datetime prefs (timezone/12-24h/dual calendar).
+- **G15 — Cross-cutting collaboration/UX:** full RACI (Consulted/Informed), task approval gate, project RAG/health, automation rules engine (G15d ✅ shipped), public intake forms, standalone personal tasks, holidays + working-day calendar.
+- **G16 — Platform/ops:** multiple themes (Midnight/Solarized/High-Contrast/Nord), PWA/installable (G16b ✅ shipped), 2FA (TOTP) (G16c ✅ shipped), SCIM provisioning, password policy + lockout + SecurityAuditEvent (G16e ✅ shipped), in-app backup scheduler + Kopia/offsite, self-updater sidecar, per-user datetime prefs (timezone/12-24h/dual calendar) (G16h ✅ shipped).
 
 > **Shipped (implemented ahead of schedule):**
 > - **Working-day calendar & holidays** ✅ — per-day `dayOff` flag on holidays so observances (e.g. imam birthdays from Calendarific Iran) render as occasions without blocking scheduling; admin working-days page (weekend toggles, Jalali holiday picker, CSV + bundled official + opt-in provider downloads) with an "only actual days off" filter on downloads; holidays tinted red on calendar, Gantt, and exports.
@@ -317,6 +317,13 @@
 > - **G2 — WBS (n-level task tree)** (outline codes, summary rollups; subtasks stay flat checklist). See `lib/tasks/wbs.ts`, `components/task/wbs-editor.tsx`.
 > - **G3 — Gantt + CPM scheduling engine** (critical path, lag/lead, milestones, baseline ghost bars). See `lib/scheduling/`, `components/task/gantt-chart.tsx`.
 > - **G16b — PWA / installable** (commit `124b823`): Serwist service worker (NetworkFirst navigations, NetworkOnly `/api/*`), web app manifest (standalone, maskable icons), offline fallback page, prod-only registration. See [`docs/roadmap-pmis.md`](../docs/roadmap-pmis.md) G16b.
+> - **G4 — Baselines & EVM** ✅ — `ProjectBaseline`/`BaselineEntry`/`EvmSnapshot` models, core lib with capture/compute/snapshot/series/variance/compare, 5 REST endpoints, i18n, 10 unit tests. See `lib/baselines/`.
+> - **G8 — Risk register** ✅ — `RiskRecord` model (prob×impact scoring, RISK-NNN sequencing, MITIGATE/ACCEPT/TRANSFER/AVOID), `lib/risks/` CRUD, 2 REST endpoints, i18n, 6 unit tests. See `lib/risks/`.
+> - **G9 — Change requests** ✅ — `ChangeRequest` model (DRAFT→SUBMITTED→APPROVED→REJECTED→APPLIED, CR-NNN sequencing), `lib/change-requests/` with baseline snapshot on apply, 2 REST endpoints, i18n, 5 unit tests. See `lib/change-requests/`.
+> - **G15d — Automation rules** ✅ — `AutomationRule`+`Condition`+`Action`+`Run`+`TriggerEvent` models, `lib/automation/` with trigger→condition→action engine (loop guard, max depth 5), 2 REST endpoints, i18n, 10 unit tests. See `lib/automation/`.
+> - **G16c — 2FA (TOTP)** ✅ — per-user TOTP enrollment + recovery codes; login second step; encrypted secret; lockout after N failures. See `lib/auth/two-factor.ts`.
+> - **G16e — Password policy + lockout** ✅ — configurable attempts/window; Redis-backed lockout; audit. See `lib/auth/`.
+> - **G16h — Per-user datetime prefs** ✅ — IANA timezone, 12/24h format, optional dual Jalali/Gregorian display. See `User.timeZone`, `User.timeFormat`, `User.dualCalendar`.
 
 ### Carry-over backlog items (unchanged)
 - Multi-tenant SaaS mode.

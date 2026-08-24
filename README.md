@@ -26,6 +26,12 @@ A multi-user, multi-project task management platform designed for companies that
 - **Notifications** — in-app notifications (assigned, mentioned, commented, status changed, due soon). Email + daily digest is V1.1 backlog.
 - **Installable PWA** — add to the home screen; the app shell works offline while live data stays network-only. Web app manifest + maskable icons; service worker via Serwist.
 
+### PMIS / EPM features
+- **Baselines & EVM** — freeze project baselines and compute earned value metrics (CPI/SPI/EAC, S-curves, variance reports).
+- **Risk register** — per-project risk log with probability × impact scoring and response plans.
+- **Change requests** — formal CR lifecycle (DRAFT → SUBMITTED → APPROVED → APPLIED) with automatic baseline snapshot on apply.
+- **Automation rules** — trigger → condition → action engine for task status changes, assignments, and custom field updates.
+
 ### Integrations
 - **Public REST API** — programmatic access via personal API tokens with per-token scopes. Full OpenAPI 3.1 spec and Swagger UI.
 - **Webhooks** — push event notifications (task created/updated/deleted/assigned, comment created, etc.) with HMAC-SHA256 signing, automatic retry with exponential backoff, and dead-letter handling.

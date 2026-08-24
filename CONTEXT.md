@@ -48,6 +48,28 @@ you see the concept re-derived outside it, that is a leak.
   user, token, webhook, login) with before/after JSON. Written through
   `lib/audit/log.ts`, read through `lib/audit-log/index.ts`.
 
+## PMIS / EPM
+
+- **Baseline** — a frozen snapshot of a project's schedule (task start/end dates,
+  progress, budget) used as the reference line for earned-value analysis.
+  Exactly one baseline per project is `isCurrent`; activating a new one demotes
+  the rest. Owned by `lib/baselines/index.ts`; models `ProjectBaseline` +
+  `BaselineEntry`.
+- **EVM** — Earned Value Management: PV/EV/AC metrics derived from baselines
+  and actual progress. CPI, SPI, EAC, VAC. Snapshotted periodically into
+  `EvmSnapshot` for S-curve plotting. Owned by `lib/baselines/index.ts`.
+- **Risk record** — a per-project risk entry with probability × impact scoring
+  (1–5 each), a computed score, response plan (MITIGATE/ACCEPT/TRANSFER/AVOID),
+  and owner. Sequential `RISK-NNN` reference. Owned by `lib/risks/index.ts`.
+- **Change request** — a formal lifecycle (DRAFT → SUBMITTED → APPROVED →
+  REJECTED → APPLIED) for proposing changes. Applying a CR snapshots a baseline
+  so the impact is trackable. Sequential `CR-NNN` reference. Owned by
+  `lib/change-requests/index.ts`.
+- **Automation rule** — a trigger → condition → action definition that fires
+  after a domain event. Loop-guarded (max depth 5 per rule+task pair).
+  Models: `AutomationRule`, `AutomationCondition`, `AutomationAction`,
+  `AutomationRun`, `AutomationTriggerEvent`. Owned by `lib/automation/index.ts`.
+
 ## Other
 
 - **Custom field** — per-project field schema with typed value columns

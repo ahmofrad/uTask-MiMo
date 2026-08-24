@@ -111,10 +111,12 @@ returns `{ tasks, links, criticalChain }`; legacy subtask `rows` unchanged. `cri
 
 ---
 
-## G4 — Baselines & Earned Value Management (EVM)
+## G4 — Baselines & Earned Value Management (EVM) ✅ shipped
 
 **Goal.** Freeze project baselines and compute EVM metrics (CPI/SPI/EAC) for S-curves.
 Builds on G2+G3.
+
+**Status:** Backend shipped (commit `0d34320`). `ProjectBaseline`, `BaselineEntry`, `EvmSnapshot` models; core lib with `captureBaseline`/`computeEvm`/`snapshotEvm`/`getEvmSeries`/`getVarianceReport`/`compareBaselines`; 5 REST endpoints (baselines CRUD + activate, compare, EVM metrics + series, variance report); i18n for en-US/fa-IR; 10 unit tests.
 
 **Data model.**
 
@@ -260,9 +262,11 @@ across currencies.
 
 ---
 
-## G8 — Risk register
+## G8 — Risk register ✅ shipped
 
 **Goal.** Per-project risk log with probability × impact scoring and response plans.
+
+**Status:** Backend shipped (commit `51cf892`). `RiskRecord` model (prob×impact scoring, RISK-NNN sequencing, MITIGATE/ACCEPT/TRANSFER/AVOID responses); `lib/risks/` CRUD; 2 REST endpoints (`GET/POST`, `PATCH/DELETE`); i18n; 6 unit tests.
 
 **Data model.** `RiskRecord { id, projectId, teamId, title, description?, probability Int /*1-5*/,
 impact Int /*1-5*/, score Int /*=prob×impact, auto*/, response RiskResponse /*MITIGATE|ACCEPT|TRANSFER|AVOID*/,
@@ -273,9 +277,11 @@ mitigationPlan?, ownerId, status, closedAt? }`. Sequential `RISK-NNN` reference.
 
 ---
 
-## G9 — Change requests
+## G9 — Change requests ✅ shipped
 
 **Goal.** Formal CR lifecycle that snapshots a baseline on apply. Builds on G4.
+
+**Status:** Backend shipped (commit `51cf892`). `ChangeRequest` model (DRAFT→SUBMITTED→APPROVED→REJECTED→APPLIED lifecycle, CR-NNN sequencing); `lib/change-requests/` with baseline snapshot on apply; 2 REST endpoints; i18n; 5 unit tests.
 
 **Data model.** `ChangeRequest { id, projectId, teamId, title, description?,
 status ChangeRequestStatus // DRAFT | SUBMITTED | APPROVED | APPLIED
@@ -411,10 +417,12 @@ Audit approval/reject. i18n `approval.*`.
 `RagStatus` enum + `Project.ragStatus` (default GREEN), `ragReason`, `healthUpdatedAt`. `PUT …/projects/:id/health`
 gated project WRITE. Included on every project response. Audit health change. i18n `rag.*`.
 
-### G15d — Automation rules
+### G15d — Automation rules ✅ shipped
 `AutomationRule` + `AutomationCondition` + `AutomationAction` + `AutomationRun` (team-scoped). Engine runs
 after-commit beside webhooks; loop guard = shared `(ruleId, taskId)` fired-set + max depth 5; actions call real
 services (tasks, labels, custom fields, comments). Perm `automation.manage`. Audit rule CRUD + runs. i18n `automations.*`.
+
+**Status:** Backend shipped (commit `51cf892`). Models, `lib/automation/` with trigger→condition→action engine, 2 REST endpoints (`GET/POST`, `PATCH/DELETE`), i18n, 10 unit tests.
 
 ### G15e — Public intake forms
 `Form { teamId, title, fields Json, mode INTAKE | PUBLIC, token?, honeypot Boolean }`. `POST …/teams/:teamId/forms`;

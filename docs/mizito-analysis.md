@@ -126,12 +126,18 @@ Member monitoring = per-member performance/activity across projects & tasks.
 - **Calendar view** component (`calendar-view.tsx`) used on dashboard + project page:
   **read-only month grid** of tasks by `dueDate` (Jalali + Gregorian). **No drag-reschedule, no `/calendar` route.**
 - Kanban board, list views, custom fields (typed/filterable), watchers, notifications.
+- **Baselines & EVM** (G4): `ProjectBaseline`/`BaselineEntry`/`EvmSnapshot` models, baseline capture, EVM metrics (CPI/SPI/EAC), variance report.
+- **Risk register** (G8): `RiskRecord` model (prob×impact scoring, RISK-NNN, response plans).
+- **Change requests** (G9): `ChangeRequest` model (lifecycle DRAFT→APPLIED, CR-NNN, baseline snapshot on apply).
+- **Automation rules** (G15d): `AutomationRule` + conditions + actions, trigger→condition→action engine.
+- **2FA (TOTP)** (G16c): per-user TOTP enrollment + recovery codes, encrypted secret, lockout.
+- **Per-user datetime prefs** (G16h): IANA timezone, 12/24h format, dual Jalali/Gregorian.
 - RBAC matrix + `isProjectOwner` helper, audit log, admin insights, reports (my/project/org).
 - LDAP + SAML SSO, public REST API + scoped tokens + OpenAPI/Swagger, signed webhooks (retry/dead-letter).
 - Search, PWA (G16b), i18n (fa-IR/en-US), RTL, theming.
 
 **Absent (relevant to this analysis):** chat, correspondence, CRM, notes, meeting minutes,
-recurring tasks, task approver, weight-KPI report, native apps, AI assistant, video/polls/voice in chat.
+weight-KPI report, native apps, AI assistant, video/polls/voice in chat.
 
 ---
 
