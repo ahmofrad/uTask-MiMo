@@ -88,7 +88,10 @@ test.describe("Two-factor authentication", () => {
     await page.waitForURL(/\/(en-US|fa-IR)?\/?$/);
 
     await page.goto("/settings");
-    await expect(page.getByText("Enable two-factor authentication")).toBeVisible();
+    // During hydration React 19's streaming Suspense container transiently
+    // holds a hidden duplicate of the page (getByText matches hidden
+    // elements), so pin the visible copy with .first().
+    await expect(page.getByText("Enable two-factor authentication").first()).toBeVisible();
 
     await page.getByRole("button", { name: "Enable two-factor authentication" }).click();
 
@@ -104,14 +107,14 @@ test.describe("Two-factor authentication", () => {
     // Recovery codes appear exactly once. React strips inter-element
     // whitespace, so textContent has no separators — count the spans instead.
     const codes = page.getByTestId("recovery-codes");
-    await expect(codes).toBeVisible();
+    await expect(codes.first()).toBeVisible();
     await expect(codes.locator("span")).toHaveCount(8);
     // Each code should be a 12-character token.
     const firstCode = (await codes.locator("span").first().textContent())?.trim() ?? "";
     expect(firstCode).toHaveLength(12);
 
     await page.getByRole("button", { name: "Done" }).click();
-    await expect(page.getByText("Two-factor authentication is enabled")).toBeVisible();
+    await expect(page.getByText("Two-factor authentication is enabled").first()).toBeVisible();
   });
 
   test("sign-in requires the TOTP code after enrollment", async ({ page }) => {

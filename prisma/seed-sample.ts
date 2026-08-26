@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { LOCAL_SEED_PASSWORD } from "../src/lib/auth/seed-defaults";
+import { DEFAULT_ORGANIZATION_ID } from "../src/lib/organizations/context";
 
 const prisma = new PrismaClient();
 
@@ -112,14 +113,14 @@ async function main() {
 
   // ── Roles ──
   const roleData = [
-    { userId: owner.id, type: "owner" as const, scopeType: "global" as const },
-    { userId: admin.id, type: "admin" as const, scopeType: "global" as const },
-    { userId: manager.id, type: "manager" as const, scopeType: "global" as const },
-    { userId: member1.id, type: "member" as const, scopeType: "global" as const },
-    { userId: member2.id, type: "member" as const, scopeType: "global" as const },
-    { userId: member.id, type: "member" as const, scopeType: "global" as const },
-    { userId: guest.id, type: "guest" as const, scopeType: "global" as const },
-    { userId: englishUser.id, type: "member" as const, scopeType: "global" as const },
+    { userId: owner.id, type: "owner" as const, scopeType: "global" as const, orgRole: "owner" as const },
+    { userId: admin.id, type: "admin" as const, scopeType: "global" as const, orgRole: "admin" as const },
+    { userId: manager.id, type: "manager" as const, scopeType: "global" as const, orgRole: "member" as const },
+    { userId: member1.id, type: "member" as const, scopeType: "global" as const, orgRole: "member" as const },
+    { userId: member2.id, type: "member" as const, scopeType: "global" as const, orgRole: "member" as const },
+    { userId: member.id, type: "member" as const, scopeType: "global" as const, orgRole: "member" as const },
+    { userId: guest.id, type: "guest" as const, scopeType: "global" as const, orgRole: "member" as const },
+    { userId: englishUser.id, type: "member" as const, scopeType: "global" as const, orgRole: "member" as const },
   ];
 
   for (const r of roleData) {
@@ -129,6 +130,14 @@ async function main() {
     if (!existing) {
       await prisma.role.create({ data: { ...r, scopeId: null, grantedBy: owner.id } });
     }
+    // Every sample user must belong to the default organization so the
+    // authenticated-request path (requireAuth → getOrganizationContext) does
+    // not reject them with 403 ORGANIZATION_ACCESS_DENIED on a fresh database.
+    await prisma.organizationMembership.upsert({
+      where: { organizationId_userId: { organizationId: DEFAULT_ORGANIZATION_ID, userId: r.userId } },
+      create: { organizationId: DEFAULT_ORGANIZATION_ID, userId: r.userId, role: r.orgRole },
+      update: { role: r.orgRole },
+    });
   }
 
   // ── Departments ──
