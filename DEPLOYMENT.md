@@ -547,6 +547,11 @@ raw DDL, as done historically.
 If the dev server serves stale `.next` assets after a code change (e.g. JS/CSS 404s or stale modules),
 use `pnpm dev:clean` to clear the `.next` cache and restart the dev server in one command.
 
+Both `pnpm dev` and `pnpm dev:clean` run through `scripts/dev-server.mjs`, an auto-restart wrapper. The
+server itself watches for a missing/incomplete `.next` (e.g. the directory was wiped while the server was
+running) and exits so the wrapper respawns it with a fresh compile — instead of serving `ENOENT` 500s
+until someone restarts manually.
+
 ---
 
 ### 7.4 Webhook egress requirements

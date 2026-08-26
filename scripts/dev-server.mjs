@@ -6,10 +6,10 @@
  * Usage:
  *   node scripts/dev-server.mjs [--delay <ms>]
  *
- * Spawns `pnpm dev` and respawns it automatically when the child process exits
- * with a non-zero code. Useful when webpack cache corruption or unhandled
- * exceptions kill the process in environments where a terminal isn't available
- * to restart manually.
+ * Spawns `pnpm dev:core` and respawns it automatically when the child process
+ * exits with a non-zero code. Useful when webpack cache corruption or a wiped
+ * `.next` directory (see the watchdog in server.ts) kills the process in
+ * environments where a terminal isn't available to restart manually.
  *
  * Set MAX_RESTART_DELAY_MS env var to cap the backoff (default 15000).
  * Set MAX_RESTARTS env var to limit total restarts (default 30).
@@ -28,7 +28,9 @@ const MAX_RESTARTS = parseInt(process.env.MAX_RESTARTS ?? "30", 10);
 let restartCount = 0;
 
 function spawnDev() {
-  const child = spawn("pnpm", ["dev"], {
+  // Spawn dev:core (the raw server) rather than `pnpm dev` so the wrapper
+  // doesn't recurse into itself now that `pnpm dev` routes through it.
+  const child = spawn("pnpm", ["dev:core"], {
     stdio: "inherit",
     env: { ...process.env, FORCE_COLOR: "1" },
   });
