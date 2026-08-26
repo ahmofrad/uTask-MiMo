@@ -124,19 +124,20 @@ async function main() {
   ];
 
   for (const r of roleData) {
+    const { orgRole, ...roleFields } = r;
     const existing = await prisma.role.findFirst({
       where: { userId: r.userId, type: r.type, scopeType: r.scopeType, scopeId: null },
     });
     if (!existing) {
-      await prisma.role.create({ data: { ...r, scopeId: null, grantedBy: owner.id } });
+      await prisma.role.create({ data: { ...roleFields, scopeId: null, grantedBy: owner.id } });
     }
     // Every sample user must belong to the default organization so the
     // authenticated-request path (requireAuth → getOrganizationContext) does
     // not reject them with 403 ORGANIZATION_ACCESS_DENIED on a fresh database.
     await prisma.organizationMembership.upsert({
       where: { organizationId_userId: { organizationId: DEFAULT_ORGANIZATION_ID, userId: r.userId } },
-      create: { organizationId: DEFAULT_ORGANIZATION_ID, userId: r.userId, role: r.orgRole },
-      update: { role: r.orgRole },
+      create: { organizationId: DEFAULT_ORGANIZATION_ID, userId: r.userId, role: orgRole },
+      update: { role: orgRole },
     });
   }
 
