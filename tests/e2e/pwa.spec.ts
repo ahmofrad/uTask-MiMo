@@ -123,21 +123,36 @@ test.describe("service worker (PWA)", () => {
     // The SW must fall back to offline.html for any navigation that
     // isn't in its cache.
     await context.setOffline(true);
-    await page.goto("/some-page-we-never-visited", { waitUntil: "commit" }).catch(() => {
-      // Playwright may throw on offline goto; the SW should still handle it.
-    });
+    try {
+      // Trigger the navigation from inside the page so it goes through the
+      // controlling SW's fetch handler. A Playwright-driven goto while
+      // offline can fail at the browser level (chrome-error page with an
+      // empty body) before the SW's precached fallback commits — the race
+      // that made this test flaky under full-suite load.
+      await page.evaluate(() => {
+        window.location.href = "/some-page-we-never-visited";
+      });
 
-    // Give the SW time to respond with the fallback.
-    await page.waitForTimeout(2000);
+      // Poll instead of a fixed wait: the fallback response can take longer
+      // than a couple of seconds under load.
+      await expect
+        .poll(async () => {
+          try {
+            return await page.evaluate(() => document.body?.innerText ?? "");
+          } catch {
+            // Mid-navigation the execution context can be destroyed; retry.
+            return "";
+          }
+        }, { timeout: 15000 })
+        .toContain("offline");
 
-    const bodyText = await page.evaluate(() => document.body.innerText);
-    expect(bodyText).toContain("offline");
-
-    // The fallback page should have a recognizable title.
-    const title = await page.title();
-    expect(title).toContain("Offline");
-
-    // Restore connectivity for subsequent tests.
-    await context.setOffline(false);
+      // The fallback page should have a recognizable title.
+      const title = await page.title();
+      expect(title).toContain("Offline");
+    } finally {
+      // Restore connectivity even on failure so a retry/next test never
+      // starts in an offline context.
+      await context.setOffline(false);
+    }
   });
 });
