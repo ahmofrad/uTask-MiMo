@@ -8,10 +8,11 @@ import { GanttDepsPanel } from "./gantt-deps-panel";
 import { GanttHeader } from "./gantt-header";
 import { GanttTaskRow } from "./gantt-task-row";
 import { GanttToolbar } from "./gantt-toolbar";
+import { GanttExportDialog } from "./gantt-export-dialog";
 import { GanttLinkDialog } from "./gantt-link-dialog";
 import { GanttLegend } from "./gantt-legend";
 import { GanttLinkArrows, GANTT_CONSTANTS } from "./gantt-link-arrows";
-import { useGanttTimeline } from "./use-gantt-timeline";
+import { useGanttTimeline, currentMonthRange } from "./use-gantt-timeline";
 import { useGanttDrag, type DragOverrides } from "./use-gantt-drag";
 import { useGanttLinks } from "./use-gantt-links";
 import { useGanttPreferences } from "./use-gantt-preferences";
@@ -19,6 +20,8 @@ import type { GanttReport, GanttRow } from "@/lib/gantt-types";
 import { linkLagSuffix } from "@/lib/gantt/links";
 import { criticalDescendants, criticalPredecessors } from "@/lib/gantt/chain";
 import { formatNumber, type Locale } from "@/lib/date/format";
+import { exportGanttAsPdf, exportGanttAsPng } from "@/lib/gantt/export-raster";
+import { parseDateOnly } from "@/lib/date/day-marker";
 
 const { ROW_HEIGHT } = GANTT_CONSTANTS;
 
@@ -31,6 +34,12 @@ export function GanttChart({ report, projectId, onReload }: { report: GanttRepor
 
   // ── State owned by the orchestrator ──
   const [overrides, setOverrides] = useState<DragOverrides>({});
+  // Export
+  const [exporting, setExporting] = useState<"png" | "pdf" | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"png" | "pdf">("png");
+  const [exportStart, setExportStart] = useState(currentMonthRange().start);
+  const [exportEnd, setExportEnd] = useState(currentMonthRange().end);
 
   // Prune overrides when report data catches up
   useEffect(() => {
@@ -89,6 +98,34 @@ export function GanttChart({ report, projectId, onReload }: { report: GanttRepor
     return `${t("ganttFloatDependsOn")}: ${preds.map((p) => `${rowTitle(p.source)} · ${typeLabel(p.type)}${linkLagSuffix(p)}`).join(", ")}`;
   };
 
+  // ── Export handlers ──
+  const doExport = async (format: "png" | "pdf") => {
+    if (exporting) return;
+    setExporting(format);
+    links.setLinkError(null);
+    try {
+      const range = { rangeStart: parseDateOnly(exportStart), rangeEnd: parseDateOnly(exportEnd) };
+      if (format === "png") await exportGanttAsPng({ report, locale, ...range, ...(workingDays ? { workingDays } : {}) });
+      else await exportGanttAsPdf({ report, locale, ...range, ...(workingDays ? { workingDays } : {}) });
+      setExportOpen(false);
+    } catch {
+      links.setLinkError("loadError");
+    } finally {
+      setExporting(null);
+    }
+  };
+  const toggleExportDialog = () => {
+    if (exportOpen) {
+      setExportOpen(false);
+      return;
+    }
+    const range = currentMonthRange();
+    setExportStart(range.start);
+    setExportEnd(range.end);
+    setExportFormat("png");
+    setExportOpen(true);
+  };
+
   // ── Render ──
   if (rows.length === 0) return <div className="text-center py-12 text-fg-muted text-sm">{t("ganttNoTasks")}</div>;
 
@@ -99,10 +136,24 @@ export function GanttChart({ report, projectId, onReload }: { report: GanttRepor
     <div className="space-y-4">
       <GanttToolbar canEdit={canEdit} linkMode={links.linkMode} depsOpen={prefs.depsOpen} depsCount={report.links.length}
         hasCritical={hasCritical} showCritical={prefs.showCritical} criticalListOpen={prefs.criticalListOpen} criticalCount={criticalRows.length}
-        dayWidth={prefs.dayWidth} exportOpen={false} exporting={false} linkError={links.linkError}
+        dayWidth={prefs.dayWidth} exportOpen={exportOpen} exporting={exporting !== null} linkError={links.linkError}
         onToggleLinkMode={links.toggleLinkMode} onToggleDeps={() => prefs.setDepsOpen((o) => !o)}
         onToggleShowCritical={() => prefs.setShowCritical((v) => !v)} onToggleCriticalList={() => prefs.setCriticalListOpen((o) => !o)}
-        onZoomChange={prefs.setDayWidth} onToggleExport={() => {}} />
+        onZoomChange={prefs.setDayWidth} onToggleExport={toggleExportDialog} />
+
+      {exportOpen && (
+        <GanttExportDialog
+          exportFormat={exportFormat}
+          exportStart={exportStart}
+          exportEnd={exportEnd}
+          exporting={exporting !== null}
+          onFormatChange={setExportFormat}
+          onStartChange={(v) => setExportStart(v)}
+          onEndChange={(v) => setExportEnd(v)}
+          onSubmit={() => void doExport(exportFormat)}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
 
       {links.pendingLink && (
         <GanttLinkDialog linkType={links.linkType} linkLag={links.linkLag} linkLagUnit={links.linkLagUnit}

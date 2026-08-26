@@ -18,14 +18,14 @@ const riskUpdateSchema = z.object({
 
 export async function PATCH(
   request: Request,
-  { params }: { params: Promise<{ id: string; riskId: string }> },
+  { params }: { params: Promise<{ projectId: string; riskId: string }> },
 ) {
-  const { id, riskId } = await params;
-  const authResult = await requireAuth(request, { params: { id } });
+  const { projectId, riskId } = await params;
+  const authResult = await requireAuth(request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  if (!(await canProject(userId, "task:edit_any", id))) {
+  if (!(await canProject(userId, "task:edit_any", projectId))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
       { status: 403 },
@@ -38,7 +38,7 @@ export async function PATCH(
   }
 
   try {
-    const risk = await updateRisk(riskId, id, userId, parsed.data);
+    const risk = await updateRisk(riskId, projectId, userId, parsed.data);
     return NextResponse.json({ data: risk });
   } catch (err) {
     if (String(err) === "Error: RISK_NOT_FOUND") {
@@ -53,14 +53,14 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string; riskId: string }> },
+  { params }: { params: Promise<{ projectId: string; riskId: string }> },
 ) {
-  const { id, riskId } = await params;
-  const authResult = await requireAuth(request, { params: { id } });
+  const { projectId, riskId } = await params;
+  const authResult = await requireAuth(request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  if (!(await canProject(userId, "task:edit_any", id))) {
+  if (!(await canProject(userId, "task:edit_any", projectId))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
       { status: 403 },
@@ -68,7 +68,7 @@ export async function DELETE(
   }
 
   try {
-    await deleteRisk(riskId, id, userId);
+    await deleteRisk(riskId, projectId, userId);
     return NextResponse.json({ data: { deleted: true } });
   } catch (err) {
     if (String(err) === "Error: RISK_NOT_FOUND") {

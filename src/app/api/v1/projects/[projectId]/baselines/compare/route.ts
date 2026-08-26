@@ -4,12 +4,12 @@ import { compareBaselines } from "@/lib/baselines";
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const { id } = await params;
-  const authResult = await requireAuth(_request, { params: { id } });
+  const { projectId } = await params;
+  const authResult = await requireAuth(_request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
 
-  const result = await compareBaselines(id);
+  const result = await compareBaselines(projectId);
   return NextResponse.json({ data: result });
 }

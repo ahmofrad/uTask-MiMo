@@ -11,14 +11,14 @@ const transitionSchema = z.object({
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string; crId: string }> },
+  { params }: { params: Promise<{ projectId: string; crId: string }> },
 ) {
-  const { id, crId } = await params;
-  const authResult = await requireAuth(request, { params: { id } });
+  const { projectId, crId } = await params;
+  const authResult = await requireAuth(request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  if (!(await canProject(userId, "task:edit_any", id))) {
+  if (!(await canProject(userId, "task:edit_any", projectId))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
       { status: 403 },
@@ -31,7 +31,7 @@ export async function POST(
   }
 
   try {
-    const cr = await transitionChangeRequest(crId, id, userId, parsed.data.status);
+    const cr = await transitionChangeRequest(crId, projectId, userId, parsed.data.status);
     return NextResponse.json({ data: cr });
   } catch (err) {
     const msg = String(err);
@@ -53,14 +53,14 @@ export async function POST(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: Promise<{ id: string; crId: string }> },
+  { params }: { params: Promise<{ projectId: string; crId: string }> },
 ) {
-  const { id, crId } = await params;
-  const authResult = await requireAuth(request, { params: { id } });
+  const { projectId, crId } = await params;
+  const authResult = await requireAuth(request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  if (!(await canProject(userId, "task:edit_any", id))) {
+  if (!(await canProject(userId, "task:edit_any", projectId))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
       { status: 403 },
@@ -68,7 +68,7 @@ export async function DELETE(
   }
 
   try {
-    await deleteChangeRequest(crId, id, userId);
+    await deleteChangeRequest(crId, projectId, userId);
     return NextResponse.json({ data: { deleted: true } });
   } catch (err) {
     const msg = String(err);

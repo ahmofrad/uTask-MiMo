@@ -13,14 +13,14 @@ const baselineCreateSchema = z.object({
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const { id } = await params;
-  const authResult = await requireAuth(_request, { params: { id } });
+  const { projectId } = await params;
+  const authResult = await requireAuth(_request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
 
   const baselines = await prisma.projectBaseline.findMany({
-    where: { projectId: id },
+    where: { projectId },
     orderBy: { capturedAt: "desc" },
     select: {
       id: true,
@@ -43,14 +43,14 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const { id } = await params;
-  const authResult = await requireAuth(request, { params: { id } });
+  const { projectId } = await params;
+  const authResult = await requireAuth(request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  if (!(await canProject(userId, "task:edit_any", id))) {
+  if (!(await canProject(userId, "task:edit_any", projectId))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
       { status: 403 },
@@ -62,7 +62,7 @@ export async function POST(
     return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
 
-  const baseline = await captureBaseline(id, parsed.data.name, userId, parsed.data.source);
+  const baseline = await captureBaseline(projectId, parsed.data.name, userId, parsed.data.source);
 
   return NextResponse.json({ data: baseline }, { status: 201 });
 }

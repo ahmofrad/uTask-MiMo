@@ -11,30 +11,30 @@ const evmSchema = z.object({
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const { id } = await params;
-  const authResult = await requireAuth(request, { params: { id } });
+  const { projectId } = await params;
+  const authResult = await requireAuth(request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
 
   const url = new URL(request.url);
   const showSeries = url.searchParams.get("series") === "true";
 
   if (showSeries) {
-    const series = await getEvmSeries(id);
+    const series = await getEvmSeries(projectId);
     return NextResponse.json({ data: series });
   }
 
-  const metrics = await computeEvm(id);
+  const metrics = await computeEvm(projectId);
   return NextResponse.json({ data: metrics });
 }
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const { id } = await params;
-  const authResult = await requireAuth(request, { params: { id } });
+  const { projectId } = await params;
+  const authResult = await requireAuth(request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
 
   const parsed = evmSchema.safeParse(await readJsonBody(request) ?? {});
@@ -42,6 +42,6 @@ export async function POST(
     return NextResponse.json(validationError(parsed.error), { status: 400 });
   }
 
-  const snapshot = await snapshotEvm(id, parsed.data.eacMethod, parsed.data.currency);
+  const snapshot = await snapshotEvm(projectId, parsed.data.eacMethod, parsed.data.currency);
   return NextResponse.json({ data: snapshot }, { status: 201 });
 }

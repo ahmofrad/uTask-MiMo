@@ -4,12 +4,12 @@ import { getVarianceReport } from "@/lib/baselines";
 
 export async function GET(
   _request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const { id } = await params;
-  const authResult = await requireAuth(_request, { params: { id } });
+  const { projectId } = await params;
+  const authResult = await requireAuth(_request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
 
-  const report = await getVarianceReport(id);
+  const report = await getVarianceReport(projectId);
   return NextResponse.json({ data: report });
 }

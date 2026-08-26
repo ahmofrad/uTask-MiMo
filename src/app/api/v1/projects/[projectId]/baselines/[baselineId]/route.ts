@@ -6,14 +6,14 @@ import { activateBaseline } from "@/lib/baselines";
 
 export async function POST(
   _request: Request,
-  { params }: { params: Promise<{ id: string; baselineId: string }> },
+  { params }: { params: Promise<{ projectId: string; baselineId: string }> },
 ) {
-  const { id, baselineId } = await params;
-  const authResult = await requireAuth(_request, { params: { id } });
+  const { projectId, baselineId } = await params;
+  const authResult = await requireAuth(_request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  if (!(await canProject(userId, "task:edit_any", id))) {
+  if (!(await canProject(userId, "task:edit_any", projectId))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
       { status: 403 },
@@ -21,7 +21,7 @@ export async function POST(
   }
 
   const baseline = await prisma.projectBaseline.findFirst({
-    where: { id: baselineId, projectId: id },
+    where: { id: baselineId, projectId },
   });
 
   if (!baseline) {
@@ -31,7 +31,7 @@ export async function POST(
     );
   }
 
-  await activateBaseline(baselineId, id);
+  await activateBaseline(baselineId, projectId);
 
   return NextResponse.json({ data: { success: true, id: baselineId } });
 }

@@ -18,17 +18,17 @@ const riskCreateSchema = z.object({
 
 export async function GET(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const { id } = await params;
-  const authResult = await requireAuth(request, { params: { id } });
+  const { projectId } = await params;
+  const authResult = await requireAuth(request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
 
   const url = new URL(request.url);
   const status = url.searchParams.get("status") as "OPEN" | "MONITORING" | "CLOSED" | null;
   const minScore = url.searchParams.get("minScore");
 
-  const risks = await listRisks(id, {
+  const risks = await listRisks(projectId, {
     ...(status && { status }),
     ...(minScore ? { minScore: parseInt(minScore, 10) } : {}),
   });
@@ -38,14 +38,14 @@ export async function GET(
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ projectId: string }> },
 ) {
-  const { id } = await params;
-  const authResult = await requireAuth(request, { params: { id } });
+  const { projectId } = await params;
+  const authResult = await requireAuth(request, { params: { projectId } });
   if (authResult instanceof NextResponse) return authResult;
   const { userId } = authResult;
 
-  if (!(await canProject(userId, "task:edit_any", id))) {
+  if (!(await canProject(userId, "task:edit_any", projectId))) {
     return NextResponse.json(
       { error: { code: "FORBIDDEN", message: "Insufficient permissions" } },
       { status: 403 },
@@ -58,7 +58,7 @@ export async function POST(
   }
 
   const project = await prisma.project.findUnique({
-    where: { id },
+    where: { id: projectId },
     select: { organizationId: true },
   });
   if (!project) {
@@ -68,7 +68,7 @@ export async function POST(
     );
   }
 
-  const risk = await createRisk(id, project.organizationId, userId, parsed.data);
+  const risk = await createRisk(projectId, project.organizationId, userId, parsed.data);
 
   return NextResponse.json({ data: risk }, { status: 201 });
 }

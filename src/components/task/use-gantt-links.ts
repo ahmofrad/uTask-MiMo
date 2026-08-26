@@ -169,6 +169,6 @@ export function useGanttLinks({ projectId, onReload }: UseGanttLinksParams) {
     depsBusy, depEdits,
     toggleLinkMode, startLink, cancelLink, createLink, removeLink,
     beginDepEdit, saveDepEdit, onDepEditChange, onDepEditCancel,
-    setLinkType, setLinkLag, setLinkLagUnit,
+    setLinkType, setLinkLag, setLinkLagUnit, setLinkError,
   };
 }
