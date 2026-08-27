@@ -64,8 +64,7 @@ test.describe("Timesheet submit to approve to reopen flow", () => {
     await expect(submitBtn).toBeVisible();
     await submitBtn.click();
 
-    // After reload, the status should be "Submitted".
-    await page.waitForLoadState("networkidle");
+    // After submit the status should change to "Submitted".
     const submittedRow = page.getByRole("main").getByTestId(`timesheet-period-${periodId}`).first();
     await expect(submittedRow).toBeVisible();
 
@@ -75,8 +74,7 @@ test.describe("Timesheet submit to approve to reopen flow", () => {
     await expect(approveBtn).toBeVisible();
     await approveBtn.click();
 
-    // After reload, the status should be "Approved".
-    await page.waitForLoadState("networkidle");
+    // After approve the status should change to "Approved".
     const approvedRow = page.getByRole("main").getByTestId(`timesheet-period-${periodId}`).first();
     await expect(approvedRow).toBeVisible();
 
@@ -86,8 +84,7 @@ test.describe("Timesheet submit to approve to reopen flow", () => {
     await expect(reopenBtn).toBeVisible();
     await reopenBtn.click();
 
-    // After reload, the status should be "Reopened".
-    await page.waitForLoadState("networkidle");
+    // After reopen the status should change to "Reopened".
     const reopenedRow = page.getByRole("main").getByTestId(`timesheet-period-${periodId}`).first();
     await expect(reopenedRow).toBeVisible();
     });
