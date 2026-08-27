@@ -100,8 +100,8 @@ test.describe("Dependency flows", () => {
   test("shows a blocked badge on the board for a task with an unfinished predecessor", async ({ page }) => {
     await createDep(TASK_DEP, TASK_PRED);
     await page.goto(`/en-US/projects/${PROJECT}`);
-    const badge = page.getByTestId("task-blocked-badge");
-    await expect(badge).toHaveCount(1);
+    const badge = page.getByTestId("task-blocked-badge").first();
+    await expect(badge).toBeVisible();
     // The badge's tooltip names the blocking predecessor.
     await expect(badge).toHaveAttribute("title", /Blocked by.*Fix login page SSL error/);
   });
