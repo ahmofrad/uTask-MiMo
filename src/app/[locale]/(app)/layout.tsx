@@ -8,6 +8,7 @@ import { SearchDialog } from "@/components/search/dialog";
 import { CommandPalette } from "@/components/shell/command-palette";
 import { Sidebar } from "@/components/shell/sidebar";
 import { Header } from "@/components/shell/header";
+import { Breadcrumbs } from "@/components/shell/breadcrumbs";
 
 export default async function AppLayout({
   children,
@@ -38,7 +39,10 @@ export default async function AppLayout({
       <Sidebar isAdmin={isAdmin} canManageGroups={canManageGroups} />
       <div className="flex-1 flex flex-col min-w-0">
         <Header email={session.user?.email ?? ""} name={session.user?.name ?? ""} isAdmin={isAdmin} canManageGroups={canManageGroups} />
-        <main id="main-content" className="flex-1 p-6 overflow-y-auto overflow-x-hidden">{children}</main>
+        <main id="main-content" className="flex-1 p-6 overflow-y-auto overflow-x-hidden">
+          <Breadcrumbs />
+          {children}
+        </main>
       </div>
     </div>
   );

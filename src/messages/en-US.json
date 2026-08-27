@@ -9,6 +9,7 @@
     "error": "Error",
     "retry": "Retry",
     "search": "Search",
+    "sort": "Sort",
     "close": "Close",
     "back": "Back",
     "next": "Next",
@@ -36,6 +37,7 @@
     "accountMenu": "Account menu",
     "dismiss": "Dismiss",
     "skipToContent": "Skip to main content",
+    "breadcrumbs": "Breadcrumbs",
     "filters": "Filters",
     "all": "All",
     "filterByTitle": "Filter by title...",
@@ -388,6 +390,7 @@
     "pending": "{count} pending",
     "webhook": "Webhook",
     "overviewDeliveriesSettings": "Overview, deliveries, and settings",
+    "ldapSync": "LDAP Sync",
     "storage": {
       "title": "Storage Configuration",
       "testConnection": "Test connection",
@@ -439,6 +442,12 @@
     "create": "Create task",
     "edit": "Edit task",
     "delete": "Delete task",
+    "sort": {
+      "title": "Title",
+      "priority": "Priority",
+      "dueDate": "Due date",
+      "status": "Status"
+    },
     "status": {
       "open": "Open",
       "in_progress": "In progress",
@@ -661,6 +670,7 @@
     },
     "createTask": "Create Task",
     "noDate": "No date",
+    "sortBy": "Sort by",
     "dropHere": "Drop tasks here",
     "move": "Move task",
     "moveTo": "Move to…",

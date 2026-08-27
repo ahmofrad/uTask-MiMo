@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useOptimisticTasks, type Task } from "@/hooks/use-optimistic-task";
 import { BulkActionsBar } from "@/components/task/bulk-actions";
@@ -15,9 +15,53 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { useToast } from "@/components/ui/toast";
 import { useTranslations } from "next-intl";
 
+type SortField = "title" | "priority" | "dueDate" | "status";
+type SortDir = "asc" | "desc";
+
+const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, med: 2, low: 3 };
+const STATUS_ORDER: Record<string, number> = { in_progress: 0, open: 1, pending_approval: 2, done: 3, cancelled: 4 };
+
+function sortTasks(tasks: Task[], field: SortField, dir: SortDir): Task[] {
+  const sorted = [...tasks].sort((a, b) => {
+    switch (field) {
+      case "title":
+        return a.title.localeCompare(b.title);
+      case "priority":
+        return (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99);
+      case "dueDate": {
+        const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+        const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        return da - db;
+      }
+      case "status":
+        return (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99);
+      default:
+        return 0;
+    }
+  });
+  return dir === "desc" ? sorted.reverse() : sorted;
+}
+
 export function TaskList({ initialTasks }: { initialTasks: Task[] }) {
   const t = useTranslations();
   const { tasks, toggleComplete, softDelete } = useOptimisticTasks(initialTasks);
+  const [sortField, setSortField] = useState<SortField>("dueDate");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const sortedTasks = useMemo(() => sortTasks(tasks, sortField, sortDir), [tasks, sortField, sortDir]);
+
+  function toggleSort(field: SortField) {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir(field === "title" ? "asc" : "asc");
+    }
+  }
+
+  const sortIcon = (field: SortField) => {
+    if (sortField !== field) return null;
+    return sortDir === "asc" ? " ↑" : " ↓";
+  };
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const { addToast } = useToast();
@@ -73,8 +117,24 @@ export function TaskList({ initialTasks }: { initialTasks: Task[] }) {
         onClear={() => setSelectedIds(new Set())}
         onRefresh={refresh}
       />
+      <div className="flex items-center gap-1 text-xs text-fg-muted overflow-x-auto">
+        <span className="me-1 text-fg-subtle">{t("common.sort")}:</span>
+        {(["title", "priority", "dueDate", "status"] as const).map((field) => (
+          <button
+            key={field}
+            onClick={() => toggleSort(field)}
+            className={`px-2 py-1 rounded-md transition-colors whitespace-nowrap ${
+              sortField === field
+                ? "bg-accent-bg text-accent font-medium"
+                : "hover:bg-bg-tertiary text-fg-muted"
+            }`}
+          >
+            {t(`task.sort.${field}`)}{sortIcon(field)}
+          </button>
+        ))}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        {tasks.map((task) => (
+        {sortedTasks.map((task) => (
           <div
             key={task.id}
             className="relative flex flex-col gap-2 p-4 rounded-xl border border-border-primary bg-bg-surface hover:border-border-strong transition-colors group"

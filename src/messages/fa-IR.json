@@ -9,6 +9,7 @@
     "error": "خطا",
     "retry": "تلاش مجدد",
     "search": "جستجو",
+    "sort": "مرتب‌سازی",
     "close": "بستن",
     "back": "بازگشت",
     "next": "بعدی",
@@ -36,6 +37,7 @@
     "accountMenu": "منوی حساب",
     "dismiss": "بستن اعلان",
     "skipToContent": "پرش به محتوای اصلی",
+    "breadcrumbs": "ناوبری صفحه",
     "filters": "فیلترها",
     "all": "همه",
     "filterByTitle": "فیلتر بر اساس عنوان...",
@@ -388,6 +390,7 @@
     "pending": "{count} در انتظار",
     "webhook": "Webhook",
     "overviewDeliveriesSettings": "نمای کلی، ارسال‌ها و تنظیمات",
+    "ldapSync": "همگام‌سازی LDAP",
     "storage": {
       "title": "تنظیمات ذخیره‌سازی",
       "testConnection": "تست اتصال",
@@ -439,6 +442,12 @@
     "create": "ایجاد وظیفه",
     "edit": "ویرایش وظیفه",
     "delete": "حذف وظیفه",
+    "sort": {
+      "title": "عنوان",
+      "priority": "اولویت",
+      "dueDate": "تاریخ سررسید",
+      "status": "وضعیت"
+    },
     "status": {
       "open": "باز",
       "in_progress": "در حال انجام",
@@ -661,6 +670,7 @@
     },
     "createTask": "ایجاد وظیفه",
     "noDate": "بدون تاریخ",
+    "sortBy": "مرتب بر اساس",
     "dropHere": "وظایف را اینجا رها کنید",
     "move": "انتقال وظیفه",
     "moveTo": "انتقال به…",

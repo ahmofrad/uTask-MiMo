@@ -38,6 +38,27 @@ const COLUMNS = [
   { key: "cancelled", color: "bg-bg-surface-2 border-border" },
 ];
 
+type BoardSortKey = "title" | "priority" | "dueDate";
+const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, med: 2, low: 3 };
+
+function sortBoardTasks(tasks: BoardTask[], field: BoardSortKey): BoardTask[] {
+  return [...tasks].sort((a, b) => {
+    switch (field) {
+      case "title":
+        return a.title.localeCompare(b.title);
+      case "priority":
+        return (PRIORITY_ORDER[a.priority] ?? 99) - (PRIORITY_ORDER[b.priority] ?? 99);
+      case "dueDate": {
+        const da = a.dueDate ? new Date(a.dueDate).getTime() : Infinity;
+        const db = b.dueDate ? new Date(b.dueDate).getTime() : Infinity;
+        return da - db;
+      }
+      default:
+        return 0;
+    }
+  });
+}
+
 export function Board({
   initialTasks,
   projectId,
@@ -50,6 +71,7 @@ export function Board({
   const [tasks, setTasks] = useState(initialTasks);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [dragOverCol, setDragOverCol] = useState<string | null>(null);
+  const [boardSort, setBoardSort] = useState<BoardSortKey>("dueDate");
   const includeTaskRef = useRef(includeTask);
   includeTaskRef.current = includeTask;
 
@@ -160,7 +182,7 @@ export function Board({
   return (
     <div className="flex gap-4 overflow-x-auto pb-4" tabIndex={0}>
       {COLUMNS.map((col) => {
-        const colTasks = tasks.filter((task) => task.status === col.key);
+        const colTasks = sortBoardTasks(tasks.filter((task) => task.status === col.key), boardSort);
         return (
           <div
             key={col.key}
@@ -178,12 +200,26 @@ export function Board({
             <div
               className={`flex items-center justify-between px-3 py-2 rounded-t-xl ${col.color}`}
             >
-              <span className="text-sm font-semibold text-fg-primary">
-                {t(`status.${col.key}`)}
-              </span>
-              <span className="text-xs font-medium text-fg-muted bg-fg-inverse/20 px-2 py-0.5 rounded-full">
-                {colTasks.length}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-semibold text-fg-primary">
+                  {t(`status.${col.key}`)}
+                </span>
+                <span className="text-xs font-medium text-fg-muted bg-fg-inverse/20 px-2 py-0.5 rounded-full">
+                  {colTasks.length}
+                </span>
+              </div>
+              {col.key === COLUMNS[0]!.key && (
+                <select
+                  value={boardSort}
+                  onChange={(e) => setBoardSort(e.target.value as BoardSortKey)}
+                  className="text-xs bg-transparent text-fg-muted border-none cursor-pointer focus:outline-none"
+                  aria-label={t("sortBy")}
+                >
+                  <option value="dueDate">{t("sort.dueDate")}</option>
+                  <option value="priority">{t("sort.priority")}</option>
+                  <option value="title">{t("sort.title")}</option>
+                </select>
+              )}
             </div>
             <div className="space-y-2 p-2 min-h-[200px]" onDragOver={(e) => e.preventDefault()}>
               {colTasks.map((task) => (
