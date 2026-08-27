@@ -195,6 +195,7 @@
     "saving": "در حال ذخیره...",
     "loading": "در حال بارگذاری...",
     "backups": "نسخه‌های پشتیبان",
+    "insights": "تحلیل‌ها",
     "webhookDeliveries": "ارسال‌های Webhook",
     "deliveries": {
       "when": "زمان",

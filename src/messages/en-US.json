@@ -195,6 +195,7 @@
     "saving": "Saving...",
     "loading": "Loading...",
     "backups": "Backups",
+    "insights": "Insights",
     "webhookDeliveries": "Webhook Deliveries",
     "deliveries": {
       "when": "When",

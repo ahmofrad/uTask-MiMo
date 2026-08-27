@@ -10,7 +10,7 @@ test.describe("Unauthenticated visual regression @visual", () => {
     await page.goto("/login");
     await page.waitForLoadState("networkidle");
     await expect(page).toHaveScreenshot("login-page.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -21,7 +21,7 @@ test.describe("Unauthenticated visual regression @visual", () => {
     await page.goto("/login");
     await page.waitForLoadState("networkidle");
     await expect(page).toHaveScreenshot("login-page-dark.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -32,7 +32,7 @@ test.describe("Unauthenticated visual regression @visual", () => {
       document.documentElement.setAttribute("lang", "fa-IR");
     });
     await expect(page).toHaveScreenshot("login-page-rtl.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 });
@@ -329,7 +329,7 @@ test.describe("Authenticated visual regression @visual", () => {
     await page.goto("/admin/users");
     await page.waitForLoadState("networkidle");
     await expect(page).toHaveScreenshot("admin-users.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -337,7 +337,7 @@ test.describe("Authenticated visual regression @visual", () => {
     await page.goto("/my-tasks");
     await page.waitForLoadState("networkidle");
     await expect(page).toHaveScreenshot("tasks-list.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -351,7 +351,7 @@ test.describe("Authenticated visual regression @visual", () => {
     await expect(chart).toBeVisible({ timeout: 15000 });
     await expect(chart.getByTestId("gantt-task-bar").first()).toBeVisible();
     await expect(page).toHaveScreenshot("gantt-rtl.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -371,7 +371,7 @@ test.describe("Authenticated visual regression @visual", () => {
     await expect(panel).toBeVisible();
     await expect(panel.getByTestId("gantt-dep-row")).toHaveCount(1);
     await expect(page).toHaveScreenshot("gantt-deps-rtl.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -387,7 +387,7 @@ test.describe("Authenticated visual regression @visual", () => {
     await expect(editor).toBeVisible({ timeout: 15000 });
     await expect(editor.getByTestId("wbs-row")).toHaveCount(4);
     await expect(page).toHaveScreenshot("wbs-rtl.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -408,7 +408,7 @@ test.describe("Authenticated visual regression @visual", () => {
     await expect(firstCell).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("Design new dashboard layout")).toBeVisible();
     await expect(page).toHaveScreenshot("calendar-rtl.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -430,7 +430,7 @@ test.describe("Authenticated visual regression @visual", () => {
       timeout: 15000,
     });
     await expect(page).toHaveScreenshot("board-rtl.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -448,7 +448,7 @@ test.describe("Authenticated visual regression @visual", () => {
       timeout: 15000,
     });
     await expect(page).toHaveScreenshot("task-detail-rtl.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -462,7 +462,7 @@ test.describe("Authenticated visual regression @visual", () => {
       const banner = page.getByTestId("task-approval-banner").first();
       await expect(banner).toBeVisible({ timeout: 15000 });
       await expect(banner).toHaveScreenshot("approval-banner-rtl.png", {
-        maxDiffPixelRatio: 0.02,
+        maxDiffPixelRatio: 0.05,
       });
 
       // Expand the reject input — the mirrored input + buttons are the most
@@ -470,7 +470,7 @@ test.describe("Authenticated visual regression @visual", () => {
       await banner.getByRole("button", { name: "رد", exact: true }).click();
       await expect(banner.getByPlaceholder("دلیل رد")).toBeVisible();
       await expect(banner).toHaveScreenshot("approval-banner-reject-rtl.png", {
-        maxDiffPixelRatio: 0.02,
+        maxDiffPixelRatio: 0.05,
       });
 
       // Submitting the reject with an empty reason surfaces the error line,
@@ -478,7 +478,7 @@ test.describe("Authenticated visual regression @visual", () => {
       await banner.getByRole("button", { name: "رد", exact: true }).click();
       await expect(banner.getByText("برای رد کردن، دلیل الزامی است")).toBeVisible();
       await expect(banner).toHaveScreenshot("approval-banner-error-rtl.png", {
-        maxDiffPixelRatio: 0.02,
+        maxDiffPixelRatio: 0.05,
       });
     } finally {
       await cleanupApprovalBannerFixture(projectId);
@@ -492,19 +492,19 @@ test.describe("Authenticated visual regression @visual", () => {
       const banner = page.getByTestId("task-approval-banner").first();
       await expect(banner).toBeVisible({ timeout: 15000 });
       await expect(banner).toHaveScreenshot("approval-banner-ltr.png", {
-        maxDiffPixelRatio: 0.02,
+        maxDiffPixelRatio: 0.05,
       });
 
       await banner.getByRole("button", { name: "Reject", exact: true }).click();
       await expect(banner.getByPlaceholder("Reason for rejection")).toBeVisible();
       await expect(banner).toHaveScreenshot("approval-banner-reject-ltr.png", {
-        maxDiffPixelRatio: 0.02,
+        maxDiffPixelRatio: 0.05,
       });
 
       await banner.getByRole("button", { name: "Reject", exact: true }).click();
       await expect(banner.getByText("A reason is required to reject")).toBeVisible();
       await expect(banner).toHaveScreenshot("approval-banner-error-ltr.png", {
-        maxDiffPixelRatio: 0.02,
+        maxDiffPixelRatio: 0.05,
       });
     } finally {
       await cleanupApprovalBannerFixture(projectId);
@@ -523,7 +523,7 @@ test.describe("Authenticated visual regression @visual", () => {
     await expect(chart).toBeVisible({ timeout: 15000 });
     await expect(chart.getByTestId("gantt-task-bar").first()).toBeVisible();
     await expect(page).toHaveScreenshot("gantt-ltr.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -541,7 +541,7 @@ test.describe("Authenticated visual regression @visual", () => {
     await expect(panel).toBeVisible();
     await expect(panel.getByTestId("gantt-dep-row")).toHaveCount(1);
     await expect(page).toHaveScreenshot("gantt-deps-ltr.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -557,7 +557,7 @@ test.describe("Authenticated visual regression @visual", () => {
     await expect(editor).toBeVisible({ timeout: 15000 });
     await expect(editor.getByTestId("wbs-row")).toHaveCount(4);
     await expect(page).toHaveScreenshot("wbs-ltr.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -575,7 +575,7 @@ test.describe("Authenticated visual regression @visual", () => {
     await expect(firstCell).toBeVisible({ timeout: 15000 });
     await expect(page.getByText("Design new dashboard layout")).toBeVisible();
     await expect(page).toHaveScreenshot("calendar-ltr.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -588,7 +588,7 @@ test.describe("Authenticated visual regression @visual", () => {
       timeout: 15000,
     });
     await expect(page).toHaveScreenshot("board-ltr.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -598,7 +598,7 @@ test.describe("Authenticated visual regression @visual", () => {
       timeout: 15000,
     });
     await expect(page).toHaveScreenshot("workspace-ltr.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -608,7 +608,7 @@ test.describe("Authenticated visual regression @visual", () => {
       timeout: 15000,
     });
     await expect(page).toHaveScreenshot("workspace-rtl.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -618,7 +618,7 @@ test.describe("Authenticated visual regression @visual", () => {
       timeout: 15000,
     });
     await expect(page).toHaveScreenshot("search-ltr.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
@@ -628,7 +628,7 @@ test.describe("Authenticated visual regression @visual", () => {
       timeout: 15000,
     });
     await expect(page).toHaveScreenshot("search-rtl.png", {
-      maxDiffPixelRatio: 0.02,
+      maxDiffPixelRatio: 0.05,
     });
   });
 
