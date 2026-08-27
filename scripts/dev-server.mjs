@@ -27,6 +27,10 @@ const MAX_RESTARTS = parseInt(process.env.MAX_RESTARTS ?? "30", 10);
 
 let restartCount = 0;
 
+function ts() {
+  return new Date().toISOString().slice(11, 23); // HH:mm:ss.SSS
+}
+
 function spawnDev() {
   // Spawn dev:core (the raw server) rather than `pnpm dev` so the wrapper
   // doesn't recurse into itself now that `pnpm dev` routes through it.
@@ -35,23 +39,26 @@ function spawnDev() {
     env: { ...process.env, FORCE_COLOR: "1" },
   });
 
+  console.log(`[dev-server] [${ts()}] Spawned dev:core (pid ${child.pid})`);
+
   child.on("exit", (code, signal) => {
     if (signal === "SIGTERM" || signal === "SIGINT") {
-      console.log("[dev-server] Child killed by signal, exiting wrapper.");
+      console.log(`[dev-server] [${ts()}] Child killed by signal ${signal}, exiting wrapper.`);
       exit(0);
     }
 
     restartCount++;
     if (restartCount > MAX_RESTARTS) {
       console.error(
-        `[dev-server] Reached maximum restarts (${MAX_RESTARTS}). Exiting.`
+        `[dev-server] [${ts()}] Reached maximum restarts (${MAX_RESTARTS}). Exiting.`
       );
       exit(1);
     }
 
     const delay = FIXED_DELAY ?? Math.min(1000 * Math.pow(2, Math.min(restartCount, 5)), MAX_DELAY);
+    const reason = code === 1 ? ".next may have been wiped — watchdog triggered restart" : "clean exit";
     console.error(
-      `[dev-server] Dev server exited with code ${code}. Restarting in ${delay}ms (attempt ${restartCount}/${MAX_RESTARTS})…`
+      `[dev-server] [${ts()}] Child pid ${child.pid} exited with code ${code} (${reason}). Restarting in ${delay}ms (attempt ${restartCount}/${MAX_RESTARTS})…`
     );
 
     setTimeout(spawnDev, delay);
@@ -61,5 +68,5 @@ function spawnDev() {
 process.on("SIGINT", () => exit(0));
 process.on("SIGTERM", () => exit(0));
 
-console.log("[dev-server] Starting dev server (auto-restart enabled)…");
+console.log(`[dev-server] [${ts()}] Starting dev server (auto-restart enabled, max ${MAX_RESTARTS})…`);
 spawnDev();

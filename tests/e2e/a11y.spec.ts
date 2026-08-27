@@ -26,7 +26,9 @@ test.describe("Accessibility", () => {
   for (const { name, path } of AUTH_PAGES) {
     test(`@a11y ${name} page has no auto-detected violations`, async ({ page }) => {
       await page.goto(path);
-      await page.waitForLoadState("networkidle");
+      // Socket.IO keeps a connection alive — networkidle never settles.
+      await page.waitForLoadState("domcontentloaded");
+      await expect(page.locator("main").first()).toBeVisible({ timeout: 15000 });
       const results = await new AxeBuilder({ page }).analyze();
       expect(results.violations).toEqual([]);
     });
@@ -34,7 +36,8 @@ test.describe("Accessibility", () => {
 
   test("@a11y rtl (fa-IR) inbox page has no auto-detected violations", async ({ page }) => {
     await page.goto("/fa-IR/");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
+    await expect(page.locator("main").first()).toBeVisible({ timeout: 15000 });
     const results = await new AxeBuilder({ page }).analyze();
     expect(results.violations).toEqual([]);
   });
@@ -47,7 +50,8 @@ test.describe("Accessibility", () => {
   ] as const) {
     test(`@a11y rtl (fa-IR) ${name} has no auto-detected violations`, async ({ page }) => {
       await page.goto(`/fa-IR${path}`);
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("domcontentloaded");
+      await expect(page.locator("main").first()).toBeVisible({ timeout: 15000 });
       const results = await new AxeBuilder({ page }).analyze();
       expect(results.violations).toEqual([]);
     });
