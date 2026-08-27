@@ -87,11 +87,14 @@ test.describe("Dependency flows", () => {
     await row.getByTestId("dep-edit-lag-unit").selectOption("DAY");
     await row.getByTestId("dep-edit-save").click();
 
+    // Wait for the POST to complete before asserting display-mode content.
+    await expect.poll(() => postBodies.length).toBe(2);
+    // The row re-renders after load() completes — wait for edit-mode controls
+    // to disappear (confirming the save + re-fetch cycle finished).
+    await expect(row.getByTestId("dep-edit-save")).not.toBeVisible();
     await expect(row).toContainText("Finish to Finish");
     await expect(row).toContainText("+1d");
     await expect(row.getByTestId("dep-edit")).toBeVisible();
-
-    await expect.poll(() => postBodies.length).toBe(2);
     expect(postBodies[0]).toEqual({ dependsOnId: TASK_DEP, type: "START_TO_START", lag: 2, lagUnit: "HOUR" });
     expect(postBodies[1]).toEqual({ dependsOnId: TASK_DEP, type: "FINISH_TO_FINISH", lag: 1, lagUnit: "DAY" });
     expect(deleteRequests.length).toBe(1);
@@ -135,12 +138,30 @@ test.describe("Dependency flows", () => {
 
     try {
       await page.goto(`/en-US/tasks/${leafPred}`);
+
+      // Intercept the PATCH to verify the date change was sent and to wait
+      // for the response (including auto-schedule) before checking the toast.
+      let patchCompleted = false;
+      await page.route(`**/api/v1/tasks/${leafPred}`, async (route) => {
+        if (route.request().method() === "PATCH") {
+          await route.continue();
+          patchCompleted = true;
+        } else {
+          await route.continue();
+        }
+      });
+
       const dateCard = page.getByRole("heading", { name: "Date & Duration" }).locator("..");
       const duePicker = dateCard.locator('button[aria-haspopup="dialog"]').nth(1);
       await duePicker.click();
       const dialog = page.getByRole("dialog", { name: "Select date" });
       await dialog.getByRole("button", { name: "Next month" }).click();
+      // Wait for the calendar to re-render after month navigation, then pick day 1.
+      await expect(dialog.getByRole("button").filter({ hasText: /^1$/ }).first()).toBeVisible();
       await dialog.getByRole("button").filter({ hasText: /^1$/ }).first().click();
+
+      // Wait for the PATCH to complete (date saved to server + auto-schedule ran).
+      await expect.poll(() => patchCompleted).toBe(true);
 
       // The dependent was auto-scheduled; an undo toast appears.
       await expect(page.getByText(/was rescheduled to satisfy dependencies/)).toBeVisible();
@@ -149,10 +170,11 @@ test.describe("Dependency flows", () => {
       // Restored: the dependent's dates match its pre-change values.
       const beforeStart = originalDep.startDate?.toISOString() ?? null;
       const beforeDue = originalDep.dueDate?.toISOString() ?? null;
+      // The undo fires an async PATCH — give it time to complete.
       await expect.poll(async () => {
         const dep = await prisma.task.findUniqueOrThrow({ where: { id: TASK_DEP }, select: { startDate: true, dueDate: true } });
         return (dep.startDate?.toISOString() ?? null) === beforeStart && (dep.dueDate?.toISOString() ?? null) === beforeDue;
-      }).toBe(true);
+      }, { timeout: 15_000 }).toBe(true);
     } finally {
       await prisma.task.update({
         where: { id: leafPred },
