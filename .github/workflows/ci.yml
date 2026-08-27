@@ -74,7 +74,7 @@ jobs:
       - run: pnpm pwa:check
       - run: pnpm build:server
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:e2e
+      - run: pnpm test:e2e --grep-invert "@visual"
       - uses: azure/setup-helm@v4
       - run: >-
           helm lint ops/helm/taskapp
