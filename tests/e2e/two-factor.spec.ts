@@ -101,7 +101,8 @@ test.describe("Two-factor authentication", () => {
     enrolledSecret = secret!.trim();
 
     const code = generateTotpToken(enrolledSecret);
-    await page.getByLabel("Verification code").fill(code);
+    // React 19 streaming may hold a hidden duplicate — pin the visible one.
+    await page.getByLabel("Verification code").first().fill(code);
     await page.getByRole("button", { name: "Verify and enable" }).click();
 
     // Recovery codes appear exactly once. React strips inter-element

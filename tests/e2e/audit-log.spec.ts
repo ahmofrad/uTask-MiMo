@@ -36,7 +36,8 @@ test.describe("Admin audit log", () => {
     await expect(page.getByRole("cell", { name: "revoked group access" }).first()).toBeVisible();
 
     // The action filter narrows the table to a single action type.
-    await page.getByLabel("Action").selectOption({ label: "granted group access" });
+    // React 19 streaming may hold a hidden duplicate — pin the visible one.
+    await page.getByLabel("Action").first().selectOption({ label: "granted group access" });
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(page.getByRole("cell", { name: "granted group access" }).first()).toBeVisible();
     await expect(page.getByRole("cell", { name: "revoked group access" })).toHaveCount(0);
@@ -49,7 +50,7 @@ test.describe("Admin audit log", () => {
     await expect(page.getByRole("table").getByRole("row").first()).toBeVisible();
 
     // Selecting a filter and clearing it restores the full list.
-    await page.getByLabel("Action").selectOption({ label: "granted group access" });
+    await page.getByLabel("Action").first().selectOption({ label: "granted group access" });
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(page.getByRole("cell", { name: "granted group access" }).first()).toBeVisible();
     await page.getByRole("button", { name: "Clear filters" }).click();
