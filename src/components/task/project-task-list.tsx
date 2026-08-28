@@ -7,6 +7,7 @@ import { useProjectRealtime } from "@/hooks/use-project-realtime";
 import { TaskCard, type TaskCardData } from "@/components/task/task-card";
 import { mapTaskListRow } from "@/lib/tasks/serialize";
 import { BulkActionsBar } from "@/components/task/bulk-actions";
+import { TaskFilters } from "./task-filters";
 
 export type CustomFieldFilterDef = {
   id: string;
@@ -23,10 +24,6 @@ type ProjectTaskListProps = {
   initialTasks: TaskCardData[];
   fields: CustomFieldFilterDef[];
 };
-
-function optionList(field: CustomFieldFilterDef): { value: string; label: string }[] {
-  return (field.configJson?.options ?? []).map((o) => ({ value: o.value, label: o.label ?? o.value }));
-}
 
 export function ProjectTaskList({ projectId, initialTasks, fields }: ProjectTaskListProps) {
   const t = useTranslations("task");
@@ -86,79 +83,9 @@ export function ProjectTaskList({ projectId, initialTasks, fields }: ProjectTask
     void loadTasks();
   }, [activeClauses, initialTasks, projectId, loadTasks]);
 
-  // Realtime: another user's task edit refetches with the active filters so
-  // status/title changes (and new or deleted tasks) show up without reloading.
-  // The list endpoint excludes deleted tasks, so a plain refetch covers
-  // removals too.
   useProjectRealtime([projectId], () => {
     void loadTasks();
   });
-
-  const setFilter = (key: string, value: string) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
-  };
-
-  const selectClass =
-    "text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary";
-
-  function fieldInput(field: CustomFieldFilterDef) {
-    const value = filters[field.key] ?? "";
-    const testId = `cf-filter-${field.key}`;
-    switch (field.type) {
-      case "text":
-      case "url":
-        return (
-          <input
-            type="text"
-            data-testid={testId}
-            value={value}
-            onChange={(e) => setFilter(field.key, e.target.value)}
-            placeholder={t("customFieldContains")}
-            className="w-40 text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary placeholder:text-fg-tertiary"
-          />
-        );
-      case "number":
-        return (
-          <input
-            type="number"
-            data-testid={testId}
-            value={value}
-            onChange={(e) => setFilter(field.key, e.target.value)}
-            className="w-24 text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary"
-          />
-        );
-      case "checkbox":
-        return (
-          <select data-testid={testId} value={value} onChange={(e) => setFilter(field.key, e.target.value)} className={selectClass}>
-            <option value="">{t("customFieldAny")}</option>
-            <option value="true">{t("customFieldYes")}</option>
-            <option value="false">{t("customFieldNo")}</option>
-          </select>
-        );
-      case "select":
-      case "multi_select":
-        return (
-          <select data-testid={testId} value={value} onChange={(e) => setFilter(field.key, e.target.value)} className={selectClass}>
-            <option value="">{t("customFieldAny")}</option>
-            {optionList(field).map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        );
-      case "date":
-        return (
-          <input
-            type="date"
-            data-testid={testId}
-            value={value}
-            onChange={(e) => setFilter(field.key, e.target.value)}
-            className="text-xs bg-bg-primary border border-border rounded px-1.5 py-1 text-fg-primary"
-          />
-        );
-      default:
-        return null;
-    }
-  }
 
   function toggleSelect(id: string) {
     setSelectedIds((prev) => {
@@ -193,31 +120,14 @@ export function ProjectTaskList({ projectId, initialTasks, fields }: ProjectTask
         customFieldSchema={cfSchemaForBulk}
       />
       {fields.length > 0 && (
-        <div data-testid="task-cf-filters" className="rounded-lg border border-border-primary bg-bg-surface p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wide text-fg-muted">{t("customFieldFilter")}</span>
-            {filtered && (
-              <button
-                type="button"
-                data-testid="task-cf-clear"
-                onClick={() => setFilters({})}
-                className="text-xs font-medium text-accent hover:underline"
-              >
-                {t("customFieldClear")}
-              </button>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            {fields.map((field) => (
-              <label key={field.id} className="flex items-center gap-2 text-xs text-fg-secondary">
-                <span className="shrink-0">{field.name}</span>
-                {fieldInput(field)}
-              </label>
-            ))}
-          </div>
-          {loading && <p className="mt-2 text-xs text-fg-muted">{t("loading")}</p>}
-          {error && <p className="mt-2 text-xs text-destructive">{t("customFieldFilterError")}</p>}
-        </div>
+        <TaskFilters
+          fields={fields}
+          filters={filters}
+          onFilter={(key, value) => setFilters((prev) => ({ ...prev, [key]: value }))}
+          onClear={() => setFilters({})}
+          loading={loading}
+          error={error}
+        />
       )}
 
       {filtered && tasks.length === 0 && !loading && !error ? (

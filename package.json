@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:ci": "vitest run --reporter=json --outputFile=test-results.json",
     "test:smoke": "vitest run --reporter=verbose tests/unit/tasks/approval.test.ts tests/unit/tasks/dependency-status.test.ts tests/unit/tasks/mutations.test.ts tests/unit/rbac/guard.test.ts tests/unit/webhook/index.test.ts tests/unit/webhook/ssrf.test.ts tests/unit/validation/api.test.ts tests/unit/auth/lockout.test.ts tests/unit/api-fetch-retry.test.ts tests/unit/pwa/offline-fallback.test.ts",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
