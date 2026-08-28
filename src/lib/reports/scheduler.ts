@@ -1,5 +1,6 @@
 import { refreshMaterializedViews } from "./refresh";
 import { withDistributedLock } from "@/lib/queue/lock";
+import { logger } from "@/lib/logging";
 
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
@@ -11,7 +12,7 @@ export function startReportRefreshScheduler(): void {
     try {
       await withDistributedLock("materialized-view-refresh", 10 * 60_000, () => refreshMaterializedViews(true));
     } catch (err) {
-      console.error("Report refresh failed:", err);
+      logger.error({ err }, "Report refresh failed");
     }
     timer = setTimeout(run, REFRESH_INTERVAL_MS);
   };

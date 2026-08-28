@@ -47,6 +47,11 @@ test.describe("Accessibility", () => {
     { name: "admin rate cards", path: "/admin/rate-cards" },
     { name: "admin webhooks", path: "/admin/webhooks" },
     { name: "admin webhook deliveries", path: "/admin/webhook-deliveries" },
+    { name: "admin groups", path: "/admin/groups" },
+    { name: "admin users", path: "/admin/users" },
+    { name: "admin tokens", path: "/admin/tokens" },
+    { name: "admin ldap sync", path: "/admin/ldap-sync" },
+    { name: "admin audit log", path: "/admin/audit-log" },
   ] as const) {
     test(`@a11y rtl (fa-IR) ${name} has no auto-detected violations`, async ({ page }) => {
       await page.goto(`/fa-IR${path}`);
@@ -56,6 +61,32 @@ test.describe("Accessibility", () => {
       expect(results.violations).toEqual([]);
     });
   }
+
+  // Task detail page a11y
+  test("@a11y task detail page has no auto-detected violations", async ({ page }) => {
+    const task = await prisma.task.findFirstOrThrow({
+      where: { project: { name: "Product Launch" } },
+      select: { id: true },
+    });
+    await page.goto(`/tasks/${task.id}`);
+    await page.waitForLoadState("domcontentloaded");
+    await expect(page.locator("main").first()).toBeVisible({ timeout: 15000 });
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  });
+
+  // RTL Gantt chart a11y
+  test("@a11y rtl (fa-IR) gantt chart has no auto-detected violations", async ({ page }) => {
+    const project = await prisma.project.findFirstOrThrow({
+      where: { name: "Product Launch" },
+      select: { id: true },
+    });
+    await page.goto(`/fa-IR/projects/${project.id}`);
+    await page.getByRole("button", { name: "Gantt", exact: true }).click();
+    await expect(page.getByTestId("gantt-scroll-container").first()).toBeVisible({ timeout: 15000 });
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(results.violations).toEqual([]);
+  });
 
   // The newest project views live inside the project detail page, which the
   // AUTH_PAGES sweep above does not cover. Check the board (default tab), the

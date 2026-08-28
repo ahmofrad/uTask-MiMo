@@ -8,25 +8,16 @@ import { TaskCard, type TaskCardData } from "@/components/task/task-card";
 import { mapTaskListRow } from "@/lib/tasks/serialize";
 import { Menu } from "@/components/ui/menu";
 import { Icon } from "@/components/icons/icon";
+import { useBoardDnd } from "./use-board-dnd";
 
 export type BoardTask = TaskCardData;
 
 type BoardProps = {
   initialTasks: BoardTask[];
   projectId: string;
-  /**
-   * Projects whose realtime rooms to join. Defaults to `[projectId]` when the
-   * board is project-scoped; the dashboard passes the full list so edits in
-   * any visible project repaint live.
-   */
   projectIds?: string[];
   showProject?: boolean;
   currentUserId: string | undefined;
-  /**
-   * Optional predicate applied to realtime refetches. The dashboard passes the
-   * "mine" filter so another user's edits never inject tasks the current user
-   * shouldn't see; project boards include everything.
-   */
   includeTask?: (_task: BoardTask) => boolean;
 };
 
@@ -68,21 +59,26 @@ export function Board({
   includeTask,
 }: BoardProps) {
   const t = useTranslations("task");
-  const [tasks, setTasks] = useState(initialTasks);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverCol, setDragOverCol] = useState<string | null>(null);
   const [boardSort, setBoardSort] = useState<BoardSortKey>("dueDate");
   const includeTaskRef = useRef(includeTask);
   includeTaskRef.current = includeTask;
 
+  const {
+    tasks,
+    setTasks,
+    draggedId,
+    dragOverCol,
+    moveTask,
+    handleDragStart,
+    handleDragEnd,
+    handleDragOver,
+    handleDrop,
+  } = useBoardDnd({ initialTasks });
+
   useEffect(() => {
     setTasks(initialTasks);
-  }, [initialTasks]);
+  }, [initialTasks, setTasks]);
 
-  // Realtime: another user's edit refetches the affected project's tasks and
-  // merges them into the board. The list endpoint returns the fields the card
-  // needs but not dependency status, so merge preserves anything the row lacks
-  // (e.g. blockedBy) rather than replacing whole tasks.
   const refreshProject = useCallback(async (changedProjectId: string) => {
     try {
       const res = await apiFetch(`/api/v1/tasks?projectId=${changedProjectId}&limit=200`);
@@ -93,15 +89,11 @@ export function Board({
         const next = new Map(prev.map((task) => [task.id, task]));
         for (const row of rows) {
           const mapped = mapTaskListRow(row) as BoardTask;
-          // Dashboard "mine" filter: never add a task the user shouldn't see.
           if (includeTaskRef.current && !includeTaskRef.current(mapped)) {
             next.delete(mapped.id);
             continue;
           }
           const existing = next.get(mapped.id);
-          // The list endpoint can't compute subtask progress or dependency
-          // status, so keep those (plus the project label) from the row we
-          // already have; take everything else from the fresh row.
           next.set(mapped.id, {
             ...existing,
             ...mapped,
@@ -115,7 +107,7 @@ export function Board({
     } catch {
       // Keep the current board on network errors.
     }
-  }, []);
+  }, [setTasks]);
 
   useProjectRealtime(
     projectIds ?? (projectId ? [projectId] : []),
@@ -133,52 +125,6 @@ export function Board({
     currentUserId,
   );
 
-  async function moveTask(taskId: string, newStatus: string) {
-    setTasks((prev) =>
-      prev.map((task) => (task.id === taskId ? { ...task, status: newStatus } : task)),
-    );
-
-    try {
-      const res = await apiFetch(`/api/v1/tasks/${taskId}`, {
-        method: "PATCH",
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!res.ok) {
-        setTasks(initialTasks);
-      }
-    } catch {
-      setTasks(initialTasks);
-    }
-  }
-
-  function handleDragStart(e: React.DragEvent, taskId: string) {
-    e.dataTransfer.setData("text/plain", taskId);
-    e.dataTransfer.effectAllowed = "move";
-    setDraggedId(taskId);
-  }
-
-  function handleDragEnd() {
-    setDraggedId(null);
-    setDragOverCol(null);
-  }
-
-  function handleDragOver(e: React.DragEvent, colKey: string) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverCol(colKey);
-  }
-
-  function handleDrop(e: React.DragEvent, targetStatus: string) {
-    e.preventDefault();
-    const taskId = e.dataTransfer.getData("text/plain") || draggedId;
-    const task = tasks.find((tk) => tk.id === taskId);
-    if (taskId && task && task.status !== targetStatus) {
-      moveTask(taskId, targetStatus);
-    }
-    setDraggedId(null);
-    setDragOverCol(null);
-  }
-
   return (
     <div className="flex gap-4 overflow-x-auto pb-4" tabIndex={0}>
       {COLUMNS.map((col) => {
@@ -193,7 +139,7 @@ export function Board({
             onDrop={(e) => handleDrop(e, col.key)}
             onDragLeave={(e) => {
               if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                setDragOverCol(null);
+                handleDragEnd();
               }
             }}
           >

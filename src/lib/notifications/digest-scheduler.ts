@@ -1,5 +1,6 @@
 import { sendDailyDigests } from "./daily-digest";
 import { withDistributedLock } from "@/lib/queue/lock";
+import { logger } from "@/lib/logging";
 
 const DIGEST_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
@@ -14,7 +15,7 @@ export function startDigestScheduler(): void {
     try {
       await withDistributedLock("daily-digest", 2 * 3_600_000, sendDailyDigests);
     } catch (err) {
-      console.error("Daily digest failed:", err);
+      logger.error({ err }, "Daily digest failed");
     }
     scheduleNext();
   };

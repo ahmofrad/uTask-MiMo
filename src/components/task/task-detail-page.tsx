@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { SubtaskList } from "@/components/task/subtask-list";
@@ -13,7 +13,6 @@ import { TaskDetailSidebar } from "@/components/task/task-detail-sidebar";
 import { TaskApprovalBanner } from "@/components/task/task-approval-banner";
 import { useToast } from "@/components/ui/toast";
 import type { ActivityEvent } from "@/lib/activity/types";
-import { apiFetch } from "@/lib/api-fetch";
 import {
   useTaskMutations,
   type AttachmentData,
@@ -22,6 +21,7 @@ import {
   type TaskData,
   type WatcherData,
 } from "@/hooks/use-task-mutations";
+import { useTaskAudit } from "./use-task-audit";
 
 type Props = {
   task: TaskData;
@@ -56,31 +56,13 @@ export function TaskDetailPage({
 }: Props) {
   const t = useTranslations();
   const { addToast } = useToast();
-  const [auditEvents, setAuditEvents] = useState(initialAuditEvents);
-  const [auditHasMore, setAuditHasMore] = useState(initialAuditHasMore ?? false);
-  const [auditCursor, setAuditCursor] = useState<string | null | undefined>(initialAuditCursor);
-  const [auditLimit, setAuditLimit] = useState(10);
 
-  const refreshAudit = useCallback(async (limit?: number) => {
-    const res = await apiFetch(`/api/v1/activity/tasks/${initialTask.id}?limit=${limit ?? auditLimit}`);
-    if (res.ok) {
-      const data = await res.json();
-      setAuditEvents(data.items ?? []);
-      setAuditHasMore(data.hasMore ?? false);
-      setAuditCursor(data.nextCursor ?? null);
-    }
-  }, [auditLimit, initialTask.id]);
-
-  const loadMoreAudit = useCallback(async () => {
-    if (!auditCursor || !auditHasMore) return;
-    const res = await apiFetch(`/api/v1/activity/tasks/${initialTask.id}?cursor=${encodeURIComponent(auditCursor)}&limit=50`);
-    if (res.ok) {
-      const data = await res.json();
-      setAuditEvents((prev) => [...prev, ...(data.items ?? [])]);
-      setAuditHasMore(data.hasMore ?? false);
-      setAuditCursor(data.nextCursor ?? null);
-    }
-  }, [initialTask.id, auditCursor, auditHasMore]);
+  const audit = useTaskAudit({
+    taskId: initialTask.id,
+    initialEvents: initialAuditEvents,
+    initialHasMore: initialAuditHasMore,
+    initialNextCursor: initialAuditCursor,
+  });
 
   const {
     task,
@@ -136,7 +118,7 @@ export function TaskDetailPage({
     initialTagIds: initialTask.tags.map((tg) => tg.id),
     projectMembers,
     currentUserId,
-    onAuditRefresh: refreshAudit,
+    onAuditRefresh: audit.refreshAudit,
     addToast,
     t,
   });
@@ -249,11 +231,11 @@ export function TaskDetailPage({
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xs font-medium text-fg-muted uppercase tracking-wide">{t("task.activity")}</h3>
               <select
-                value={auditLimit}
+                value={audit.auditLimit}
                 onChange={(e) => {
                   const val = Number(e.target.value);
-                  setAuditLimit(val);
-                  void refreshAudit(val);
+                  audit.setAuditLimit(val);
+                  void audit.refreshAudit(val);
                 }}
                 className="text-xs bg-bg-primary border border-border rounded px-2 py-1 text-fg-muted"
               >
@@ -263,7 +245,7 @@ export function TaskDetailPage({
                 <option value={100}>100</option>
               </select>
             </div>
-            <ActivityTimeline events={auditEvents} onLoadMore={loadMoreAudit} hasMore={auditHasMore} members={projectMembers} />
+            <ActivityTimeline events={audit.auditEvents} onLoadMore={audit.loadMoreAudit} hasMore={audit.auditHasMore} members={projectMembers} />
           </div>
         </div>
 
