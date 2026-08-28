@@ -1,52 +1,50 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const mockGetSettings = vi.fn();
-
-vi.mock("@/lib/settings", () => ({
-  getSettings: mockGetSettings,
-  updateSettings: vi.fn(),
+vi.mock("@/lib/queue", () => ({
+  enqueueEmail: vi.fn().mockResolvedValue(undefined),
 }));
 
-const { isMailConfigured, resetCache } = await import("@/lib/mail/send");
-const { MAIL_PREVIEW_VARS, renderTemplate, DEFAULT_MAIL_TEMPLATES } = await import("@/lib/mail/templates");
+vi.mock("@/lib/db", () => ({
+  prisma: {
+    webhook: { findUnique: vi.fn() },
+    user: { findMany: vi.fn().mockResolvedValue([]) },
+  },
+}));
 
-describe("MAIL_PREVIEW_VARS", () => {
-  it("provides every placeholder used by the default templates", () => {
-    for (const set of Object.values(DEFAULT_MAIL_TEMPLATES)) {
-      const rendered = renderTemplate(`${set.subject} ${set.text} ${set.html}`, MAIL_PREVIEW_VARS);
-      expect(rendered).not.toMatch(/\{\{/);
-    }
-  });
-});
-
-describe("isMailConfigured", () => {
+describe("mail/send", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    resetCache();
-    delete process.env.SMTP_HOST;
-    delete process.env.SMTP_PORT;
-    delete process.env.SMTP_USER;
-    delete process.env.SMTP_PASS;
   });
 
-  it("is false when no SMTP config exists", async () => {
-    mockGetSettings.mockResolvedValue({});
-    expect(await isMailConfigured()).toBe(false);
+  it("notifyAssigned enqueues email with escaped title", async () => {
+    const { enqueueEmail } = await import("@/lib/queue");
+    const { notifyAssigned } = await import("@/lib/mail/send");
+
+    await notifyAssigned("user@test.com", "Task <script>", "http://t/1");
+
+    expect(enqueueEmail).toHaveBeenCalledOnce();
+    const call = vi.mocked(enqueueEmail).mock.calls[0]![0];
+    expect(call.to).toBe("user@test.com");
+    expect(call.subject).toContain("Task <script>");
+    expect(call.html).not.toContain("<script>");
+    expect(call.html).toContain("&lt;script&gt;");
   });
 
-  it("is true when SMTP is configured in DB settings", async () => {
-    mockGetSettings.mockResolvedValue({ smtp: { host: "smtp.example.com", port: 587 } });
-    expect(await isMailConfigured()).toBe(true);
-  });
+  it("notifyMentioned enqueues email with both names escaped", async () => {
+    const { enqueueEmail } = await import("@/lib/queue");
+    const { notifyMentioned } = await import("@/lib/mail/send");
 
-  it("is true when SMTP_HOST env var is set", async () => {
-    process.env.SMTP_HOST = "smtp.example.com";
-    expect(await isMailConfigured()).toBe(true);
-  });
+    await notifyMentioned(
+      "a@b.com",
+      "<b>Admin</b>",
+      "Task & Title",
+      "http://t/2",
+    );
 
-  it("falls back to env vars when the settings table is unavailable", async () => {
-    process.env.SMTP_HOST = "smtp.example.com";
-    mockGetSettings.mockRejectedValue(new Error("relation does not exist"));
-    expect(await isMailConfigured()).toBe(true);
+    expect(enqueueEmail).toHaveBeenCalledOnce();
+    const call = vi.mocked(enqueueEmail).mock.calls[0]![0];
+    expect(call.to).toBe("a@b.com");
+    expect(call.html).toContain("&lt;b&gt;Admin&lt;/b&gt;");
+    expect(call.html).toContain("Task &amp; Title");
   });
 });
