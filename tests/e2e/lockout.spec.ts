@@ -47,7 +47,7 @@ test.describe("Password lockout", () => {
 
     // 5 wrong attempts — the 5th one trips the lockout.
     for (let i = 0; i < 5; i++) {
-      await page.getByLabel(/email/i).fill(EMAIL);
+      await page.getByLabel(/email/i).first().fill(EMAIL);
       await page.getByRole("textbox", { name: /password/i }).fill("wrong-password");
       await page.getByRole("button", { name: /sign in/i }).click();
       await expect(page.getByText(/invalid/i)).toBeVisible();
