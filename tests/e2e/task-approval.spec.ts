@@ -77,7 +77,8 @@ async function completeAsMember(browser: Browser, taskId: string) {
     timeout: 45000,
   });
   // The header card's status select (labeled, unlike the header language picker).
-  const statusSelect = page.getByLabel("Status");
+  // React 19 streaming Suspense may hold a hidden duplicate — pin the visible one.
+  const statusSelect = page.getByLabel("Status").first();
   await statusSelect.selectOption("done");
   await expect(statusSelect).toHaveValue("pending_approval", { timeout: 10000 });
   await ctx.close();
@@ -106,7 +107,7 @@ test.describe("Task approval gate", () => {
       await expect(banner.first()).toBeVisible({ timeout: 10000 });
       await managerPage.getByRole("button", { name: "Approve" }).click();
       await expect(banner.first()).toBeHidden({ timeout: 10000 });
-      await expect(managerPage.getByLabel("Status")).toHaveValue("done");
+      await expect(managerPage.getByLabel("Status").first()).toHaveValue("done");
       await managerCtx.close();
 
       // The final state is persisted server-side.
@@ -142,7 +143,7 @@ test.describe("Task approval gate", () => {
       await managerPage.getByPlaceholder("Reason for rejection").fill("Missing the rollout plan");
       await managerPage.getByRole("button", { name: "Reject" }).click();
       await expect(banner.first()).toBeHidden({ timeout: 10000 });
-      await expect(managerPage.getByLabel("Status")).toHaveValue("in_progress");
+      await expect(managerPage.getByLabel("Status").first()).toHaveValue("in_progress");
       await managerCtx.close();
 
       const task = await prisma.task.findUniqueOrThrow({

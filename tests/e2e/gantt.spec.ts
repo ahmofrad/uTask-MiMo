@@ -60,6 +60,8 @@ test.describe("Gantt timeline", () => {
   // Wipe every dependency touching that project after each test so a failed or
   // interrupted run can never leave a stale link behind — a leftover link would
   // shift the deps-panel row order and make the link test flaky.
+  // Also restore task dates that resize/drag tests PATCH via real mouse drags,
+  // so the next test sees clean dates.
   test.afterEach(async () => {
     const project = await prisma.project.findFirstOrThrow({ where: { name: "Product Launch" }, select: { id: true } });
     const taskIds = (await prisma.task.findMany({ where: { projectId: project.id }, select: { id: true } })).map(
@@ -68,6 +70,13 @@ test.describe("Gantt timeline", () => {
     await prisma.taskDependency.deleteMany({
       where: { OR: [{ taskId: { in: taskIds } }, { dependsOnId: { in: taskIds } }] },
     });
+    // Restore dates modified by drag/resize tests so subsequent tests get clean data.
+    for (const row of dateSnapshot) {
+      await prisma.task.update({
+        where: { id: row.id },
+        data: { startDate: row.startDate, dueDate: row.dueDate },
+      });
+    }
   });
 
   test("keeps task names visible while the timeline scrolls horizontally", async ({ page }) => {

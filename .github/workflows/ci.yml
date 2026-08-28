@@ -17,11 +17,19 @@ jobs:
       S3_SECRET_KEY: ci-only-s3-secret
       AUTH_SECRET: ci-only-auth-secret
       WEBHOOK_SECRET_ENCRYPTION_KEY: ci-only-webhook-key
+      SMTP_HOST: localhost
+      SMTP_PORT: "1025"
+      SMTP_FROM: taskapp@local.dev
     services:
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
+      mailhog:
+        image: mailhog/mailhog:latest
+        ports:
+          - 8025:8025
+          - 1025:1025
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
