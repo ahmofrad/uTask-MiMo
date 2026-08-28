@@ -13,6 +13,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:smoke": "vitest run --reporter=verbose tests/unit/tasks/approval.test.ts tests/unit/tasks/dependency-status.test.ts tests/unit/tasks/mutations.test.ts tests/unit/rbac/guard.test.ts tests/unit/webhook/index.test.ts tests/unit/webhook/ssrf.test.ts tests/unit/validation/api.test.ts tests/unit/auth/lockout.test.ts tests/unit/api-fetch-retry.test.ts tests/unit/pwa/offline-fallback.test.ts",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:a11y": "playwright test --grep @a11y",

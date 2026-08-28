@@ -38,7 +38,21 @@ const serwist = new Serwist({
   // addToPrecacheList throw "add-to-cache-list-conflicting-entries" during
   // script evaluation, which fails SW registration entirely and leaves any
   // previously installed SW serving stale precached JS after a rebuild.
-  precacheEntries: [...(self.__SW_MANIFEST ?? [])],
+  precacheEntries: (() => {
+    const entries = self.__SW_MANIFEST ?? [];
+    // Runtime dedup guard: if offline.html appears more than once (e.g. after
+    // a misconfigured build), strip the duplicate to prevent
+    // addToPrecacheList "conflicting-entries" errors.
+    const seen = new Set<string>();
+    return entries.filter((e) => {
+      const url = typeof e === "string" ? e : e.url;
+      if (url.includes("offline.html")) {
+        if (seen.has(url)) return false;
+        seen.add(url);
+      }
+      return true;
+    });
+  })(),
   skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
